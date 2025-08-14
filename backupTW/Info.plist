@@ -9,7 +9,7 @@
 		<string>mobilemoica</string>
 	</array>
 	<key>CFBundleDisplayName</key>
-	<string>備份台灣</string>
+	<string>Bond</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

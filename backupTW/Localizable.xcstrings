@@ -1,0 +1,336 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "About Bond" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於有備而來"
+          }
+        }
+      }
+    },
+    "Address of household" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "戶籍地址"
+          }
+        }
+      }
+    },
+    "All information are stored only on your phone." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有資料僅儲存在你的手機中。"
+          }
+        }
+      }
+    },
+    "Back up my national ID" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "備份我的身分證件"
+          }
+        }
+      }
+    },
+    "Birth date" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出生日期"
+          }
+        }
+      }
+    },
+    "Bond" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有備而來"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "Confirm" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認"
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續"
+          }
+        }
+      }
+    },
+    "Create a Valid Document" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立正式證件"
+          }
+        }
+      }
+    },
+    "Document information" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "證件資料"
+          }
+        }
+      }
+    },
+    "Error" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "錯誤"
+          }
+        }
+      }
+    },
+    "For this unzipping only, not to be used for any other purpose." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅用於此次解壓縮，絕不另作他用"
+          }
+        }
+      }
+    },
+    "Go to Application Guide" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前往申辦指南"
+          }
+        }
+      }
+    },
+    "Home" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首頁"
+          }
+        }
+      }
+    },
+    "Input National ID number (unzipping password)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入身分證字號（解壓縮密碼）"
+          }
+        }
+      }
+    },
+    "License" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授權條款"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "姓名"
+          }
+        }
+      }
+    },
+    "Nationality" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "國籍"
+          }
+        }
+      }
+    },
+    "Please apply for TW FidO first" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請先申請行動自然人憑證"
+          }
+        }
+      }
+    },
+    "Please enter the National ID number (unzipping password)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入身分證字號（解壓縮密碼）"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定"
+          }
+        }
+      }
+    },
+    "Successfully downloaded but processing error" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載成功，但後續處理錯誤"
+          }
+        }
+      }
+    },
+    "Support and About" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支援與關於"
+          }
+        }
+      }
+    },
+    "The valid document has been created" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正式證件已建立"
+          }
+        }
+      }
+    },
+    "Third Party Software License" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第三方軟體授權條款"
+          }
+        }
+      }
+    },
+    "Unified No." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "統一編號"
+          }
+        }
+      }
+    },
+    "Unknown" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知"
+          }
+        }
+      }
+    },
+    "Unzipping failed (wrong password). Please enter the correct National ID number." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解壓縮失敗（密碼錯誤），請輸入正確的身分證字號。"
+          }
+        }
+      }
+    },
+    "Valid Document" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正式證件"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本"
+          }
+        }
+      }
+    },
+    "with Taiwan's official MyData service" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透過台灣官方MyData服務"
+          }
+        }
+      }
+    },
+    "You will use TW FiDO to retrieve your National ID data, and create a valid document." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你將使用行動自然人憑證，從MyData取得自己的數位身分資料，建立一張正式證件。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

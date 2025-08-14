@@ -18,7 +18,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let windowScene = (scene as? UIWindowScene) else { return }
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = ViewController()
+
+        // Creating the tab bar
+        let tabBarController = UITabBarController()
+        let homeViewController = HomeViewController()
+        let settingsViewController = SettingsViewController()
+        settingsViewController.tabBarItem = UITabBarItem(
+            title: NSLocalizedString("Settings", comment: ""),
+            image: UIImage(systemName: "gearshape.fill"),
+            selectedImage: nil)
+        tabBarController.viewControllers = [
+            UINavigationController(rootViewController: homeViewController),
+            UINavigationController(rootViewController: settingsViewController)
+        ]
+
+        window.rootViewController = tabBarController
         window.makeKeyAndVisible()
         self.window = window
     }
