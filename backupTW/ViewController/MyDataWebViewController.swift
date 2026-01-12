@@ -242,11 +242,15 @@ extension MyDataWebViewController : WKDownloadDelegate {
             birthdate = nil
         }
         let line6 = parts[6].replacingOccurrences(of: "\n", with: "").components(separatedBy: ":")
-        let addressOfHousehold: String?
+        var addressOfHousehold = ""
         if line6[0] == "戶籍地址" {
             addressOfHousehold = line6[1]
-        } else {
-            addressOfHousehold = nil
+        }
+        let lastIndex = parts.count - 1
+        for index in 7...lastIndex {
+            if index != lastIndex {
+                addressOfHousehold += parts[index]
+            }
         }
         return NationalIDModel(nationality: "中華民國（臺灣）", unifiedNo: unifiedNo, name: name, birthdate: birthdate, addressOfHousehold: addressOfHousehold)
     }
