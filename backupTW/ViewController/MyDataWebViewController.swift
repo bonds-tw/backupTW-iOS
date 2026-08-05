@@ -217,41 +217,6 @@ extension MyDataWebViewController : WKDownloadDelegate {
         else {
             return nil
         }
-        let parts = pdfText.components(separatedBy: "\n")
-        let line1 = parts[1].components(separatedBy: " ")
-        let field1 = line1[0].components(separatedBy: "：")
-        let unifiedNo: String?
-        if field1[0] == "統號" {
-            unifiedNo = field1[1]
-        } else {
-            unifiedNo = nil
-        }
-        let field2 = line1[1].components(separatedBy: ":")
-        let name: String?
-        if field2[0] == "姓名" {
-            name = field2[1]
-        } else {
-            name = nil
-        }
-        let line2 = parts[2].components(separatedBy: " ")
-        let field3 = line2[0].components(separatedBy: ":")
-        let birthdate: String?
-        if field3[0] == "出生日期" {
-            birthdate = field3[1]
-        } else {
-            birthdate = nil
-        }
-        let line6 = parts[6].replacingOccurrences(of: "\n", with: "").components(separatedBy: ":")
-        var addressOfHousehold = ""
-        if line6[0] == "戶籍地址" {
-            addressOfHousehold = line6[1]
-        }
-        let lastIndex = parts.count - 1
-        for index in 7...lastIndex {
-            if index != lastIndex {
-                addressOfHousehold += parts[index]
-            }
-        }
-        return NationalIDModel(nationality: "中華民國（臺灣）", unifiedNo: unifiedNo, name: name, birthdate: birthdate, addressOfHousehold: addressOfHousehold)
+        return NationalIDModel.parse(fromPDFText: pdfText)
     }
 }
