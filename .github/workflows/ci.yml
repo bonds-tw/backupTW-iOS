@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # Pick a simulator that actually exists on this runner image rather than
+      # hardcoding a device name that silently rots when the image is bumped.
+      - name: Choose simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          udid=$(xcrun simctl list devices available --json \
+            | python3 -c "
+          import json,sys
+          data = json.load(sys.stdin)['devices']
+          best = None
+          for runtime, devices in data.items():
+              if 'iOS' not in runtime:
+                  continue
+              for d in devices:
+                  if d.get('isAvailable') and 'iPhone' in d['name']:
+                      # Prefer the highest iOS runtime available.
+                      key = runtime
+                      if best is None or key > best[0]:
+                          best = (key, d['udid'], d['name'], runtime)
+          if best is None:
+              sys.exit('no available iPhone simulator on this runner')
+          print(f'{best[1]}\t{best[2]}\t{best[3]}')
+          ")
+          echo "udid=$(echo "$udid" | cut -f1)" >> "$GITHUB_OUTPUT"
+          echo "Using: $(echo "$udid" | cut -f2) on $(echo "$udid" | cut -f3)"
+
+      - name: Resolve package dependencies
+        run: xcodebuild -resolvePackageDependencies -project backupTW.xcodeproj
+
+      # Code signing is off: CI verifies the code compiles, not that it is
+      # distributable. Signing needs a team the runner does not have.
+      #
+      # No pipe to a formatter here -- piping returns the formatter's exit code
+      # and would turn a failed build into a green check.
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project backupTW.xcodeproj \
+            -scheme backupTW \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
+
+      # UI tests need a signed, installable app, so only the unit bundle runs in
+      # CI. backupTWUITests stays in the scheme for local runs.
+      - name: Unit tests
+        run: |
+          xcodebuild test \
+            -project backupTW.xcodeproj \
+            -scheme backupTW \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -configuration Debug \
+            -only-testing:backupTWTests \
+            CODE_SIGNING_ALLOWED=NO
