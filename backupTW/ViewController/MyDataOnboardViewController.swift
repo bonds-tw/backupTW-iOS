@@ -11,6 +11,16 @@ private let reuseIdentifier = "MyDataOnboardCell"
 
 class MyDataOnboardViewController: UICollectionViewController {
 
+    /// The key this device's national ID credential is filed under.
+    ///
+    /// Constant on purpose. `VerifiableCredential` has no `id` of its own yet, so
+    /// the storage key has to be picked by the caller — and picking a fresh one
+    /// per run would leave the previous credential on disk beside the new one.
+    /// Two credentials asserting the same identity, one of them stale, is worse
+    /// than one: nothing downstream could say which is current. Re-running
+    /// onboarding replaces.
+    private static let nationalIDCredentialID = "national-id"
+
     private var isMobileMoicaReady: Bool {
         let mobileMoicaURLScheme = "mobilemoica://"
         let mobileMoicaURL = URL(string: mobileMoicaURLScheme)!
@@ -128,24 +138,9 @@ class MyDataOnboardViewController: UICollectionViewController {
     @objc private func nextAction() {
         if isMobileMoicaReady {
             let vc = MyDataWebViewController(completion: { [weak self] nationalIDModel in
-                self?.coverItem = Item(
-                    title: "✅\n" + NSLocalizedString("The valid document has been created", comment: ""),
-                    secondaryText: "")
-                self?.items = [
-                    Item(title: NSLocalizedString("Nationality", comment: ""),
-                         secondaryText: nationalIDModel.nationality ?? NSLocalizedString("Unknown", comment: "")),
-                    Item(title: NSLocalizedString("Unified No.", comment: ""),
-                         secondaryText: nationalIDModel.unifiedNo ?? NSLocalizedString("Unknown", comment: "")),
-                    Item(title: NSLocalizedString("Name", comment: ""),
-                         secondaryText: nationalIDModel.name ?? NSLocalizedString("Unknown", comment: "")),
-                    Item(title: NSLocalizedString("Birth date", comment: ""),
-                         secondaryText: nationalIDModel.birthdate ?? NSLocalizedString("Unknown", comment: "")),
-                    Item(title: NSLocalizedString("Address of household", comment: ""),
-                         secondaryText: nationalIDModel.addressOfHousehold ?? NSLocalizedString("Unknown", comment: "")),
-                ]
-                self?.applySnapshot()
-                self?.navigationItem.leftBarButtonItem = nil
-                self?.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(self?.cancel))
+                guard let self else { return }
+                self.showParsedDocument(nationalIDModel)
+                self.issueCredential(for: nationalIDModel)
             })
             present(vc, animated: true)
         } else {
@@ -166,5 +161,130 @@ class MyDataOnboardViewController: UICollectionViewController {
             alert.addAction(cancel)
             present(alert, animated: true)
         }
+    }
+
+    // MARK: - Issuance
+
+    /// Puts the parsed fields on screen before the credential exists.
+    ///
+    /// Split out from issuance because the two can fail independently: MyData
+    /// gave us the document either way, and the user should see it rather than an
+    /// empty list while the device signs. The cover row carries the state of the
+    /// signing, so it starts as "in progress" and is corrected by
+    /// `finishIssuance(_:)`.
+    private func showParsedDocument(_ nationalIDModel: NationalIDModel) {
+        coverItem = Item(
+            title: "⏳\n" + NSLocalizedString("Signing the document on this device", comment: ""),
+            secondaryText: "")
+        items = [
+            Item(title: NSLocalizedString("Nationality", comment: ""),
+                 secondaryText: nationalIDModel.nationality ?? NSLocalizedString("Unknown", comment: "")),
+            Item(title: NSLocalizedString("Unified No.", comment: ""),
+                 secondaryText: nationalIDModel.unifiedNo ?? NSLocalizedString("Unknown", comment: "")),
+            Item(title: NSLocalizedString("Name", comment: ""),
+                 secondaryText: nationalIDModel.name ?? NSLocalizedString("Unknown", comment: "")),
+            Item(title: NSLocalizedString("Birth date", comment: ""),
+                 secondaryText: nationalIDModel.birthdate ?? NSLocalizedString("Unknown", comment: "")),
+            Item(title: NSLocalizedString("Address of household", comment: ""),
+                 secondaryText: nationalIDModel.addressOfHousehold ?? NSLocalizedString("Unknown", comment: "")),
+        ]
+        applySnapshot()
+        navigationItem.leftBarButtonItem = nil
+        // Deliberately left enabled while signing runs. Disabling it would make a
+        // slow Keychain call into a modal the user cannot leave; letting them
+        // dismiss costs nothing, because issuance does not need this screen to
+        // finish — it only needs it to report.
+        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(cancel))
+    }
+
+    /// Turns the parsed document into a credential this device has signed, and
+    /// writes it to disk.
+    ///
+    /// Off the main thread on purpose. Creating the device key is a Keychain
+    /// round trip — a Secure Enclave one on real hardware — and the write goes
+    /// through Data Protection. Neither is slow enough to notice on a good day,
+    /// and both are exactly the kind of call that stalls for a second on a bad
+    /// one, right when a sheet is animating away.
+    private func issueCredential(for nationalIDModel: NationalIDModel) {
+        // Read out of the type here rather than inside the closure, so that the
+        // closure needs nothing from the instance except the weak reference it
+        // reports through.
+        let credentialID = Self.nationalIDCredentialID
+
+        // The weak capture belongs on this closure, not on the main-queue hop
+        // inside it: a `[weak self]` nested one level deeper still forces this
+        // outer closure to hold the instance strongly in order to resolve it.
+        // Issuance deliberately outlives the screen — if the user taps Done
+        // mid-write the credential is still saved, only the reporting is skipped.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result<Void, Error> {
+                let deviceKey = try DeviceKey.loadOrCreate()
+                // Issuer and subject are the same DID: nobody outside this device
+                // vouches for these fields. What the credential proves is that
+                // this device holds them and has not altered them since.
+                let issuerDID = try DIDKey.did(fromP256PublicKeyX963: deviceKey.publicKeyX963)
+                let credential = VerifiableCredential.selfIssuedNationalID(nationalIDModel,
+                                                                          issuerDID: issuerDID,
+                                                                          validFrom: Date())
+                let jws = try credential.jwsCompactSerialization(signedBy: deviceKey, issuerDID: issuerDID)
+                try CredentialStore().save(jws: jws, id: credentialID)
+            }
+
+            DispatchQueue.main.async {
+                self?.finishIssuance(result)
+            }
+        }
+    }
+
+    private func finishIssuance(_ result: Result<Void, Error>) {
+        switch result {
+        case .success:
+            coverItem = Item(
+                title: "✅\n" + NSLocalizedString("The valid document has been created", comment: ""),
+                secondaryText: "")
+        case .failure(let error):
+            // The five fields below are still on screen and still correct — what
+            // failed is the signing — so the list is corrected rather than
+            // cleared. Putting the reason in the row as well as in the alert is
+            // not redundancy for its own sake: the alert can be swallowed if the
+            // MyData sheet has not finished animating out, and a user left with
+            // no credential and no explanation would reasonably assume they had
+            // one.
+            coverItem = Item(
+                title: "⚠️\n" + NSLocalizedString("The document could not be signed", comment: ""),
+                secondaryText: error.localizedDescription)
+            presentIssuanceFailure(error)
+        }
+        applySnapshot()
+    }
+
+    /// Reports a signing failure once the screen is actually able to show it.
+    ///
+    /// `MyDataWebViewController` asks to be dismissed in the same run-loop turn
+    /// that it hands over the parsed document, so when issuance finishes the
+    /// sheet may still be on screen or still animating out. UIKit does not queue
+    /// a presentation attempted in that window, it drops it. Retrying is bounded
+    /// so that "the stack never settles" — including the case where the user
+    /// dismissed this screen and there is nothing left to present on — decays
+    /// into no alert rather than a timer that runs forever.
+    private func presentIssuanceFailure(_ error: Error, attemptsRemaining: Int = 20) {
+        guard presentedViewController == nil, viewIfLoaded?.window != nil else {
+            guard attemptsRemaining > 0 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                self?.presentIssuanceFailure(error, attemptsRemaining: attemptsRemaining - 1)
+            }
+            return
+        }
+
+        let alert = UIAlertController(
+            title: NSLocalizedString("The document could not be signed", comment: ""),
+            // Every error reaching here conforms to LocalizedError, so this is the
+            // module's own sentence. The underlying OSStatus and DID stay out of
+            // it — an error string is one of the easier ways for an identifier to
+            // end up in a screenshot or a crash report.
+            message: error.localizedDescription,
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""), style: .default))
+        present(alert, animated: true)
     }
 }

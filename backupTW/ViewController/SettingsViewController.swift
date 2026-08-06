@@ -21,14 +21,32 @@ class SettingsViewController: UICollectionViewController {
         + ")"
     }()
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+
+    /// Row identity is matched on `title` rather than index, because
+    /// `didSelectItemAt` previously keyed off `indexPath.row == 1` and adding a
+    /// section above it would have silently pointed the License row at whatever
+    /// landed in that slot.
+    private enum Row {
+        static let license = NSLocalizedString("License", comment: "")
+        static let eraseEverything = NSLocalizedString("Erase all local data", comment: "")
+    }
+
     private let sections = [
         Section(title: NSLocalizedString("Support and About", comment: ""), items: [
             Item(image: UIImage(systemName: "info.circle.fill")?.withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
                  title: NSLocalizedString("About Bond", comment: ""),
                  secondaryText: versionString),
             Item(image: UIImage(systemName: "doc.text"),
-                 title: NSLocalizedString("License", comment: ""),
+                 title: Row.license,
                  secondaryText: NSLocalizedString("Third Party Software License", comment: ""))
+        ]),
+        // `LocalDataEraser` has existed with no caller: the promise that a user
+        // can remove their identity from the phone was implemented but
+        // unreachable. This is the control that makes it true.
+        Section(title: NSLocalizedString("Data and Privacy", comment: ""), items: [
+            Item(image: UIImage(systemName: "trash")?.withTintColor(.systemRed, renderingMode: .alwaysOriginal),
+                 title: Row.eraseEverything,
+                 secondaryText: NSLocalizedString("Removes your credentials, the documents they came from, and the key that identifies you.", comment: ""))
         ])
     ]
 
@@ -105,9 +123,67 @@ extension SettingsViewController {
 
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
-        if indexPath.row == 1 {
-            let vc = LicenseViewController()
-            navigationController?.pushViewController(vc, animated: true)
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        switch item.title {
+        case Row.license:
+            navigationController?.pushViewController(LicenseViewController(), animated: true)
+        case Row.eraseEverything:
+            confirmEraseEverything()
+        default:
+            break
         }
+    }
+
+    /// Names what goes, including the identifier — a user who taps "delete
+    /// everything" and silently keeps their DID has been misled, and the whole
+    /// point of the erase is that the next presentation cannot be linked to the
+    /// previous one.
+    private func confirmEraseEverything() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("Erase all local data?", comment: ""),
+            message: NSLocalizedString("Your credentials, the source documents, and your device key will be deleted. The next document you create will use a new identifier and cannot be linked to the current one. This cannot be undone.", comment: ""),
+            preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Erase", comment: ""),
+                                      style: .destructive) { [weak self] _ in
+            self?.eraseEverything()
+        })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        // An action sheet without a source on iPad raises rather than falling
+        // back to a popover anchored anywhere sensible.
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = collectionView
+            popover.sourceRect = collectionView.bounds
+        }
+        present(alert, animated: true)
+    }
+
+    private func eraseEverything() {
+        // Keychain and file deletion are both blocking; on a device holding a
+        // large unpacked household record this is long enough to drop a frame.
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try LocalDataEraser().eraseEverything() }
+            DispatchQueue.main.async { [weak self] in
+                self?.presentEraseResult(result)
+            }
+        }
+    }
+
+    private func presentEraseResult(_ result: Result<Void, Error>) {
+        let alert: UIAlertController
+        switch result {
+        case .success:
+            alert = UIAlertController(
+                title: NSLocalizedString("Local data erased", comment: ""),
+                message: nil, preferredStyle: .alert)
+        case .failure(let error):
+            // Reporting partial failure matters more than tidiness here: a user
+            // told "erased" while something survived will act on a false belief.
+            alert = UIAlertController(
+                title: NSLocalizedString("Some data could not be erased", comment: ""),
+                message: error.localizedDescription,
+                preferredStyle: .alert)
+        }
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""), style: .default))
+        present(alert, animated: true)
     }
 }

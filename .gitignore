@@ -52,3 +52,26 @@ xcuserdata/
 **/xcshareddata/WorkspaceSettings.xcsettings
 
 # End of https://www.toptal.com/developers/gitignore/api/xcode,macos
+
+### backupTW ###
+
+# The target uses a synchronized root group, so *any* .swift file dropped under
+# backupTW/ joins the build automatically — and would just as automatically be
+# picked up by `git add`. A Secrets.swift holding the TW FidO service ID and AES
+# key is exactly the file that gets created in a hurry and committed by accident.
+# Prefer scheme environment variables (TWFIDO_SP_SERVICE_ID / TWFIDO_SP_AES_KEY),
+# which never reach the working tree at all; this line is the backstop.
+Secrets.swift
+*.secrets.swift
+
+# Captured TW FidO round trips. A signed_response holds a real certificate chain
+# and the hashed national ID; sp_ticket payloads carry the transaction identity.
+# Useful while debugging, never something to publish.
+fido-*.json
+*-signed-response.json
+signed-response*.json
+sp-ticket*.json
+
+# Issued credentials. A compact JWS is not encrypted: its payload is the
+# national ID data in base64url, readable by anyone who gets the file.
+*.jws
