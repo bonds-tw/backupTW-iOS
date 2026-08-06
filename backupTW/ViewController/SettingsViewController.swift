@@ -28,6 +28,7 @@ class SettingsViewController: UICollectionViewController {
     /// landed in that slot.
     private enum Row {
         static let license = NSLocalizedString("License", comment: "")
+        static let diagnostics = NSLocalizedString("Diagnostics", comment: "")
         static let eraseEverything = NSLocalizedString("Erase all local data", comment: "")
     }
 
@@ -44,6 +45,11 @@ class SettingsViewController: UICollectionViewController {
         // can remove their identity from the phone was implemented but
         // unreachable. This is the control that makes it true.
         Section(title: NSLocalizedString("Data and Privacy", comment: ""), items: [
+            // The three guarantees below cannot be observed in a simulator, so
+            // there needs to be somewhere on the phone that reports them.
+            Item(image: UIImage(systemName: "stethoscope")?.withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
+                 title: Row.diagnostics,
+                 secondaryText: NSLocalizedString("Where your key lives, how your credentials are protected, and what identifier you present.", comment: "")),
             Item(image: UIImage(systemName: "trash")?.withTintColor(.systemRed, renderingMode: .alwaysOriginal),
                  title: Row.eraseEverything,
                  secondaryText: NSLocalizedString("Removes your credentials, the documents they came from, and the key that identifies you.", comment: ""))
@@ -127,6 +133,8 @@ extension SettingsViewController {
         switch item.title {
         case Row.license:
             navigationController?.pushViewController(LicenseViewController(), animated: true)
+        case Row.diagnostics:
+            navigationController?.pushViewController(DiagnosticsViewController(), animated: true)
         case Row.eraseEverything:
             confirmEraseEverything()
         default:
