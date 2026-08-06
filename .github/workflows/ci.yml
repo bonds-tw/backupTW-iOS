@@ -54,8 +54,20 @@ jobs:
       - name: Resolve package dependencies
         run: xcodebuild -resolvePackageDependencies -project backupTW.xcodeproj
 
-      # Code signing is off: CI verifies the code compiles, not that it is
-      # distributable. Signing needs a team the runner does not have.
+      # Ad-hoc signing, not CODE_SIGNING_ALLOWED=NO.
+      #
+      # Disabling signing outright strips the app's entitlements, and without
+      # them every Keychain call fails with errSecMissingEntitlement (-34018).
+      # That silently broke the DeviceKey tests twice in different ways: first
+      # they were guarded and skipped while the summary line still printed
+      # green, then the credential-erase tests -- which legitimately touch the
+      # Keychain and cannot be guarded, since destroying the key is the
+      # behaviour under test -- failed outright.
+      #
+      # A simulator destination signs ad-hoc and needs no provisioning profile,
+      # so clearing DEVELOPMENT_TEAM keeps this working on a runner that has no
+      # certificates while leaving entitlements intact. Both steps use the same
+      # settings so the test step reuses the build rather than rebuilding.
       #
       # No pipe to a formatter here -- piping returns the formatter's exit code
       # and would turn a failed build into a green check.
@@ -66,10 +78,13 @@ jobs:
             -scheme backupTW \
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-      # UI tests need a signed, installable app, so only the unit bundle runs in
-      # CI. backupTWUITests stays in the scheme for local runs.
+      # UI tests need a booted app and a longer run, so only the unit bundle
+      # runs in CI. backupTWUITests stays in the scheme for local runs.
       - name: Unit tests
         run: |
           xcodebuild test \
@@ -78,4 +93,7 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -configuration Debug \
             -only-testing:backupTWTests \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER=""

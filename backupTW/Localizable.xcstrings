@@ -1,6 +1,26 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "A file this app ships with is missing." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 內建的檔案遺失了。"
+          }
+        }
+      }
+    },
+    "A stored credential is damaged and cannot be read." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存的憑證損毀，無法讀取。"
+          }
+        }
+      }
+    },
     "About Bond" : {
       "localizations" : {
         "zh-Hant" : {
@@ -71,6 +91,26 @@
         }
       }
     },
+    "Certificate chain proving key" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "憑證鏈證明金鑰"
+          }
+        }
+      }
+    },
+    "Certificate revocation snapshot" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "憑證撤銷清單快照"
+          }
+        }
+      }
+    },
     "Confirm" : {
       "localizations" : {
         "zh-Hant" : {
@@ -91,6 +131,16 @@
         }
       }
     },
+    "Could not reach the digital certificate service." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法連線到行動自然人憑證服務。"
+          }
+        }
+      }
+    },
     "Create a Valid Document" : {
       "localizations" : {
         "zh-Hant" : {
@@ -101,12 +151,52 @@
         }
       }
     },
+    "Data and Privacy" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "資料與隱私"
+          }
+        }
+      }
+    },
     "Document information" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "證件資料"
+          }
+        }
+      }
+    },
+    "Erase" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除"
+          }
+        }
+      }
+    },
+    "Erase all local data" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除所有本機資料"
+          }
+        }
+      }
+    },
+    "Erase all local data?" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要刪除所有本機資料嗎？"
           }
         }
       }
@@ -171,6 +261,16 @@
         }
       }
     },
+    "Local data erased" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機資料已刪除"
+          }
+        }
+      }
+    },
     "Name" : {
       "localizations" : {
         "zh-Hant" : {
@@ -211,12 +311,52 @@
         }
       }
     },
+    "Removes your credentials, the documents they came from, and the key that identifies you." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "會刪除你的憑證、產生憑證的原始文件，以及識別你的金鑰。"
+          }
+        }
+      }
+    },
     "Settings" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "設定"
+          }
+        }
+      }
+    },
+    "Signature proving key" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簽章證明金鑰"
+          }
+        }
+      }
+    },
+    "Signing the document on this device" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在此裝置上簽署證件"
+          }
+        }
+      }
+    },
+    "Some data could not be erased" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有部分資料無法刪除"
           }
         }
       }
@@ -241,6 +381,76 @@
         }
       }
     },
+    "The credential identifier is not usable." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "憑證識別碼無法使用。"
+          }
+        }
+      }
+    },
+    "The device's signing key could not be read." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取此裝置的簽署金鑰。"
+          }
+        }
+      }
+    },
+    "The digital certificate service refused the request (%@)." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行動自然人憑證服務拒絕了這個請求（%@）。"
+          }
+        }
+      }
+    },
+    "The digital certificate service returned an unexpected response." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行動自然人憑證服務回傳了非預期的內容。"
+          }
+        }
+      }
+    },
+    "The document could not be signed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "證件無法簽署"
+          }
+        }
+      }
+    },
+    "The document could not be signed on this device." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這份證件無法在此裝置上簽署。"
+          }
+        }
+      }
+    },
+    "The downloaded file was damaged. Please try again." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載的檔案已損毀，請再試一次。"
+          }
+        }
+      }
+    },
     "The valid document has been created" : {
       "localizations" : {
         "zh-Hant" : {
@@ -251,12 +461,82 @@
         }
       }
     },
+    "The verification files couldn't be downloaded." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "驗證檔案下載失敗。"
+          }
+        }
+      }
+    },
+    "The verification files on the server aren't the ones this app expects. Try again after updating the app." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器上的驗證檔案與這個版本的 App 預期的不符。請更新 App 後再試。"
+          }
+        }
+      }
+    },
+    "There isn't enough free space to prepare the verification files." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用空間不足，無法準備驗證檔案。"
+          }
+        }
+      }
+    },
     "Third Party Software License" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "第三方軟體授權條款"
+          }
+        }
+      }
+    },
+    "This device could not create a signing key." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此裝置無法建立簽署金鑰。"
+          }
+        }
+      }
+    },
+    "This document could not be signed on this device." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這份證件無法在此裝置上簽署。"
+          }
+        }
+      }
+    },
+    "This download is already running." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個下載已經在進行中。"
+          }
+        }
+      }
+    },
+    "This download needs Wi-Fi or full cellular data. Check your connection, or turn off Low Data Mode." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個下載需要 Wi-Fi 或完整行動網路。請檢查連線，或關閉低數據模式。"
           }
         }
       }
@@ -327,6 +607,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你將使用行動自然人憑證，從MyData取得自己的數位身分資料，建立一張正式證件。"
+          }
+        }
+      }
+    },
+    "Your credentials, the source documents, and your device key will be deleted. The next document you create will use a new identifier and cannot be linked to the current one. This cannot be undone." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的憑證、原始文件與裝置金鑰都會被刪除。之後重新建立的證件會使用全新的識別碼，無法與目前這一個連結起來。此動作無法復原。"
           }
         }
       }

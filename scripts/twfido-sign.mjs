@@ -229,7 +229,10 @@ async function requestAppToApp({ args, spServiceId, aesKey, baseUrl, signData })
     sp_service_id: spServiceId,
     sp_checksum: spChecksum(payload, aesKey),
     hint: args.hint,
-    time_limit: String(args.timeLimit),
+    // Number, matching the push path above and the spec's Integer field type
+    // (the official JAVA sample posts `formBody.put("time_limit", 600)`). The
+    // quoted form here was an inconsistency inside this one file.
+    time_limit: args.timeLimit,
     sign_info: signInfo(args, signData),
   };
   const json = await postJson(`${baseUrl}/moise/sp/getSpTicket`, body);

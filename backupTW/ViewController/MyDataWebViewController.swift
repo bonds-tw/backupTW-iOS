@@ -7,10 +7,16 @@
 
 import UIKit
 import WebKit
-import Zip
 import PDFKit
 
 class MyDataWebViewController : UIViewController {
+
+    /// Owns every file this flow creates, outside Documents and outside backups,
+    /// and is emptied the moment the PDF has been read. See `MyDataScratch`.
+    private let scratch = MyDataScratch()
+    /// The zip we told WKDownload to write, so `downloadDidFinish` knows what to
+    /// unpack. Nil whenever nothing is in flight.
+    private var archiveURL: URL?
 
     private var progressObservation: NSKeyValueObservation?
     private lazy var progressView: UIProgressView = {
@@ -26,10 +32,6 @@ class MyDataWebViewController : UIViewController {
     }()
     private let completion: ((NationalIDModel) -> Void)
 
-    private lazy var latestFilename: String = {
-        return ""
-    }()
-
     init(completion: @escaping ((NationalIDModel) -> Void)) {
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
@@ -39,12 +41,27 @@ class MyDataWebViewController : UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// The backstop for the exit the code below cannot see: the user swiping the
+    /// sheet away, or the app being backgrounded and killed, part-way through the
+    /// download. Every other path purges explicitly; this one catches the rest,
+    /// because a household-registration PDF outliving the screen that fetched it
+    /// is the failure this whole class is arranged to prevent.
+    deinit {
+        try? scratch.purge()
+    }
+
     override func loadView() {
         view = webview
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        // A previous run that was killed mid-flow — before the download finished,
+        // or while the password alert was up — can have left a zip or a decrypted
+        // PDF behind. Opening this screen is the last moment at which those can
+        // still be nobody's business, so clear them before adding more.
+        try? scratch.purge()
 
         progressObservation = webview.observe(\.estimatedProgress, options: [.new]) { webview, change in
             guard let progress = change.newValue else { return }
@@ -119,50 +136,72 @@ extension MyDataWebViewController : WKNavigationDelegate {
 
 extension MyDataWebViewController : WKDownloadDelegate {
 
+    /// `suggestedFilename` is ignored, and that is the point: it comes from the
+    /// response's `Content-Disposition`, so it is chosen by the far end of the
+    /// connection rather than by us, and the previous version of this method fed
+    /// it straight into a path under Documents. `MyDataScratch` picks both the
+    /// directory (not Documents, not backed up) and the name (a UUID, so no
+    /// server-supplied string ever reaches the filesystem).
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String) async -> URL? {
-        if let url = FileManager.default.urls(for: .documentDirectory, in: .allDomainsMask).first {
-            latestFilename = suggestedFilename
-            return URL(string: suggestedFilename, relativeTo: url)
+        do {
+            let destination = try scratch.downloadDestination()
+            archiveURL = destination
+            return destination
+        } catch {
+            archiveURL = nil
+            // Returning nil cancels the download without calling back, so this is
+            // our only chance to say anything about it.
+            presentAlert(message: NSLocalizedString("Successfully downloaded but processing error", comment: ""))
+            return nil
         }
-        return nil
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        // A failed download still leaves a partial file behind.
+        discardDownloadedFiles()
+        presentAlert(message: error.localizedDescription)
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        // Everything below this line touches the user's household registration in
+        // the clear. The `defer` is what makes that acceptable: it runs on the
+        // success path, on every `guard` failure, and on a throw from inside the
+        // unzip, so there is no exit from this method that leaves the zip, the
+        // unpacked directory or the PDF on disk.
+        defer { discardDownloadedFiles() }
+
+        guard
+            let archiveURL = archiveURL,
+            let pdfData = try? scratch.pdfData(fromArchiveAt: archiveURL),
+            // From `Data`, not from the URL: the document keeps working after the
+            // file is deleted, which is what lets the purge happen now rather than
+            // after the user has typed their ID number into the alert below.
+            let pdf = PDFDocument(data: pdfData),
+            pdf.isEncrypted
+        else {
+            presentAlert(message: NSLocalizedString("Successfully downloaded but processing error", comment: ""))
+            return
+        }
+        // dealing with the encrypted PDF
+        unzipWithPassword(of: pdf, didFail: false)
+    }
+
+    /// Drops the whole scratch directory and forgets what was in it.
+    private func discardDownloadedFiles() {
+        archiveURL = nil
+        try? scratch.purge()
+    }
+
+    private func presentAlert(message: String) {
         let alert = UIAlertController(
             title: NSLocalizedString("Error", comment: ""),
-            message: error.localizedDescription,
+            message: message,
             preferredStyle: .alert)
         let confirm = UIAlertAction(
             title: NSLocalizedString("Confirm", comment: ""),
             style: .default, handler: nil)
         alert.addAction(confirm)
         self.present(alert, animated: true)
-    }
-
-    func downloadDidFinish(_ download: WKDownload) {
-        guard
-            let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .allDomainsMask).first,
-            let filePath = URL(string: latestFilename, relativeTo: documentDirectory),
-            let unzipDirectory = try? Zip.quickUnzipFile(filePath),
-            let contentsOfDirectory = try? FileManager.default.contentsOfDirectory(at: unzipDirectory, includingPropertiesForKeys: nil),
-            let expectedPDFURL = contentsOfDirectory.first,
-            expectedPDFURL.pathExtension.lowercased() == "pdf",
-            let pdf = PDFDocument(url: expectedPDFURL),
-            pdf.isEncrypted
-        else {
-            let alert = UIAlertController(
-                title: NSLocalizedString("Error", comment: ""),
-                message: NSLocalizedString("Successfully downloaded but processing error", comment: ""),
-                preferredStyle: .alert)
-            let confirm = UIAlertAction(
-                title: NSLocalizedString("Confirm", comment: ""),
-                style: .default, handler: nil)
-            alert.addAction(confirm)
-            self.present(alert, animated: true)
-            return
-        }
-        // dealing with the encrypted PDF
-        unzipWithPassword(of: pdf, didFail: false)
     }
 
     private func unzipWithPassword(of pdf: PDFDocument, didFail: Bool) {
@@ -188,15 +227,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
                         self.completion(nationalIDModel)
                         self.dismiss(animated: true)
                     } else {
-                        let alert = UIAlertController(
-                            title: NSLocalizedString("Error", comment: ""),
-                            message: NSLocalizedString("Successfully downloaded but processing error", comment: ""),
-                            preferredStyle: .alert)
-                        let confirm = UIAlertAction(
-                            title: NSLocalizedString("Confirm", comment: ""),
-                            style: .default, handler: nil)
-                        alert.addAction(confirm)
-                        self.present(alert, animated: true)
+                        self.presentAlert(message: NSLocalizedString("Successfully downloaded but processing error", comment: ""))
                     }
                 } else {
                     self.unzipWithPassword(of: pdf, didFail: true)
