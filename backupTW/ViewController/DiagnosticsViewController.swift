@@ -66,14 +66,17 @@ final class DiagnosticsViewController: UICollectionViewController {
             content.secondaryTextProperties.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
             content.secondaryTextProperties.numberOfLines = 0
             cell.contentConfiguration = content
+            // Spelled `.some(true)` rather than `true`: matching an Optional<Bool>
+            // against boolean literals is only accepted as exhaustive by newer
+            // compilers, and CI builds with an older Xcode than this machine has.
             switch row.passed {
-            case true:
+            case .some(true):
                 cell.accessories = [.customView(configuration: .init(
                     customView: Self.symbol("checkmark.circle.fill", .systemGreen), placement: .trailing()))]
-            case false:
+            case .some(false):
                 cell.accessories = [.customView(configuration: .init(
                     customView: Self.symbol("exclamationmark.triangle.fill", .systemOrange), placement: .trailing()))]
-            case nil:
+            case .none:
                 cell.accessories = []
             }
         }
