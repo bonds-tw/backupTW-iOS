@@ -37,6 +37,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.window = window
     }
 
+    /// The `backuptw://` return leg of the TW FidO App-to-App flow.
+    ///
+    /// Without this the registered scheme still launches the app on the
+    /// callback and then does nothing, which is indistinguishable from the deep
+    /// link never firing. Inbound URLs are untrusted — any app can open our
+    /// scheme — so the router only uses them to shorten a wait it already
+    /// started, never as the signing result itself.
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        for context in URLContexts {
+            let url = context.url
+            Task { await MOICACallbackRouter.shared.handle(url) }
+        }
+    }
+
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.

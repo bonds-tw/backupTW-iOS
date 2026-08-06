@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+@testable import backupTW
 
 /// Asserts on the shipped `Info.plist`, because whether the app's files are
 /// visible to the outside world is decided there and nowhere in Swift.
@@ -46,5 +47,16 @@ struct AppFileExposureTests {
         let urlTypes = try #require(info["CFBundleURLTypes"] as? [[String: Any]])
         let schemes = try #require(urlTypes.first?["CFBundleURLSchemes"] as? [String])
         #expect(schemes == ["backuptw"])
+    }
+
+    /// The plist and the router hold the same scheme in two places, and nothing
+    /// in the toolchain relates them. If they drift, the system still launches
+    /// the app on the callback and the router silently declines every URL — the
+    /// exact symptom of not having written the router at all.
+    @Test func theRegisteredSchemeIsTheOneTheRouterListensFor() throws {
+        let info = try #require(Bundle.main.infoDictionary)
+        let urlTypes = try #require(info["CFBundleURLTypes"] as? [[String: Any]])
+        let schemes = try #require(urlTypes.first?["CFBundleURLSchemes"] as? [String])
+        #expect(schemes.contains(MOICACallbackRouter.scheme))
     }
 }
