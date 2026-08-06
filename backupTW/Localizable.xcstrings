@@ -1,12 +1,32 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%d file(s) left over: %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "殘留 %d 個檔案：%@"
+          }
+        }
+      }
+    },
     "A file this app ships with is missing." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "App 內建的檔案遺失了。"
+          }
+        }
+      }
+    },
+    "A fresh identifier was issued" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "產生了全新的識別碼"
           }
         }
       }
@@ -131,12 +151,32 @@
         }
       }
     },
+    "Copied" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已複製"
+          }
+        }
+      }
+    },
     "Could not reach the digital certificate service." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法連線到行動自然人憑證服務。"
+          }
+        }
+      }
+    },
+    "Could not read" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取"
           }
         }
       }
@@ -151,12 +191,32 @@
         }
       }
     },
+    "Credential store" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "憑證儲存區"
+          }
+        }
+      }
+    },
     "Data and Privacy" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "資料與隱私"
+          }
+        }
+      }
+    },
+    "Diagnostics" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "診斷"
           }
         }
       }
@@ -201,12 +261,62 @@
         }
       }
     },
+    "Erasing really gives you a new identity" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除之後真的會換一個新身分"
+          }
+        }
+      }
+    },
     "Error" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "錯誤"
+          }
+        }
+      }
+    },
+    "Excluded from backup" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已排除備份"
+          }
+        }
+      }
+    },
+    "Expected here — there is no Secure Enclave to use." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這裡本來就是這樣——沒有安全隔離區可用。"
+          }
+        }
+      }
+    },
+    "File protection" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檔案保護"
+          }
+        }
+      }
+    },
+    "Files in Documents" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Documents 裡的檔案"
           }
         }
       }
@@ -237,6 +347,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "首頁"
+          }
+        }
+      }
+    },
+    "Identifier" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "識別碼"
+          }
+        }
+      }
+    },
+    "If erasing kept your old identifier, anyone you showed a document to before could recognise you again afterwards." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果刪除後還是舊的識別碼，之前看過你證件的人，之後還是能認出你。"
           }
         }
       }
@@ -291,6 +421,96 @@
         }
       }
     },
+    "No documents yet — create one first" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有證件——請先建立一份"
+          }
+        }
+      }
+    },
+    "No key yet — create a document first" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有金鑰——請先建立證件"
+          }
+        }
+      }
+    },
+    "No protection reported" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有回報任何保護等級"
+          }
+        }
+      }
+    },
+    "No readable copies left lying around" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有留下看得懂的副本"
+          }
+        }
+      }
+    },
+    "No — software keys are the only option here" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有——這裡只能用軟體金鑰"
+          }
+        }
+      }
+    },
+    "None reported" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有回報"
+          }
+        }
+      }
+    },
+    "Not created yet" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未建立"
+          }
+        }
+      }
+    },
+    "Not excluded" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未排除"
+          }
+        }
+      }
+    },
+    "Nothing left over" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有殘留"
+          }
+        }
+      }
+    },
     "Please apply for TW FidO first" : {
       "localizations" : {
         "zh-Hant" : {
@@ -311,12 +531,62 @@
         }
       }
     },
+    "Registered scheme does not match the one the app listens for" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "註冊的 scheme 與 App 監聽的不一致"
+          }
+        }
+      }
+    },
     "Removes your credentials, the documents they came from, and the key that identifies you." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "會刪除你的憑證、產生憑證的原始文件，以及識別你的金鑰。"
+          }
+        }
+      }
+    },
+    "Required files" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要的檔案"
+          }
+        }
+      }
+    },
+    "Returning from 行動自然人憑證 works" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從行動自然人憑證返回可以運作"
+          }
+        }
+      }
+    },
+    "Secure Enclave" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全隔離區（Secure Enclave）"
+          }
+        }
+      }
+    },
+    "Self-check" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自我檢查"
           }
         }
       }
@@ -341,6 +611,26 @@
         }
       }
     },
+    "Signing" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簽署"
+          }
+        }
+      }
+    },
+    "Signing key" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簽署金鑰"
+          }
+        }
+      }
+    },
     "Signing the document on this device" : {
       "localizations" : {
         "zh-Hant" : {
@@ -351,12 +641,62 @@
         }
       }
     },
+    "Signing would complete but never return to this app." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簽章會完成，但永遠回不到這個 App。"
+          }
+        }
+      }
+    },
     "Some data could not be erased" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "有部分資料無法刪除"
+          }
+        }
+      }
+    },
+    "Storage" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存"
+          }
+        }
+      }
+    },
+    "Storage unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存區無法使用"
+          }
+        }
+      }
+    },
+    "Stored credentials" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存的憑證"
+          }
+        }
+      }
+    },
+    "Stored in the Keychain, not the Secure Enclave" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存在 Keychain，不是安全隔離區"
           }
         }
       }
@@ -451,6 +791,16 @@
         }
       }
     },
+    "The identifier survived being deleted" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "識別碼在刪除後仍然存活"
+          }
+        }
+      }
+    },
     "The valid document has been created" : {
       "localizations" : {
         "zh-Hant" : {
@@ -491,6 +841,16 @@
         }
       }
     },
+    "These are the plain documents your credentials came from. Deleting your credentials would not remove them." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這些是產生憑證的原始明文文件。刪除憑證並不會刪掉它們。"
+          }
+        }
+      }
+    },
     "Third Party Software License" : {
       "localizations" : {
         "zh-Hant" : {
@@ -507,6 +867,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此裝置無法建立簽署金鑰。"
+          }
+        }
+      }
+    },
+    "This device has a Secure Enclave" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這台裝置有安全隔離區"
+          }
+        }
+      }
+    },
+    "This device has a Secure Enclave but the key was not put in it. Anyone who can read the Keychain could sign credentials as you." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這台裝置有安全隔離區，金鑰卻沒放進去。能讀取 Keychain 的人就能冒用你的身分簽發憑證。"
           }
         }
       }
@@ -537,6 +917,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這個下載需要 Wi-Fi 或完整行動網路。請檢查連線，或關閉低數據模式。"
+          }
+        }
+      }
+    },
+    "Total size when installed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安裝後總大小"
+          }
+        }
+      }
+    },
+    "Unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法使用"
           }
         }
       }
@@ -581,6 +981,16 @@
         }
       }
     },
+    "Verification files" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "驗證檔案"
+          }
+        }
+      }
+    },
     "Version" : {
       "localizations" : {
         "zh-Hant" : {
@@ -591,12 +1001,32 @@
         }
       }
     },
+    "Where your key lives, how your credentials are protected, and what identifier you present." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的金鑰在哪、憑證受什麼保護、你出示的是哪個識別碼。"
+          }
+        }
+      }
+    },
     "with Taiwan's official MyData service" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "透過台灣官方MyData服務"
+          }
+        }
+      }
+    },
+    "Yes" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有"
           }
         }
       }
@@ -617,6 +1047,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的憑證、原始文件與裝置金鑰都會被刪除。之後重新建立的證件會使用全新的識別碼，無法與目前這一個連結起來。此動作無法復原。"
+          }
+        }
+      }
+    },
+    "Your document could be readable from a copy of the device's storage." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有人拿到這支手機的儲存內容副本時，可能讀得到你的證件。"
+          }
+        }
+      }
+    },
+    "Your documents are encrypted at rest" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的證件在裝置上是加密的"
+          }
+        }
+      }
+    },
+    "Your documents stay off iCloud" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的證件不會進 iCloud"
+          }
+        }
+      }
+    },
+    "Your identity documents would be copied into every iCloud backup." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的身分證件會被複製進每一次 iCloud 備份。"
+          }
+        }
+      }
+    },
+    "Your signing key is in hardware" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的簽署金鑰放在硬體裡"
           }
         }
       }

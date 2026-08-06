@@ -34,17 +34,33 @@ final class DiagnosticsUITests: XCTestCase {
             fallback.tap()
         }
 
-        // Section headers, whichever language the run is in.
-        let signing = app.staticTexts.matching(NSPredicate(format: "label IN {'簽署', 'Signing'}")).firstMatch
-        XCTAssertTrue(signing.waitForExistence(timeout: 5), "diagnostics did not present")
+        // The self-check is the first section and the reason this screen exists.
+        let selfCheck = app.staticTexts.matching(
+            NSPredicate(format: "label IN {'自我檢查', 'Self-check'}")).firstMatch
+        XCTAssertTrue(selfCheck.waitForExistence(timeout: 10), "diagnostics did not present")
 
-        let storage = app.staticTexts.matching(NSPredicate(format: "label IN {'儲存', 'Storage'}")).firstMatch
-        XCTAssertTrue(storage.exists, "storage section missing")
-
-        // Dump every row so a device run can be read straight out of the log.
-        // This is the point of the test on real hardware.
-        for text in app.staticTexts.allElementsBoundByIndex where !text.label.isEmpty {
-            print("DIAGNOSTIC | \(text.label)")
+        // Rows below the fold are not in the hierarchy until they scroll into
+        // view, so collect while walking down rather than in one pass.
+        var seen: [String] = []
+        func capture() {
+            for text in app.staticTexts.allElementsBoundByIndex where !text.label.isEmpty {
+                if !seen.contains(text.label) { seen.append(text.label) }
+            }
         }
+        capture()
+        for _ in 0..<6 {
+            app.collectionViews.firstMatch.swipeUp()
+            capture()
+        }
+
+        for label in seen { print("DIAGNOSTIC | \(label)") }
+
+        // Every check must reach a verdict. A screen that renders but reports
+        // nothing is the failure this test is here to catch.
+        let verdicts = seen.filter { $0.hasPrefix("[PASS]") || $0.hasPrefix("[FAIL]") }
+        XCTAssertTrue(seen.contains { $0.contains("Secure Enclave") || $0.contains("安全隔離區") },
+                      "self-check did not report on the signing key: \(seen)")
+        XCTAssertFalse(verdicts.contains { $0.hasPrefix("[FAIL]") },
+                       "a self-check failed on this run: \(verdicts)")
     }
 }

@@ -129,7 +129,31 @@ final class DiagnosticsViewController: UICollectionViewController {
     // MARK: - Facts
 
     private static func collect() -> [Group] {
-        [signingGroup(), storageGroup(), assetsGroup()]
+        [selfCheckGroup(), signingGroup(), storageGroup(), assetsGroup()]
+    }
+
+    /// Put first, and phrased as verdicts rather than values.
+    ///
+    /// The raw facts below are for someone who already knows which value is
+    /// supposed to be which. This section is for everyone else: it states
+    /// whether each guarantee holds, and what it would mean if it did not.
+    private static func selfCheckGroup() -> Group {
+        Group(title: NSLocalizedString("Self-check", comment: ""),
+              rows: SelfCheck.runAll().map { result in
+            let value: String
+            if let consequence = result.consequence {
+                value = "\(result.detail)\n\(consequence)"
+            } else {
+                value = result.detail
+            }
+            let passed: Bool?
+            switch result.verdict {
+            case .passed: passed = true
+            case .failed: passed = false
+            case .informational: passed = nil
+            }
+            return Row(title: result.title, value: value, passed: passed)
+        })
     }
 
     /// Observes; never creates.
