@@ -71,6 +71,12 @@ fido-*.json
 *-signed-response.json
 signed-response*.json
 sp-ticket*.json
+# The name scripts/twfido-sign.mjs actually writes. The patterns above were
+# written from the shape of the data rather than from the tool in this repo, and
+# missed it: --output defaults outside the working tree, but pointing it at the
+# repo while debugging is the obvious thing to do.
+tw_fido_sign_response.json
+*tw_fido_sign_response*.json
 
 # Issued credentials. A compact JWS is not encrypted: its payload is the
 # national ID data in base64url, readable by anyone who gets the file.
