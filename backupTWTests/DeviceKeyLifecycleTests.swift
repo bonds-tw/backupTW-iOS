@@ -222,10 +222,15 @@ final class DeviceKeyLifecycleTests: @unchecked Sendable {
         let store = FailingStore(keyTag: tag)
         _ = try DeviceKey.loadOrCreate(tag: tag, installRecord: installRecord)
 
+        // Bound outside the closure: referring to `tag`/`installRecord` inside
+        // it needs an explicit `self`, which is an error in later language
+        // modes rather than the warning it is today.
+        let keyTag = tag
+        let record = installRecord
         #expect(throws: FailingStore.Failure.self) {
             try IdentityReset.perform(credentialStore: store,
-                                      keyTag: tag,
-                                      installRecord: installRecord)
+                                      keyTag: keyTag,
+                                      installRecord: record)
         }
 
         // The sweep ran, and by the time it ran the identity was already gone.
