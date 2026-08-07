@@ -116,7 +116,9 @@ struct ZKProverTests {
         }
 
         let store = CircuitAssetPreparer.makeProvingStore(directory: fixture.directory)
-        let bundle = try await ZKProver(assets: store, backend: fixture.backend)
+        let bundle = try await ZKProver(assets: store,
+                                        backend: fixture.backend,
+                                        verifier: fixture.verifier)
             .prove(fixture.inputs)
 
         #expect(fixture.backend.calls == ["generateInputs", "cert_chain_rs4096", "user_sig_rs2048"])
@@ -187,6 +189,311 @@ struct ZKProverTests {
                                                        reason: .unknown)) {
             _ = try await fixture.prover().prove(fixture.inputs)
         }
+    }
+
+    /// **The refusal that does not arrive as an error type we can name.**
+    ///
+    /// `verifyUserSigRs2048` on an unsatisfied constraint system does not throw
+    /// `VerificationFailed`; the Rust side panics with `InvalidSumcheckProof`
+    /// and UniFFI wraps it in `UniffiInternalError`, which is `fileprivate`
+    /// inside `mopro.swift` and therefore uncatchable by name from this app
+    /// forever. Landing that in `.unknown` is what made a rejected proof render
+    /// as 「這支手機無法完成驗證」.
+    ///
+    /// The fake stands in for it faithfully: `UniffiInternalError` is a
+    /// `LocalizedError` whose `errorDescription` for `.rustPanic(message)` is
+    /// the panic payload verbatim, which is the only handle the classifier has.
+    @Test func recognisesTheRustPanicThatMeansTheProofWasRefused() {
+        let payloads = [
+            "InvalidSumcheckProof",
+            "called `Result::unwrap()` on an `Err` value: InvalidSumcheckProof",
+            "thread '<unnamed>' panicked: invalidsumcheckproof"
+        ]
+        for payload in payloads {
+            #expect(ProofBackendFailure(FakeRustPanic(message: payload)) == .proofRejected,
+                    "\(payload)")
+        }
+    }
+
+    /// The other half, and the half that matters more: **a panic we do not
+    /// recognise is not evidence against the holder's proof.**
+    ///
+    /// The eight non-panic `UniffiInternalError` cases are buffer and pointer
+    /// complaints — their sentences are copied verbatim from upstream — and an
+    /// unrecognised panic could be an allocation failure or a truncated key file
+    /// just as easily as a bad proof. All of them stay `.unknown`, which renders
+    /// as 「無法確定」. Telling someone their 自然人憑證 produced an invalid proof
+    /// when it did not is not the safe side of this line.
+    @Test func refusesToCallAProofInvalidOnAPanicItDoesNotRecognise() {
+        for sentence in FakeRustPanic.uniffiPlumbingSentences {
+            #expect(ProofBackendFailure(FakeRustPanic(message: sentence)) == .unknown, "\(sentence)")
+        }
+        // What UniFFI throws when the panic payload could not even be read.
+        #expect(ProofBackendFailure(FakeRustPanic(message: "Rust panic")) == .unknown)
+        // A panic from somewhere else in the pipeline.
+        #expect(ProofBackendFailure(
+            FakeRustPanic(message: "memory allocation of 2147483648 bytes failed")) == .unknown)
+    }
+
+    /// Which failures are a *verdict about the proof* and which merely say the
+    /// check did not happen. Everything downstream — the fold in
+    /// `OpenACProofVerifier.timed`, the throw in `ZKProver` — hangs off this one
+    /// answer, so it is pinned case by case rather than inferred.
+    @Test func countsOnlyTheTwoRefusalsAsAVerdictAboutTheProof() {
+        #expect(ProofBackendFailure.verificationFailed.isRejection)
+        #expect(ProofBackendFailure.proofRejected.isRejection)
+
+        let silent: [ProofBackendFailure] = [.fileNotFound, .invalidInput, .setupRequired,
+                                             .inputOutput, .proofGenerationFailed, .unknown]
+        for failure in silent {
+            #expect(!failure.isRejection, "\(failure) was read as a verdict")
+        }
+    }
+
+    /// `timed` turns a refusal into `false` and lets everything else through.
+    /// Both doors, because the whole point is that the second one existed and
+    /// was not covered.
+    @Test func foldsBothRefusalsIntoAFalseVerdictAndRethrowsTheRest() throws {
+        for failure in [ProofBackendFailure.verificationFailed, .proofRejected] {
+            let (verdict, _) = try OpenACProofVerifier.timed { throw failure }
+            #expect(!verdict, "\(failure) was not folded into a verdict")
+        }
+
+        // Not a verdict: it still throws, so the caller reports 「無法確定」
+        // rather than drawing a ❌ next to the holder's certificate.
+        #expect(throws: ProofBackendFailure.unknown) {
+            _ = try OpenACProofVerifier.timed { throw ProofBackendFailure.unknown }
+        }
+        #expect(throws: ProofBackendFailure.inputOutput) {
+            _ = try OpenACProofVerifier.timed { throw ProofBackendFailure.inputOutput }
+        }
+
+        let (passed, _) = try OpenACProofVerifier.timed { true }
+        #expect(passed)
+    }
+
+    // MARK: A proof this device would not accept itself
+
+    /// **The defect this section exists for.**
+    ///
+    /// Given material whose `app_id` does not match, `proveUserSigRs2048`
+    /// returns success — 77,743 bytes of proof in the same time as the run that
+    /// was valid — and the circuit's `Failed assert in ... RSAVerifier65537 line
+    /// 44` goes to stderr where nothing in this app can see it. So `prove` used
+    /// to hand back a `ZKProofBundle` for a proof that is certain to be refused,
+    /// with no observable difference from a good one.
+    ///
+    /// Running the verifier here is the only thing on this device that can tell
+    /// the two apart, and a verdict of no has to stop the bundle existing rather
+    /// than annotate it: everything downstream treats a returned bundle as the
+    /// thing to show a verifier.
+    @Test func doesNotReportSuccessWhenThisDeviceRefusesItsOwnProof() async throws {
+        let fixture = try Fixture(verification: .init(outcome: ZKVerificationOutcome(
+            certificateChainValid: true,
+            userSignatureValid: true,
+            linked: false,
+            certificateChainMilliseconds: 800,
+            userSignatureMilliseconds: 200,
+            linkMilliseconds: 25)))
+
+        await #expect(throws: ZKProofError.proofRejectedOnThisDevice) {
+            _ = try await fixture.prover().prove(fixture.inputs)
+        }
+        // Both circuits ran: the refusal came from the check afterwards, not
+        // from a proof that failed to generate.
+        #expect(fixture.backend.calls == ["generateInputs", "cert_chain_rs4096", "user_sig_rs2048"])
+        #expect(fixture.verifier.verifyCallCount == 1)
+    }
+
+    /// Any one of the three is enough. `linked` especially — it is the check the
+    /// whitepaper's offline story rests on and the easiest to let slide because
+    /// the two proofs on their own came back fine.
+    @Test func refusesWhateverPartOfTheVerificationSaidNo() async throws {
+        let outcomes = [
+            ZKVerificationOutcome(certificateChainValid: false, userSignatureValid: true,
+                                  linked: true, certificateChainMilliseconds: 1,
+                                  userSignatureMilliseconds: 1, linkMilliseconds: 1),
+            ZKVerificationOutcome(certificateChainValid: true, userSignatureValid: false,
+                                  linked: true, certificateChainMilliseconds: 1,
+                                  userSignatureMilliseconds: 1, linkMilliseconds: 1),
+            ZKVerificationOutcome(certificateChainValid: true, userSignatureValid: true,
+                                  linked: false, certificateChainMilliseconds: 1,
+                                  userSignatureMilliseconds: 1, linkMilliseconds: 1)
+        ]
+        for outcome in outcomes {
+            let fixture = try Fixture(verification: .init(outcome: outcome))
+            await #expect(throws: ZKProofError.proofRejectedOnThisDevice, "\(outcome)") {
+                _ = try await fixture.prover().prove(fixture.inputs)
+            }
+        }
+    }
+
+    /// Inherited from `ZKProofRunner`, which used to own the verify call and a
+    /// queue of its own to keep it off the cooperative pool. Verification moved
+    /// in here, so the rule moved with it: `ProofBackend`'s own statement is
+    /// that these calls "block for tens of seconds and must not occupy a
+    /// cooperative pool thread", and verification is not the cheap half — it
+    /// loads a 693 MB and a 274 MB verifying key and runs three Groth16 checks.
+    ///
+    /// Two distinct claims, and the second is the one a `Task.detached` would
+    /// silently fail: that the call landed on `ZKProver.queue` specifically,
+    /// rather than merely somewhere that is not this actor.
+    @Test func theBlockingCheckLeavesTheActorAndLandsOnTheProverQueue() async throws {
+        let marker = DispatchSpecificKey<Bool>()
+        ZKProver.queue.setSpecific(key: marker, value: true)
+        defer { ZKProver.queue.setSpecific(key: marker, value: nil) }
+
+        let entered = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        let landedOnTheProverQueue = Locked(false)
+
+        let fixture = try Fixture(verification: .init(onVerify: {
+            landedOnTheProverQueue.mutate {
+                $0 = DispatchQueue.getSpecific(key: marker) == true
+            }
+            entered.signal()
+            release.wait()
+        }))
+        let prover = fixture.prover()
+
+        let proving = Task { try await prover.prove(fixture.inputs) }
+
+        // Wait, without blocking this thread, for the verifier to be inside its
+        // call. Bounded so a regression fails rather than hangs.
+        var waited = 0
+        while entered.wait(timeout: .now()) != .success, waited < 300 {
+            try await Task.sleep(nanoseconds: 10_000_000)
+            waited += 1
+        }
+
+        // The probe: a second `prove` is refused by the actor with
+        // `alreadyProving`. Answering at all means the executor is free; if the
+        // blocking call were holding it, nothing could be serviced.
+        let answered = Locked(false)
+        let probe = Task {
+            await #expect(throws: ZKProofError.alreadyProving) {
+                _ = try await prover.prove(fixture.inputs)
+            }
+            answered.mutate { $0 = true }
+        }
+        waited = 0
+        while !answered.value, waited < 200 {
+            try await Task.sleep(nanoseconds: 10_000_000)
+            waited += 1
+        }
+
+        #expect(answered.value,
+                "the verifier held ZKProver's executor for the duration of the call")
+        #expect(landedOnTheProverQueue.value,
+                "verification must run on ZKProver.queue, not a cooperative pool thread")
+
+        release.signal()
+        await probe.value
+        _ = try await proving.value
+    }
+
+    /// The refusals that arrive as a thrown error rather than as `false` —
+    /// upstream's typed one, and the Rust panic that is the reason any of this
+    /// was noticed.
+    @Test func refusesWhenTheCheckThrewItsAnswerInsteadOfReturningIt() async throws {
+        let refusals: [Error] = [
+            ProofBackendFailure.verificationFailed,
+            ProofBackendFailure.proofRejected,
+            FakeRustPanic(message: "called `Result::unwrap()` on an `Err` value: InvalidSumcheckProof")
+        ]
+        for refusal in refusals {
+            let fixture = try Fixture(verification: .init(failure: refusal))
+            await #expect(throws: ZKProofError.proofRejectedOnThisDevice, "\(refusal)") {
+                _ = try await fixture.prover().prove(fixture.inputs)
+            }
+        }
+    }
+
+    /// A proof that passed here, and the only state a caller may read as an
+    /// endorsement.
+    @Test func confirmsTheProofOnlyWhenItActuallyVerifiedOnThisDevice() async throws {
+        let fixture = try Fixture()
+        let bundle = try await fixture.prover().prove(fixture.inputs)
+
+        #expect(bundle.selfCheck == .passed(FakeSelfCheckVerifier.Plan.defaultOutcome))
+        #expect(bundle.selfCheck.isConfirmed)
+        #expect(fixture.verifier.verifyCallCount == 1)
+    }
+
+    /// **The coordination point with the verifying-key work.**
+    ///
+    /// Until the two `*_verifying.key` files can be derived or downloaded, this
+    /// check cannot run at all — and the answer to that is to say so on the
+    /// bundle, not to skip it quietly. A proof nothing has checked is a
+    /// legitimate thing to hold; one that *looks* checked is not.
+    ///
+    /// `verify` is not called: an absent verifying key must never be able to
+    /// arrive as a failed verification.
+    @Test func saysTheProofWasNeverCheckedWhenTheVerifyingKeysAreMissing() async throws {
+        let missing = ["keys/cert_chain_rs4096_verifying.key",
+                       "keys/user_sig_rs2048_verifying.key"]
+        let fixture = try Fixture(verification: .init(missing: missing))
+        let bundle = try await fixture.prover().prove(fixture.inputs)
+
+        #expect(bundle.selfCheck == .notPerformed(missing: missing))
+        #expect(!bundle.selfCheck.isConfirmed)
+        #expect(fixture.verifier.verifyCallCount == 0)
+    }
+
+    /// **"We could not tell" is not "your proof is invalid."**
+    ///
+    /// A check that broke below the FFI boundary establishes nothing in either
+    /// direction, so the proof is returned and marked `.inconclusive` rather
+    /// than thrown away. Refusing to hand over a proof on the strength of a
+    /// buffer decode error would be this app inventing a rejection, which is the
+    /// same mistake as the one at the top of this section pointed the other way.
+    @Test func doesNotCallAProofInvalidWhenTheCheckMerelyBroke() async throws {
+        let inconclusive: [Error] = [ProofBackendFailure.inputOutput,
+                                     ProofBackendFailure.invalidInput,
+                                     ProofBackendFailure.fileNotFound,
+                                     ProofBackendFailure.unknown,
+                                     FakeRustPanic(message: "Reading the requested value would read past the end of the buffer")]
+        for failure in inconclusive {
+            let fixture = try Fixture(verification: .init(failure: failure))
+            let bundle = try await fixture.prover().prove(fixture.inputs)
+            #expect(bundle.selfCheck == .inconclusive, "\(failure)")
+            #expect(!bundle.selfCheck.isConfirmed)
+        }
+    }
+
+    /// The three things this device can say about a proof it produced, plus the
+    /// refusal, are four different sentences. Collapsing any two of them is how
+    /// a rejected proof gets shown as a hardware hiccup — or a missing download
+    /// gets shown as a broken certificate.
+    @Test func distinguishesRejectedFromUncheckableFromUnprepared() {
+        let rejected = ZKProofError.proofRejectedOnThisDevice.localizedDescription
+        let sentences = [rejected,
+                         ZKSelfCheck.passed(FakeSelfCheckVerifier.Plan.defaultOutcome)
+                             .localizedDescription,
+                         ZKSelfCheck.notPerformed(missing: ["keys/user_sig_rs2048_verifying.key"])
+                             .localizedDescription,
+                         ZKSelfCheck.inconclusive.localizedDescription]
+
+        #expect(Set(sentences).count == 4)
+        #expect(sentences.allSatisfy { !$0.isEmpty })
+
+        // A refused proof is not "something went wrong on this device", and it
+        // is not something a retry fixes.
+        #expect(rejected != ZKProofError.proofFailed(circuit: .userSignature,
+                                                     reason: .proofGenerationFailed)
+            .localizedDescription)
+        #expect(!ZKProofError.proofRejectedOnThisDevice.isRecoverable)
+    }
+
+    /// A bundle built by anything that has not thought about the question says
+    /// nothing was checked, rather than defaulting to the flattering answer.
+    @Test func aBundleThatSaysNothingAboutCheckingIsNotAConfirmedOne() {
+        let bundle = ZKProofBundle(certificateChain: .init(proveMilliseconds: 1, proofByteCount: 1),
+                                   userSignature: .init(proveMilliseconds: 1, proofByteCount: 1),
+                                   caveats: ProofCaveat.unconditional,
+                                   proofDirectory: URL(fileURLWithPath: "/tmp/zk/keys"))
+        #expect(bundle.selfCheck == .notPerformed(missing: []))
+        #expect(!bundle.selfCheck.isConfirmed)
     }
 
     /// `generateCertChainRs4096Input` returns a path string that `prove*` never
@@ -912,6 +1219,113 @@ private final class FakeProofBackend: ProofBackend, @unchecked Sendable {
     }
 }
 
+// MARK: - Fake verifier
+
+/// Stands in for `OpenACProofVerifier`, which reads 968 MB of verifying key.
+///
+/// Same protocol the run's stage 4 uses, so the thing under test is the
+/// prover's *use* of it: that the artefact check happens before the call, that a
+/// verdict of no stops a bundle existing, and that a check which merely broke
+/// does not become an accusation.
+/// Shared mutable state a `@Sendable` closure can write and the test can read.
+/// A local `var` captured by one would not compile under strict concurrency.
+private final class Locked<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: Value
+    init(_ value: Value) { storage = value }
+    var value: Value { lock.lock(); defer { lock.unlock() }; return storage }
+    func mutate(_ body: (inout Value) -> Void) {
+        lock.lock(); body(&storage); lock.unlock()
+    }
+}
+
+private final class FakeSelfCheckVerifier: ZKProofVerifying, @unchecked Sendable {
+
+    struct Plan {
+        /// What `missingArtifacts` reports. Non-empty is the state every device
+        /// is in until the verifying keys can be derived or downloaded.
+        var missing: [String] = []
+        /// Thrown from `verify`. Takes an `Error` rather than a
+        /// `ProofBackendFailure` so a Rust panic can be fed in as one.
+        var failure: Error? = nil
+        var outcome = Plan.defaultOutcome
+        /// Runs inside `verify`, synchronously, exactly where the real one
+        /// spends tens of seconds inside Rust. The only way to observe which
+        /// thread that happens on, and the only way to hold it there.
+        var onVerify: (@Sendable () -> Void)? = nil
+
+        /// All three true — a proof this device checked and accepted.
+        static let defaultOutcome = ZKVerificationOutcome(certificateChainValid: true,
+                                                          userSignatureValid: true,
+                                                          linked: true,
+                                                          certificateChainMilliseconds: 910,
+                                                          userSignatureMilliseconds: 220,
+                                                          linkMilliseconds: 30)
+    }
+
+    private let plan: Plan
+    private let lock = NSLock()
+    private var _verifyCallCount = 0
+
+    init(plan: Plan) {
+        self.plan = plan
+    }
+
+    /// Zero is an assertion in its own right: it says an absent verifying key
+    /// never reached the verifier and so could not come back as a rejection.
+    var verifyCallCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _verifyCallCount
+    }
+
+    func missingArtifacts(in workingDirectory: URL) -> [String] { plan.missing }
+
+    func verify(documentsPath: String) throws -> ZKVerificationOutcome {
+        lock.lock()
+        _verifyCallCount += 1
+        lock.unlock()
+
+        plan.onVerify?()
+        if let failure = plan.failure { throw failure }
+        return plan.outcome
+    }
+}
+
+/// What a `UniffiInternalError` looks like from outside `mopro.swift`.
+///
+/// It cannot be the real thing: upstream declares that enum `fileprivate`, so no
+/// code in this app — test or otherwise — can name it. What the classifier
+/// actually reads is the two things any error offers, and this fake reproduces
+/// both faithfully: `String(describing:)` carries the payload, and the
+/// `LocalizedError` conformance returns it verbatim, which is exactly what
+/// `UniffiInternalError.rustPanic(message)` does.
+///
+/// The gap this leaves is honest and worth naming: this proves the *matching* is
+/// right, not that the real type still looks like this. If upstream drops the
+/// conformance, these tests keep passing and the app silently returns to
+/// classifying every rejection as `.unknown` — which is the safe direction, and
+/// is why the markers list is an allowlist.
+private struct FakeRustPanic: LocalizedError {
+
+    let message: String
+
+    var errorDescription: String? { message }
+
+    /// The eight non-panic `UniffiInternalError` cases, copied verbatim from
+    /// `openac-rsa-x509-swift/Sources/mopro.swift` at revision 4a53fba. None of
+    /// them is a statement about a proof.
+    static let uniffiPlumbingSentences = [
+        "Reading the requested value would read past the end of the buffer",
+        "The buffer still has data after lifting its containing value",
+        "Unexpected optional tag; should be 0 or 1",
+        "Raw enum value doesn't match any cases",
+        "Raw pointer value was null",
+        "Unexpected RustCallStatus code",
+        "CALL_ERROR but no errorClass specified",
+        "The object in the handle map has been dropped already"
+    ]
+}
+
 // MARK: - Fixture
 
 /// A throwaway working directory prepared the way the readiness flow leaves it,
@@ -923,6 +1337,12 @@ private final class Fixture: @unchecked Sendable {
 
     let directory: URL
     let backend: FakeProofBackend
+
+    /// Defaults to a verifier that is installed and says yes, so every test that
+    /// asserts a successful `prove` is asserting a proof this device checked —
+    /// which is what the return value now means.
+    let verifier: FakeSelfCheckVerifier
+
     let inputs: ProvingInputs
     private let readiness: ZKAssetReadiness
 
@@ -931,6 +1351,7 @@ private final class Fixture: @unchecked Sendable {
     static let verifierChallenge = Fixture.base64URL(Data((1...16).map { UInt8($0) }))
 
     init(plan: FakeProofBackend.Plan = .init(),
+         verification: FakeSelfCheckVerifier.Plan = .init(),
          readiness: ZKAssetReadiness = .ready,
          installIssuerCertificate: Bool = true,
          installSnapshot: Bool = true,
@@ -953,6 +1374,7 @@ private final class Fixture: @unchecked Sendable {
         }
 
         backend = FakeProofBackend(plan: plan)
+        verifier = FakeSelfCheckVerifier(plan: verification)
         self.readiness = readiness
         inputs = try ProvingInputs(certificateBase64: Fixture.certificate(),
                                    signedResponse: Fixture.signature(),
@@ -967,7 +1389,8 @@ private final class Fixture: @unchecked Sendable {
         let readiness = self.readiness
         return ZKProver(workingDirectory: directory,
                         readiness: { readiness },
-                        backend: backend)
+                        backend: backend,
+                        verifier: verifier)
     }
 
     func exists(_ relativePath: String) -> Bool {

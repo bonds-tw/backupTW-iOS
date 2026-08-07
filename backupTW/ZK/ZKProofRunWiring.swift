@@ -39,26 +39,45 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
     /// What `ZKProver.prove` reads. All three or no proof.
     static var provingAssets: [CircuitAsset] { CircuitAssets.required }
 
-    /// What only `OpenACProofVerifier` reads: 139 MB down the wire, 968 MB on
-    /// disk, and not one byte of it opened by `prove`.
+    /// What only `OpenACProofVerifier` reads: 968 MB on disk, and not one byte
+    /// of it opened by `prove`.
+    ///
+    /// **These are no longer downloaded.** `VerifyingKeyDerivation` produces both
+    /// files from the proving keys, which are byte-identical to them apart from a
+    /// 32-byte trailer, so `prepare` cuts them locally and 57.8 MB never leaves
+    /// GitHub. The rows survive because the *files* are still this store's
+    /// responsibility: `missingAssets()` is how the plan knows they are
+    /// outstanding, `installedByteCount()` counts them, `deleteAll()` removes
+    /// them, and their published URLs and `.gz` digests are the provenance record
+    /// for what the derived bytes are supposed to equal.
     ///
     /// Kept as its own list because the difference is load-bearing in two
     /// places. `makeProvingStore` uses it to keep these rows out of the answer
     /// to "may this device prove?", and
     /// `ZKAssetPreparing.verificationOnlyRequirementNames` uses it to keep a
-    /// failure to fetch them from ending a run that can still produce a proof.
+    /// failure to produce them from ending a run that can still make a proof.
     static var verificationAssets: [CircuitAsset] { ZKVerifyingKeyAssets.all }
 
-    /// Everything, in the order it is downloaded: proving keys first, then the
-    /// revocation snapshot, then the verifying keys.
+    /// Everything this preparer puts on disk, in the order it does it: proving
+    /// keys first, then the revocation snapshot, then the two derived verifying
+    /// keys.
     ///
     /// Order matters for a user who runs out of patience or disk halfway: the
     /// first three are what it takes to *produce* a proof, and the last two only
-    /// let this device check its own work.
+    /// let this device check its own work. It is also a hard requirement of the
+    /// derivation, which reads the proving keys the first three rows install.
     static var allAssets: [CircuitAsset] {
         provingAssets + verificationAssets
     }
 
+    /// The ceiling, not the bill: what a fresh device would transfer if nothing
+    /// could be derived.
+    ///
+    /// What the user is actually charged comes from `plan()`, which prices a
+    /// derivable row at zero — see there. Kept summing the whole table so the
+    /// published cost of every file this preparer owns stays visible in one
+    /// place, and because overstating a cost is the safe direction for a number
+    /// nothing on screen reads.
     static var totalDownloadByteCount: Int64 {
         CircuitAssets.totalDownloadByteCount + ZKVerifyingKeyAssets.totalDownloadByteCount
     }
@@ -77,7 +96,33 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
     /// over the bytes before they are written.
     static let issuerCertificateByteCount: Int64 = 1643
 
+    /// How much of the preparation bar the downloads own when there is also a
+    /// verifying key to derive.
+    ///
+    /// A phase boundary rather than a byte weight, for the reason
+    /// `CircuitAssets.download` picks its own: wire bytes and local
+    /// copy-and-hash bytes are not the same unit, and weighting the two together
+    /// by size would squeeze the entire 82 MB download into 8% of the bar.
+    ///
+    /// The figure comes from measuring rather than guessing: deriving both keys
+    /// — 968 MB read, hashed and written — took 2.3 s against the real proving
+    /// keys on a Mac, against minutes for 82 MB of transfer plus a 950 MB
+    /// inflate. So the derivation is a small tail, and it gets a small tail of
+    /// the bar; the reason it gets any at all is that a bar which reaches 100%
+    /// and then stops moving is the "looks like it has hung" failure this
+    /// screen's numbers exist to prevent.
+    static let downloadShareOfProgress = 0.85
+
     let store: CircuitAssets
+
+    /// The verifying keys this preparer cuts from the proving keys rather than
+    /// fetching.
+    ///
+    /// Injected so a test can exercise the real wiring — plan, download loop,
+    /// derivation, re-plan — against a source file of a few kilobytes.
+    /// `VerifyingKeyDerivation.all` names two files that are 968 MB between
+    /// them, which is not a fixture any test can hold.
+    let derivations: [DerivableVerifyingKey]
 
     /// Injected so a test can watch the certificate be installed without a
     /// bundle. Returns the installed URL.
@@ -90,8 +135,10 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
 
     init(store: CircuitAssets,
          bundle: Bundle = .main,
+         derivations: [DerivableVerifyingKey] = VerifyingKeyDerivation.all,
          installIssuerCertificate: (@Sendable (URL) throws -> URL)? = nil) {
         self.store = store
+        self.derivations = derivations
         self.installIssuerCertificate = installIssuerCertificate ?? { directory in
             try IssuerCertificate.loadBundled(from: bundle).install(into: directory)
         }
@@ -130,21 +177,29 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
                       assets: provingAssets)
     }
 
-    /// The two verifying keys, by requirement name.
+    /// The two verifying keys, by requirement name — under both spellings, since
+    /// a derived key and the download row it replaces share a name by design and
+    /// an injected fixture may not be in `verificationAssets` at all.
     ///
     /// The issuer certificate is deliberately absent: `ZKProver` refuses without
     /// it, so it belongs to the proving half even though it is not a download.
     var verificationOnlyRequirementNames: Set<String> {
-        Set(Self.verificationAssets.map(\.name))
+        Set(Self.verificationAssets.map(\.name)).union(derivations.map(\.name))
     }
 
     func plan() async -> ZKAssetPlan {
         let missing = await store.missingAssets()
         let stale = await store.staleAssets()
+        // A derived key costs disk and time and nothing on the wire. Pricing it
+        // at its published `.gz` size would put 57.8 MB in front of the user that
+        // this app no longer spends — and the itemised price before the tap is
+        // the entire point of this screen, so an overstatement here is the same
+        // kind of defect as an understatement.
+        let derived = Set(derivations.map(\.name))
         var outstanding = missing.map {
             ZKAssetRequirement(name: $0.name,
                                displayName: Self.displayName(for: $0),
-                               downloadByteCount: $0.compressedByteCount,
+                               downloadByteCount: derived.contains($0.name) ? 0 : $0.compressedByteCount,
                                installedByteCount: $0.installedByteCount,
                                isStale: false)
         }
@@ -170,7 +225,20 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
 
     func prepare(progress: @escaping @Sendable (ZKAssetProgress) -> Void) async throws {
         let plan = await plan()
-        let downloads = plan.outstanding.filter { $0.name != Self.issuerRequirementName }
+
+        // **The explicit step, and it is deliberately a step.** Everything in
+        // `pending` is produced from a proving key the loop below is about to
+        // fetch, so it cannot start until the downloads have finished, it costs
+        // roughly 968 MB of disk and a visible amount of time, and the user has
+        // already been shown both figures by `plan()` before tapping. It does
+        // not happen quietly on some later launch.
+        let outstandingNames = Set(plan.outstanding.map(\.name))
+        let pending = derivations.filter { outstandingNames.contains($0.name) }
+        let derivedNames = Set(pending.map(\.name))
+
+        let downloads = plan.outstanding.filter {
+            $0.name != Self.issuerRequirementName && !derivedNames.contains($0.name)
+        }
 
         // Resolved from the store's own two lists, not from `Self.allAssets`.
         // `plan()` derives every row it emits from `store.missingAssets()` and
@@ -194,6 +262,7 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
         var completedBytes: Int64 = 0
         var completedCount = 0
         let totalCount = plan.outstanding.count
+        let downloadShare: Double = pending.isEmpty ? 1.0 : Self.downloadShareOfProgress
 
         // First, and unconditionally: it is cheap, and re-installing it repairs a
         // working directory that a restore or a purge emptied — or altered —
@@ -231,16 +300,36 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
             try await store.download(asset) { fraction in
                 progress(ZKAssetProgress(
                     displayName: name,
-                    overallFraction: min(1, Double(base) / Double(totalBytes) + weight * fraction),
+                    overallFraction: downloadShare
+                        * min(1, Double(base) / Double(totalBytes) + weight * fraction),
                     completedCount: finished,
                     totalCount: totalCount))
             }
             completedBytes += requirement.downloadByteCount
             completedCount += 1
-            progress(ZKAssetProgress(displayName: name,
-                                     overallFraction: min(1, Double(completedBytes) / Double(totalBytes)),
-                                     completedCount: completedCount,
-                                     totalCount: totalCount))
+            progress(ZKAssetProgress(
+                displayName: name,
+                overallFraction: downloadShare * min(1, Double(completedBytes) / Double(totalBytes)),
+                completedCount: completedCount,
+                totalCount: totalCount))
+        }
+
+        // Last, because every source it reads was installed by the loop above.
+        //
+        // A failure here is **not** fatal to the run, and that is why nothing
+        // catches it: `ZKProofRunner` re-asks `plan()`, finds that everything
+        // still outstanding is in `verificationOnlyRequirementNames`, marks the
+        // assets stage `.unavailable` and goes on to produce a real proof that
+        // this device then cannot check. That is the same outcome a failed
+        // download of these two files already had — one download later.
+        guard !pending.isEmpty else { return }
+        let downloadsFinished = completedCount
+        try await VerifyingKeyDerivation.prepare(pending, in: workingDirectory) { update in
+            progress(ZKAssetProgress(
+                displayName: Self.displayName(forDerived: update.key.name),
+                overallFraction: min(1, downloadShare + (1 - downloadShare) * update.overallFraction),
+                completedCount: downloadsFinished + update.completedCount,
+                totalCount: totalCount))
         }
     }
 
@@ -286,6 +375,17 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
         default:
             return asset.displayName
         }
+    }
+
+    /// The same row title for a key that is being derived rather than fetched.
+    ///
+    /// Resolved through `verificationAssets` instead of restating the two
+    /// strings, so a derived key and the row it replaces cannot end up with two
+    /// different names on the same screen. Falls through to the raw identifier
+    /// for an injected fixture, which only a test ever sees.
+    static func displayName(forDerived name: String) -> String {
+        guard let asset = verificationAssets.first(where: { $0.name == name }) else { return name }
+        return displayName(for: asset)
     }
 }
 
@@ -550,9 +650,10 @@ enum ZKProofRunAssembly {
         // fetches everything, the prover is only ever asked about what it reads.
         let store = CircuitAssetPreparer.makeStore(directory: directory)
         let proving = CircuitAssetPreparer.makeProvingStore(directory: directory)
+        // No `verifier:` — the runner does not verify. `ZKProver` owns the
+        // check, and defaults to `OpenACProofVerifier()` itself.
         return ZKProofRunner(assets: CircuitAssetPreparer(store: store),
                              signer: signer,
-                             prover: ZKProverAdapter(prover: ZKProver(assets: proving)),
-                             verifier: OpenACProofVerifier())
+                             prover: ZKProverAdapter(prover: ZKProver(assets: proving)))
     }
 }

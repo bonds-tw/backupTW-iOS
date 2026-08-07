@@ -333,24 +333,18 @@ final class ZKProofViewController: UICollectionViewController {
         }
 
         // The whole point of this section: the price, itemised, before the tap.
+        // The wording lives in `ZKStagePresentation` so it can be asserted —
+        // a plan can now have outstanding work and cost nothing on the wire.
+        let summary = ZKStagePresentation.preparationSummary(for: plan)
         var rows = [Row(id: "prepare.total",
                         kind: .prose,
-                        title: NSLocalizedString("These files have to be downloaded first", comment: ""),
-                        detail: String(
-                            format: NSLocalizedString("Download %@ · uses %@ on this device",
-                                                      comment: "download size, installed size"),
-                            ZKStagePresentation.byteString(plan.downloadByteCount),
-                            ZKStagePresentation.byteString(plan.installedByteCount)))]
+                        title: summary.title,
+                        detail: summary.detail)]
         rows += plan.outstanding.map { requirement in
             Row(id: "prepare.\(requirement.name)",
                 kind: .requirement,
                 title: requirement.displayName,
-                detail: requirement.isStale
-                    ? String(format: NSLocalizedString("Out of date · download %@ again", comment: ""),
-                             ZKStagePresentation.byteString(requirement.downloadByteCount))
-                    : String(format: NSLocalizedString("Download %@ · %@ on disk", comment: ""),
-                             ZKStagePresentation.byteString(requirement.downloadByteCount),
-                             ZKStagePresentation.byteString(requirement.installedByteCount)))
+                detail: ZKStagePresentation.requirementDetail(for: requirement))
         }
         return Group(id: "prepare",
                      title: NSLocalizedString("Before you start", comment: ""),
