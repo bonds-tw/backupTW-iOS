@@ -33,6 +33,7 @@ final class LocalDataEraserTests: @unchecked Sendable {
     private let root: URL
     private let documents: URL
     private let scratchDirectory: URL
+    private let zkDirectory: URL
     private let store: CredentialStore
     private let scratch: MyDataScratch
 
@@ -49,12 +50,18 @@ final class LocalDataEraserTests: @unchecked Sendable {
             .appendingPathComponent("LocalDataEraserTests-\(id)", isDirectory: true)
         documents = root.appendingPathComponent("Documents", isDirectory: true)
         scratchDirectory = root.appendingPathComponent("MyDataScratch", isDirectory: true)
+        // Never `CircuitAssets.defaultDirectory()`: that is the real one, and a
+        // test that swept it would delete the 950 MB of proving keys belonging
+        // to whoever is running the suite.
+        zkDirectory = root.appendingPathComponent("ZKCircuitAssets", isDirectory: true)
 
         keyTag = "tw.bonds.backupTW.tests.localDataEraser.\(id)"
         defaultsSuiteName = "tw.bonds.backupTW.tests.localDataEraser.\(id)"
         defaults = UserDefaults(suiteName: defaultsSuiteName)!
 
         try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: zkDirectory.appendingPathComponent("keys"),
+                                                withIntermediateDirectories: true)
         store = try CredentialStore(directory: root.appendingPathComponent("Credentials",
                                                                            isDirectory: true))
         scratch = MyDataScratch(directory: scratchDirectory)
@@ -70,8 +77,42 @@ final class LocalDataEraserTests: @unchecked Sendable {
         LocalDataEraser(credentials: credentials ?? store,
                         scratch: scratch,
                         documentsDirectory: documents,
+                        zkWorkingDirectory: zkDirectory,
                         keyTag: keyTag,
                         installRecord: defaults)
+    }
+
+    /// Leaves the working directory exactly as a proof run killed by jetsam
+    /// leaves it: the cardholder's certificate expanded into circuit limbs, the
+    /// witness, the public instance carrying the nullifier, the proof, and the
+    /// public circuit material that was there before any of it.
+    private func writeProofRunResidue() throws {
+        for name in ZKProver.inputFilenames {
+            try Data("the holder's certificate, in limbs".utf8)
+                .write(to: zkDirectory.appendingPathComponent(name))
+        }
+        for name in ZKProver.witnessFilenames {
+            try Data("every private wire in the circuit".utf8)
+                .write(to: zkDirectory.appendingPathComponent(name))
+        }
+        for name in ZKProver.instanceFilenames {
+            try Data("public inputs, nullifier included".utf8)
+                .write(to: zkDirectory.appendingPathComponent(name))
+        }
+        for name in ZKProver.proofFilenames {
+            try Data("the proof".utf8).write(to: zkDirectory.appendingPathComponent(name))
+        }
+        // Public circuit material: a GitHub release, identical on every device.
+        try Data("662 MB of Groth16".utf8)
+            .write(to: zkDirectory.appendingPathComponent("keys/cert_chain_rs4096_proving.key"))
+        try Data([0x1f, 0x8b, 0x08, 0x00])
+            .write(to: zkDirectory.appendingPathComponent(ZKProver.revocationSnapshotFilename))
+        try Data([0x30, 0x82, 0x06, 0x67])
+            .write(to: zkDirectory.appendingPathComponent(CircuitAssets.issuerCertificateFilename))
+    }
+
+    private func zkFileExists(_ relativePath: String) -> Bool {
+        FileManager.default.fileExists(atPath: zkDirectory.appendingPathComponent(relativePath).path)
     }
 
     // MARK: - The whole sweep
@@ -140,6 +181,101 @@ final class LocalDataEraserTests: @unchecked Sendable {
         try makeEraser().eraseEverything()
 
         #expect(try store.allIDs().isEmpty)
+    }
+
+    // MARK: - The ZK working directory
+
+    /// The reported defect, as the sequence that produces it: a proof run is
+    /// killed by jetsam during the ~2 GB proving step, so `ZKProver.prove`'s
+    /// `defer` never runs; the user relaunches, taps 「清除所有本機資料」, and is
+    /// told it is done. Before this, every one of these files was still there —
+    /// the certificate in limbs, the 62 MB witness, and the instance carrying
+    /// the nullifier — because `eraseEverything()` swept three locations and did
+    /// not know this one existed.
+    ///
+    /// The instance is the one that would be easiest to argue about, and it goes
+    /// for the same reason the device key goes: the nullifier is a stable
+    /// pseudonym for this holder at this relying party, so leaving it behind
+    /// leaves the linkage the button exists to break.
+    @Test func erasingEverythingSweepsWhatAKilledProofRunLeftBehind() throws {
+        try writeProofRunResidue()
+
+        try makeEraser().eraseEverything()
+
+        for name in LocalDataEraser.proofArtifactFilenames {
+            #expect(!zkFileExists(name), "\(name) survived an erase that reported success")
+        }
+        // Named individually as well, so that a future `proofArtifactFilenames`
+        // that quietly lost a list cannot make the loop above vacuous.
+        #expect(!zkFileExists("cert_chain_rs4096_input.json"))
+        #expect(!zkFileExists("keys/cert_chain_rs4096_witness.bin"))
+        #expect(!zkFileExists("keys/cert_chain_rs4096_instance.bin"))
+    }
+
+    /// The other half of the same promise. The proving keys are 950 MB of public
+    /// Groth16 material from a GitHub release, identical on every device and
+    /// about nobody; the snapshot and MOICA-G3 are public too. Erasing them
+    /// would be a surprise costing the user a re-download, and it is not what
+    /// the button says it does.
+    @Test func theProofSweepLeavesThePublicCircuitMaterialAlone() throws {
+        try writeProofRunResidue()
+
+        try makeEraser().eraseEverything()
+
+        #expect(zkFileExists("keys/cert_chain_rs4096_proving.key"))
+        #expect(zkFileExists(ZKProver.revocationSnapshotFilename))
+        #expect(zkFileExists(CircuitAssets.issuerCertificateFilename))
+    }
+
+    /// Callable on its own, because the caller it most deserves is app launch —
+    /// the residue of the run that was killed exists from that moment, not from
+    /// whenever the user next opens Settings. Also idempotent: finding nothing
+    /// to delete is not a failure to delete it.
+    @Test func theProofSweepStandsAloneAndDoesNotMindRunningTwice() throws {
+        try writeProofRunResidue()
+
+        try makeEraser().eraseProofResidue()
+        try makeEraser().eraseProofResidue()
+
+        for name in LocalDataEraser.proofArtifactFilenames {
+            #expect(!zkFileExists(name), "\(name) survived a standalone sweep")
+        }
+        // Only the proof residue: this call is not the erase button, and the
+        // credentials are not its business.
+        #expect(zkFileExists("keys/cert_chain_rs4096_proving.key"))
+    }
+
+    /// A witness that could not be unlinked has to reach the sentence the user
+    /// reads. `ZKProver.discardSecretArtifacts` is `try?` because it is cleanup
+    /// around a proof; here the next thing that happens is an alert saying the
+    /// data is gone, so silence would be the same false promise in a new place.
+    ///
+    /// Skipped as root, which can unlink through a directory it has no write
+    /// permission on and would therefore see no failure to report.
+    @Test(.enabled(if: getuid() != 0))
+    func aWitnessThatCouldNotBeUnlinkedIsReportedRatherThanCalledSuccess() throws {
+        try writeProofRunResidue()
+        let keys = zkDirectory.appendingPathComponent("keys", isDirectory: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: keys.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755],
+                                                   ofItemAtPath: keys.path)
+        }
+
+        // Asserted on the sweep itself rather than on `eraseEverything()`, so
+        // that a Keychain failure on the host cannot make this pass without the
+        // witness having anything to do with it.
+        let eraser = makeEraser()
+        #expect(throws: (any Error).self) {
+            try eraser.eraseProofResidue()
+        }
+
+        // The unlinkable file stops nothing: the input JSON sits at the root of
+        // the working directory, is deletable, and is gone. Same rule as the
+        // credential-store refusal below — every location gets its attempt.
+        #expect(!zkFileExists("cert_chain_rs4096_input.json"))
+        #expect(zkFileExists("keys/cert_chain_rs4096_witness.bin"),
+                "the premise of this test is that this one could not be deleted")
     }
 
     // MARK: - Partial failure

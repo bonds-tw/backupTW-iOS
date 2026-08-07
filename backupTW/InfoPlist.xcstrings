@@ -36,6 +36,18 @@
           }
         }
       }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "Privacy - Camera Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "需要相機才能掃描查驗用的 QR Code：出示證件時掃描查驗者的條碼，查驗他人證件時掃描對方的條碼。全程離線比對，不會拍照、不會錄影，也不會將任何影像或資料上傳。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
