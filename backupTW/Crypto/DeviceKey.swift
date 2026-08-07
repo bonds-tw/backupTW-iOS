@@ -160,6 +160,39 @@ struct DeviceKey {
         return key
     }
 
+    /// Returns the key this install already owns, or `nil`. **Never creates one.**
+    ///
+    /// `loadOrCreate` is the wrong call on any path that is *using* an existing
+    /// identity rather than establishing one, and presentation is the sharpest
+    /// case: a missing install marker makes `loadOrCreate` destroy the stored key
+    /// and mint a fresh identity, and it would do that at a verification counter,
+    /// one line before the holder-binding check rejects the credential it had
+    /// just orphaned. The user would be told their document belongs to an
+    /// identifier the device no longer has — while the device was the thing that
+    /// threw it away, a second ago, because they tapped 「出示證件」.
+    ///
+    /// The marker is honoured rather than ignored: a key that predates this
+    /// install is reported absent, exactly as `loadOrCreate` treats it, because
+    /// answering with it would resurrect the identity an app deletion retired.
+    /// The difference is only that this call leaves it alone instead of replacing
+    /// it — the caller cannot present anything under it either way, and a screen
+    /// that reads state must not rewrite it (the same rule
+    /// `DiagnosticsViewController.signingGroup` had to learn).
+    ///
+    /// Takes `generationLock` so the answer cannot be "no key" because a reset
+    /// was halfway through.
+    static func load(tag: String = defaultTag,
+                     installRecord: UserDefaults? = .standard) throws -> DeviceKey? {
+        generationLock.lock()
+        defer { generationLock.unlock() }
+
+        guard let existing = try loadPrivateKey(tag: Data(tag.utf8)) else { return nil }
+        let belongsToThisInstall = installRecord
+            .map { $0.bool(forKey: installMarkerKey(tag: tag)) } ?? true
+        guard belongsToThisInstall else { return nil }
+        return try DeviceKey(privateKey: existing)
+    }
+
     /// Removes the key. Deleting a key that was never created leaves the device
     /// in the state the caller asked for, so `errSecItemNotFound` is a success.
     ///
