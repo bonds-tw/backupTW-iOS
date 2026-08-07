@@ -30,6 +30,7 @@ class SettingsViewController: UICollectionViewController {
         static let license = NSLocalizedString("License", comment: "")
         static let diagnostics = NSLocalizedString("Diagnostics", comment: "")
         static let eraseEverything = NSLocalizedString("Erase all local data", comment: "")
+        static let minimalDisclosure = NSLocalizedString("Minimal disclosure", comment: "ZK proof screen title")
     }
 
     private let sections = [
@@ -53,6 +54,15 @@ class SettingsViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "trash")?.withTintColor(.systemRed, renderingMode: .alwaysOriginal),
                  title: Row.eraseEverything,
                  secondaryText: NSLocalizedString("Removes your credentials, the documents they came from, and the key that identifies you.", comment: ""))
+        ]),
+        // Its own section rather than a row under Data and Privacy, because it
+        // is the only control in the app that downloads close to two gigabytes,
+        // and burying it next to "erase everything" invites the tap that was
+        // meant for the row above.
+        Section(title: NSLocalizedString("Experimental", comment: ""), items: [
+            Item(image: UIImage(systemName: "eye.slash")?.withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
+                 title: Row.minimalDisclosure,
+                 secondaryText: NSLocalizedString("Prove you hold a valid 自然人憑證 without showing it. Needs a large one-time download.", comment: ""))
         ])
     ]
 
@@ -137,6 +147,8 @@ extension SettingsViewController {
             navigationController?.pushViewController(DiagnosticsViewController(), animated: true)
         case Row.eraseEverything:
             confirmEraseEverything()
+        case Row.minimalDisclosure:
+            navigationController?.pushViewController(ZKProofViewController(), animated: true)
         default:
             break
         }

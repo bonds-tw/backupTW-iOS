@@ -186,6 +186,30 @@ final class CredentialStore: CredentialStoring, @unchecked Sendable {
         return names.compactMap(Self.identifier(fromFileName:)).sorted()
     }
 
+    /// The protection class the filesystem actually reports for a stored
+    /// credential, or nil if there is no such credential.
+    ///
+    /// This exists because the diagnostics screen used to work the path out for
+    /// itself — `directory` plus the identifier — and identifiers are not
+    /// filenames. `fileURL(for:)` hex-encodes them, so the screen was reading
+    /// the attributes of a path that does not exist, getting nothing back, and
+    /// reporting on real hardware that the user's credential was stored
+    /// unprotected. It was not; the check was wrong.
+    ///
+    /// A self-check that raises a false alarm is worse than one that is absent,
+    /// because it sends whoever reads it to repair something that works. So the
+    /// encoding stays private and the answer comes from the type that owns it.
+    func reportedFileProtection(for id: String) throws -> FileProtectionType? {
+        let url = try fileURL(for: id)
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        return attributes[.protectionKey] as? FileProtectionType
+    }
+
     /// Removes every credential. Deliberately *not* an identity reset — this
     /// clears what the device signed, not what it signs with, and the `did:key`
     /// a re-issued credential carries afterwards is the one it carried before.

@@ -138,9 +138,24 @@ enum SelfCheck {
                           detail: NSLocalizedString("No documents yet — create one first", comment: ""),
                           consequence: nil)
         }
-        let file = store.directory.appendingPathComponent(id)
-        let actual = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.protectionKey]
-            as? FileProtectionType
+        // Ask the store, which owns the identifier-to-filename encoding. Working
+        // the path out here meant reading a file that does not exist and telling
+        // the user their credential was unprotected when it was not.
+        //
+        // Not `try?`: since Swift 5 that flattens, so a read that threw and a
+        // file with genuinely no protection class would both arrive as nil.
+        // Collapsing those two is the same mistake in a smaller form — one of
+        // them is a broken check and the other is a broken guarantee, and the
+        // user is owed different words for each.
+        let actual: FileProtectionType?
+        do {
+            actual = try store.reportedFileProtection(for: id)
+        } catch {
+            return Result(
+                title: title, verdict: .informational,
+                detail: NSLocalizedString("Could not read", comment: ""),
+                consequence: nil)
+        }
         return Result(
             title: title,
             verdict: actual == .completeUnlessOpen ? .passed : .failed,

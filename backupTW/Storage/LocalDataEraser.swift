@@ -20,6 +20,16 @@ import Foundation
 /// this data is swept from here. Anything added later that writes identity data
 /// to disk belongs in `eraseEverything()` on the same day it is written.
 ///
+/// **That rule was broken once already, by the ZK working directory.** Proving
+/// writes the holder's certificate — expanded into circuit limbs, serial number
+/// and all — plus a 62 MB witness holding every private wire, into Application
+/// Support, and this type did not know the directory existed. The path that
+/// makes it more than a tidiness point: proving peaks around two gigabytes, a
+/// 4 GB iPhone kills the app for it, and a killed process never reaches
+/// `ZKProver.prove`'s `defer`. So the realistic sequence is a jetsam kill, a
+/// relaunch, a tap on 「清除所有本機資料」, an alert saying it is done, and every
+/// one of those files still on disk. See `proofArtifactFilenames`.
+///
 /// **That includes the device key.** The Secure Enclave key is not a file, so it
 /// is easy to forget when thinking about "data on disk", and forgetting it
 /// defeats the erase: the key alone re-derives the same `did:key` on the next
@@ -36,9 +46,44 @@ struct LocalDataEraser {
     /// `eraseLegacyPlaintext(in:)`.
     private static let legacyResidueExtensions: Set<String> = ["zip", "pdf"]
 
+    /// Everything one proof run leaves in the ZK working directory that came
+    /// from the cardholder.
+    ///
+    /// Composed from `ZKProver`'s own four lists rather than restated, so a file
+    /// added there cannot quietly stop being erased here — which is the whole
+    /// reason those lists are not `private`.
+    ///
+    /// All four, not only the two `ZKProver.discardSecretArtifacts()` removes:
+    ///
+    ///   * the input JSONs are the holder's certificate expanded into circuit
+    ///     limbs, serial number included;
+    ///   * the witnesses are the assignment of every private wire in the
+    ///     circuit — about 62 MB of it for `certChainRS4096`;
+    ///   * the instances carry the nullifier, which is a *stable pseudonym* for
+    ///     this holder at this relying party. Leaving it behind leaves exactly
+    ///     the linkage the erase button exists to break, which is the same
+    ///     reason the device key goes;
+    ///   * the proofs are the deliverable, and a deliverable minted from a
+    ///     certificate the user has just asked to be forgotten is not a thing to
+    ///     keep.
+    ///
+    /// Deliberately **absent**: the two proving keys, the revocation snapshot
+    /// and `MOICA-G3.cer`. Those are public circuit material from a GitHub
+    /// release, identical on every device and about nobody, and silently
+    /// deleting ~950 MB the user would have to download again is a different
+    /// promise from the one this button makes.
+    static var proofArtifactFilenames: [String] {
+        ZKProver.inputFilenames + ZKProver.witnessFilenames
+            + ZKProver.instanceFilenames + ZKProver.proofFilenames
+    }
+
     private let credentials: CredentialStoring
     private let scratch: MyDataScratch
     private let documentsDirectory: URL?
+    /// Where `ZKProver` works. `nil` only when Application Support cannot be
+    /// resolved at all — the same condition under which nothing was ever written
+    /// there.
+    private let zkWorkingDirectory: URL?
     private let keyTag: String
     private let installRecord: UserDefaults?
 
@@ -49,11 +94,13 @@ struct LocalDataEraser {
          scratch: MyDataScratch = MyDataScratch(),
          documentsDirectory: URL? = FileManager.default.urls(for: .documentDirectory,
                                                              in: .userDomainMask).first,
+         zkWorkingDirectory: URL? = try? CircuitAssets.defaultDirectory(),
          keyTag: String = DeviceKey.defaultTag,
          installRecord: UserDefaults? = .standard) {
         self.credentials = credentials
         self.scratch = scratch
         self.documentsDirectory = documentsDirectory
+        self.zkWorkingDirectory = zkWorkingDirectory
         self.keyTag = keyTag
         self.installRecord = installRecord
     }
@@ -97,8 +144,39 @@ struct LocalDataEraser {
                                             keyTag: keyTag,
                                             installRecord: installRecord) }
         attempt { try scratch.purge() }
+        attempt { try eraseProofResidue() }
         if let documentsDirectory {
             attempt { try eraseLegacyPlaintext(in: documentsDirectory) }
+        }
+
+        if let firstFailure { throw firstFailure }
+    }
+
+    /// Removes what a proof run leaves in the ZK working directory.
+    ///
+    /// Its own method, and internal rather than private, because there is a
+    /// second caller this deserves that does not exist yet: app launch. A run
+    /// killed by jetsam during the ~2 GB proving step never reaches
+    /// `ZKProver.prove`'s `defer`, and today nothing clears what it left until
+    /// either the next proof starts or the user erases everything. A sweep on
+    /// the first launch after that kill is a two-line hook in the app delegate
+    /// and it is not written here because this change does not own that file.
+    ///
+    /// Failures are reported rather than swallowed — unlike
+    /// `ZKProver.discardSecretArtifacts`, which is best-effort cleanup around a
+    /// proof. Here the caller is about to tell someone their data is gone, and a
+    /// witness that could not be unlinked has to reach that sentence.
+    func eraseProofResidue() throws {
+        guard let zkWorkingDirectory else { return }
+        let fileManager = FileManager.default
+        var firstFailure: Error?
+
+        for name in Self.proofArtifactFilenames {
+            let url = zkWorkingDirectory.appendingPathComponent(name)
+            // Checked first so that "this run never produced a witness" is not
+            // reported as a failure to delete one.
+            guard fileManager.fileExists(atPath: url.path) else { continue }
+            do { try fileManager.removeItem(at: url) } catch { firstFailure = firstFailure ?? error }
         }
 
         if let firstFailure { throw firstFailure }

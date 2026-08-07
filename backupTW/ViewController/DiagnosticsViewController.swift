@@ -101,6 +101,13 @@ final class DiagnosticsViewController: UICollectionViewController {
     private static func symbol(_ name: String, _ colour: UIColor) -> UIImageView {
         let view = UIImageView(image: UIImage(systemName: name))
         view.tintColor = colour
+        // Named so a UI test can tell a passing screen from a failing one. An
+        // SF Symbol carries no identifier of its own, and a test that looked for
+        // one anyway matched nothing and passed while a check was failing —
+        // twice, in two different spellings. The verdict has to be readable as
+        // something other than the colour of a glyph.
+        view.isAccessibilityElement = true
+        view.accessibilityIdentifier = name
         return view
     }
 
@@ -205,11 +212,11 @@ final class DiagnosticsViewController: UICollectionViewController {
         // Read the class back off the filesystem rather than trusting the value
         // passed at write time — that is the whole point of checking on device.
         if let id = ids.first {
-            let file = store.directory.appendingPathComponent(id)
-            let attributes = try? FileManager.default.attributesOfItem(atPath: file.path)
-            let actual = attributes?[.protectionKey] as? FileProtectionType
+            // Via the store: identifiers are not filenames, and reconstructing
+            // the path here reported "none" for a credential that is protected.
+            let actual = try? store.reportedFileProtection(for: id)
             rows.append(Row(title: NSLocalizedString("File protection", comment: ""),
-                            value: actual.map { $0.rawValue } ?? NSLocalizedString("None reported", comment: ""),
+                            value: actual?.rawValue ?? NSLocalizedString("None reported", comment: ""),
                             passed: actual == .completeUnlessOpen))
         }
 
