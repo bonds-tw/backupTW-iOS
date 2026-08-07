@@ -3009,6 +3009,66 @@
           }
         }
       }
+    },
+    "These files have to be prepared first" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這些檔案要先準備"
+          }
+        }
+      }
+    },
+    "No download · uses %@ on this device" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不需下載 · 在這支手機上佔用 %@"
+          }
+        }
+      }
+    },
+    "Made on this phone · %@ on disk" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在這支手機上產生 · 佔用 %@"
+          }
+        }
+      }
+    },
+    "Both circuits completed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "兩組電路都完成了"
+          }
+        }
+      }
+    },
+    "This device checked the proof and refused it." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這支手機檢查了這份證明，並判定不通過。"
+          }
+        }
+      }
+    },
+    "The check ran but could not reach a verdict." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檢查跑完了，但無法判定結果。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

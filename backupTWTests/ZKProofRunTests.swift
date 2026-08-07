@@ -44,14 +44,21 @@ private enum Fixture {
                        certificateChainBytes: UInt64 = 803,
                        userSignatureBytes: UInt64 = 261,
                        caveats: [ProofCaveat] = ProofCaveat.allCases,
-                       directory: URL = URL(fileURLWithPath: "/tmp/zk")) -> ZKProofBundle {
+                       directory: URL = URL(fileURLWithPath: "/tmp/zk"),
+                       // The runner no longer calls a verifier, so this — not a
+                       // `FakeVerifier` — is how a test says what this device
+                       // decided about the proof. Defaulted to the passing case
+                       // because that is what `ZKProver` returns on the success
+                       // path: a bundle it has already checked here.
+                       selfCheck: ZKSelfCheck = .passed(Fixture.outcome)) -> ZKProofBundle {
         ZKProofBundle(
             certificateChain: ProofMetrics(proveMilliseconds: certificateChainMs,
                                            proofByteCount: certificateChainBytes),
             userSignature: ProofMetrics(proveMilliseconds: userSignatureMs,
                                         proofByteCount: userSignatureBytes),
             caveats: caveats,
-            proofDirectory: directory)
+            proofDirectory: directory,
+            selfCheck: selfCheck)
     }
 
     static func environment(isSimulator: Bool = false,
@@ -150,32 +157,14 @@ private struct FakeProver: ZKProving {
     }
 }
 
-private struct FakeVerifier: ZKProofVerifying {
-    let log: CallLog
-    var missing: [String] = []
-    var result: Result<ZKVerificationOutcome, Error> = .success(Fixture.outcome)
-    /// Runs inside `verify`, synchronously, exactly where the real one spends
-    /// tens of seconds inside Rust. The only way to observe what thread that
-    /// happens on, and the only way to hold it there.
-    var onVerify: (@Sendable () -> Void)?
-
-    func missingArtifacts(in workingDirectory: URL) -> [String] {
-        log.record("missingArtifacts")
-        return missing
-    }
-
-    func verify(documentsPath: String) throws -> ZKVerificationOutcome {
-        log.record("verify")
-        onVerify?()
-        return try result.get()
-    }
-}
-
-/// Set on `ZKProofRunner.verificationQueue` so a fake can recognise it from the
-/// inside. `DispatchQueue.getSpecific` reads from whatever queue is current, so
-/// this answers "did the blocking call land where it was supposed to" rather
-/// than the weaker "did it land somewhere else".
-private let verificationQueueMarker = DispatchSpecificKey<Bool>()
+// No `FakeVerifier` here, and no verification-queue marker.
+//
+// `ZKProofRunner` does not take a verifier: it renders `ZKProofBundle.selfCheck`
+// and calls nothing. A fake wired into these tests would be inert, and a test
+// that configures an inert dependency and then asserts a behaviour is the
+// vacuous kind — it passes for reasons unrelated to what it claims to check.
+// The verifier's own semantics, and the rule that the blocking call must leave
+// the cooperative pool, are tested against `ZKProver` in `ZKProverTests`.
 
 /// A one-shot barrier. `ZKProver` refuses a second concurrent proof and so does
 /// `ZKProofRunner`; testing that needs a first run that is genuinely still in
@@ -227,7 +216,6 @@ private struct NoFootprint: ProvingBenchmarkFootprintTracking {
 private func makeRunner(assets: FakeAssets,
                         signer: FakeSigner,
                         prover: FakeProver,
-                        verifier: FakeVerifier,
                         clockValues: [UInt64] = [0, 31_000_000_000, 31_500_000_000],
                         peak: UInt64? = 2_100_000_000,
                         environment: ProvingBenchmark.Environment = Fixture.environment())
@@ -235,7 +223,6 @@ private func makeRunner(assets: FakeAssets,
     ZKProofRunner(assets: assets,
                   signer: signer,
                   prover: prover,
-                  verifier: verifier,
                   clock: FixedClock(values: clockValues),
                   footprint: NoFootprint(peak: peak),
                   headroomAtStart: { 3_000_000_000 },
@@ -264,8 +251,7 @@ struct ZKProofRunnerTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -277,9 +263,14 @@ struct ZKProofRunnerTests {
             }
         }
         // The whole point of the ordering: nothing is signed before the files
-        // exist, and nothing is verified before a proof does.
+        // exist, and nothing is proved before it is signed.
+        //
+        // No "verify" any more — not because the check stopped happening, but
+        // because it moved inside `prove`, where a refused proof can be withheld
+        // instead of returned. Stage 4 above still reports success, and it now
+        // reports what `ZKProver` decided rather than a second pass of its own.
         #expect(log.all.filter { $0 != "plan" && $0 != "missingArtifacts" }
-                == ["sign", "prove", "verify"])
+                == ["sign", "prove"])
         #expect(snapshot.firstProblem == nil)
     }
 
@@ -289,8 +280,7 @@ struct ZKProofRunnerTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         _ = await runner.run(challenge: Fixture.challenge) { _ in }
         #expect(log.count("prepare") == 0)
@@ -302,8 +292,7 @@ struct ZKProofRunnerTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: outstandingPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         _ = await runner.run(challenge: Fixture.challenge) { _ in }
         let ordered = log.all.filter { $0 == "prepare" || $0 == "sign" }
@@ -318,8 +307,7 @@ struct ZKProofRunnerTests {
                                planToReturn: outstandingPlan,
                                failure: CircuitAssetError.noUsableConnection(name: "x")),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -356,8 +344,7 @@ struct ZKProofRunnerTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: outstandingPlan, failure: tampered),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -398,8 +385,7 @@ struct ZKProofRunnerTests {
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log,
                                result: .failure(ZKRunError.signingTimedOut)),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -419,8 +405,7 @@ struct ZKProofRunnerTests {
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
             prover: FakeProver(log: log,
-                               result: .failure(ZKProofError.revocationCheckDegraded)),
-            verifier: FakeVerifier(log: log))
+                               result: .failure(ZKProofError.revocationCheckDegraded)))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -443,8 +428,7 @@ struct ZKProofRunnerTests {
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
             prover: FakeProver(log: log,
                                result: .failure(ZKProofError.assetsNotReady(missing: ["a"],
-                                                                           stale: []))),
-            verifier: FakeVerifier(log: log))
+                                                                           stale: []))))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
         guard case .failed(_, let recoverable) = snapshot.state(.proof) else {
@@ -464,8 +448,7 @@ struct ZKProofRunnerTests {
                                planToReturn: outstandingPlan,
                                failure: CancellationError()),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
         guard case .failed(let message, _) = snapshot.state(.assets) else {
@@ -487,8 +470,7 @@ struct ZKProofRunnerTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: outstandingPlan, progressToEmit: emitted),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let seen = Collected()
         _ = await runner.run(challenge: Fixture.challenge) { snapshot in
@@ -509,8 +491,7 @@ struct ZKProofRunnerTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle()), gate: gate),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle()), gate: gate))
 
         async let first = runner.run(challenge: Fixture.challenge) { _ in }
         // Let the first run get as far as the prover.
@@ -530,74 +511,6 @@ struct ZKProofRunnerTests {
         // slowdown. One call, not two.
         #expect(log.count("prove") == 1)
         #expect(firstResult.report != nil)
-    }
-
-    @Test("the blocking verification call leaves the runner's executor free")
-    func verificationDoesNotOccupyTheActor() async throws {
-        // What the real call does here: loads a 693 MB and a 274 MB verifying
-        // key and runs three Groth16 checks, blocking its thread throughout.
-        // `ProofBackend` states the rule those calls have to obey — "these calls
-        // block for tens of seconds and must not occupy a cooperative pool
-        // thread" — and `ZKProver.offload` obeys it for prove. Called straight
-        // from `run`, verification held `ZKProofRunner`'s executor for the whole
-        // of it, so nothing else on the actor could be serviced.
-        //
-        // The observable: while the verifier is inside its call, ask the actor a
-        // question. On the executor it cannot answer.
-        ZKProofRunner.verificationQueue.setSpecific(key: verificationQueueMarker, value: true)
-        let log = CallLog()
-        let entered = DispatchSemaphore(value: 0)
-        let release = DispatchSemaphore(value: 0)
-        let landedOnTheDedicatedQueue = Locked(false)
-        let verifier = FakeVerifier(log: log, onVerify: {
-            // A `Task.detached` would free the actor and still be on the
-            // cooperative pool, i.e. still the bug. This is what tells the two
-            // apart.
-            landedOnTheDedicatedQueue.mutate {
-                $0 = DispatchQueue.getSpecific(key: verificationQueueMarker) == true
-            }
-            entered.signal()
-            release.wait()
-        })
-        let runner = makeRunner(
-            assets: FakeAssets(log: log, planToReturn: readyPlan),
-            signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: verifier)
-
-        let running = Task { await runner.run(challenge: Fixture.challenge) { _ in } }
-
-        // Wait, without blocking this thread, for the verifier to be inside its
-        // call. Bounded so a regression fails rather than hangs.
-        var waited = 0
-        while entered.wait(timeout: .now()) != .success, waited < 300 {
-            try await Task.sleep(nanoseconds: 10_000_000)
-            waited += 1
-        }
-
-        let answered = Locked(false)
-        let probe = Task {
-            _ = await runner.assetPlan()
-            answered.mutate { $0 = true }
-        }
-        waited = 0
-        while !answered.value, waited < 200 {
-            try await Task.sleep(nanoseconds: 10_000_000)
-            waited += 1
-        }
-
-        #expect(answered.value,
-                "the verifier held ZKProofRunner's executor for the duration of the call")
-        #expect(landedOnTheDedicatedQueue.value,
-                "verification must run on ZKProofRunner.verificationQueue, not a pool thread")
-
-        release.signal()
-        _ = await probe.value
-        let snapshot = await running.value
-        guard case .succeeded = snapshot.state(.verification) else {
-            Issue.record("expected the verification stage to succeed")
-            return
-        }
     }
 
     @Test("a download failure that only costs on-device checking does not stop the run")
@@ -622,9 +535,8 @@ struct ZKProofRunnerTests {
                                    required: 778_000_000, available: 250_000_000),
                                verificationOnly: ["cert_chain_rs4096_verifying"]),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log,
-                                   missing: ["keys/cert_chain_rs4096_verifying.key"]))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle(
+                selfCheck: .notPerformed(missing: ["keys/cert_chain_rs4096_verifying.key"])))))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -676,8 +588,7 @@ struct ZKProofRunnerTests {
                                    required: 778_000_000, available: 250_000_000),
                                verificationOnly: ["cert_chain_rs4096_verifying"]),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -702,8 +613,7 @@ struct ZKProofRunnerTests {
                                result: .success(Fixture.bundle(certificateChainMs: .max,
                                                                userSignatureMs: 1,
                                                                certificateChainBytes: .max,
-                                                               userSignatureBytes: 2))),
-            verifier: FakeVerifier(log: log))
+                                                               userSignatureBytes: 2))))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -732,34 +642,39 @@ private final class Collected: @unchecked Sendable {
 @Suite("ZK verification semantics")
 struct ZKVerificationSemanticsTests {
 
-    @Test("a proof this device rejects is a failure, not a success")
+    /// A rejected proof no longer arrives as a bundle carrying a failing
+    /// outcome, because `ZKProver` refuses to return one at all — see
+    /// `ZKSelfCheck`. It arrives as `ZKProofError.proofRejectedOnThisDevice`,
+    /// and this is the test that the runner does not then mistranslate it.
+    ///
+    /// Falling into the generic proving-failure branch reported it as stage 3
+    /// (「建立證明」) failing, which says the proof could not be built, and left
+    /// stage 4 at `.waiting`, which says nothing ever checked it. Both circuits
+    /// proved and this device checked the result; only the fourth stage failed.
+    @Test("a proof this device rejects fails the check, not the proving")
     func rejectedProofIsAFailure() async throws {
         let log = CallLog()
-        let refused = ZKVerificationOutcome(certificateChainValid: true,
-                                            userSignatureValid: true,
-                                            linked: false,
-                                            certificateChainMilliseconds: 100,
-                                            userSignatureMilliseconds: 30,
-                                            linkMilliseconds: 10)
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log, result: .success(refused)))
+            prover: FakeProver(log: log,
+                               result: .failure(ZKProofError.proofRejectedOnThisDevice)))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
-        guard case .failed = snapshot.state(.verification) else {
-            Issue.record("a proof that did not verify must not render as success")
+        // Stage 3 succeeded: the circuits ran. The refusal is stage 4's.
+        guard case .succeeded = snapshot.state(.proof) else {
+            Issue.record("both circuits proved, so 建立證明 must not read as failed: \(snapshot.state(.proof))")
             return
         }
-        let report = try #require(snapshot.report)
-        #expect(report.text.contains("VERIFICATION FAILED"))
-        // A verifier that ran and said no is a verdict, not a malfunction.
-        #expect(report.verification == .completed(refused))
-        // The result still exists: the timings are worth showing even when the
-        // answer is no.
-        #expect(report.bundle.totalProveMilliseconds > 0)
+        guard case .failed = snapshot.state(.verification) else {
+            Issue.record("a proof that did not verify must not render as success: \(snapshot.state(.verification))")
+            return
+        }
+        #expect(snapshot.isFinished)
+        // No report: `ZKProofRunReport` carries a bundle, and there is no bundle
+        // for a proof this device refused. The stage states carry the finding.
+        #expect(snapshot.report == nil)
     }
 
     @Test("every one of the three checks has to pass")
@@ -786,9 +701,8 @@ struct ZKVerificationSemanticsTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log,
-                                   missing: ["keys/cert_chain_rs4096_verifying.key"]))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle(
+                selfCheck: .notPerformed(missing: ["keys/cert_chain_rs4096_verifying.key"])))))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -808,14 +722,19 @@ struct ZKVerificationSemanticsTests {
         #expect(report.text.contains("NOT VERIFIED ON THIS DEVICE"))
     }
 
-    @Test("a verifier that throws did not decide anything, and leaks no Rust message")
+    /// The classification of "the verifier threw" into `.inconclusive` now
+    /// happens in `ZKProver.verifyOnThisDevice` and is tested there
+    /// (`distinguishesRejectedFromUncheckableFromUnprepared`). What is left for
+    /// the runner, and what this pins, is that it does not upgrade that answer
+    /// into a verdict on the way to the screen.
+    @Test("a check that broke did not decide anything, and leaks no Rust message")
     func verifierThrowing() async throws {
         let log = CallLog()
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log, result: .failure(ProofBackendFailure.inputOutput)))
+            prover: FakeProver(log: log,
+                               result: .success(Fixture.bundle(selfCheck: .inconclusive))))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
@@ -826,9 +745,9 @@ struct ZKVerificationSemanticsTests {
             return
         }
         #expect(!message.isEmpty)
-        // `ProofBackendFailure` has no `errorDescription`, so Foundation's
-        // "The operation couldn't be completed. (… error N.)" is what a naive
-        // path would show. It must not.
+        // The message is ours, not Foundation's rendering of an enum with no
+        // `errorDescription` ("The operation couldn't be completed. (… error N.)")
+        // and not a raw case name from below the FFI boundary.
         #expect(!message.contains("couldn't be completed"))
         #expect(!message.contains("inputOutput"))
         let report = try #require(snapshot.report)
@@ -1128,8 +1047,7 @@ struct ZKProofRunReportTests {
         let runner = makeRunner(
             assets: FakeAssets(log: log, planToReturn: readyPlan),
             signer: FakeSigner(log: log, result: .success(inputs)),
-            prover: FakeProver(log: log, result: .success(Fixture.bundle())),
-            verifier: FakeVerifier(log: log))
+            prover: FakeProver(log: log, result: .success(Fixture.bundle())))
 
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
         let report = try #require(snapshot.report)
@@ -1203,8 +1121,7 @@ struct ZKStageRenderingTests {
             signer: FakeSigner(log: log, result: .success(try Fixture.inputs())),
             prover: FakeProver(log: log,
                                result: .success(Fixture.bundle(certificateChainMs: 5_000,
-                                                               userSignatureMs: 2_305))),
-            verifier: FakeVerifier(log: log))
+                                                               userSignatureMs: 2_305))))
         let snapshot = await runner.run(challenge: Fixture.challenge) { _ in }
 
         let detail = ZKStagePresentation.detail(for: snapshot.state(.proof))
@@ -1818,6 +1735,56 @@ struct TWFidOHolderSignerTests {
 /// either way.
 @Suite("最小揭露 screen copy")
 struct ZKProofScreenCopyTests {
+
+    /// A plan with work left to do that costs nothing on the wire.
+    ///
+    /// Not hypothetical, and not a degenerate case: `VerifyingKeyDerivation` cuts
+    /// both verifying keys out of a proving key already on disk, so this is what
+    /// every device sees once the proving keys are installed. The screen rendered
+    /// it through the download wording and told the user 「下載 0 KB」 — the one
+    /// screen in the app whose entire job is to itemise a price before a tap,
+    /// naming a resource this step does not spend.
+    @Test("work that costs nothing on the wire is not priced as a download")
+    func derivedAssetsAreNotDescribedAsADownload() {
+        let plan = ZKAssetPlan(outstanding: [
+            ZKAssetRequirement(name: "cert_chain_rs4096_verifying",
+                               displayName: "checking key",
+                               downloadByteCount: 0,
+                               installedByteCount: 693_663_362,
+                               isStale: false)
+        ])
+        #expect(plan.downloadByteCount == 0)
+
+        let summary = ZKStagePresentation.preparationSummary(for: plan)
+        for text in [summary.title, summary.detail] {
+            #expect(!text.contains("下載 0"), "priced a derived file as a download: \(text)")
+            #expect(!text.contains("Download 0"), "priced a derived file as a download: \(text)")
+        }
+        // The disk cost is still disclosed — this is a rewording, not a silence.
+        #expect(summary.detail.contains(ZKStagePresentation.byteString(693_663_362)))
+
+        let row = ZKStagePresentation.requirementDetail(for: plan.outstanding[0])
+        #expect(!row.contains("下載 0") && !row.contains("Download 0"),
+                "priced a derived file as a download: \(row)")
+        #expect(row.contains(ZKStagePresentation.byteString(693_663_362)))
+    }
+
+    /// The other half: a plan that really is a download must still say so, or the
+    /// fix above would have removed the disclosure rather than corrected it.
+    @Test("a real download is still priced as one")
+    func realDownloadsStillSayDownload() {
+        let plan = ZKAssetPlan(outstanding: [
+            ZKAssetRequirement(name: "g3_tree_snapshot",
+                               displayName: "revocation snapshot",
+                               downloadByteCount: 27_657_187,
+                               installedByteCount: 27_657_187,
+                               isStale: false)
+        ])
+        let summary = ZKStagePresentation.preparationSummary(for: plan)
+        let size = ZKStagePresentation.byteString(27_657_187)
+        #expect(summary.detail.contains(size))
+        #expect(ZKStagePresentation.requirementDetail(for: plan.outstanding[0]).contains(size))
+    }
 
     /// Every phrasing of the claim that a certificate is good, in both
     /// languages the app renders.

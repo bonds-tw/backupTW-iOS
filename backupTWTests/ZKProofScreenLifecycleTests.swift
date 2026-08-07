@@ -161,7 +161,6 @@ struct ZKProofScreenLifecycleTests {
         ZKProofRunner(assets: assets,
                       signer: FakeSigner(),
                       prover: FakeProver(),
-                      verifier: FakeVerifier(),
                       footprint: NoFootprint(),
                       headroomAtStart: { 3_000_000_000 },
                       environment: { Self.environment },
@@ -238,19 +237,6 @@ private struct FakeProver: ZKProving {
                                                   proofByteCount: 261),
                       caveats: ProofCaveat.allCases,
                       proofDirectory: URL(fileURLWithPath: "/tmp/zk-lifecycle/keys"))
-    }
-}
-
-private struct FakeVerifier: ZKProofVerifying {
-    func missingArtifacts(in workingDirectory: URL) -> [String] { [] }
-
-    func verify(documentsPath: String) throws -> ZKVerificationOutcome {
-        ZKVerificationOutcome(certificateChainValid: true,
-                              userSignatureValid: true,
-                              linked: true,
-                              certificateChainMilliseconds: 120,
-                              userSignatureMilliseconds: 40,
-                              linkMilliseconds: 170)
     }
 }
 

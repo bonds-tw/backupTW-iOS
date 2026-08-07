@@ -119,8 +119,34 @@ enum ProofBackendFailure: Error, Equatable, Sendable {
     case inputOutput
     case proofGenerationFailed
     case verificationFailed
-    /// Not a `ZkProofError` at all — a Rust panic surfaced through UniFFI, or
-    /// something thrown by the Swift shim.
+
+    /// **The proof system refused a proof, and said so by panicking.**
+    ///
+    /// Separate from `.verificationFailed`, which is upstream's own typed
+    /// refusal (`ZkProofError.VerificationFailed`), because this one does not
+    /// arrive as a `ZkProofError` at all. Measured on the simulator on
+    /// 2026-08-07 with material whose `app_id` did not match: the Rust verifier
+    /// panicked with `InvalidSumcheckProof`, and UniFFI turned that into
+    /// `UniffiInternalError.rustPanic` — a type that is `fileprivate` inside
+    /// upstream's `mopro.swift` and therefore cannot be caught by name from
+    /// here, ever. It landed in `.unknown`, which is "we do not know", and the
+    /// screen said 「這支手機無法完成驗證」 about a proof that had been checked
+    /// and rejected.
+    ///
+    /// Two cases rather than one because the honest answer differs by source:
+    /// `.verificationFailed` is upstream telling us, `.proofRejected` is us
+    /// recognising a panic payload. `isRejection` is what callers should ask.
+    case proofRejected
+
+    /// Neither a `ZkProofError` nor a panic we recognise: a UniFFI decoding
+    /// error, an unrecognised Rust panic, something thrown by the Swift shim.
+    ///
+    /// **This is "we cannot tell", not "the proof is bad", and the difference is
+    /// load-bearing.** Everything that is not on `rejectionPanicMarkers` lands
+    /// here on purpose: telling a holder their proof is invalid when the truth
+    /// is that a buffer decode failed is the same class of error as telling them
+    /// an invalid proof is fine, and it is the one that gets a real certificate
+    /// thrown away.
     case unknown
 }
 
@@ -224,15 +250,15 @@ extension ProofBackendFailure {
     ///
     /// Total by construction. Anything that is not a `ZkProofError` — a Rust
     /// panic surfaced through UniFFI, a `ProofBackend` implementation with its
-    /// own error type — becomes `.unknown` rather than escaping the seam as a
-    /// raw `Error` that the layer above has no case for.
+    /// own error type — goes through `classifyingForeignFailure` rather than
+    /// escaping the seam as a raw `Error` that the layer above has no case for.
     init(_ error: Error) {
         if let failure = error as? ProofBackendFailure {
             self = failure
             return
         }
         guard let zkError = error as? ZkProofError else {
-            self = .unknown
+            self = Self.classifyingForeignFailure(error)
             return
         }
         switch zkError {
@@ -249,6 +275,91 @@ extension ProofBackendFailure {
         case .IoError:
             self = .inputOutput
         }
+    }
+
+    /// Whether this failure is **the proof system refusing a proof**, as opposed
+    /// to something that says nothing about the proof at all.
+    ///
+    /// The question every caller actually has, asked once here so that the two
+    /// places that answer it — `OpenACProofVerifier.timed` and
+    /// `ZKProver.verifyOnThisDevice` — cannot drift apart. A `switch` with no
+    /// `default:`, so a case added to `ProofBackendFailure` has to be put on one
+    /// side of this line deliberately.
+    ///
+    /// `.invalidInput` is **not** a rejection even though it can arrive from a
+    /// verify call: "the instance file did not parse" is a statement about a
+    /// file, and rendering it as 「你的證明無效」 accuses the holder of something
+    /// we did not establish.
+    var isRejection: Bool {
+        switch self {
+        case .verificationFailed, .proofRejected:
+            return true
+        case .fileNotFound, .invalidInput, .setupRequired, .inputOutput,
+             .proofGenerationFailed, .unknown:
+            return false
+        }
+    }
+
+    /// Rust panic payloads that mean the proof system refused the proof.
+    ///
+    /// **An allowlist, and deliberately only what has been observed.** Every
+    /// entry here is a string this project has actually seen come out of a
+    /// verify call for a proof that was genuinely bad; nothing is here on the
+    /// strength of reading upstream's error enum and guessing. The default for
+    /// an unrecognised panic is `.unknown`, i.e. 「無法確定」, because the two
+    /// misclassifications are not symmetric: calling a good proof invalid costs
+    /// a holder their 自然人憑證 round trip and their trust, and there is no way
+    /// for them to tell we were wrong.
+    ///
+    /// Adding a marker is therefore a two-step thing — see the panic, then add
+    /// the string — and never the other way round.
+    ///
+    ///   * `InvalidSumcheckProof` — observed 2026-08-07 on the simulator from
+    ///     `verifyUserSigRs2048`, proving material whose `app_id` did not match
+    ///     the one the circuit binds. The circuit's own
+    ///     `Failed assert in template/function RSAVerifier65537 line 44` went to
+    ///     stderr during `prove`, which returned success.
+    static let rejectionPanicMarkers = ["InvalidSumcheckProof"]
+
+    /// Classify something that is not a `ZkProofError` and not one of ours.
+    ///
+    /// `UniffiInternalError` is `fileprivate` in upstream's `mopro.swift`, so
+    /// `error as? UniffiInternalError` does not compile in this module and no
+    /// amount of care will make it. What is left is the conformance it does
+    /// declare — `LocalizedError`, whose `errorDescription` for
+    /// `.rustPanic(message)` *is* the Rust panic payload — plus reflection. That
+    /// is a weak handle and this comment is where that weakness is recorded
+    /// rather than discovered later: if upstream stops conforming, or renames
+    /// the case, this silently returns to classifying every rejection as
+    /// `.unknown`. The failure direction of that regression is the safe one, and
+    /// `ZKProverTests` pins the current behaviour.
+    ///
+    /// The eight non-panic `UniffiInternalError` cases carry fixed English
+    /// sentences about buffers and pointers, none of which contain a marker, so
+    /// they classify as `.unknown` without needing to be enumerated here.
+    static func classifyingForeignFailure(_ error: Error) -> ProofBackendFailure {
+        let text = foreignFailureText(error)
+        let recognised = rejectionPanicMarkers.contains {
+            text.range(of: $0, options: .caseInsensitive) != nil
+        }
+        return recognised ? .proofRejected : .unknown
+    }
+
+    /// Everything the error is prepared to say about itself, for matching only.
+    ///
+    /// ⚠️ **This string is read here and dropped here.** It must never be
+    /// stored, returned, logged or put in an error: a Rust panic payload is
+    /// written by code we do not control on a path whose input is a national-ID
+    /// certificate, which is the entire reason `ProofBackendFailure` carries no
+    /// `msg` in the first place. The only thing that survives this function is a
+    /// `Bool`.
+    private static func foreignFailureText(_ error: Error) -> String {
+        var text = String(describing: error)
+        if let localized = (error as? LocalizedError)?.errorDescription {
+            text.append("\n")
+            text.append(localized)
+        }
+        return text
     }
 }
 
@@ -454,6 +565,90 @@ enum ProofCaveat: String, Equatable, Sendable, CaseIterable {
 
 // MARK: - Result
 
+/// What this device established about a proof it had just produced.
+///
+/// # Why `prove` checks its own work at all
+///
+/// Measured on the simulator on 2026-08-07 with material whose `app_id` did not
+/// match the one the circuit binds — i.e. a witness that does not satisfy the
+/// constraints:
+///
+///     generateCertChainRs4096Input -> ok        (it never checks that the
+///                                                signature covers the tbs)
+///     proveUserSigRs2048           -> SUCCESS   proof 77,743 B,
+///                                                instance 34,151 B — the same
+///                                                sizes and the same duration as
+///                                                the run that was valid
+///     verifyUserSigRs2048          -> refused
+///
+/// The circuit's own `Failed assert in template/function RSAVerifier65537 line
+/// 44` went to **stderr** and nowhere else. So a proof over an unsatisfied
+/// constraint system is, from Swift, byte-count-for-byte and millisecond-for-
+/// millisecond indistinguishable from a good one. There is exactly one thing on
+/// this device that can tell them apart, and it is running the verifier.
+///
+/// The cost is a few more seconds against handing a verifier a proof that is
+/// certain to be refused, after a 自然人憑證 round trip the holder cannot repeat
+/// casually. That trade is not close.
+///
+/// # There is no `rejected` case here on purpose
+///
+/// A proof this device checked and refused does not come back as a bundle with a
+/// sad flag on it — `prove` throws `ZKProofError.proofRejectedOnThisDevice`, so
+/// there is no `ZKProofBundle` for a caller to hand onward by mistake. What is
+/// left in this type is the three states in which a proof still exists and the
+/// only honest question is *how much this device managed to establish about it*.
+enum ZKSelfCheck: Equatable, Sendable {
+
+    /// Verified here, in full, and it passed. The strongest thing this app can
+    /// say without a network.
+    case passed(ZKVerificationOutcome)
+
+    /// **Not checked by anything.** The verifying keys — or the proof artefacts
+    /// themselves — are not on disk, so nothing ran. `missing` is the file list,
+    /// in `ZKProofVerifying.missingArtifacts` order.
+    ///
+    /// This is the state the app is in until the verifying-key work lands, and
+    /// it is a case rather than a silent skip for exactly that reason: "we did
+    /// not check this" has to travel with the proof, not be inferable from its
+    /// absence.
+    case notPerformed(missing: [String])
+
+    /// The check ran and could not reach a verdict — an unrecognised failure
+    /// below the FFI boundary. **Says nothing about the proof**, in either
+    /// direction, and must not be rendered as though it did.
+    case inconclusive
+
+    /// Whether this device actually confirmed the proof. The one thing a caller
+    /// may read as an endorsement.
+    var isConfirmed: Bool {
+        if case .passed = self { return true }
+        return false
+    }
+
+    /// One sentence, and a different one for each state.
+    ///
+    /// The three are kept apart because they ask for three different things from
+    /// the reader: nothing, a download, and a bug report. The keys are the ones
+    /// `ZKProofRunner` already shows for the same three situations at stage 4,
+    /// so the two places cannot tell the holder different stories about the same
+    /// device.
+    var localizedDescription: String {
+        switch self {
+        case .passed:
+            return NSLocalizedString("Checked on this device: the proof holds",
+                                     comment: "Self-check result on a finished proof")
+        case .notPerformed:
+            return NSLocalizedString(
+                "This device can't check the proof yet: the verification keys aren't downloaded.",
+                comment: "Self-check result on a finished proof")
+        case .inconclusive:
+            return NSLocalizedString("This device couldn't finish checking the proof.",
+                                     comment: "Self-check result on a finished proof")
+        }
+    }
+}
+
 /// A finished pair of proofs, what they cost, and what they do not prove.
 struct ZKProofBundle: Equatable, Sendable {
 
@@ -468,6 +663,32 @@ struct ZKProofBundle: Equatable, Sendable {
     /// `*_instance.bin` files were left. The witnesses that were also written
     /// there are gone by the time this exists.
     let proofDirectory: URL
+
+    /// What this device managed to establish about the proof in this bundle.
+    ///
+    /// Never `.passed` unless the verifier ran here and returned all three
+    /// booleans true — see `ZKSelfCheck`. A bundle whose `selfCheck` is
+    /// `.notPerformed` or `.inconclusive` is a proof **nothing has checked**,
+    /// and a screen that draws it as a success is making a claim this app cannot
+    /// support.
+    ///
+    /// Defaulted in the initialiser to `.notPerformed(missing: [])` rather than
+    /// left required, so that a construction site which has not thought about it
+    /// gets the conservative answer instead of a compile error it would satisfy
+    /// by writing `.passed`.
+    let selfCheck: ZKSelfCheck
+
+    init(certificateChain: ProofMetrics,
+         userSignature: ProofMetrics,
+         caveats: [ProofCaveat],
+         proofDirectory: URL,
+         selfCheck: ZKSelfCheck = .notPerformed(missing: [])) {
+        self.certificateChain = certificateChain
+        self.userSignature = userSignature
+        self.caveats = caveats
+        self.proofDirectory = proofDirectory
+        self.selfCheck = selfCheck
+    }
 
     /// Saturating, not wrapping, and above all not trapping.
     ///
@@ -553,6 +774,25 @@ enum ZKProofError: Error, Equatable {
 
     case proofFailed(circuit: ZKCircuit, reason: ProofBackendFailure)
 
+    /// **Both proofs were produced, and this device checked one of them and
+    /// refused it.**
+    ///
+    /// The case that stops `prove` returning a bundle for a proof built over an
+    /// unsatisfied constraint system — see `ZKSelfCheck` for the measurement
+    /// that says such a proof is otherwise indistinguishable from a good one.
+    ///
+    /// Not recoverable, and the wording of `errorDescription` matters as much as
+    /// the flag: the same material will produce the same refused proof, so an
+    /// affordance that says 「再試一次」 spends another thirty seconds and two
+    /// gigabytes to arrive back here. What the holder needs is to know that the
+    /// signing material and the relying party do not go together, which is a
+    /// different conversation from a retry.
+    ///
+    /// Reached only from a verifier that reached a *verdict*. A check that could
+    /// not finish is `ZKSelfCheck.inconclusive` and is not an error at all,
+    /// because it establishes nothing.
+    case proofRejectedOnThisDevice
+
     /// Whether finishing the preparation the app already asks for would make the
     /// same request succeed.
     var isRecoverable: Bool {
@@ -565,7 +805,7 @@ enum ZKProofError: Error, Equatable {
             // space. Downloading it again is exactly the fix.
             return reason == .fileNotFound
         case .alreadyProving, .workingDirectoryUnavailable, .inputsRejected,
-             .inputsNotWritten, .revocationCheckDegraded:
+             .inputsNotWritten, .revocationCheckDegraded, .proofRejectedOnThisDevice:
             return false
         }
     }
@@ -600,6 +840,17 @@ extension ZKProofError: LocalizedError {
                 "The offline verification files aren't ready yet. Finish preparing them, then try again.",
                 comment: "")
 
+        case .proofRejectedOnThisDevice:
+            // The same sentence `ZKProofRunner` puts on stage 4 when its own
+            // verification pass says no, and deliberately so: it is the same
+            // fact, found one stage earlier, and inventing a second phrasing for
+            // it would make the two look like two different problems.
+            //
+            // Distinct from the generic line below because it is not "something
+            // went wrong". A verifier reached a verdict.
+            return NSLocalizedString("This device checked the proof and it did not pass.",
+                                     comment: "")
+
         case .workingDirectoryUnavailable, .inputGenerationFailed, .inputsNotWritten, .proofFailed:
             // One sentence covering every genuine failure below the seam. The
             // holder cannot act on which circuit or which Rust error it was, and
@@ -619,16 +870,29 @@ extension ZKProofError: LocalizedError {
 /// 1.96–2.27 GiB — which is at or above the jetsam ceiling for a 4 GB iPhone. Two
 /// at once is not slow, it is a kill.
 ///
-/// # What this does not do
+/// # It checks its own work, or says it could not
 ///
-/// **It does not verify.** `verifyCertChainRs4096`, `verifyUserSigRs2048` and
-/// `linkVerify` all read `keys/*_verifying.key`, and `CircuitAssets` deliberately
-/// does not download those — the note there records that each verifying key is a
-/// byte-identical 32-bytes-shorter prefix of its proving key, so they can be
-/// derived rather than fetched, and that derivation is not written yet. Until it
-/// is, on-device verification is not reachable, and `linkVerify` is precisely the
-/// seam the whitepaper's offline story depends on. This is the single largest
-/// open risk in M2 and it lives one module over, not here.
+/// `prove` runs the verifier against the proof it has just produced, before it
+/// returns anything, because a proof over an unsatisfied constraint system is
+/// otherwise indistinguishable from a good one from Swift — the measurement is
+/// in `ZKSelfCheck` and it is not a subtle difference, it is no difference at
+/// all. A verdict of "no" throws `ZKProofError.proofRejectedOnThisDevice`; the
+/// success path returns a bundle whose `selfCheck` says exactly how much this
+/// device managed to establish.
+///
+/// **That makes verifying keys a soft dependency of proving.**
+/// `verifyCertChainRs4096`, `verifyUserSigRs2048` and `linkVerify` all read
+/// `keys/*_verifying.key`, which `CircuitAssets.required` deliberately does not
+/// download — the note in `CircuitAssets.setupOnly` records that each verifying
+/// key is a byte-identical 32-bytes-shorter prefix of its proving key, so they
+/// could be derived rather than fetched. That derivation is written:
+/// `VerifyingKeyDerivation` streams both files out of the proving keys already in
+/// `keys/` and refuses any result that misses the digest it pinned, so the
+/// verifying keys are present on a device that never fetched one.
+/// Soft, not hard: an install without them still proves, and the proof comes back
+/// marked `ZKSelfCheck.notPerformed` rather than quietly unmarked. A proof
+/// nothing has checked is a legitimate thing to hold; a proof nothing has checked
+/// that *looks* checked is not.
 actor ZKProver {
 
     // MARK: Artifact names
@@ -685,6 +949,12 @@ actor ZKProver {
     private let workingDirectory: URL
     private let readiness: @Sendable () async -> ZKAssetReadiness
     private let backend: any ProofBackend
+
+    /// Used on the way *out* of `prove`, to check the proof this device just
+    /// made. The same seam `ZKProofRunner` uses at stage 4, and the same
+    /// protocol, so a test can drive both from one fake.
+    private let verifier: any ZKProofVerifying
+
     private let fileManager = FileManager.default
 
     /// The actor alone does not give us this: `prove` suspends at every `await`,
@@ -697,8 +967,14 @@ actor ZKProver {
     /// and the prover is already using all of them through rayon. A dedicated
     /// serial queue also enforces one-at-a-time a second time, below the
     /// `isProving` flag.
-    private static let queue = DispatchQueue(label: "tw.bonds.backupTW.zkProver",
-                                             qos: .userInitiated)
+    /// Internal rather than private because the property that matters — that a
+    /// call blocking for tens of seconds left the cooperative pool and this
+    /// actor's executor — is only observable to a test that can recognise the
+    /// queue it landed on. `ZKProofRunner` used to own a second queue for the
+    /// verify half; now that verification lives here, this is the only one, and
+    /// it is what keeps that guarantee.
+    static let queue = DispatchQueue(label: "tw.bonds.backupTW.zkProver",
+                                     qos: .userInitiated)
 
     // MARK: Construction
 
@@ -707,18 +983,23 @@ actor ZKProver {
     /// up an asset store.
     init(workingDirectory: URL,
          readiness: @escaping @Sendable () async -> ZKAssetReadiness,
-         backend: any ProofBackend) {
+         backend: any ProofBackend,
+         verifier: any ZKProofVerifying = OpenACProofVerifier()) {
         self.workingDirectory = workingDirectory
         self.readiness = readiness
         self.backend = backend
+        self.verifier = verifier
     }
 
     /// The production wiring.
     ///
     /// Written out rather than delegating to the initialiser above: an actor's
     /// initialisers are all designated, so `self.init` is not available here.
-    init(assets: CircuitAssets, backend: any ProofBackend = OpenACProofBackend()) {
+    init(assets: CircuitAssets,
+         backend: any ProofBackend = OpenACProofBackend(),
+         verifier: any ZKProofVerifying = OpenACProofVerifier()) {
         self.workingDirectory = assets.workingDirectory
+        self.verifier = verifier
         self.readiness = {
             // Two hops rather than one so that "not downloaded" and "downloaded
             // but stale" stay separable all the way to the error the user sees.
@@ -744,10 +1025,16 @@ actor ZKProver {
     ///  4. assemble and write the circuit inputs;
     ///  5. confirm both files exist and that the revocation witness is real;
     ///  6. prove `cert_chain_rs4096`, then `user_sig_rs2048`;
-    ///  7. delete the inputs and the witnesses, whatever happened.
+    ///  7. **verify the result on this device** — refuse it if the verifier
+    ///     reaches a verdict of no, record how far the check got if it could not
+    ///     reach one at all;
+    ///  8. delete the inputs and the witnesses, whatever happened.
     ///
-    /// Step 7 runs on every exit path including a thrown error, which is why it
-    /// is a `defer` registered before anything can fail.
+    /// Step 8 runs on every exit path including a thrown error, which is why it
+    /// is a `defer` registered before anything can fail. Step 7 sits inside that
+    /// `defer` and not outside it: verification reads the proof and instance
+    /// files, never a witness, so the deletion cannot be brought forward to save
+    /// memory without checking that assumption against upstream first.
     func prove(_ inputs: ProvingInputs) async throws -> ZKProofBundle {
         guard !isProving else { throw ZKProofError.alreadyProving }
         isProving = true
@@ -841,11 +1128,63 @@ actor ZKProver {
             try proofBackend.proveUserSignature(documentsPath: documentsPath)
         }
 
+        // The step that makes the return value mean something. Throws if this
+        // device reached a verdict of "no".
+        let selfCheck = try await verifyOnThisDevice()
+
         return ZKProofBundle(certificateChain: certificateChain,
                              userSignature: userSignature,
                              caveats: Self.caveats(for: inputs.challenge),
                              proofDirectory: workingDirectory.appendingPathComponent("keys",
-                                                                                     isDirectory: true))
+                                                                                     isDirectory: true),
+                             selfCheck: selfCheck)
+    }
+
+    /// Checks the proof that has just been written, on this device.
+    ///
+    /// # The three answers, and why none of them may be merged
+    ///
+    ///   * **The verifier said no** — `throw`. There is no bundle: a proof this
+    ///     device refused must not be reachable as a result at all, because
+    ///     every screen downstream treats a returned `ZKProofBundle` as the
+    ///     thing to show a verifier.
+    ///   * **The verifier could not be run** — `.notPerformed`. The keys are not
+    ///     on disk. Says nothing about the proof, and is checked *before* the
+    ///     call so that an absent verifying key can never be mistaken for a
+    ///     failed verification.
+    ///   * **The verifier ran and broke** — `.inconclusive`. Also says nothing
+    ///     about the proof, and is deliberately not a `throw`: a proof exists,
+    ///     it may well be fine, and refusing to hand it over on the strength of
+    ///     a UniFFI decoding error would be this app inventing a rejection.
+    ///
+    /// The line between the first and the third is `ProofBackendFailure
+    /// .isRejection`, which is an allowlist of things we have actually seen mean
+    /// "no". Everything else lands on the "we cannot tell" side on purpose.
+    private func verifyOnThisDevice() async throws -> ZKSelfCheck {
+        let missing = verifier.missingArtifacts(in: workingDirectory)
+        guard missing.isEmpty else { return .notPerformed(missing: missing) }
+
+        // Copied out of `self` for the same reason the proving closures are: the
+        // body runs on a `DispatchQueue` and must not capture the actor.
+        let verifier = self.verifier
+        let documentsPath = workingDirectory.path
+
+        let outcome: ZKVerificationOutcome
+        do {
+            outcome = try await offload { try verifier.verify(documentsPath: documentsPath) }
+        } catch {
+            // Everything below the seam arrives here, including anything a
+            // `ZKProofVerifying` throws raw, so it is re-classified rather than
+            // pattern-matched: `ProofBackendFailure(_:)` is the one place that
+            // knows how to read a UniFFI panic.
+            guard ProofBackendFailure(error).isRejection else { return .inconclusive }
+            throw ZKProofError.proofRejectedOnThisDevice
+        }
+
+        // All three, per `ZKVerificationOutcome.isFullyValid`. `linked` is the
+        // one the offline story rests on and the easiest to drop by accident.
+        guard outcome.isFullyValid else { throw ZKProofError.proofRejectedOnThisDevice }
+        return .passed(outcome)
     }
 
     /// Everything this proof fails to establish.

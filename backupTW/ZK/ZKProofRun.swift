@@ -47,12 +47,19 @@ import Foundation
 ///
 /// Read off the release with `curl -sIL` on 2026-08-07. A Groth16 verifying key
 /// for these circuits is a few hundred bytes of actual content; 662 MB of it is
-/// an upstream packaging defect, not a requirement of the mathematics. It is
-/// carried anyway because the alternative — deriving the verifying key by
-/// truncating the proving key on the strength of a claim in a comment — would
-/// mean a verification result that depends on an unverified guess about a file
-/// format. If the truncation is ever confirmed against both blobs, these two
-/// rows become a local copy and the download halves.
+/// an upstream packaging defect, not a requirement of the mathematics.
+///
+/// **These are no longer downloaded.** This comment used to end by refusing to
+/// derive them — truncating a proving key on the strength of a claim in another
+/// comment would have made verification depend on an unverified guess about a
+/// file format — and to name the condition for changing its mind: confirm the
+/// truncation against both blobs. That has now been done. `VerifyingKeyDerivation`
+/// cuts both files locally, and the derived bytes were checked to be
+/// `FileManager.contentsEqual` to the downloaded ones before this changed.
+///
+/// The rows stay because these are still the files verification needs, and the
+/// sizes and digests are still what a download would have to match. What they no
+/// longer describe is 57.8 MB of traffic.
 ///
 /// The digests are the ones already recorded in `CircuitAssets.setupOnly`'s doc
 /// comment, taken from the same release manifest as the proving keys.
@@ -232,9 +239,29 @@ struct OpenACProofVerifier: ZKProofVerifying {
     /// dressed up as a technical hiccup invites the user to retry rather than to
     /// stop.
     ///
-    /// Only `.verificationFailed` is folded into `false`. `.fileNotFound`,
-    /// `.inputOutput` and the rest still throw, because those genuinely say
-    /// nothing about the proof.
+    /// # The same inversion arrives through a second door
+    ///
+    /// Folding only `ProofBackendFailure.verificationFailed` was not enough, and
+    /// the case that proved it is worth writing down. Given proving material
+    /// whose `app_id` does not match — an unsatisfied constraint system —
+    /// `verifyUserSigRs2048` does not throw `VerificationFailed`. The Rust side
+    /// **panics** with `InvalidSumcheckProof`, UniFFI turns that into
+    /// `UniffiInternalError`, and because that type is `fileprivate` inside
+    /// upstream's `mopro.swift` it cannot be caught by name anywhere in this app.
+    /// It classified as `.unknown`, propagated out of `verify`, and the screen
+    /// rendered 「這支手機無法完成驗證」 — the infrastructure complaint, for a
+    /// proof that had been checked and refused. The exact conflation this
+    /// function exists to prevent, arriving from the other side of the same
+    /// error type.
+    ///
+    /// So the fold is now `ProofBackendFailure.isRejection`, which recognises
+    /// both doors and, critically, **only** those two. `.fileNotFound`,
+    /// `.inputOutput`, `.invalidInput` and any panic that is not on
+    /// `ProofBackendFailure.rejectionPanicMarkers` still throw, because those
+    /// genuinely say nothing about the proof — and 「你的證明無效」 said about a
+    /// proof that is fine is the same size of mistake as the one above, pointed
+    /// at the holder instead of at the device.
+    ///
     /// Internal rather than private so the fold can be tested: the test bundle
     /// does not link OpenACSwift, but this function's contract is entirely about
     /// a thrown `ProofBackendFailure`, which it can construct.
@@ -246,7 +273,7 @@ struct OpenACProofVerifier: ZKProofVerifying {
         }
         do {
             return (try body(), elapsed())
-        } catch ProofBackendFailure.verificationFailed {
+        } catch let failure as ProofBackendFailure where failure.isRejection {
             return (false, elapsed())
         }
     }
@@ -539,6 +566,44 @@ enum ZKStagePresentation {
 
     /// Localized on purpose — unlike the measurement report, this is chrome a
     /// person reads once and never diffs.
+    /// The headline for "Before you start", as a title and a detail line.
+    ///
+    /// Here rather than inline in the view controller so it can be asserted.
+    /// The case that made that worth doing: once `VerifyingKeyDerivation` landed,
+    /// a plan could have outstanding work and still cost nothing on the wire, and
+    /// the download wording rendered it as 「下載 0 KB」 — an itemised price naming
+    /// a resource the step does not spend. A screen whose entire purpose is
+    /// disclosure before a tap cannot be wrong about which resource it is asking
+    /// for, and the wording was not reachable from any test.
+    static func preparationSummary(for plan: ZKAssetPlan) -> (title: String, detail: String) {
+        guard plan.downloadByteCount > 0 else {
+            return (NSLocalizedString("These files have to be prepared first", comment: ""),
+                    String(format: NSLocalizedString("No download · uses %@ on this device",
+                                                     comment: "installed size"),
+                           byteString(plan.installedByteCount)))
+        }
+        return (NSLocalizedString("These files have to be downloaded first", comment: ""),
+                String(format: NSLocalizedString("Download %@ · uses %@ on this device",
+                                                 comment: "download size, installed size"),
+                       byteString(plan.downloadByteCount),
+                       byteString(plan.installedByteCount)))
+    }
+
+    /// The per-file line under that headline.
+    static func requirementDetail(for requirement: ZKAssetRequirement) -> String {
+        if requirement.downloadByteCount == 0 {
+            return String(format: NSLocalizedString("Made on this phone · %@ on disk", comment: ""),
+                          byteString(requirement.installedByteCount))
+        }
+        if requirement.isStale {
+            return String(format: NSLocalizedString("Out of date · download %@ again", comment: ""),
+                          byteString(requirement.downloadByteCount))
+        }
+        return String(format: NSLocalizedString("Download %@ · %@ on disk", comment: ""),
+                      byteString(requirement.downloadByteCount),
+                      byteString(requirement.installedByteCount))
+    }
+
     static func byteString(_ count: Int64) -> String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
@@ -588,7 +653,7 @@ protocol ZKAssetPreparing: Sendable {
     ///
     /// # Why the run has to be able to tell these apart
     ///
-    /// The two verifying keys are 139 MB down the wire and 968 MB on disk, and
+    /// The two verifying keys are 57.8 MB down the wire and 968 MB on disk, and
     /// `ZKProver` never opens either of them. Treating them as part of the same
     /// indivisible "prepare the files" step produced a failure with no way out:
     /// on a phone with 1.2 GB free, the 950 MB of proving material installs, the
@@ -683,7 +748,6 @@ actor ZKProofRunner {
     private let assets: any ZKAssetPreparing
     private let signer: any ZKHolderSigning
     private let prover: any ZKProving
-    private let verifier: any ZKProofVerifying
     private let clock: any ProvingBenchmarkClock
     private let footprint: any ProvingBenchmarkFootprintTracking
     private let headroomAtStart: () -> UInt64?
@@ -693,27 +757,18 @@ actor ZKProofRunner {
     private var isRunning = false
     private var states: [ZKRunStage: ZKRunStageState] = ZKRunSnapshot.initial.states
 
-    /// Where the three verify calls run.
-    ///
-    /// **Not the cooperative pool, and not this actor's executor.** The rule is
-    /// `ProofBackend`'s own: "these calls block for tens of seconds and must not
-    /// occupy a cooperative pool thread". Verification is not the cheap half —
-    /// it loads a 693 MB and a 274 MB verifying key and runs three Groth16
-    /// checks — and called straight from an actor method it holds the executor
-    /// for the whole of it, which is `ZKProver.offload`'s reasoning arriving one
-    /// module later. A serial queue also means two runs' verifications cannot
-    /// hold two copies of those keys at once.
-    ///
-    /// Internal, not private, for the same reason `OpenACProofVerifier.timed`
-    /// is: the property being fixed here — that the call left the pool — is only
-    /// observable to a test that can recognise the queue it landed on.
-    static let verificationQueue = DispatchQueue(label: "tw.bonds.backupTW.zkVerification",
-                                                 qos: .userInitiated)
+    // There is no verifier and no verification queue here any more.
+    //
+    // Verification moved into `ZKProver.verifyOnThisDevice`, because refusing a
+    // bad proof has to happen where the bundle is created — a runner checking
+    // afterwards has already been handed the thing it would be refusing. This
+    // actor now renders `ZKProofBundle.selfCheck` and calls nothing. The
+    // off-the-executor rule those two lines existed to keep is still enforced,
+    // one module over, by `ZKProver.queue`.
 
     init(assets: any ZKAssetPreparing,
          signer: any ZKHolderSigning,
          prover: any ZKProving,
-         verifier: any ZKProofVerifying,
          clock: any ProvingBenchmarkClock = UptimeClock(),
          footprint: any ProvingBenchmarkFootprintTracking = MachPeakFootprintTracker(),
          headroomAtStart: @escaping () -> UInt64? = { MachMemory.availableMemoryBytes() },
@@ -722,7 +777,6 @@ actor ZKProofRunner {
         self.assets = assets
         self.signer = signer
         self.prover = prover
-        self.verifier = verifier
         self.clock = clock
         self.footprint = footprint
         self.headroomAtStart = headroomAtStart
@@ -869,6 +923,29 @@ actor ZKProofRunner {
         let bundle: ZKProofBundle
         do {
             bundle = try await prover.prove(inputs)
+        } catch ZKProofError.proofRejectedOnThisDevice {
+            // Both circuits proved; `verifyOnThisDevice` then checked the result
+            // and refused it. Letting this fall into the generic
+            // `provingFailed` branch below reported it as a failure of stage 3
+            // — "the proof could not be built" — and left stage 4 sitting at
+            // `.waiting`, saying nothing ever checked it. Checking it is
+            // precisely what happened, and the refusal is the most diagnostic
+            // outcome this run can produce. Telling the two apart is the reason
+            // they are separate stages.
+            //
+            // No report: `ZKProofRunReport` carries a `ZKProofBundle`, and the
+            // prover deliberately does not return one for a proof this device
+            // refused, so that no screen downstream can hand it to a verifier.
+            // The stage states carry the finding instead.
+            _ = footprint.stop()
+            set(.proof, .succeeded(detail: NSLocalizedString(
+                "Both circuits completed", comment: "ZK stage detail")))
+            set(.verification, .failed(message: NSLocalizedString(
+                "This device checked the proof and refused it.", comment: "ZK stage detail"),
+                recoverable: false))
+            let snapshot = ZKRunSnapshot(states: states, report: nil, isFinished: true)
+            onUpdate(snapshot)
+            return snapshot
         } catch let error as ZKProofError {
             // The tracker owns a repeating timer; a thrown error that skipped the
             // stop would leave it sampling for the life of the process — and a
@@ -899,23 +976,27 @@ actor ZKProofRunner {
         set(.verification, .running(progress: nil, detail: nil))
         emit(onUpdate)
 
+        // `prove` already verified on this device — that is what makes a
+        // rejected proof reachable at all — so its verdict is reused rather
+        // than recomputed. Verifying again would load the same 968 MB of keys
+        // and run the same three checks a second time, adding roughly eight
+        // seconds to every successful run, and the figure that reached the
+        // report would be the warm second pass rather than what a verifier
+        // standing in front of the holder would actually wait.
         let verification: ZKVerificationResult
-        // Copied out of `self` before the hop below: the closure runs on a
-        // `DispatchQueue` and must not capture the actor.
-        let verifier = self.verifier
-        let documentsPath = assets.workingDirectory.path
-        let missing = verifier.missingArtifacts(in: assets.workingDirectory)
-        if !missing.isEmpty {
+        switch bundle.selfCheck {
+        case .passed(let outcome):
+            verification = .completed(outcome)
+        case .notPerformed(let missing):
             verification = .notAttempted(
                 reason: ZKRunError.verificationUnavailable(missing: missing).localizedDescription)
-        } else {
-            do {
-                verification = .completed(try await Self.offloadVerification {
-                    try verifier.verify(documentsPath: documentsPath)
-                })
-            } catch {
-                verification = .errored(message: Self.message(for: error))
-            }
+        case .inconclusive:
+            // Ran and broke below the FFI boundary. Says nothing about the
+            // proof in either direction, so it must not render as a rejection —
+            // `.errored` maps to `.unavailable`, which draws grey rather than a
+            // warning.
+            verification = .errored(message: NSLocalizedString(
+                "The check ran but could not reach a verdict.", comment: "ZK stage detail"))
         }
         let ended = clock.nowNanoseconds()
         let peak = footprint.stop()
@@ -984,23 +1065,6 @@ actor ZKProofRunner {
         return copy
     }
 
-    /// Runs one blocking verification call on `verificationQueue`.
-    ///
-    /// No cancellation hook, and the same statement of fact `ZKProver.offload`
-    /// makes applies: the FFI call is a single synchronous entry into Rust with
-    /// nothing to check a flag from. Started, it finishes.
-    private static func offloadVerification<T: Sendable>(
-        _ body: @escaping @Sendable () throws -> T) async throws -> T {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
-            verificationQueue.async {
-                do {
-                    continuation.resume(returning: try body())
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
 
     private static func snapshot(states: [ZKRunStage: ZKRunStageState],
                                  report: ZKProofRunReport?,
