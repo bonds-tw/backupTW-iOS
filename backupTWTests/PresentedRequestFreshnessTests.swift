@@ -89,7 +89,7 @@ struct PresentedRequestFreshnessTests {
     /// and the detail has to name a duration rather than say 「已過期」 — the whole
     /// question the holder is being asked to judge is *how* old.
     @Test func bothWarningsHaveSomethingToShowAHuman() {
-        for freshness in [PresentCredentialViewController.RequestFreshness.stale(age: 21 * 24 * 60 * 60),
+        for freshness in [PresentCredentialViewController.RequestFreshness.stale(age: 21 * 24 * 60 * 60 as TimeInterval),
                           .datedInTheFuture(skew: 600)] {
             guard let warning = PresentCredentialViewController.stalenessWarning(for: freshness) else {
                 Issue.record("\(freshness) produced no warning")
@@ -114,7 +114,7 @@ struct PresentedRequestFreshnessTests {
         let decision = screen.acceptScannedRequest(try stale.encodedForTransport(), now: Self.now)
 
         #expect(decision == .stop)
-        let warning = try #require(PresentCredentialViewController.stalenessWarning(for: .stale(age: 21 * 24 * 60 * 60)))
+        let warning = try #require(PresentCredentialViewController.stalenessWarning(for: .stale(age: 21 * 24 * 60 * 60 as TimeInterval)))
         let shown = Self.labelText(in: screen.view)
         #expect(shown.contains(where: { $0.contains(warning.title) }),
                 "the confirmation screen does not show the stale-code warning: \(shown)")
@@ -129,7 +129,7 @@ struct PresentedRequestFreshnessTests {
 
         screen.acceptScannedRequest(try fresh.encodedForTransport(), now: Self.now)
 
-        let warning = try #require(PresentCredentialViewController.stalenessWarning(for: .stale(age: 999_999)))
+        let warning = try #require(PresentCredentialViewController.stalenessWarning(for: .stale(age: 999_999 as TimeInterval)))
         let shown = Self.labelText(in: screen.view)
         #expect(!shown.contains(where: { $0.contains(warning.title) }),
                 "a code made five seconds ago was flagged as stale")
