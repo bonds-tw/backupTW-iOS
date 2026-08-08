@@ -130,6 +130,8 @@ final class ZKProofViewController: UICollectionViewController {
             /// A stage with a state accessory.
             case stage(ZKRunStage)
             case action
+            /// Hands the finished proof to somebody who can check it.
+            case export
             case verdict
             case caveat
             /// The pasteable benchmark text.
@@ -259,6 +261,7 @@ final class ZKProofViewController: UICollectionViewController {
         groups.append(actionGroup())
         if snapshot != nil { groups.append(stageGroup()) }
         if let group = resultGroup() { groups.append(group) }
+        if let group = exportGroup() { groups.append(group) }
         if let group = caveatGroup() { groups.append(group) }
         if let group = reportGroup() { groups.append(group) }
         return groups
@@ -363,6 +366,34 @@ final class ZKProofViewController: UICollectionViewController {
                     "You'll be asked to approve this in the 行動自然人憑證 app.", comment: ""),
                 isBusy: false,
                 isEnabled: !isLoadingPlan)
+        ])
+    }
+
+    /// Only after a proof exists, and deliberately not called "share".
+    ///
+    /// Until this row existed the ZK screen was a cul-de-sac: it produced a
+    /// proof, reported on it, and offered no way for the proof to reach anybody
+    /// who might want to check it. The offline presentation path next door
+    /// carries a credential, not a proof, so the two halves of the whitepaper's
+    /// claim never met.
+    ///
+    /// The size is in the label because it is not a detail here. At ~294 KB this
+    /// cannot go over QR the way a credential does — that is 100 frames — so
+    /// what leaves this screen is a file, and the person tapping should know
+    /// they are moving something the size of a photo rather than flashing a
+    /// barcode.
+    private func exportGroup() -> Group? {
+        guard let report = snapshot?.report else { return nil }
+        let size = ZKStagePresentation.byteString(Int64(report.bundle.totalProofByteCount))
+        return Group(id: "export", title: "", rows: [
+            Row(id: "export.package",
+                kind: .export,
+                title: NSLocalizedString("Hand this proof to a verifier", comment: ""),
+                detail: String(format: NSLocalizedString(
+                    "Saves a %@ file. Too large for a QR code — send it as a file.",
+                    comment: "proof package size"), size),
+                isBusy: false,
+                isEnabled: true)
         ])
     }
 
@@ -698,7 +729,7 @@ final class ZKProofViewController: UICollectionViewController {
             content.secondaryTextProperties.color = .secondaryLabel
 
             switch row.kind {
-            case .action:
+            case .action, .export:
                 content.text = row.title
                 content.textProperties.color = row.isEnabled ? .tintColor : .tertiaryLabel
                 content.textProperties.font = .preferredFont(forTextStyle: .headline)
@@ -781,10 +812,46 @@ final class ZKProofViewController: UICollectionViewController {
         switch row.kind {
         case .action where row.isEnabled:
             handleAction()
+        case .export:
+            exportProofPackage()
         case .report:
             copyReport()
         default:
             break
+        }
+    }
+
+    /// Writes the proof package to a temporary file and offers it onward.
+    ///
+    /// The witnesses are already gone by this point — `ZKProver` discards them
+    /// after proving — and `ZKProofPackage` names the four files it carries
+    /// rather than sweeping the directory, so the cardholder's certificate and
+    /// signature cannot be picked up here even if something put them back.
+    private func exportProofPackage() {
+        guard let report = snapshot?.report else { return }
+        do {
+            let package = try ZKProofPackage(readingFrom: report.bundle)
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("proof-\(Int(Date().timeIntervalSince1970)).zkproof")
+            try package.encoded().write(to: url, options: [.atomic])
+
+            let share = UIActivityViewController(activityItems: [url],
+                                                 applicationActivities: nil)
+            // An action sheet without a source raises on iPad rather than
+            // falling back to a popover anchored anywhere sensible.
+            if let popover = share.popoverPresentationController {
+                popover.sourceView = collectionView
+                popover.sourceRect = collectionView.bounds
+            }
+            present(share, animated: true)
+        } catch {
+            let alert = UIAlertController(
+                title: NSLocalizedString("This proof could not be packaged", comment: ""),
+                message: error.localizedDescription,
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""),
+                                          style: .default))
+            present(alert, animated: true)
         }
     }
 
@@ -794,7 +861,7 @@ final class ZKProofViewController: UICollectionViewController {
         switch row.kind {
         case .action:
             return row.isEnabled
-        case .report:
+        case .export, .report:
             return true
         default:
             return false

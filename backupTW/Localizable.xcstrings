@@ -3069,6 +3069,56 @@
           }
         }
       }
+    },
+    "Hand this proof to a verifier" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把這份證明交給查驗方"
+          }
+        }
+      }
+    },
+    "Saves a %@ file. Too large for a QR code — send it as a file." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存成一個 %@ 的檔案。太大了塞不進 QR code——請用檔案傳送。"
+          }
+        }
+      }
+    },
+    "This proof could not be packaged" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這份證明無法打包"
+          }
+        }
+      }
+    },
+    "This device does not have the files needed to check a proof yet." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這支手機還沒有查驗證明所需的檔案。"
+          }
+        }
+      }
+    },
+    "This proof file could not be read." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個證明檔案讀不出來。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
