@@ -400,7 +400,15 @@ struct ZKAssetReadiness: Equatable, Sendable {
 /// first.
 /// The order of the cases is the order they are shown in, and it is deliberate:
 /// the two that decide what this project may claim at all come first.
-enum ProofCaveat: String, Equatable, Sendable, CaseIterable {
+/// `Codable` so the list can travel with the proof in a `ZKProofPackage`.
+///
+/// Decoding is deliberately strict: an unrecognised raw value throws rather than
+/// being skipped. These are the things a proof does **not** establish, so a
+/// verifier that quietly dropped one it did not understand would render a
+/// cleaner verdict than the evidence supports — which is the one direction of
+/// error this whole type exists to prevent. A build too old to name a caveat
+/// should refuse the package, not launder it.
+enum ProofCaveat: String, Codable, Equatable, Sendable, CaseIterable {
 
     /// **Present on every proof. The signing material is a bearer token that
     /// never changes and never expires.**

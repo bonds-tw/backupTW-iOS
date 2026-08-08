@@ -23,6 +23,7 @@ class HomeViewController: UICollectionViewController {
         static let backUp = NSLocalizedString("Back up my national ID", comment: "")
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
+        static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
     }
 
     private let sections = [
@@ -43,7 +44,15 @@ class HomeViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "checkmark.shield")?
                     .withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
                  title: Row.verify,
-                 secondaryText: NSLocalizedString("Check a document someone shows you, without contacting any server.", comment: ""))
+                 secondaryText: NSLocalizedString("Check a document someone shows you, without contacting any server.", comment: "")),
+            // The proof half of the checker's job, next to the credential half
+            // rather than in Settings, for the reason above: the 里長 and the
+            // border desk are doing one task, and which kind of thing they were
+            // handed is not their problem to route.
+            Item(image: UIImage(systemName: "eye.slash")?
+                    .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
+                 title: Row.verifyProof,
+                 secondaryText: NSLocalizedString("Check a proof file. Needs the large checking files on this phone.", comment: ""))
         ])
     ]
 
@@ -139,6 +148,8 @@ extension HomeViewController {
             navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
         case Row.verify:
             navigationController?.pushViewController(VerifierViewController(), animated: true)
+        case Row.verifyProof:
+            navigationController?.pushViewController(ZKVerifyViewController(), animated: true)
         default:
             break
         }

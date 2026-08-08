@@ -3069,6 +3069,196 @@
           }
         }
       }
+    },
+    "Hand this proof to a verifier" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把這份證明交給查驗方"
+          }
+        }
+      }
+    },
+    "Saves a %@ file. Too large for a QR code — send it as a file." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存成一個 %@ 的檔案。太大了塞不進 QR code——請用檔案傳送。"
+          }
+        }
+      }
+    },
+    "This proof could not be packaged" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這份證明無法打包"
+          }
+        }
+      }
+    },
+    "This device does not have the files needed to check a proof yet." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這支手機還沒有查驗證明所需的檔案。"
+          }
+        }
+      }
+    },
+    "This proof file could not be read." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個證明檔案讀不出來。"
+          }
+        }
+      }
+    },
+    "Check a zero-knowledge proof" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查驗零知識證明"
+          }
+        }
+      }
+    },
+    "Check a proof file. Needs the large checking files on this phone." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查驗一個證明檔案。這支手機上要先有那組很大的查驗檔案。"
+          }
+        }
+      }
+    },
+    "Check a proof" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查驗證明"
+          }
+        }
+      }
+    },
+    "No proof loaded yet" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒載入證明"
+          }
+        }
+      }
+    },
+    "A zero-knowledge proof is about 290 KB — too large for a QR code, so it arrives as a file." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "零知識證明大約 290 KB——太大了塞不進 QR code，所以是用檔案傳過來的。"
+          }
+        }
+      }
+    },
+    "Choose a proof file" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇證明檔案"
+          }
+        }
+      }
+    },
+    "Checking…" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查驗中…"
+          }
+        }
+      }
+    },
+    "This takes about fifteen seconds and runs entirely on this phone." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大約需要十五秒，全程在這支手機上跑，不連任何伺服器。"
+          }
+        }
+      }
+    },
+    "Certificate chain %@ · Signature %@ · Linked %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "憑證鏈 %@ · 簽章 %@ · 同一人 %@"
+          }
+        }
+      }
+    },
+    "Took %.1f seconds · %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "花了 %.1f 秒 · %@"
+          }
+        }
+      }
+    },
+    "What this does not establish:" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這份證明沒有證明的事："
+          }
+        }
+      }
+    },
+    "Checked on this phone, and it passed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在這支手機上查驗過，通過"
+          }
+        }
+      }
+    },
+    "This phone checked the proof and refused it" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這支手機查驗了這份證明，判定不通過"
+          }
+        }
+      }
+    },
+    "No verdict" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法判定"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
