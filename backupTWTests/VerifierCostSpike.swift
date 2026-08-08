@@ -223,5 +223,107 @@ struct VerifierCostSpike {
         #expect(Self.ask("user", verifyUserSigRs2048, directory).isAcceptance)
         print("════════════════════════════════\n")
     }
+
+    /// Is `smtRoot` a **public** input, or only part of the witness?
+    ///
+    /// Everything M3 still owes on revocation turns on this. `ZKProver` says, in
+    /// a comment, that an empty-tree witness "is refused by any verifier that
+    /// compares `smtRoot` against the real on-chain root, which is the entire
+    /// point of the field". If that is right, a verifier can read the root the
+    /// proof was actually built against out of the instance, compare it with the
+    /// snapshot it trusts, and refuse a proof built against a stale list — the
+    /// offline half of revocation checking, available today.
+    ///
+    /// If it is wrong — if the root lives only in the witness — then the only
+    /// way a verifier could learn it is for the holder to *say* what it was, and
+    /// a holder who is presenting a proof built against a snapshot from before
+    /// their own revocation will simply say the right thing. A check built on
+    /// that would look like security and be worth nothing, which is worse than
+    /// no check at all.
+    ///
+    /// So this is settled by experiment rather than by reading the comment. The
+    /// method is differential: the instance is the serialised public input, so
+    /// if changing the root changes the instance bytes, the root is public.
+    ///
+    /// The control matters as much as the experiment. Proving is randomised, so
+    /// two runs over identical input produce different *proofs*; if the
+    /// *instances* also differed run to run, a difference after changing the
+    /// root would prove nothing. The first half of this test therefore checks
+    /// that the instance is stable across two identical runs, and the second
+    /// half only means something because the first passed.
+    @Test(.enabled(if: VerifierCostSpike.isAvailable), .timeLimit(.minutes(10)))
+    func isTheRevocationRootPublic() async throws {
+        let directory = try #require(Self.workingDirectory)
+        let inputPath = (directory as NSString)
+            .appendingPathComponent("cert_chain_rs4096_input.json")
+        let instancePath = (directory as NSString)
+            .appendingPathComponent("keys/cert_chain_rs4096_instance.bin")
+
+        let pristineInput = try Data(contentsOf: URL(fileURLWithPath: inputPath))
+        defer { try? pristineInput.write(to: URL(fileURLWithPath: inputPath)) }
+
+        print("\n════════ smtRoot 是不是公開輸入 ════════")
+
+        // Control: three runs over identical input, to find which byte
+        // positions are *content* and which are randomness. The instance turned
+        // out not to be reproducible run-to-run, so a plain equality test after
+        // changing the root would have reported a difference that meant nothing.
+        // The stable positions are the only ones that can carry a public input.
+        func proveAndReadInstance() throws -> Data {
+            _ = try proveCertChainRs4096(documentsPath: directory)
+            return try Data(contentsOf: URL(fileURLWithPath: instancePath))
+        }
+
+        let baseline = try (0..<3).map { _ in try proveAndReadInstance() }
+        guard let width = baseline.first?.count,
+              baseline.allSatisfy({ $0.count == width }) else {
+            print("   ⚠️ instance 長度在相同輸入下就會變，無法比較")
+            return
+        }
+        let stable = (0..<width).filter { i in
+            baseline.allSatisfy { $0[$0.startIndex + i] == baseline[0][baseline[0].startIndex + i] }
+        }
+        print("對照組：相同輸入跑三次，\(width) bytes 中有 \(stable.count) 個位置穩定"
+              + String(format: "（%.1f%%），其餘是每次都變的隨機成分",
+                       Double(stable.count) / Double(width) * 100))
+
+        guard !stable.isEmpty else {
+            print("   ⚠️ 沒有任何穩定位置，這個檔案裡讀不出公開輸入")
+            return
+        }
+
+        // Experiment: change only the root, then look *only* at the positions
+        // that were stable across the control runs.
+        var object = try #require(
+            try JSONSerialization.jsonObject(with: pristineInput) as? [String: Any])
+        let originalRoot = object[ZKProver.revocationRootKey] as? String ?? "<absent>"
+        object[ZKProver.revocationRootKey] = "12345678901234567890123456789012345678901234567890"
+        try JSONSerialization.data(withJSONObject: object)
+            .write(to: URL(fileURLWithPath: inputPath))
+
+        let changed = try proveAndReadInstance()
+        let reference = baseline[0]
+        let movedStablePositions = changed.count == width
+            ? stable.filter { changed[changed.startIndex + $0] != reference[reference.startIndex + $0] }
+            : stable
+
+        print("實驗組：只改 smtRoot（原值 \(originalRoot)）→ 穩定位置中有 "
+              + "\(movedStablePositions.count) 個跟著變了")
+        if movedStablePositions.isEmpty {
+            print("   → smtRoot 改了，instance 的穩定部分完全沒動。")
+            print("     查驗方無法從 instance 讀出證明用的是哪一份撤銷快照，")
+            print("     任何比對都只能建立在持證方自述之上——那不是檢查，是禮貌。")
+        } else {
+            print("   → smtRoot 影響了 instance 的穩定部分（前幾個位置："
+                  + "\(movedStablePositions.prefix(8).map(String.init).joined(separator: ", "))）。")
+            print("     查驗方可以自行取得它，離線撤銷比對是有意義的。")
+        }
+        print("════════════════════════════════\n")
+
+        // Deliberately not asserted either way: this test exists to find out
+        // which world we are in, and both answers are legitimate outcomes that
+        // the design has to accommodate. Asserting the convenient one would turn
+        // a measurement into a wish.
+    }
 }
 
