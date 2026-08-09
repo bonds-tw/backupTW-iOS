@@ -23,7 +23,7 @@ import Foundation
 ///   establishes that a proof is Sybil-resistant by pinning this public input to
 ///   the identifier it expects. Signing anything else here yields a proof that
 ///   generates successfully and verifies against nothing.
-/// - `credentialDigest` is **per credential**. It binds the cardholder's
+/// - `credentialTBS` is **per credential**. It binds the cardholder's
 ///   signature to a specific set of MyData field facts, which is the whole point
 ///   of issuing under 行憑 rather than under the device key.
 ///
@@ -49,9 +49,16 @@ enum TWFidOSigningTarget: Equatable, Sendable {
     /// The 31-character relying-party namespace — `TWFidOConfiguration.appID`.
     case relyingPartyIdentifier(String)
 
-    /// Lowercase hex SHA-256 of a credential's canonical bytes, from
-    /// `VerifiableCredential.digestHex(of:)`.
-    case credentialDigest(String)
+    /// A credential's complete TBS from `MOICASignedCredential.toBeSigned(for:)`
+    /// — the `bonds-tw-credential-v1:` domain prefix and the digest, already
+    /// joined.
+    ///
+    /// Named for what it carries, not `credentialDigest`, because the
+    /// distinction is load-bearing: a caller who passes the bare digest here
+    /// produces a signature that generates fine and verifies against nothing.
+    /// The prefix is what stops a signature some *other* honest service obtained
+    /// over a 64-hex-character value from doubling as a credential proof.
+    case credentialTBS(String)
 
     /// The TBS itself. `sign_data` is this string, base64-wrapped — the wrapping
     /// is what `tbs_encoding: "base64"` describes, and it is not part of what
@@ -59,7 +66,7 @@ enum TWFidOSigningTarget: Equatable, Sendable {
     var toBeSigned: String {
         switch self {
         case .relyingPartyIdentifier(let identifier): return identifier
-        case .credentialDigest(let digest): return digest
+        case .credentialTBS(let tbs): return tbs
         }
     }
 }

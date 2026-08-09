@@ -293,25 +293,26 @@ struct TWFidOClientTests {
         #expect(TWFidOConfiguration.bondsAppID.count == 31)
     }
 
-    /// Issuance signs the credential, not the namespace.
+    /// Issuance signs the credential's TBS, not the namespace.
     ///
-    /// The full 64-character digest, deliberately: truncating it to the circuit's
-    /// 31 characters would leave 62-bit collision resistance against the one
-    /// party who supplies the document being bound.
-    @Test func signDataCarriesTheWholeCredentialDigestWhenIssuing() async throws {
+    /// The full 64-character digest plus the domain prefix, deliberately:
+    /// truncating the digest to the circuit's 31 characters would leave 62-bit
+    /// collision resistance against the one party who supplies the document
+    /// being bound, and dropping the prefix would let a signature some other
+    /// honest service obtained over a 64-hex value double as a credential proof.
+    @Test func signDataCarriesTheWholeCredentialTBSWhenIssuing() async throws {
         TWFidOStubURLProtocol.install(respondingWith: ticketResponse())
         defer { TWFidOStubURLProtocol.reset() }
 
-        let digest = sha256Hex("a credential's canonical bytes")
+        let tbs = MOICACredentialProof.tbsDomainPrefix + sha256Hex("a credential's canonical bytes")
         _ = try await makeClient().requestSignAppToApp(
-            signRequest(signing: .credentialDigest(digest)), returnURL: callback)
+            signRequest(signing: .credentialTBS(tbs)), returnURL: callback)
 
         let signInfo = try #require(try lastBody()["sign_info"] as? [String: Any])
         let signData = try #require(signInfo["sign_data"] as? String)
         let decoded = try #require(Data(base64Encoded: signData))
 
-        #expect(String(decoding: decoded, as: UTF8.self) == digest)
-        #expect(digest.count == 64)
+        #expect(String(decoding: decoded, as: UTF8.self) == tbs)
     }
 
     /// `sp_checksum` has to cover the `sign_data` that was actually sent.
@@ -328,7 +329,7 @@ struct TWFidOClientTests {
 
         let digest = sha256Hex("bound to these field facts")
         _ = try await makeClient().requestSignAppToApp(
-            signRequest(signing: .credentialDigest(digest)), returnURL: callback)
+            signRequest(signing: .credentialTBS(digest)), returnURL: callback)
 
         let body = try lastBody()
         let signInfo = try #require(body["sign_info"] as? [String: Any])

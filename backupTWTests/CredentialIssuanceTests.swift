@@ -103,23 +103,25 @@ struct CredentialIssuanceTests {
         let expected = VerifiableCredential.nationalID(Self.model,
                                                        issuerDID: Self.subjectDID,
                                                        validFrom: Self.issuedAt)
-        let (digest, _) = try MOICASignedCredential.toBeSigned(for: expected)
+        let (tbs, _) = try MOICASignedCredential.toBeSigned(for: expected)
 
-        #expect(recorder.signing == .credentialDigest(digest))
+        #expect(recorder.signing == .credentialTBS(tbs))
         // And emphatically not the value the holding proof signs — the mistake
         // this whole change exists to undo.
         #expect(recorder.signing != .relyingPartyIdentifier(TWFidOConfiguration.bondsAppID))
     }
 
-    /// The digest is over the full SHA-256, not a truncation that would fit the
-    /// circuit's 31-character `tbs`.
-    @Test func theDigestSentIsTheWholeHashNotACircuitSizedTruncation() async throws {
+    /// The TBS is the domain prefix plus the full SHA-256 — not a truncation
+    /// that would fit the circuit's 31-character `tbs`, and not a bare digest
+    /// another protocol could accidentally collide with.
+    @Test func theTBSSentIsDomainPrefixedAndCarriesTheWholeHash() async throws {
         let recorder = SignSessionRecorder()
 
         _ = try? await issuance(recorder: recorder).issue(Self.model, subjectDID: Self.subjectDID)
 
         let sent = try #require(recorder.signing?.toBeSigned)
-        #expect(sent.count == 64)
+        #expect(sent.hasPrefix(MOICACredentialProof.tbsDomainPrefix))
+        #expect(sent.count == MOICACredentialProof.tbsDomainPrefix.count + 64)
         #expect(sent.count != ProvingInputs.relyingPartyIdentifierLength)
     }
 

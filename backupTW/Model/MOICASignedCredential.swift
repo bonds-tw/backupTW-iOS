@@ -96,10 +96,11 @@ extension MOICASignedCredentialError: LocalizedError {
 /// would produce a genuine `vc+jwt`. That was not done because it depends on the
 /// SP API accepting a `sign_data` of roughly a kilobyte, and the specification
 /// we hold does not state a limit — so it is a thing to *measure* against the
-/// real API, not to assume. Until it is measured, the TBS is a 64-character
-/// digest, which no plausible limit rejects, and the envelope is spelled as an
-/// explicit object so nothing can mistake it for a JWS and hand it to a JOSE
-/// verifier that would be right to reject it.
+/// real API, not to assume. Until it is measured, the TBS is a domain prefix
+/// plus a 64-character digest — 87 ASCII characters, which no plausible limit
+/// rejects — and the envelope is spelled as an explicit object so nothing can
+/// mistake it for a JWS and hand it to a JOSE verifier that would be right to
+/// reject it.
 ///
 /// # What a card signature does and does not establish
 ///
@@ -194,14 +195,33 @@ struct MOICACredentialProof: Codable, Equatable {
     /// base64 of TW FidO's `result.signed_response`.
     let signature: String
 
-    /// The only construction this build implements: the TBS is the lowercase
-    /// hex SHA-256 of the payload bytes, as ASCII, and the signature is
-    /// RSASSA-PKCS1-v1_5 over SHA-256 of that ASCII string. The outer SHA-256 is
-    /// the SP API's own (`hash_algorithm: "SHA256"`), so the digest is hashed
-    /// twice in total — which is a fact about the API, not a design choice, and
-    /// is written down here because it is exactly the kind of detail a
-    /// reimplementation gets wrong once.
-    static let payloadDigestHexConstruction = "payload-sha256-hex/RSASSA-PKCS1-v1_5-SHA256"
+    /// The only construction this build implements: the TBS is
+    /// `bonds-tw-credential-v1:` followed by the lowercase hex SHA-256 of the
+    /// payload bytes, as ASCII, and the signature is RSASSA-PKCS1-v1_5 over
+    /// SHA-256 of that ASCII string. The outer SHA-256 is the SP API's own
+    /// (`hash_algorithm: "SHA256"`), so the digest is hashed twice in total —
+    /// which is a fact about the API, not a design choice, and is written down
+    /// here because it is exactly the kind of detail a reimplementation gets
+    /// wrong once.
+    static let payloadDigestHexConstruction = "bonds-tw-credential-v1/payload-sha256-hex/RSASSA-PKCS1-v1_5-SHA256"
+
+    /// Domain separation for the TBS.
+    ///
+    /// **What this stops, said precisely.** Not a malicious relying party — one
+    /// of those can put any `sign_data` it likes in front of the card, prefix
+    /// included, and no string constant changes that. What it stops is
+    /// *accidental* cross-protocol reuse: some honest-but-different service asks
+    /// the same cardholder to SIGN a value that happens to be 64 hex characters
+    /// — another digest scheme, a transaction hash — and without the prefix,
+    /// that signature is byte-for-byte a valid `MOICASignedCredential` proof
+    /// over any payload hashing to the same value. With it, a signature only
+    /// verifies here if the card was shown a string that names this protocol.
+    ///
+    /// Added while the set of issued credentials was still empty, which is the
+    /// only time a TBS change is free. Changing it later is a migration:
+    /// `tbsConstruction` names this rule, and every credential signed under the
+    /// old rule is refused by a build that no longer implements it.
+    static let tbsDomainPrefix = "bonds-tw-credential-v1:"
 
     /// A PKCS#1 signature under an RSA-2048 key.
     static let signatureByteCount = 256
@@ -237,13 +257,17 @@ extension MOICASignedCredential {
         return signed
     }
 
-    /// The ASCII string to put in `sign_data` for `credential`.
+    /// The ASCII string to put in `sign_data` for `credential` — the domain
+    /// prefix and the digest, already joined.
     ///
     /// Returned together with the bytes it covers so a caller cannot hash one
-    /// serialization, sign it, and store another.
-    static func toBeSigned(for credential: VerifiableCredential) throws -> (digest: String, bytes: Data) {
+    /// serialization, sign it, and store another. Joined *here* rather than at
+    /// the call site so there is exactly one place that knows the TBS's shape;
+    /// a caller assembling it by hand is a caller who can forget the prefix,
+    /// and a card signature over the bare digest verifies against nothing.
+    static func toBeSigned(for credential: VerifiableCredential) throws -> (tbs: String, bytes: Data) {
         let bytes = try credential.canonicalBytes()
-        return (VerifiableCredential.digestHex(of: bytes), bytes)
+        return (MOICACredentialProof.tbsDomainPrefix + VerifiableCredential.digestHex(of: bytes), bytes)
     }
 }
 
@@ -325,12 +349,14 @@ extension MOICASignedCredential {
             throw MOICASignedCredentialError.malformedSignature
         }
 
-        // The signed bytes are the digest *string*, not the digest's raw bytes:
-        // `sign_data` was `base64(ASCII(digest))` and `tbs_encoding: "base64"`
-        // describes only that wrapper. Signing the 32 raw bytes instead would
-        // verify against nothing, and would do so identically on every input,
-        // which is the sort of failure that looks like a bad certificate.
-        guard try holder.verifiesPKCS1SHA256(signature, over: Data(digest.utf8)) else {
+        // The signed bytes are the domain-prefixed digest *string*, not the
+        // digest's raw bytes: `sign_data` was `base64(ASCII(prefix+digest))` and
+        // `tbs_encoding: "base64"` describes only that wrapper. Signing the 32
+        // raw bytes — or the bare digest without its prefix — would verify
+        // against nothing, and would do so identically on every input, which is
+        // the sort of failure that looks like a bad certificate.
+        let tbs = MOICACredentialProof.tbsDomainPrefix + digest
+        guard try holder.verifiesPKCS1SHA256(signature, over: Data(tbs.utf8)) else {
             throw MOICASignedCredentialError.signatureInvalid
         }
 

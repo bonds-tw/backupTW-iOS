@@ -140,13 +140,13 @@ struct CredentialIssuance {
         let credential = VerifiableCredential.nationalID(model,
                                                          issuerDID: subjectDID,
                                                          validFrom: now())
-        let (digest, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
 
         let started: (ticket: TWFidOTicket, deepLink: URL)
         do {
             started = try await session.begin(idNumber: idNumber,
                                               hint: hint,
-                                              signing: .credentialDigest(digest),
+                                              signing: .credentialTBS(tbs),
                                               timeLimit: timeLimit)
         } catch let error as SPCredentialError {
             throw CredentialIssuanceError.signingUnavailable(message: error.description)

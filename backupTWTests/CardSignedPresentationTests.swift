@@ -45,13 +45,13 @@ private func cardSignedEnvelope(subjectDID: String) throws -> MOICASignedCredent
         issuer: subjectDID,
         validFrom: "2026-08-09T12:00:00Z",
         credentialSubject: ["id": subjectDID, "name": "王小明", "birthdate": "0700101"])
-    let (digest, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+    let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
     return MOICASignedCredential(
         payload: VerifiableCredential.base64URLEncoded(bytes),
         proof: MOICACredentialProof(
             tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
             certificate: holderCertificateDER,
-            signature: try cardSignature(over: Data(digest.utf8)).base64EncodedString()))
+            signature: try cardSignature(over: Data(tbs.utf8)).base64EncodedString()))
 }
 
 struct CardSignedPresentationTests {

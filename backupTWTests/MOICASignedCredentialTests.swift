@@ -41,8 +41,8 @@ struct MOICASignedCredentialTests {
                       certificate: String = holderCertificateDER,
                       construction: String = MOICACredentialProof.payloadDigestHexConstruction)
         throws -> MOICASignedCredential {
-        let digest = VerifiableCredential.digestHex(of: bytes)
-        let signature = try cardSignature(over: Data(digest.utf8))
+        let tbs = MOICACredentialProof.tbsDomainPrefix + VerifiableCredential.digestHex(of: bytes)
+        let signature = try cardSignature(over: Data(tbs.utf8))
         return MOICASignedCredential(
             payload: VerifiableCredential.base64URLEncoded(bytes),
             proof: MOICACredentialProof(tbsConstruction: construction,
@@ -108,9 +108,9 @@ struct MOICASignedCredentialTests {
         let other = try X509Certificate.parse(base64DER: otherCardholderCertificateDER)
 
         // The signature does verify under that certificate's key…
-        let digest = VerifiableCredential.digestHex(of: bytes)
+        let tbs = MOICACredentialProof.tbsDomainPrefix + VerifiableCredential.digestHex(of: bytes)
         let raw = try #require(Data(base64Encoded: signed.proof.signature))
-        #expect(try other.verifiesPKCS1SHA256(raw, over: Data(digest.utf8)))
+        #expect(try other.verifiesPKCS1SHA256(raw, over: Data(tbs.utf8)))
 
         // …and the credential is still refused.
         #expect(throws: MOICASignedCredentialError.cardholderNameDiffersFromSubject) {
@@ -142,7 +142,7 @@ struct MOICASignedCredentialTests {
     /// fails on every input, which reads like a bad certificate rather than like
     /// a wrong TBS.
     @Test func signingTheRawDigestBytesInsteadOfTheHexStringDoesNotVerify() throws {
-        let (digest, bytes) = try MOICASignedCredential.toBeSigned(for: credential())
+        let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential())
         let rawDigestBytes = Data(SHA256.hash(data: bytes))
         let wrong = try cardSignature(over: rawDigestBytes)
 
@@ -153,7 +153,34 @@ struct MOICASignedCredentialTests {
                 certificate: holderCertificateDER,
                 signature: wrong.base64EncodedString()))
 
-        #expect(digest.count == 64)
+        #expect(tbs.count == MOICACredentialProof.tbsDomainPrefix.count + 64)
+        #expect(throws: MOICASignedCredentialError.signatureInvalid) {
+            try signed.verify(signedBy: try self.holderCertificate())
+        }
+    }
+
+    /// The domain-separation property itself: a signature over the *bare*
+    /// digest — no `bonds-tw-credential-v1:` prefix — must not verify.
+    ///
+    /// This is the exact artefact an honest-but-different service produces if it
+    /// ever asks the same cardholder to SIGN a 64-hex-character value of its
+    /// own. Without the prefix check, that signature is byte-for-byte a valid
+    /// proof over any payload hashing to the same value; the prefix is the only
+    /// thing making the card's signature *mean* "a bonds-tw credential".
+    @Test func aSignatureOverTheUnprefixedDigestIsRejected() throws {
+        let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential())
+        let bareDigest = String(tbs.dropFirst(MOICACredentialProof.tbsDomainPrefix.count))
+        let foreign = try cardSignature(over: Data(bareDigest.utf8))
+
+        let signed = MOICASignedCredential(
+            payload: VerifiableCredential.base64URLEncoded(bytes),
+            proof: MOICACredentialProof(
+                tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
+                certificate: holderCertificateDER,
+                signature: foreign.base64EncodedString()))
+
+        // The dropped prefix really was the only difference.
+        #expect(bareDigest.count == 64)
         #expect(throws: MOICASignedCredentialError.signatureInvalid) {
             try signed.verify(signedBy: try self.holderCertificate())
         }
