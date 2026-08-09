@@ -34,8 +34,26 @@ import Foundation
 /// to work with" — and nothing more. `isSigned` must never be rendered as 「已驗證」.
 struct PDFSignatureScan: Equatable, Sendable {
 
-    /// A signature dictionary is present.
+    /// A signature dictionary is present — which is **not** the same as the
+    /// document being signed. See `hasSignatureBytes`, which is the one that
+    /// decides anything.
     let isSigned: Bool
+
+    /// A `/Contents` hex string was found holding at least one non-zero digit,
+    /// i.e. there is a CMS blob to hand a verifier.
+    ///
+    /// This is the distinction the first version of this type missed, and it
+    /// missed it in the expensive direction. A document *prepared* for signing
+    /// carries a real `/ByteRange` and a `/Contents` padded out with zeros,
+    /// waiting for a signature that may never be written back — an interrupted
+    /// signing run, or a template shipped ready-to-sign. Every marker this scan
+    /// looks for is present; the signature is not. Reported as signed, that
+    /// document sends the credential design down the `zkpdf` path to verify a
+    /// few kilobytes of nothing.
+    ///
+    /// Checked against a signing run stopped after the placeholder was written:
+    /// 2,206 bytes of `/Contents`, not one non-zero digit among them.
+    let hasSignatureBytes: Bool
 
     /// The `/SubFilter` values found, e.g. `adbe.pkcs7.detached`,
     /// `ETSI.CAdES.detached`. Empty when unsigned. Reported because it decides
@@ -47,21 +65,42 @@ struct PDFSignatureScan: Equatable, Sendable {
     /// document signed and then countersigned.
     let signatureCount: Int
 
-    /// True when a `/ByteRange` was found, i.e. the signature covers a span of
-    /// the file rather than being an empty placeholder that a form left behind.
+    /// True when a `/ByteRange` was found, i.e. something declared which span of
+    /// the file a signature would cover.
+    ///
+    /// This used to be described as the thing that tells a real signature from a
+    /// placeholder a form left behind. It is not: the placeholder is written
+    /// with a real `/ByteRange` and gets its `/Contents` filled in afterwards,
+    /// so the two are indistinguishable here. `hasSignatureBytes` is the one
+    /// that separates them.
     let hasByteRange: Bool
 
-    static let unsigned = PDFSignatureScan(isSigned: false, subFilters: [],
-                                           signatureCount: 0, hasByteRange: false)
+    static let unsigned = PDFSignatureScan(isSigned: false, hasSignatureBytes: false,
+                                           subFilters: [], signatureCount: 0,
+                                           hasByteRange: false)
 
     /// Scans raw PDF bytes for signature dictionaries.
     ///
     /// Byte scanning rather than PDFKit because PDFKit exposes no signature API
     /// at all on iOS — there is no property to ask. The markers looked for are
-    /// the ones the PDF specification requires a signature dictionary to carry,
-    /// so a document that has one cannot hide from this, and a document that has
-    /// none cannot accidentally match: `/ByteRange` and `/SubFilter` do not
-    /// appear outside signature and encryption dictionaries.
+    /// the ones the PDF specification requires a signature dictionary to carry.
+    ///
+    /// Two things this cannot do, both measured rather than assumed:
+    ///
+    /// - **It matches text as readily as structure.** `/ByteRange [` appearing
+    ///   inside an uncompressed content stream, an embedded file or a document
+    ///   that merely *discusses* signatures reads exactly like the real key.
+    ///   `hasSignatureBytes` is what separates the two.
+    /// - **It cannot see inside a compressed `/ObjStm`.** A signature dictionary
+    ///   packed into one would be invisible here. No signer produces that,
+    ///   because `/Contents` has to sit at a literal file offset for
+    ///   `/ByteRange` to exclude it — a document repacked that way was measured
+    ///   at `CONTIGUOUS_BLOCK_FROM_START` coverage, i.e. no longer valid. Worth
+    ///   knowing, not worth defending against.
+    ///
+    /// Scanning works on the still-encrypted download because the standard
+    /// security handler encrypts strings and streams, not name objects or
+    /// dictionary structure — verified against RC4-128 and AES-256 copies.
     ///
     /// Deliberately tolerant of whitespace. A PDF writer may emit `/Type/Sig`,
     /// `/Type /Sig` or `/Type  /Sig`, and matching only the spaced form would
@@ -84,7 +123,15 @@ struct PDFSignatureScan: Equatable, Sendable {
         // the strict form as the only evidence would under-report.
         let isSigned = signatureCount > 0 || hasByteRange
 
+        // A signature's `/Contents` is a hex string. A placeholder is that same
+        // string filled with zeros, so length proves nothing and only a non-zero
+        // digit does. `/Contents` on a page is an indirect reference rather than
+        // a hex string, so requiring the `<` keeps page content out of this.
+        let hasSignatureBytes = matches(of: #"/Contents\s*<([0-9A-Fa-f\s]*)>"#, in: text)
+            .contains { $0.contains { $0 != "0" && !$0.isWhitespace } }
+
         return PDFSignatureScan(isSigned: isSigned,
+                                hasSignatureBytes: hasSignatureBytes,
                                 subFilters: Array(Set(subFilters)).sorted(),
                                 signatureCount: max(signatureCount, hasByteRange ? 1 : 0),
                                 hasByteRange: hasByteRange)
@@ -96,6 +143,13 @@ struct PDFSignatureScan: Equatable, Sendable {
         guard isSigned else {
             return NSLocalizedString(
                 "No document-level signature found.", comment: "PDF signature scan")
+        }
+        // Said plainly, because this is the case that would otherwise be read as
+        // "signed" and spend weeks of the wrong work.
+        guard hasSignatureBytes else {
+            return NSLocalizedString(
+                "A signature field is present but empty — no signature was ever written into it.",
+                comment: "PDF signature scan")
         }
         let filters = subFilters.isEmpty ? "?" : subFilters.joined(separator: ", ")
         return String(format: NSLocalizedString(
@@ -116,6 +170,7 @@ struct PDFSignatureScan: Equatable, Sendable {
     static func record(_ scan: PDFSignatureScan, into defaults: UserDefaults = .standard) {
         defaults.set([
             "isSigned": scan.isSigned,
+            "hasSignatureBytes": scan.hasSignatureBytes,
             "subFilters": scan.subFilters,
             "signatureCount": scan.signatureCount,
             "hasByteRange": scan.hasByteRange
@@ -125,11 +180,20 @@ struct PDFSignatureScan: Equatable, Sendable {
     /// The last scan, or nil if no MyData download has been parsed on this
     /// device. Nil is a real answer — "not measured yet" — and the diagnostics
     /// screen renders it as such rather than as "unsigned".
+    ///
+    /// A record written before `hasSignatureBytes` existed is also nil. It could
+    /// be read back with the field defaulted, but both defaults lie: `false`
+    /// turns a genuine signature into "empty field", `true` restores the very
+    /// false positive this measurement was added to catch. The download takes a
+    /// minute to repeat and the answer decides the architecture, so the stale
+    /// reading is dropped and the screen asks for a fresh one.
     static func lastRecorded(in defaults: UserDefaults = .standard) -> PDFSignatureScan? {
         guard let stored = defaults.dictionary(forKey: defaultsKey),
-              let isSigned = stored["isSigned"] as? Bool else { return nil }
+              let isSigned = stored["isSigned"] as? Bool,
+              let hasSignatureBytes = stored["hasSignatureBytes"] as? Bool else { return nil }
         return PDFSignatureScan(
             isSigned: isSigned,
+            hasSignatureBytes: hasSignatureBytes,
             subFilters: stored["subFilters"] as? [String] ?? [],
             signatureCount: stored["signatureCount"] as? Int ?? 0,
             hasByteRange: stored["hasByteRange"] as? Bool ?? false)

@@ -165,11 +165,22 @@ final class DiagnosticsViewController: UICollectionViewController {
                         // a pass, and its absence is not a failure. It is the
                         // input to a design decision.
                         passed: nil)]
-        if scan.isSigned {
+        // Keyed on the signature bytes, not on the dictionary. A document
+        // prepared for signing and never signed has every marker and nothing to
+        // verify, and sending that answer up as "carries its own trust root"
+        // would start the wrong rebuild.
+        if scan.hasSignatureBytes {
             rows.append(Row(
                 title: NSLocalizedString("What this means", comment: ""),
                 value: NSLocalizedString(
                     "The download carries its own trust root. Re-signing these fields with this phone's key is weaker than what arrived — the credential design should use the original signature.",
+                    comment: ""),
+                passed: nil))
+        } else if scan.isSigned {
+            rows.append(Row(
+                title: NSLocalizedString("What this means", comment: ""),
+                value: NSLocalizedString(
+                    "An empty signature field is not a signature — there is nothing here to verify. Treat this the same as unsigned, and say so when reporting it.",
                     comment: ""),
                 passed: nil))
         }
