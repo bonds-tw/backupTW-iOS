@@ -223,8 +223,15 @@ class MyDataOnboardViewController: UICollectionViewController {
             let result: Result<Void, Error>
             do {
                 guard let issuance = CredentialIssuanceAssembly.make() else {
+                    // Deliberately *not* `SPCredentialError.requiresBackend.description`.
+                    // That type is `CustomStringConvertible` rather than
+                    // `LocalizedError` on purpose — its own doc says its audience
+                    // is whoever reads the log — and piping it here would put
+                    // 「sp_checksum must be computed by the bonds-tw backend」 in
+                    // front of somebody who was trying to back up their ID card.
                     throw CredentialIssuanceError.signingUnavailable(
-                        message: SPCredentialError.requiresBackend.description)
+                        message: NSLocalizedString("This version cannot sign documents yet. Signing has to go through the bonds-tw service, which is not available in this build.",
+                                                   comment: ""))
                 }
                 // The device key is still what the holder presents under — the
                 // credential's subject identifier — even though it no longer

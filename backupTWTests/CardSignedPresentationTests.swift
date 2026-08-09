@@ -119,6 +119,38 @@ struct CardSignedPresentationTests {
         }
     }
 
+    /// A card-signed presentation is roughly twice the size of a device-signed
+    /// one, because the holder's certificate now travels inside it.
+    ///
+    /// `VerifiablePresentationTests` already pins the device-signed size, but
+    /// that fixture is a compact JWS, so nothing was watching this path. The
+    /// number is here to be *measured*, not to be defended: the certificate is
+    /// ~1.5 KB of DER, base64 inside the envelope and base64 again inside the
+    /// `data:` URI, and that double encoding is about a third of the growth. If
+    /// the QR frame count ever becomes the thing that hurts, a compact
+    /// serialization is where the kilobyte is hiding — not in the credential.
+    ///
+    /// The bound is loose on purpose. It is a tripwire for accidental growth,
+    /// not a budget anyone has agreed to.
+    @Test func aCardSignedPresentationIsAboutTwiceTheSizeOfADeviceSignedOne() throws {
+        defer { try? DeviceKey.deleteKey(tag: deviceKeyTag) }
+        let key = try DeviceKey.loadOrCreate(tag: deviceKeyTag)
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+
+        let jws = try VerifiablePresentation.create(
+            credentialJWS: try cardSignedEnvelope(subjectDID: did).serialized(),
+            request: try Self.request(),
+            signedBy: key,
+            holderDID: did)
+
+        let size = jws.utf8.count
+        // A single QR code holds 2,953 bytes of binary at the lowest error
+        // correction, so this is the number that decides how many frames the
+        // holder has to hold still for.
+        #expect(size > 3200, "smaller than a device-signed presentation — did the certificate stop travelling?")
+        #expect(size < 9000, "the card-signed presentation grew; check what was added before accepting more QR frames")
+    }
+
     // MARK: Verifying
 
     /// The dispatch reaches the certificate branch, and a certificate 內政部

@@ -3148,6 +3148,16 @@
         }
       }
     },
+    "This version cannot sign documents yet. Signing has to go through the bonds-tw service, which is not available in this build.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本還不能簽署證件。簽署要經過 bonds-tw 的服務，而這個版本連不上它。"
+          }
+        }
+      }
+    },
     "This wording was written by the checker. This app cannot confirm who they are.": {
       "localizations": {
         "zh-Hant": {
