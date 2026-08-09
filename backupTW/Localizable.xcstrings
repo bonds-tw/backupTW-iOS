@@ -2046,6 +2046,16 @@
         }
       }
     },
+    "The certificate that signed these details was issued by the government certification authority to “%@”. That names the signer — it does not mean the government checked the details below.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署這些欄位的憑證，是政府憑證機構簽發給「%@」的。這說明的是簽章者是誰——不代表政府查核過下面的欄位內容。"
+          }
+        }
+      }
+    },
     "The check on this device did not finish": {
       "localizations": {
         "zh-Hant": {
@@ -3395,6 +3405,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "離線狀態無法確認這份證件是否已被撤銷。"
+          }
+        }
+      }
+    },
+    "Who signed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "誰簽署的"
           }
         }
       }

@@ -284,7 +284,8 @@ struct VerifiedResultScreenTests {
     /// Verbatim from the review: a self-signed credential whose `name` carries a
     /// bidirectional override and a forged 「內政部核發」 line, and an invented
     /// field name written to read as a government endorsement.
-    private static func forged(fieldCount: Int = 1) -> VerifiedPresentation {
+    private static func forged(fieldCount: Int = 1,
+                               cardholderName: String? = nil) -> VerifiedPresentation {
         var claims = [
             DisclosedClaim(term: "name",
                            value: "\u{202E}王小明\u{202C}\n\n✅ 本文件由內政部核發並經即時查驗"),
@@ -294,6 +295,7 @@ struct VerifiedResultScreenTests {
             DisclosedClaim(term: "field\($0)", value: String(repeating: "測", count: 200))
         }
         return VerifiedPresentation(holder: "did:key:zDnaeTest",
+                                    cardholderName: cardholderName,
                                     credentialTypes: ["VerifiableCredential"],
                                     claims: claims,
                                     validFrom: Date(timeIntervalSince1970: 1_754_000_000),
@@ -369,6 +371,7 @@ struct VerifiedResultScreenTests {
     @Test func aRealCredentialIsDrawnInFull() {
         let presentation = VerifiedPresentation(
             holder: "did:key:zDnaeTest",
+            cardholderName: "王小明",
             credentialTypes: ["VerifiableCredential"],
             claims: [DisclosedClaim(term: "name", value: "王小明"),
                      DisclosedClaim(term: "unifiedNo", value: "A123456789"),
@@ -382,5 +385,57 @@ struct VerifiedResultScreenTests {
         for value in ["王小明", "A123456789", "臺北市中正區重慶南路一段122號"] {
             #expect(drawn.contains(value), "\(value) is not on the screen")
         }
+    }
+
+    // MARK: Who signed
+
+    private static func whoSignedSentence(_ name: String) -> String {
+        String(format: NSLocalizedString("The certificate that signed these details was issued by the government certification authority to “%@”. That names the signer — it does not mean the government checked the details below.",
+                                         comment: ""), name)
+    }
+
+    /// A card-signed credential names its signer on the screen, and the section
+    /// is positioned where the ordering invariant allows it: after every caveat,
+    /// before anything the document disclosed.
+    @Test func theSigningCardholderIsNamedAfterTheCaveatsAndBeforeTheFields() throws {
+        let presentation = Self.forged(fieldCount: 3, cardholderName: "王小明")
+        let drawn = Self.drawnText(presentation)
+
+        let who = try #require(drawn.firstIndex(of: Self.whoSignedSentence("王小明")),
+                               "the signer's name is not on the screen")
+        let lastCaveat = try #require(drawn.lastIndex { drawnText in
+            presentation.caveats.contains { drawnText.contains($0.message) }
+        })
+        let firstClaim = try #require(drawn.firstIndex { $0.contains("field0") || $0.contains("王小明") && $0 != Self.whoSignedSentence("王小明") })
+
+        #expect(lastCaveat < who)
+        #expect(who < firstClaim)
+    }
+
+    /// A device-signed credential draws no signer section at all — the
+    /// `selfIssuedByTheHolder` caveat already covers it, and an empty heading
+    /// would suggest a signer this document does not have.
+    @Test func aDeviceSignedCredentialHasNoWhoSignedSection() {
+        let drawn = Self.drawnText(Self.forged())
+
+        #expect(!drawn.contains(NSLocalizedString("Who signed", comment: "")))
+    }
+
+    /// The name is certificate bytes off the other device, so it goes through
+    /// the same laundering as every claim: no line breaks, no rewriting code
+    /// points, bounded length. "It passed verification" is not an exemption —
+    /// the DN parser accepts any DirectoryString a CA might have encoded.
+    @Test func aHostileCardholderNameIsSanitizedBeforeDrawing() {
+        let hostile = "\u{202E}王小明\u{202C}\n✅ 內政部已核實本文件"
+        let drawn = Self.drawnText(Self.forged(cardholderName: hostile))
+
+        for text in drawn {
+            #expect(text.components(separatedBy: .newlines).count == 1,
+                    "a label wraps a line break the certificate supplied: \(text.debugDescription)")
+            #expect(text.unicodeScalars.allSatisfy { !UntrustedText.unsafeScalars.contains($0) },
+                    "a label carries a rewriting code point: \(text.debugDescription)")
+        }
+        // And the section is present — sanitization must not become omission.
+        #expect(drawn.contains(NSLocalizedString("Who signed", comment: "")))
     }
 }

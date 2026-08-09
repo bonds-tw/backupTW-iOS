@@ -171,6 +171,7 @@ struct PrivacyShieldTests {
 
     private static func presentation() -> VerifiedPresentation {
         VerifiedPresentation(holder: "did:key:zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169",
+                             cardholderName: nil,
                              credentialTypes: ["VerifiableCredential", "NationalIDCredential"],
                              claims: [DisclosedClaim(term: "name", value: "王小明"),
                                       DisclosedClaim(term: "unifiedNo", value: unifiedNo),
