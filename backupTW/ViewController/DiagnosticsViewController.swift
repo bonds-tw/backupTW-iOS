@@ -136,7 +136,44 @@ final class DiagnosticsViewController: UICollectionViewController {
     // MARK: - Facts
 
     private static func collect() -> [Group] {
-        [selfCheckGroup(), signingGroup(), storageGroup(), assetsGroup()]
+        [selfCheckGroup(), myDataGroup(), signingGroup(), storageGroup(), assetsGroup()]
+    }
+
+    /// The one measurement that decides the credential architecture.
+    ///
+    /// This app re-signs the MyData fields with the device key, and the only
+    /// thing justifying that is the claim that the download carries no
+    /// document-level signature. It was a claim, not a measurement. The scan now
+    /// runs on the bytes as they pass through, and the answer lands here — a
+    /// screen made for exactly this, facts a simulator cannot settle.
+    ///
+    /// `nil` is rendered as "not measured yet", never as "unsigned". Those are
+    /// different answers and the second one would end the investigation.
+    private static func myDataGroup() -> Group {
+        let title = NSLocalizedString("MyData PDF signature", comment: "")
+        guard let scan = PDFSignatureScan.lastRecorded() else {
+            return Group(title: title, rows: [
+                Row(title: NSLocalizedString("Document-level signature", comment: ""),
+                    value: NSLocalizedString(
+                        "Not measured yet — download your ID once and come back.", comment: ""),
+                    passed: nil)
+            ])
+        }
+        var rows = [Row(title: NSLocalizedString("Document-level signature", comment: ""),
+                        value: scan.summary,
+                        // No verdict either way: a signature being present is not
+                        // a pass, and its absence is not a failure. It is the
+                        // input to a design decision.
+                        passed: nil)]
+        if scan.isSigned {
+            rows.append(Row(
+                title: NSLocalizedString("What this means", comment: ""),
+                value: NSLocalizedString(
+                    "The download carries its own trust root. Re-signing these fields with this phone's key is weaker than what arrived — the credential design should use the original signature.",
+                    comment: ""),
+                passed: nil))
+        }
+        return Group(title: title, rows: rows)
     }
 
     /// Put first, and phrased as verdicts rather than values.

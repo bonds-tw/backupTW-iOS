@@ -182,6 +182,22 @@ extension MyDataWebViewController : WKDownloadDelegate {
             presentAlert(message: NSLocalizedString("Successfully downloaded but processing error", comment: ""))
             return
         }
+
+        // Recorded here and nowhere else, because this is the only moment the
+        // bytes exist: `defer { discardDownloadedFiles() }` above deletes them
+        // on the way out, and the document is deliberately built from `Data` so
+        // that the purge can happen before the user types their ID number.
+        //
+        // What it settles is not small. This app re-signs the MyData fields with
+        // the device key and calls the result a credential, and the only
+        // justification for that detour is the claim that the download carries
+        // no document-level signature. Nobody had checked. If it turns out to be
+        // signed, the data already has an authoritative trust root and the
+        // self-signing is weaker than what arrived.
+        //
+        // Only the scan result is kept — four values that describe the envelope.
+        // No page text, no field, nothing from the document itself.
+        PDFSignatureScan.record(PDFSignatureScan.scan(pdfData))
         // dealing with the encrypted PDF
         unzipWithPassword(of: pdf, didFail: false)
     }

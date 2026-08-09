@@ -3259,6 +3259,76 @@
           }
         }
       }
+    },
+    "MyData PDF signature" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MyData PDF 簽章"
+          }
+        }
+      }
+    },
+    "Document-level signature" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件級簽章"
+          }
+        }
+      }
+    },
+    "Not measured yet — download your ID once and come back." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒量過——先跑一次身分證下載，再回來看。"
+          }
+        }
+      }
+    },
+    "No document-level signature found." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有找到文件級簽章。"
+          }
+        }
+      }
+    },
+    "Signed — %d signature(s), SubFilter %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有簽章——%d 份，SubFilter %@"
+          }
+        }
+      }
+    },
+    "What this means" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這代表什麼"
+          }
+        }
+      }
+    },
+    "The download carries its own trust root. Re-signing these fields with this phone's key is weaker than what arrived — the credential design should use the original signature." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載下來的檔案自己就帶著信任根。用這支手機的金鑰重簽這些欄位，比原本收到的還弱——憑證設計應該改用原始簽章。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
