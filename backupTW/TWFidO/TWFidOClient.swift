@@ -10,8 +10,62 @@ import Foundation
 
 // MARK: - Requests and responses
 
-/// One request for the holder to sign our relying-party identifier with their
-/// 自然人憑證.
+/// What the cardholder's 自然人憑證 key is asked to sign.
+///
+/// # Why this is an enum and not a `String`
+///
+/// The two values below look alike — both are lowercase hex — and swapping them
+/// fails silently in opposite directions, so the type refuses to let a call site
+/// leave its intent implicit.
+///
+/// - `relyingPartyIdentifier` is a **constant**. The zkID circuit hashes it
+///   together with the cardholder's key to derive the nullifier, and a verifier
+///   establishes that a proof is Sybil-resistant by pinning this public input to
+///   the identifier it expects. Signing anything else here yields a proof that
+///   generates successfully and verifies against nothing.
+/// - `credentialDigest` is **per credential**. It binds the cardholder's
+///   signature to a specific set of MyData field facts, which is the whole point
+///   of issuing under 行憑 rather than under the device key.
+///
+/// # Why one signature cannot serve both
+///
+/// The circuit's `tbs` is one field element and so caps at 31 characters — see
+/// `ProvingInputs.relyingPartyIdentifierLength`. A SHA-256 digest truncated to
+/// 31 hex characters is 124 bits, which leaves **62-bit collision resistance**,
+/// and the party we are binding here is the one with the incentive to break it:
+/// the holder supplies the MyData document, so they can grind two field sets to
+/// a common truncated digest, have the card sign the honest one, and present the
+/// forged one under the same signature. 2⁶² digests is hours of commodity
+/// hardware. So the credential digest goes to 內政部 at full length and does not
+/// enter the circuit, and the holding proof keeps signing the constant.
+///
+/// The cost of that split is worth naming rather than discovering later: in the
+/// ZK path the certificate is a private witness, so a verifier receiving a proof
+/// **cannot** check that its holder is the cardholder who signed the credential.
+/// Binding the two is what `MOICASignedCredential` gives the disclosed path, and
+/// it is exactly what the ZK path still lacks.
+enum TWFidOSigningTarget: Equatable, Sendable {
+
+    /// The 31-character relying-party namespace — `TWFidOConfiguration.appID`.
+    case relyingPartyIdentifier(String)
+
+    /// Lowercase hex SHA-256 of a credential's canonical bytes, from
+    /// `VerifiableCredential.digestHex(of:)`.
+    case credentialDigest(String)
+
+    /// The TBS itself. `sign_data` is this string, base64-wrapped — the wrapping
+    /// is what `tbs_encoding: "base64"` describes, and it is not part of what
+    /// the key signs.
+    var toBeSigned: String {
+        switch self {
+        case .relyingPartyIdentifier(let identifier): return identifier
+        case .credentialDigest(let digest): return digest
+        }
+    }
+}
+
+/// One request for the holder to sign, with their 自然人憑證, whatever
+/// `signing` names.
 struct TWFidOSignRequest {
 
     /// 身分證統一編號. Sent to 內政部 because the API is keyed on it, and never
@@ -37,9 +91,22 @@ struct TWFidOSignRequest {
     /// `TWFidOClient.allowedTimeLimits`.
     let timeLimit: Int
 
-    init(idNumber: String, hint: String, deviceAlias: String? = nil, timeLimit: Int = 600) {
+    /// What the card is asked to put its signature over.
+    ///
+    /// No default value on purpose. This used to be implicit — the client always
+    /// signed `app_id` — and that implicitness is what let the MyData fields be
+    /// signed by nothing but the device's own key while a 內政部 signature over
+    /// an unrelated constant sat beside them, bound to them by nothing at all.
+    let signing: TWFidOSigningTarget
+
+    init(idNumber: String,
+         hint: String,
+         signing: TWFidOSigningTarget,
+         deviceAlias: String? = nil,
+         timeLimit: Int = 600) {
         self.idNumber = idNumber
         self.hint = hint
+        self.signing = signing
         self.deviceAlias = deviceAlias
         self.timeLimit = timeLimit
     }
@@ -188,7 +255,7 @@ struct TWFidOClient {
         try Self.validate(request)
         let sp = try await credentialProvider.credentials()
         let transactionID = Self.newTransactionID()
-        let signData = Self.signData(appID: configuration.appID)
+        let signData = Self.signData(for: request.signing)
 
         let payload: String
         if let alias = request.deviceAlias {
@@ -241,7 +308,7 @@ struct TWFidOClient {
         try Self.validate(request)
         let sp = try await credentialProvider.credentials()
         let transactionID = Self.newTransactionID()
-        let signData = Self.signData(appID: configuration.appID)
+        let signData = Self.signData(for: request.signing)
 
         let payload = SPChecksum.appToAppPayload(transactionID: transactionID,
                                                  spServiceID: sp.serviceID,
@@ -496,12 +563,16 @@ struct TWFidOClient {
         UUID().uuidString
     }
 
-    /// `sign_data` is the base64 of the relying-party identifier — the bytes
-    /// the holder's key actually signs. `tbs_encoding: "base64"` refers to this
-    /// wrapping only; downstream proof generation wants the identifier
-    /// unwrapped.
-    private static func signData(appID: String) -> String {
-        Data(appID.utf8).base64EncodedString()
+    /// `sign_data` is the base64 of the TBS. `tbs_encoding: "base64"` refers to
+    /// this wrapping only — what the card's key covers is
+    /// `SHA-256(target.toBeSigned)`, so every consumer downstream (the circuit's
+    /// `tbs`, `MOICASignedCredential`'s digest check) wants the string unwrapped.
+    ///
+    /// Internal rather than private so a test can pin the wrapping without
+    /// reaching through a request body: getting this one step wrong produces a
+    /// signature that is well-formed and verifies against nothing.
+    static func signData(for target: TWFidOSigningTarget) -> String {
+        Data(target.toBeSigned.utf8).base64EncodedString()
     }
 }
 

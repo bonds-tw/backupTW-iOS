@@ -56,6 +56,31 @@ private func idpChecksum(transactionID: String = "TXN-1",
     return combined.map { String(format: "%02x", $0) }.joined()
 }
 
+/// Opens an `sp_checksum` and returns the plaintext digest it covers — the
+/// inverse of what the client does, written out from the spec rather than by
+/// calling `SPChecksum`, so the two can genuinely disagree.
+private func opened(spChecksum: String, key: String) throws -> String {
+    guard let keyData = Data(base64Encoded: key), keyData.count == 32 else {
+        throw StubError.unusableTestKey
+    }
+    var bytes = Data()
+    var index = spChecksum.startIndex
+    while index < spChecksum.endIndex {
+        let next = spChecksum.index(index, offsetBy: 2)
+        guard let byte = UInt8(spChecksum[index..<next], radix: 16) else {
+            throw StubError.unusableTestKey
+        }
+        bytes.append(byte)
+        index = next
+    }
+    let box = try AES.GCM.SealedBox(combined: bytes)
+    return String(decoding: try AES.GCM.open(box, using: SymmetricKey(data: keyData)), as: UTF8.self)
+}
+
+private func sha256Hex(_ string: String) -> String {
+    SHA256.hash(data: Data(string.utf8)).map { String(format: "%02x", $0) }.joined()
+}
+
 /// Shaped like the real thing: base64url payload, a dot, an opaque digest.
 private let stubSPTicket =
     base64URL(#"{"transaction_id":"TXN-1","sp_ticket_id":"TKT-1","op_code":"SIGN"}"#)
@@ -124,10 +149,18 @@ struct TWFidOClientTests {
             session: URLSession(configuration: sessionConfiguration))
     }
 
+    /// Defaults to the relying-party identifier because that is what every test
+    /// below predates the credential-digest target and still means. The default
+    /// lives here rather than on `TWFidOSignRequest` on purpose — production has
+    /// to say which of the two it wants.
     private func signRequest(deviceAlias: String? = nil,
-                             timeLimit: Int = 600) -> TWFidOSignRequest {
+                             timeLimit: Int = 600,
+                             signing: TWFidOSigningTarget
+                                = .relyingPartyIdentifier(TWFidOConfiguration.bondsAppID))
+        -> TWFidOSignRequest {
         TWFidOSignRequest(idNumber: Self.idNumber,
                           hint: "請確認身分",
+                          signing: signing,
                           deviceAlias: deviceAlias,
                           timeLimit: timeLimit)
     }
@@ -258,6 +291,64 @@ struct TWFidOClientTests {
         // 31 hex characters is what the circuit's field element holds; a
         // different length silently changes every derived nullifier.
         #expect(TWFidOConfiguration.bondsAppID.count == 31)
+    }
+
+    /// Issuance signs the credential, not the namespace.
+    ///
+    /// The full 64-character digest, deliberately: truncating it to the circuit's
+    /// 31 characters would leave 62-bit collision resistance against the one
+    /// party who supplies the document being bound.
+    @Test func signDataCarriesTheWholeCredentialDigestWhenIssuing() async throws {
+        TWFidOStubURLProtocol.install(respondingWith: ticketResponse())
+        defer { TWFidOStubURLProtocol.reset() }
+
+        let digest = sha256Hex("a credential's canonical bytes")
+        _ = try await makeClient().requestSignAppToApp(
+            signRequest(signing: .credentialDigest(digest)), returnURL: callback)
+
+        let signInfo = try #require(try lastBody()["sign_info"] as? [String: Any])
+        let signData = try #require(signInfo["sign_data"] as? String)
+        let decoded = try #require(Data(base64Encoded: signData))
+
+        #expect(String(decoding: decoded, as: UTF8.self) == digest)
+        #expect(digest.count == 64)
+    }
+
+    /// `sp_checksum` has to cover the `sign_data` that was actually sent.
+    ///
+    /// This could not go wrong while `sign_data` was a constant — a checksum over
+    /// a stale copy of it was a checksum over the right value. Now that the field
+    /// varies per credential, a client that kept checksumming the namespace would
+    /// still produce a well-formed request, and the only symptom would be
+    /// `INV_SP_CHECKSUM` arriving from 內政部 *after* the ID number had been
+    /// disclosed to them.
+    @Test func checksumCoversTheSignDataActuallySent() async throws {
+        TWFidOStubURLProtocol.install(respondingWith: ticketResponse())
+        defer { TWFidOStubURLProtocol.reset() }
+
+        let digest = sha256Hex("bound to these field facts")
+        _ = try await makeClient().requestSignAppToApp(
+            signRequest(signing: .credentialDigest(digest)), returnURL: callback)
+
+        let body = try lastBody()
+        let signInfo = try #require(body["sign_info"] as? [String: Any])
+        let signData = try #require(signInfo["sign_data"] as? String)
+        let transactionID = try #require(body["transaction_id"] as? String)
+        let covered = try opened(spChecksum: try #require(body["sp_checksum"] as? String),
+                                 key: Self.aesKey)
+
+        // ATH-01: transaction_id ‖ sp_service_id ‖ id_num ‖ op_code ‖ op_mode ‖
+        //         hint ‖ sign_data
+        let sent = transactionID + Self.serviceID + Self.idNumber
+            + "SIGN" + "APP2APP" + "請確認身分" + signData
+        #expect(covered == sha256Hex(sent))
+
+        // And the mutation this test exists to catch: the same request with the
+        // old constant in the sign_data position must not open to the same value.
+        let stale = transactionID + Self.serviceID + Self.idNumber
+            + "SIGN" + "APP2APP" + "請確認身分"
+            + Data(TWFidOConfiguration.bondsAppID.utf8).base64EncodedString()
+        #expect(covered != sha256Hex(stale))
     }
 
     @Test func signInfoPinsPKCS1() async throws {

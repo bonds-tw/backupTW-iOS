@@ -3,6 +3,7 @@
 //  backupTW
 //
 
+import CryptoKit
 import Foundation
 
 /// Errors raised while turning a credential into a signed JWS.
@@ -180,6 +181,41 @@ extension VerifiableCredential {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.formatOptions = [.withInternetDateTime]
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - Canonical bytes
+
+extension VerifiableCredential {
+
+    /// The bytes a signature over this credential covers.
+    ///
+    /// Identical in construction to the JWS payload segment, and for the same
+    /// reason: `sortedKeys` is what stops Swift's per-process dictionary seed
+    /// from producing a different serialization on the next launch.
+    ///
+    /// **Callers must keep these bytes, not re-derive them.** A verifier that
+    /// re-encodes a decoded credential in order to re-check a digest is trusting
+    /// that its `JSONEncoder` emits byte-for-byte what the issuing device's did —
+    /// across OS versions, across the swift-foundation rewrite, across whatever
+    /// Foundation decides to escape next. `MOICASignedCredential` therefore
+    /// carries the payload as bytes and only ever decodes them, which is the same
+    /// discipline a compact JWS enforces by construction.
+    func canonicalBytes() throws -> Data {
+        try Self.canonicalEncoder.encode(self)
+    }
+
+    /// Lowercase hex SHA-256 of `bytes` — the ASCII string handed to TW FidO as
+    /// the thing to be signed.
+    ///
+    /// Hex rather than raw digest bytes because `sign_data` travels as a string:
+    /// it is concatenated into the `sp_checksum` payload and base64-wrapped into
+    /// the request body, and a printable TBS is one that can be compared by eye
+    /// against a device log without a decoding step in between. The choice is
+    /// load-bearing for verification, so it is named in the proof rather than
+    /// left to be inferred — see `MOICACredentialProof.tbsConstruction`.
+    static func digestHex(of bytes: Data) -> String {
+        SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
     }
 }
 

@@ -428,8 +428,17 @@ struct LiveTWFidOSignSession: TWFidOSignSession, @unchecked Sendable {
 
     func begin(idNumber: String, hint: String, timeLimit: Int) async throws
         -> (ticket: TWFidOTicket, deepLink: URL) {
+        // The relying-party identifier, not a credential digest, and the choice
+        // is not stylistic. The circuit takes this exact string as `tbs` and
+        // derives the nullifier from it, so a verifier can only treat a proof as
+        // Sybil-resistant by pinning the public input to a value it knows in
+        // advance. A per-run TBS would let a holder mint a fresh nullifier at
+        // will, which is the property the whole holding proof exists to deny.
         try await client.requestSignAppToApp(
-            TWFidOSignRequest(idNumber: idNumber, hint: hint, timeLimit: timeLimit),
+            TWFidOSignRequest(idNumber: idNumber,
+                              hint: hint,
+                              signing: .relyingPartyIdentifier(client.configuration.appID),
+                              timeLimit: timeLimit),
             returnURL: returnURL)
     }
 
