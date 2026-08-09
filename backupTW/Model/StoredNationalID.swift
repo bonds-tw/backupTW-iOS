@@ -104,14 +104,24 @@ struct StoredNationalID: Equatable {
                                 claims: ordered + extras)
     }
 
-    /// Pulls the credential out of the middle segment of a compact JWS.
+    /// Pulls the credential out of whichever envelope `CredentialStore` holds.
+    ///
+    /// Both forms are read, and that is not indecision: a credential issued
+    /// before the card-signing change is still on disk for anyone who onboarded
+    /// then, and the home screen going blank for them would look exactly like
+    /// the defect this type was written to fix.
     ///
     /// Hand-rolled rather than routed through `OfflineVerifier`, which decodes a
     /// *presentation* — a different envelope with a different shape. Reusing it
     /// would have meant constructing a fake presentation around a credential in
     /// order to read the credential.
-    private static func decodePayload(of jws: String) -> VerifiableCredential? {
-        let segments = jws.split(separator: ".", omittingEmptySubsequences: false)
+    private static func decodePayload(of stored: String) -> VerifiableCredential? {
+        if let cardSigned = try? MOICASignedCredential.parse(stored) {
+            // Not verified here, for the reason `load` gives above: this is the
+            // holder's own device reading the holder's own file back to them.
+            return try? cardSigned.credential()
+        }
+        let segments = stored.split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3,
               let payload = base64URLDecoded(String(segments[1])) else { return nil }
         return try? JSONDecoder().decode(VerifiableCredential.self, from: payload)

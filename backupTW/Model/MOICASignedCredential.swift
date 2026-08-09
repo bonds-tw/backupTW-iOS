@@ -141,6 +141,31 @@ struct MOICASignedCredential: Codable, Equatable {
         return bytes
     }
 
+    /// The form that goes on disk and into a presentation.
+    ///
+    /// JSON rather than a dot-separated compact string, and the reason is that a
+    /// compact form here would look exactly like a JWS — three base64url
+    /// segments — while verifying under different rules. Anything that split it
+    /// on dots and reached for a JOSE library would be holding a header that is
+    /// really a payload. The object cannot be mistaken for one.
+    func serialized() throws -> String {
+        // Sorted so that writing the same envelope twice produces the same file,
+        // which is what makes a stored credential comparable between launches.
+        // Nothing signs these bytes — the signature is over `payload`'s bytes —
+        // so this is reproducibility, not a security property.
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return String(decoding: try encoder.encode(self), as: UTF8.self)
+    }
+
+    static func parse(_ serialized: String) throws -> MOICASignedCredential {
+        guard let envelope = try? JSONDecoder().decode(MOICASignedCredential.self,
+                                                       from: Data(serialized.utf8)) else {
+            throw MOICASignedCredentialError.malformedPayload
+        }
+        return envelope
+    }
+
     static func base64URLDecoded(_ string: String) -> Data? {
         var standard = string
             .replacingOccurrences(of: "-", with: "+")
