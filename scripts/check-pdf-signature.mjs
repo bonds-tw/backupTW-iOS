@@ -57,23 +57,39 @@ const sigDicts = count(/\/Type\s*\/Sig\b/g);
 const byteRanges = count(/\/ByteRange\s*\[/g);
 const subFilters = [...new Set([...text.matchAll(/\/SubFilter\s*\/([A-Za-z0-9._-]+)/g)].map((m) => m[1]))];
 
-// /Type 在規格裡是選用的，所以只有 /ByteRange 也算簽了。少報比多報危險：
-// 一個假的「沒有簽章」會直接終結這個調查。
-const isSigned = sigDicts > 0 || byteRanges > 0;
+// /Type 在規格裡是選用的，所以只有 /ByteRange 也算有簽章字典。
+const hasDictionary = sigDicts > 0 || byteRanges > 0;
+
+// 但「有簽章字典」不等於「簽了」。文件在準備簽章時就會先寫好 /ByteRange 和一片
+// 補零的 /Contents，等 CMS 回填——回填失敗、或範本本來就是「待簽」狀態，那些
+// 標記全部都在，簽章卻不存在。長度證明不了什麼，只有非零字元可以。
+// 這一項驗過：一次中途停下的簽章流程留下 2,206 bytes 的 /Contents，沒有一個非零字元。
+const contents = [...text.matchAll(/\/Contents\s*<([0-9A-Fa-f\s]*)>/g)]
+  .map((m) => m[1].replace(/\s/g, ""));
+const hasSignatureBytes = contents.some((hex) => /[^0]/.test(hex));
 
 console.log();
 console.log(`檔案      ${target}`);
 console.log(`大小      ${bytes.length.toLocaleString()} bytes`);
 console.log(`加密      ${/\/Encrypt\b/.test(text) ? "是（不影響本判斷）" : "否"}`);
 console.log("─".repeat(56));
-if (isSigned) {
+if (hasSignatureBytes) {
   console.log(`結論      有文件級簽章`);
   console.log(`簽章字典  ${sigDicts} 份`);
   console.log(`ByteRange ${byteRanges} 個`);
   console.log(`SubFilter ${subFilters.length ? subFilters.join(", ") : "（未標示）"}`);
+  console.log(`簽章位元組 ${Math.max(...contents.map((h) => h.length / 2)).toLocaleString()} bytes`);
   console.log();
   console.log("→ 資料本身帶著信任根。zkpdf 這條路可行，且比行憑代簽更強：");
   console.log("  不需要持卡人每次出示都再簽一次。憑證設計應改用原始簽章。");
+} else if (hasDictionary) {
+  console.log(`結論      有簽章欄位，但裡面是空的`);
+  console.log(`簽章字典  ${sigDicts} 份`);
+  console.log(`ByteRange ${byteRanges} 個`);
+  console.log(`/Contents ${contents.length ? "全部補零，沒有 CMS" : "不存在"}`);
+  console.log();
+  console.log("→ 空的簽章欄位不是簽章，沒有東西可以驗。當成「沒有簽章」處理，");
+  console.log("  行憑代簽是正解；回報時要講清楚是這一種，別只說「有簽章」。");
 } else {
   console.log(`結論      沒有找到文件級簽章`);
   console.log();
@@ -82,4 +98,6 @@ if (isSigned) {
 console.log();
 console.log("注意：這只回答「有沒有簽章」，沒有驗證簽章是否有效——");
 console.log("      沒有做鏈結建構、沒有比對摘要、沒有查撤銷。");
+console.log("      看不進壓縮的 /ObjStm；真簽章不會在裡面（/Contents 必須在固定位移），");
+console.log("      但這是掃描法的界線，不是保證。");
 console.log();
