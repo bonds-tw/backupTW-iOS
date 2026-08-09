@@ -24,13 +24,48 @@ class HomeViewController: UICollectionViewController {
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
+        static let myDocument = NSLocalizedString("My identity document", comment: "")
     }
 
-    private let sections = [
-        Section(title: "🔐 " + NSLocalizedString("Valid Document", comment: ""), items: [
-            Item(title: Row.backUp,
-                 secondaryText: NSLocalizedString("with Taiwan's official MyData service", comment: ""))
-        ]),
+    /// Recomputed on every appearance rather than stored once at init.
+    ///
+    /// This screen used to be a `let` constant, which is why finishing the
+    /// MyData flow left no trace on it: the credential was saved, the home
+    /// screen never read the store, and the app looked untouched. A person who
+    /// has just handed over their household record and sees no sign of it has
+    /// every reason to think it failed — and to do it again.
+    private var sections: [Section] {
+        [validDocumentSection, offlineSection]
+    }
+
+    private var validDocumentSection: Section {
+        let title = "🔐 " + NSLocalizedString("Valid Document", comment: "")
+        guard let stored = StoredNationalID.load() else {
+            return Section(title: title, items: [
+                Item(title: Row.backUp,
+                     secondaryText: NSLocalizedString("with Taiwan's official MyData service", comment: ""))
+            ])
+        }
+        // Named fields are *not* summarised here. A home screen is the most
+        // over-the-shoulder-readable surface in the app, and this document
+        // carries a national ID number and a home address; the count and the
+        // date say it worked without putting either on a screen that gets
+        // glanced at in public.
+        return Section(title: title, items: [
+            Item(image: UIImage(systemName: "checkmark.seal.fill")?
+                    .withTintColor(.systemGreen, renderingMode: .alwaysOriginal),
+                 title: Row.myDocument,
+                 secondaryText: String(format: NSLocalizedString(
+                    "%d fields · created %@", comment: "credential summary"),
+                    stored.claims.count, stored.createdDescription())),
+            Item(image: UIImage(systemName: "arrow.clockwise")?
+                    .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
+                 title: Row.backUp,
+                 secondaryText: NSLocalizedString("Fetch it again and replace what's stored.", comment: ""))
+        ])
+    }
+
+    private var offlineSection: Section {
         // Both halves live on the home screen rather than one of them being
         // buried in Settings. The whitepaper's §5.3 scenarios are a 里長, a
         // volunteer, a border desk — people who are checking documents as their
@@ -54,7 +89,7 @@ class HomeViewController: UICollectionViewController {
                  title: Row.verifyProof,
                  secondaryText: NSLocalizedString("Check a proof file. Needs the large checking files on this phone.", comment: ""))
         ])
-    ]
+    }
 
     init() {
         var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
@@ -78,6 +113,18 @@ class HomeViewController: UICollectionViewController {
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
 
         configureDataSource()
+        applySnapshot()
+    }
+
+    /// Reapplied on every appearance, not just at load.
+    ///
+    /// The MyData flow is presented modally and issues the credential in the
+    /// background as it dismisses, so the moment this screen comes back is the
+    /// first moment there is anything new to show. Without this the fix above
+    /// would only take effect on the next cold launch, which is indistinguishable
+    /// from the bug.
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
         applySnapshot()
     }
 
@@ -150,6 +197,8 @@ extension HomeViewController {
             navigationController?.pushViewController(VerifierViewController(), animated: true)
         case Row.verifyProof:
             navigationController?.pushViewController(ZKVerifyViewController(), animated: true)
+        case Row.myDocument:
+            navigationController?.pushViewController(StoredCredentialViewController(), animated: true)
         default:
             break
         }

@@ -3329,6 +3329,156 @@
           }
         }
       }
+    },
+    "My identity document" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我的身分證件"
+          }
+        }
+      }
+    },
+    "%d fields · created %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d 個欄位 · %@ 建立"
+          }
+        }
+      }
+    },
+    "Fetch it again and replace what's stored." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新抓一次，取代目前存的這份。"
+          }
+        }
+      }
+    },
+    "This document" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這份證件"
+          }
+        }
+      }
+    },
+    "Created" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立時間"
+          }
+        }
+      }
+    },
+    "Signed by" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簽署者"
+          }
+        }
+      }
+    },
+    "This phone — nobody else vouches for these values." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這支手機——沒有任何其他人為這些內容背書。"
+          }
+        }
+      }
+    },
+    "Fields" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "欄位"
+          }
+        }
+      }
+    },
+    "Show %d fields" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示 %d 個欄位"
+          }
+        }
+      }
+    },
+    "Includes your ID number and home address. Check who can see your screen." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包含身分證字號與戶籍地址。先確認旁邊有沒有人看得到螢幕。"
+          }
+        }
+      }
+    },
+    "No document stored yet" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有存任何證件"
+          }
+        }
+      }
+    },
+    "Back up your national ID from the home screen first." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請先從首頁備份你的身分證件。"
+          }
+        }
+      }
+    },
+    "ID number" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身分證字號"
+          }
+        }
+      }
+    },
+    "Date of birth" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出生年月日"
+          }
+        }
+      }
+    },
+    "Household address" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "戶籍地址"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
