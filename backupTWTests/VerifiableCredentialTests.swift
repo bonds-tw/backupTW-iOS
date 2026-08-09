@@ -43,7 +43,7 @@ struct VerifiableCredentialTests {
     // MARK: - Field mapping
 
     @Test func mapsEveryNationalIDFieldIntoTheSubject() throws {
-        let credential = VerifiableCredential.selfIssuedNationalID(Self.fullModel,
+        let credential = VerifiableCredential.nationalID(Self.fullModel,
                                                                    issuerDID: Self.issuerDID,
                                                                    validFrom: Self.issuedAt)
 
@@ -57,7 +57,7 @@ struct VerifiableCredentialTests {
     /// Self-issued means the subject is the issuer; a verifier reads `id` to know
     /// who the claims are about.
     @Test func subjectIsIdentifiedByTheIssuerDID() {
-        let credential = VerifiableCredential.selfIssuedNationalID(Self.fullModel,
+        let credential = VerifiableCredential.nationalID(Self.fullModel,
                                                                    issuerDID: Self.issuerDID,
                                                                    validFrom: Self.issuedAt)
         #expect(credential.credentialSubject["id"] == Self.issuerDID)
@@ -72,7 +72,7 @@ struct VerifiableCredentialTests {
                                      name: nil,
                                      birthdate: nil,
                                      addressOfHousehold: nil)
-        let credential = VerifiableCredential.selfIssuedNationalID(sparse,
+        let credential = VerifiableCredential.nationalID(sparse,
                                                                    issuerDID: Self.issuerDID,
                                                                    validFrom: Self.issuedAt)
 
@@ -86,7 +86,7 @@ struct VerifiableCredentialTests {
     }
 
     @Test func carriesTheBaseTypeFirst() {
-        let credential = VerifiableCredential.selfIssuedNationalID(Self.fullModel,
+        let credential = VerifiableCredential.nationalID(Self.fullModel,
                                                                    issuerDID: Self.issuerDID,
                                                                    validFrom: Self.issuedAt)
         #expect(credential.type.first == "VerifiableCredential")
@@ -241,10 +241,10 @@ struct VerifiableCredentialTests {
     }
 
     @Test func credentialsBuiltFromTheSameInputsAreEqual() {
-        let a = VerifiableCredential.selfIssuedNationalID(Self.fullModel,
+        let a = VerifiableCredential.nationalID(Self.fullModel,
                                                           issuerDID: Self.issuerDID,
                                                           validFrom: Self.issuedAt)
-        let b = VerifiableCredential.selfIssuedNationalID(Self.fullModel,
+        let b = VerifiableCredential.nationalID(Self.fullModel,
                                                           issuerDID: Self.issuerDID,
                                                           validFrom: Self.issuedAt)
         #expect(a == b)
@@ -382,7 +382,7 @@ struct VerifiableCredentialTests {
     }
 
     private static func selfIssued(from model: NationalIDModel, did: String) -> VerifiableCredential {
-        VerifiableCredential.selfIssuedNationalID(model, issuerDID: did, validFrom: issuedAt)
+        VerifiableCredential.nationalID(model, issuerDID: did, validFrom: issuedAt)
     }
 
     /// The credential has to be issued by the DID of the key that signs it, so the

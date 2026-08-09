@@ -455,6 +455,55 @@ struct DERReader {
     }
 }
 
+// MARK: - Distinguished name
+
+/// A distinguished-name attribute this app reads by name.
+///
+/// # ⚠️ What a 自然人憑證 does *not* contain
+///
+/// **The 身分證統一編號 is not in the certificate.** Measured on a real TW FidO
+/// `result.cert` (2026-08-09, MOICA G3, 1,492 bytes): the Subject DN holds
+/// exactly three attributes — `C=TW`, `CN=<the holder's name>` and
+/// `serialNumber=<16 digits>` — and a scan of every string-typed element in the
+/// DER, plus a byte scan for `[A-Z][0-9]{9}` in both ASCII and UTF-16, finds no
+/// national ID number anywhere in the certificate.
+///
+/// This corrects a claim that used to be written into `ProvingInputs`. It
+/// matters because it decides what a verifier can check offline: the only value
+/// in the certificate that can be compared against a credential's claims is the
+/// **name**, and a name is not unique. The binding between "the cardholder who
+/// signed" and "the person these fields describe" is enforced by 內政部 at
+/// signing time — the SIGN request names an `id_num` and only that cardholder's
+/// bound devices are prompted — and that step is not visible to whoever receives
+/// the credential afterwards.
+enum DistinguishedNameAttribute: Equatable, CaseIterable {
+
+    /// `2.5.4.3`. The cardholder's name.
+    case commonName
+
+    /// `2.5.4.5`. **Not the 身分證統一編號** — on the certificate measured above
+    /// it is a 16-digit number, and the national ID's shape is a letter followed
+    /// by nine digits. Treat it as an opaque per-certificate identifier, and
+    /// note that being per-certificate makes it a stable correlator for as long
+    /// as the certificate lives.
+    case serialNumber
+
+    var objectIdentifier: [UInt8] {
+        switch self {
+        case .commonName: return [0x55, 0x04, 0x03]
+        case .serialNumber: return [0x55, 0x04, 0x05]
+        }
+    }
+
+    /// For error text only. Never interpolated with a value beside it.
+    var label: String {
+        switch self {
+        case .commonName: return "commonName"
+        case .serialNumber: return "serialNumber"
+        }
+    }
+}
+
 // MARK: - Certificate
 
 /// How a certificate's validity window looks at a given moment.
@@ -757,14 +806,41 @@ struct X509Certificate: Equatable, Sendable {
     /// allowed to sign, is in date, or is the CA you meant — those are the
     /// caller's checks, and they are made in `IssuerCertificate`.
     func isSignatureValid(signedBy issuer: X509Certificate) throws -> Bool {
-        guard let pkcs1 = issuer.rsaPublicKey, let bitCount = issuer.rsaModulusBitCount else {
-            throw IssuerCertificateError.holderCertificateMalformed(reason: "issuer key is not RSA")
-        }
         guard let algorithm = Self.secKeyAlgorithm(forSignatureOID: signatureAlgorithmOID) else {
             throw IssuerCertificateError.holderCertificateMalformed(
                 reason: "unsupported signature algorithm")
         }
+        return Self.verify(signature: signature,
+                           over: tbsCertificate,
+                           using: try issuer.rsaPublicSecKey(),
+                           algorithm: algorithm)
+    }
 
+    /// Whether `signature` is an RSASSA-PKCS1-v1_5 SHA-256 signature over
+    /// `message` under **this certificate's subject key**.
+    ///
+    /// Distinct from `isSignatureValid(signedBy:)`, which asks whether a CA
+    /// signed this certificate. This one asks whether the person holding this
+    /// certificate signed something else — which is what a card-signed
+    /// credential needs and what nothing here could previously answer.
+    ///
+    /// The algorithm is pinned rather than read from anywhere, because there is
+    /// nothing to read it from: a detached signature carries no algorithm
+    /// identifier. It is what TW FidO produces for `sign_type: "PKCS#1"` with
+    /// `hash_algorithm: "SHA256"`, and accepting anything else would mean
+    /// accepting a digest the SP API never agreed to use.
+    func verifiesPKCS1SHA256(_ signature: Data, over message: Data) throws -> Bool {
+        Self.verify(signature: signature,
+                    over: message,
+                    using: try rsaPublicSecKey(),
+                    algorithm: .rsaSignatureMessagePKCS1v15SHA256)
+    }
+
+    /// This certificate's subject public key, as Security.framework wants it.
+    func rsaPublicSecKey() throws -> SecKey {
+        guard let pkcs1 = rsaPublicKey, let bitCount = rsaModulusBitCount else {
+            throw IssuerCertificateError.holderCertificateMalformed(reason: "key is not RSA")
+        }
         let attributes: [CFString: Any] = [
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
@@ -776,19 +852,107 @@ struct X509Certificate: Equatable, Sendable {
                                              &creationError) else {
             creationError?.release()
             throw IssuerCertificateError.holderCertificateMalformed(
-                reason: "issuer key could not be loaded")
+                reason: "key could not be loaded")
         }
+        return key
+    }
 
+    private static func verify(signature: Data,
+                               over message: Data,
+                               using key: SecKey,
+                               algorithm: SecKeyAlgorithm) -> Bool {
         var verifyError: Unmanaged<CFError>?
         let verified = SecKeyVerifySignature(key,
                                              algorithm,
-                                             tbsCertificate as CFData,
+                                             message as CFData,
                                              signature as CFData,
                                              &verifyError)
         // A failed verification reports an error as well as `false`; it is the
         // expected outcome for a wrong certificate, not something to surface.
         verifyError?.release()
         return verified
+    }
+
+    // MARK: Distinguished name
+
+    /// The value of `attribute` in this certificate's **Subject** DN, or nil
+    /// when the DN does not carry it.
+    ///
+    /// Subject, never issuer. Reading the issuer here would answer every
+    /// question with 內政部憑證管理中心 — a string that is the same for every
+    /// cardholder in the country and would therefore make a holder-binding check
+    /// pass for all of them. A fixture in `DistinguishedNameTests` carries
+    /// different names in the two DNs so that mistake cannot pass its tests.
+    func subjectAttribute(_ attribute: DistinguishedNameAttribute) throws -> String? {
+        try Self.value(of: attribute, inName: subjectName)
+    }
+
+    /// `Name ::= RDNSequence`, `RelativeDistinguishedName ::= SET OF
+    /// AttributeTypeAndValue`, `AttributeTypeAndValue ::= SEQUENCE { type OID,
+    /// value ANY }`. Multi-valued RDNs are rare but legal, so every pair inside
+    /// every set is examined rather than just the first.
+    ///
+    /// A DN carrying the same attribute twice throws instead of returning
+    /// either. There is no rule saying which one wins, so two implementations
+    /// reading the same certificate could disagree about whose name is on it —
+    /// and a check that can be made to answer two ways is not a check.
+    static func value(of attribute: DistinguishedNameAttribute, inName name: Data) throws -> String? {
+        var reader = DERReader([UInt8](name))
+        let sequence = try reader.next(expecting: DERReader.sequence)
+        var relativeNames = reader.contents(of: sequence)
+
+        var found: String?
+        while !relativeNames.isAtEnd {
+            let relativeName = try relativeNames.next(expecting: DERReader.set)
+            var pairs = relativeNames.contents(of: relativeName)
+            while !pairs.isAtEnd {
+                let pair = try pairs.next(expecting: DERReader.sequence)
+                var fields = pairs.contents(of: pair)
+                let type = try fields.next(expecting: DERReader.objectIdentifier)
+                guard [UInt8](fields.content(of: type)) == attribute.objectIdentifier else {
+                    continue
+                }
+                guard found == nil else {
+                    throw DERReader.failure("distinguished name carries \(attribute.label) twice")
+                }
+                found = try Self.directoryString(fields.next(), in: fields)
+            }
+        }
+        return found
+    }
+
+    /// Decodes the one `DirectoryString` choice the value turned out to be.
+    ///
+    /// `TeletexString` is deliberately absent. Its character set is
+    /// under-specified and implementations disagree about whether the bytes are
+    /// T.61 or Latin-1, so a value decoded from one is a value another reader
+    /// renders differently — the exact condition that makes a name comparison
+    /// meaningless. Rejecting is the honest answer; guessing is not.
+    ///
+    /// An unreadable value throws rather than returning nil, because "this
+    /// certificate has no common name" and "this certificate has one I cannot
+    /// read" must not lead to the same decision.
+    private static func directoryString(_ element: DERElement, in reader: DERReader) throws -> String {
+        let bytes = reader.content(of: element)
+        switch element.tag {
+        case 0x0C, 0x13, 0x16:
+            // UTF8String, PrintableString, IA5String. The latter two are ASCII
+            // subsets, so decoding all three as UTF-8 is exact, not lenient.
+            guard let string = String(data: bytes, encoding: .utf8) else {
+                throw DERReader.failure("name attribute is not valid UTF-8")
+            }
+            return string
+        case 0x1E:
+            // BMPString is UTF-16BE. Present in older Taiwanese certificates.
+            guard bytes.count % 2 == 0,
+                  let string = String(data: bytes, encoding: .utf16BigEndian) else {
+                throw DERReader.failure("name attribute is not valid UTF-16")
+            }
+            return string
+        default:
+            throw DERReader.failure(String(format: "unsupported name attribute encoding 0x%02X",
+                                           element.tag))
+        }
     }
 
     /// SHA-1 is absent on purpose. MOICA G3 signs with SHA-256 and nothing in

@@ -235,10 +235,17 @@ enum ProofChallenge: Equatable, Sendable {
 ///
 /// # ⚠️ This object is the cardholder's identity
 ///
-/// `certificateBase64` carries their name, their 身分證統一編號 in the serial
-/// number, and their public key; `signedResponse` is a signature under the
-/// private half. It must not be logged, must not be persisted, and must not
-/// outlive the proof. `description` and `debugDescription` are overridden to say
+/// `certificateBase64` carries their name and their public key;
+/// `signedResponse` is a signature under the private half. It must not be
+/// logged, must not be persisted, and must not outlive the proof.
+///
+/// This used to say the certificate carries the 身分證統一編號 in its serial
+/// number. It does not — see `DistinguishedNameAttribute` for the measurement.
+/// The Subject DN's `serialNumber` is a 16-digit value that is not the national
+/// ID, and no national ID appears anywhere in the DER. That makes this object
+/// slightly less dangerous than the note claimed and no less confidential: a
+/// name plus a certificate serial is still a direct handle on one person, and
+/// the certificate is what the ZK path exists to keep off the wire. `description` and `debugDescription` are overridden to say
 /// nothing, so `print(inputs)` and `String(reflecting:)` cannot leak it by
 /// accident, and `ZKProver` deletes the input JSON these become as soon as the
 /// proofs exist.

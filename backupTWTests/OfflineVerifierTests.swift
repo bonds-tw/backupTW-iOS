@@ -91,7 +91,7 @@ struct OfflineVerifierTests {
         let key = try DeviceKey.loadOrCreate(tag: Self.deviceKeyTag)
         let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
 
-        let credential = VerifiableCredential.selfIssuedNationalID(Fixture.model,
+        let credential = VerifiableCredential.nationalID(Fixture.model,
                                                                    issuerDID: did,
                                                                    validFrom: Fixture.issuedAt)
         let credentialJWS = try credential.jwsCompactSerialization(signedBy: key, issuerDID: did)
@@ -817,36 +817,68 @@ struct OfflineVerifierTests {
     /// the `switch` in `message` is what makes forgetting to add one here
     /// survivable: the compiler catches the missing message, this catches the
     /// empty one.
-    private static let everyFailure: [VerificationFailure] = [
-        .presentationIsNotAJWS,
-        .presentationUnreadable,
-        .presentationFieldsDisagree(field: "challenge"),
-        .presentationIsNotAPresentation(declaredType: "vc+jwt"),
-        .unsupportedSignatureAlgorithm(declared: "none"),
-        .holderIdentifierUnusable,
-        .presentationKeyIDMismatch,
-        .presentationSignatureInvalid,
-        .credentialMissing,
-        .presentationCarriesMultipleCredentials(count: 2),
-        .credentialNotEnveloped,
-        .credentialIsNotAJWS,
-        .credentialIsNotACredential(declaredType: "vp+jwt"),
-        .issuerIdentifierUnusable,
-        .credentialKeyIDMismatch,
-        .credentialSignatureInvalid,
-        .credentialUnreadable,
-        .credentialNotBoundToPresenter,
-        .credentialIssuerIsNotTheSubject,
-        .challengeMismatch,
-        .purposeMismatch,
-        .audienceMismatch,
-        .presentationTimestampUnreadable,
-        .presentationTooOld(age: 600),
-        .presentationDatedInTheFuture(skew: 600),
-        .credentialValidityUnreadable,
-        .credentialNotYetValid,
-        .credentialExpired,
-    ]
+    /// Every `VerificationFailure`, built by walking a chain the compiler checks.
+    ///
+    /// This used to be a hand-written array, and it rotted exactly the way a
+    /// hand-written array does: four cases were added for card-signed
+    /// credentials and none of them reached this list, so the test above — the
+    /// one that guarantees every failure has something to say to a human — went
+    /// on passing while covering none of them. A test that cannot fail for the
+    /// thing you just added is worse than no test, because the green tick is
+    /// read as coverage.
+    ///
+    /// `VerificationFailure` has associated values, so it cannot be
+    /// `CaseIterable`. What replaces that is the switch below: it must be
+    /// exhaustive to compile, and each arm names the next case, so adding a case
+    /// without threading it into the chain is a build error rather than a
+    /// quietly narrower test.
+    private static var everyFailure: [VerificationFailure] {
+        var all: [VerificationFailure] = []
+        var current: VerificationFailure? = .presentationIsNotAJWS
+        while let failure = current {
+            all.append(failure)
+            current = next(after: failure)
+        }
+        return all
+    }
+
+    private static func next(after failure: VerificationFailure) -> VerificationFailure? {
+        switch failure {
+        case .presentationIsNotAJWS: return .presentationUnreadable
+        case .presentationUnreadable: return .presentationFieldsDisagree(field: "challenge")
+        case .presentationFieldsDisagree: return .presentationFieldIsNotText(field: "challenge")
+        case .presentationFieldIsNotText: return .presentationIsNotAPresentation(declaredType: "vc+jwt")
+        case .presentationIsNotAPresentation: return .unsupportedSignatureAlgorithm(declared: "none")
+        case .unsupportedSignatureAlgorithm: return .holderIdentifierUnusable
+        case .holderIdentifierUnusable: return .presentationKeyIDMismatch
+        case .presentationKeyIDMismatch: return .presentationSignatureInvalid
+        case .presentationSignatureInvalid: return .credentialMissing
+        case .credentialMissing: return .presentationCarriesMultipleCredentials(count: 2)
+        case .presentationCarriesMultipleCredentials: return .credentialNotEnveloped
+        case .credentialNotEnveloped: return .credentialIsNotAJWS
+        case .credentialIsNotAJWS: return .credentialIsNotACredential(declaredType: "vp+jwt")
+        case .credentialIsNotACredential: return .issuerIdentifierUnusable
+        case .issuerIdentifierUnusable: return .credentialKeyIDMismatch
+        case .credentialKeyIDMismatch: return .credentialSignatureInvalid
+        case .credentialSignatureInvalid: return .credentialUnreadable
+        case .credentialUnreadable: return .credentialNotBoundToPresenter
+        case .credentialNotBoundToPresenter: return .credentialIssuerIsNotTheSubject
+        case .credentialIssuerIsNotTheSubject: return .challengeMismatch
+        case .challengeMismatch: return .purposeMismatch
+        case .purposeMismatch: return .audienceMismatch
+        case .audienceMismatch: return .presentationTimestampUnreadable
+        case .presentationTimestampUnreadable: return .presentationTooOld(age: 600)
+        case .presentationTooOld: return .presentationDatedInTheFuture(skew: 600)
+        case .presentationDatedInTheFuture: return .credentialValidityUnreadable
+        case .credentialValidityUnreadable: return .credentialNotYetValid
+        case .credentialNotYetValid: return .credentialExpired
+        case .credentialExpired: return .cardSignatureInvalid
+        case .cardSignatureInvalid: return .cardholderIsNotTheSubject
+        case .cardholderIsNotTheSubject: return .cardholderCertificateUnusable
+        case .cardholderCertificateUnusable: return .trustAnchorUnavailable
+        case .trustAnchorUnavailable: return nil
+        }
+    }
 }
 
 // MARK: - Test doubles

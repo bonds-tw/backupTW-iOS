@@ -35,7 +35,24 @@ enum VerificationCaveat: Equatable, CaseIterable {
     /// The issuer is the holder's own device. A verifier who reads a valid
     /// signature as "the government says this is true" has misread it: this is
     /// the 「本人可驗」 half of §5.2 with 「資料可驗」 still missing.
+    ///
+    /// Carried only by credentials issued before the card-signing change. Newer
+    /// ones carry `assertedByCardholder` instead, which is a weaker warning
+    /// because the document is genuinely better evidence.
     case selfIssuedByTheHolder
+
+    /// The fields were signed with the holder's 自然人憑證 — a certificate
+    /// 內政部 issued to that person — and **not** endorsed by 內政部 as correct.
+    ///
+    /// The distinction is the whole sentence and it is easy to lose. What the
+    /// signature establishes is 「這位持卡人主張這些值」: a named cardholder,
+    /// whose certificate chains to MOICA G3, put their key over exactly these
+    /// fields. What it does not establish is that the values came from a
+    /// government record — the app read them out of a MyData download, and that
+    /// download carries no signature of its own (measured 2026-08-09). A screen
+    /// that compresses this to 「政府認證」 is telling a verifier something the
+    /// evidence does not support.
+    case assertedByCardholder
 
     /// The `did:key` in this presentation is the same one the holder shows
     /// everybody, every time — it is `holder`, the credential's `issuer`, and
@@ -95,6 +112,12 @@ extension VerificationCaveat {
                                      comment: "Shown alongside a successful offline verification")
         case .selfIssuedByTheHolder:
             return NSLocalizedString("This document was issued by the holder's own device, not by a government authority.",
+                                     comment: "Shown alongside a successful offline verification")
+        case .assertedByCardholder:
+            // Names who asserted and who did not. "Signed with a government
+            // certificate" alone would be read as "the government checked
+            // this", which is the one reading that is wrong.
+            return NSLocalizedString("The holder signed these details with their own government-issued certificate. That confirms who is making the claim, not that the government has confirmed the details.",
                                      comment: "Shown alongside a successful offline verification")
         case .identifierIsLinkable:
             return NSLocalizedString("This document shows the same identifier every time it is presented, so different checkers can tell it is the same person.",
@@ -225,6 +248,27 @@ enum VerificationFailure: Error, Equatable {
     case credentialValidityUnreadable
     case credentialNotYetValid
     case credentialExpired
+
+    // MARK: Card-signed credentials
+
+    /// The card signature does not cover these fields — the document was altered
+    /// after the cardholder signed it, or the signature is not theirs.
+    case cardSignatureInvalid
+
+    /// The certificate that signed names a different person from the one the
+    /// document describes.
+    case cardholderIsNotTheSubject
+
+    /// The signing certificate is not one this build can check: an older MOICA
+    /// generation, out of date, or not signed by 內政部憑證管理中心 at all.
+    case cardholderCertificateUnusable
+
+    /// This build's own bundled MOICA certificate could not be loaded.
+    ///
+    /// Kept apart from every failure above because it is the only one that is
+    /// *this app's* fault. Reporting it as a bad document would send somebody to
+    /// renew a card that is perfectly fine.
+    case trustAnchorUnavailable
 }
 
 extension VerificationFailure {
@@ -259,8 +303,19 @@ extension VerificationFailure {
         case .presentationSignatureInvalid:
             return NSLocalizedString("The signature on this presentation is not valid.",
                                      comment: "Offline verification failure")
-        case .credentialSignatureInvalid:
+        case .credentialSignatureInvalid, .cardSignatureInvalid:
             return NSLocalizedString("The signature on this document is not valid; its contents may have been altered.",
+                                     comment: "Offline verification failure")
+        case .cardholderIsNotTheSubject:
+            return NSLocalizedString("This document was signed by a different person from the one it describes.",
+                                     comment: "Offline verification failure")
+        case .cardholderCertificateUnusable:
+            // Names the likeliest cause, because it is the only one with an
+            // action attached: a 自然人憑證 lasts a year and lapsing is ordinary.
+            return NSLocalizedString("The digital certificate that signed this document cannot be checked — most often because it has expired.",
+                                     comment: "Offline verification failure")
+        case .trustAnchorUnavailable:
+            return NSLocalizedString("This app cannot check government certificates right now. This is a problem with the app, not with the document.",
                                      comment: "Offline verification failure")
         case .credentialUnreadable:
             return NSLocalizedString("This document uses fields this app does not understand.",
@@ -576,25 +631,19 @@ enum OfflineVerifier {
                          whenMismatched: .presentationKeyIDMismatch)
         try requireSignature(on: presentation, by: holderKey, whenInvalid: .presentationSignatureInvalid)
 
-        // 3. The credential, checked against its own issuer's key, over the bytes
-        //    that arrived — it is never re-serialized on the way in.
-        let credential = try CompactJWS(serialization: try envelopedCredentialJWS(in: presentation.payload),
-                                        structureFailure: .credentialIsNotAJWS,
-                                        contentFailure: .credentialUnreadable)
-        let credentialType = credential.header["typ"] as? String
-        guard credentialType == credentialMediaType else {
-            throw VerificationFailure.credentialIsNotACredential(declaredType: credentialType)
+        // 3. The credential, checked under whichever mechanism secured it, over
+        //    the bytes that arrived — it is never re-serialized on the way in.
+        //    Which mechanism is decided by the envelope's media type, never by
+        //    looking at the bytes: a document that could be steered into the
+        //    weaker of two verifiers is the whole type-confusion class.
+        let credential: CheckedCredential
+        switch try envelopedCredential(in: presentation.payload) {
+        case .deviceSigned(let jws):
+            credential = try checkDeviceSigned(jws)
+        case .cardSigned(let envelope):
+            credential = try checkCardSigned(envelope, now: now)
         }
-        try requireES256(credential)
-
-        guard let issuer = credential.payload["issuer"] as? String, !issuer.isEmpty else {
-            throw VerificationFailure.credentialUnreadable
-        }
-        let issuerKey = try publicKey(for: issuer, whenUnusable: .issuerIdentifierUnusable)
-        try requireKeyID(in: credential.header,
-                         toMatch: issuer,
-                         whenMismatched: .credentialKeyIDMismatch)
-        try requireSignature(on: credential, by: issuerKey, whenInvalid: .credentialSignatureInvalid)
+        let issuer = credential.issuer
 
         // 4. Holder binding. Both signatures can be perfectly valid on a
         //    credential about somebody else — a copied credential file plus a
@@ -711,11 +760,16 @@ enum OfflineVerifier {
 
         var caveats: [VerificationCaveat] = [.noNetworkQuery,
                                              .revocationNotChecked,
-                                             // Guaranteed by the `issuer == subject`
-                                             // check in step 4; when a third-party
-                                             // issuer becomes checkable, this
-                                             // becomes conditional.
-                                             .selfIssuedByTheHolder,
+                                             // Which of the two appears is the
+                                             // only place the securing mechanism
+                                             // reaches the screen, and they say
+                                             // materially different things: one
+                                             // means the phone vouched for these
+                                             // fields, the other means a named
+                                             // cardholder did.
+                                             credential.cardholderName == nil
+                                                 ? .selfIssuedByTheHolder
+                                                 : .assertedByCardholder,
                                              .identifierIsLinkable,
                                              // Unconditional for the same reason
                                              // `revocationNotChecked` is: this
@@ -809,13 +863,38 @@ enum OfflineVerifier {
         }
     }
 
+    /// Which securing mechanism the presented credential arrived under.
+    ///
+    /// Decided from the envelope's media type and nowhere else. Sniffing the
+    /// bytes would mean a document could be steered into whichever verifier is
+    /// weaker for it, which is the classic shape of a type-confusion bug — and
+    /// this file already has a test suite named after that class.
+    enum EnvelopedCredential {
+        case deviceSigned(compactJWS: String)
+        case cardSigned(MOICASignedCredential)
+    }
+
+    /// What a credential turned out to be, once its own signature was checked.
+    ///
+    /// Both branches produce this so that everything downstream — holder
+    /// binding, validity windows, display — is written once and cannot drift
+    /// between the two.
+    private struct CheckedCredential {
+        let payload: [String: Any]
+        let payloadData: Data
+        let issuer: String
+        /// The cardholder's name from the certificate, or nil for a
+        /// device-signed credential. Its presence is what decides which caveat
+        /// the verifier reports.
+        let cardholderName: String?
+    }
+
     /// Pulls the credential out of the presentation without re-encoding it.
-    private static func envelopedCredentialJWS(in payload: [String: Any]) throws -> String {
+    private static func envelopedCredential(in payload: [String: Any]) throws -> EnvelopedCredential {
         let entries: [Any]
         if let array = payload["verifiableCredential"] as? [Any] {
             entries = array
         } else if let single = payload["verifiableCredential"] {
-            // VC 2.0 lets a single value stand in for a one-element array.
             entries = [single]
         } else {
             throw VerificationFailure.credentialMissing
@@ -829,14 +908,105 @@ enum OfflineVerifier {
         }
         guard let envelope = first as? [String: Any],
               typeList(envelope["type"]).contains(EnvelopedVerifiableCredential.typeName),
-              let identifier = envelope["id"] as? String,
-              identifier.hasPrefix(EnvelopedVerifiableCredential.compactJWSPrefix) else {
-            // Includes the shape that matters later: an envelope carrying a
-            // media type this build does not know — a ZK proof, one day — is
-            // refused here rather than fed to a JWS parser.
+              let identifier = envelope["id"] as? String else {
             throw VerificationFailure.credentialNotEnveloped
         }
-        return String(identifier.dropFirst(EnvelopedVerifiableCredential.compactJWSPrefix.count))
+
+        if identifier.hasPrefix(EnvelopedVerifiableCredential.compactJWSPrefix) {
+            return .deviceSigned(
+                compactJWS: String(identifier.dropFirst(
+                    EnvelopedVerifiableCredential.compactJWSPrefix.count)))
+        }
+        if identifier.hasPrefix(EnvelopedVerifiableCredential.moicaSignedPrefix) {
+            let encoded = String(identifier.dropFirst(
+                EnvelopedVerifiableCredential.moicaSignedPrefix.count))
+            guard let data = Data(base64Encoded: encoded),
+                  let serialized = String(data: data, encoding: .utf8),
+                  let signed = try? MOICASignedCredential.parse(serialized) else {
+                throw VerificationFailure.credentialUnreadable
+            }
+            return .cardSigned(signed)
+        }
+        // An envelope carrying a media type this build does not know — a ZK
+        // proof, one day — is refused here rather than fed to the wrong parser.
+        throw VerificationFailure.credentialNotEnveloped
+    }
+
+    /// The older path: a credential secured by the device's own ES256 key.
+    private static func checkDeviceSigned(_ jws: String) throws -> CheckedCredential {
+        let credential = try CompactJWS(serialization: jws,
+                                        structureFailure: .credentialIsNotAJWS,
+                                        contentFailure: .credentialUnreadable)
+        let credentialType = credential.header["typ"] as? String
+        guard credentialType == credentialMediaType else {
+            throw VerificationFailure.credentialIsNotACredential(declaredType: credentialType)
+        }
+        try requireES256(credential)
+
+        guard let issuer = credential.payload["issuer"] as? String, !issuer.isEmpty else {
+            throw VerificationFailure.credentialUnreadable
+        }
+        let issuerKey = try publicKey(for: issuer, whenUnusable: .issuerIdentifierUnusable)
+        try requireKeyID(in: credential.header,
+                         toMatch: issuer,
+                         whenMismatched: .credentialKeyIDMismatch)
+        try requireSignature(on: credential, by: issuerKey, whenInvalid: .credentialSignatureInvalid)
+
+        return CheckedCredential(payload: credential.payload,
+                                 payloadData: credential.payloadData,
+                                 issuer: issuer,
+                                 cardholderName: nil)
+    }
+
+    /// The current path: the fields were signed with the holder's 自然人憑證.
+    ///
+    /// The failure cases are kept apart rather than collapsed into one "invalid"
+    /// because they send the holder to different places. An expired certificate
+    /// means "go and renew your card"; a name mismatch means the document
+    /// contradicts itself; a bad signature means it was altered. Reporting all
+    /// three as the same sentence is how a verifier ends up telling somebody
+    /// their document is forged when their card simply lapsed.
+    private static func checkCardSigned(_ envelope: MOICASignedCredential,
+                                        now: Date) throws -> CheckedCredential {
+        let anchor: IssuerCertificate
+        do {
+            anchor = try IssuerCertificate.loadBundled(now: now)
+        } catch {
+            // The bundled trust anchor is unusable, which is this build's fault
+            // and not the presenter's. Distinguished so a support report does
+            // not send somebody to renew a perfectly good card.
+            throw VerificationFailure.trustAnchorUnavailable
+        }
+
+        let verified: MOICACredentialVerification
+        do {
+            verified = try envelope.verify(against: anchor, now: now)
+        } catch let error as MOICASignedCredentialError {
+            switch error {
+            case .cardholderNameDiffersFromSubject, .cardholderNameMissing, .credentialNameMissing:
+                throw VerificationFailure.cardholderIsNotTheSubject
+            case .malformedPayload, .unsupportedProofConstruction, .malformedSignature:
+                throw VerificationFailure.credentialUnreadable
+            case .signatureInvalid:
+                throw VerificationFailure.cardSignatureInvalid
+            }
+        } catch {
+            // Everything `IssuerCertificate` raises: wrong generation, expired,
+            // not signed by MOICA G3.
+            throw VerificationFailure.cardholderCertificateUnusable
+        }
+
+        let payloadData = try envelope.payloadBytes()
+        guard let object = try? JSONSerialization.jsonObject(with: payloadData),
+              let payload = object as? [String: Any],
+              let issuer = payload["issuer"] as? String, !issuer.isEmpty else {
+            throw VerificationFailure.credentialUnreadable
+        }
+
+        return CheckedCredential(payload: payload,
+                                 payloadData: payloadData,
+                                 issuer: issuer,
+                                 cardholderName: verified.cardholderName)
     }
 
     /// Reads a field from the body, falling back to the protected header.

@@ -395,8 +395,14 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
 /// polling cadence, the deadline, the holder-certificate gate — can be tested
 /// without 內政部.
 protocol TWFidOSignSession: Sendable {
-    func begin(idNumber: String, hint: String, timeLimit: Int) async throws
-        -> (ticket: TWFidOTicket, deepLink: URL)
+    /// `signing` is not optional and has no default: the two callers ask the
+    /// card for different things — a holding proof needs the relying-party
+    /// constant, issuance needs the credential's digest — and a session that
+    /// picked one silently is how the fields came to be signed by nothing.
+    func begin(idNumber: String,
+               hint: String,
+               signing: TWFidOSigningTarget,
+               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL)
     func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult?
 }
 
@@ -426,10 +432,15 @@ struct LiveTWFidOSignSession: TWFidOSignSession, @unchecked Sendable {
     let client: TWFidOClient
     let returnURL: URL
 
-    func begin(idNumber: String, hint: String, timeLimit: Int) async throws
-        -> (ticket: TWFidOTicket, deepLink: URL) {
+    func begin(idNumber: String,
+               hint: String,
+               signing: TWFidOSigningTarget,
+               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
         try await client.requestSignAppToApp(
-            TWFidOSignRequest(idNumber: idNumber, hint: hint, timeLimit: timeLimit),
+            TWFidOSignRequest(idNumber: idNumber,
+                              hint: hint,
+                              signing: signing,
+                              timeLimit: timeLimit),
             returnURL: returnURL)
     }
 
@@ -513,7 +524,18 @@ struct TWFidOHolderSigner: ZKHolderSigning {
     func sign(challenge: ProofChallenge) async throws -> ProvingInputs {
         let started: (ticket: TWFidOTicket, deepLink: URL)
         do {
-            started = try await session.begin(idNumber: idNumber, hint: hint, timeLimit: timeLimit)
+            // The relying-party identifier, not a credential digest, and the
+            // choice is not stylistic. The circuit takes this exact string as
+            // `tbs` and derives the nullifier from it, so a verifier can only
+            // treat a proof as Sybil-resistant by pinning the public input to a
+            // value it knows in advance. A per-run TBS would let a holder mint a
+            // fresh nullifier at will, which is the property the whole holding
+            // proof exists to deny.
+            started = try await session.begin(
+                idNumber: idNumber,
+                hint: hint,
+                signing: .relyingPartyIdentifier(TWFidOConfiguration.bondsAppID),
+                timeLimit: timeLimit)
         } catch let error as SPCredentialError {
             // Not a failure of the holder's certificate and retrying changes
             // nothing: this build has no way to authenticate to the SP API.
@@ -557,6 +579,11 @@ struct TWFidOHolderSigner: ZKHolderSigning {
     /// resume it, so a wait abandoned here would strand a task for the life of
     /// the process — and the task group would never finish.
     private func awaitResult(ticket: TWFidOTicket, deadline: Date) async throws -> TWFidOSignResult {
+        // Same shape as `CredentialIssuance.awaitResult`, for the same measured
+        // reason: the first poll races this app's own backgrounding during the
+        // `mobilemoica://` hand-off, and a socket the system killed is not the
+        // holder declining. See `isTransientSignPollFailure`.
+        var sawTransportFailure = false
         while true {
             try Task.checkCancellation()
             do {
@@ -565,11 +592,25 @@ struct TWFidOHolderSigner: ZKHolderSigning {
                 }
             } catch let error as SPCredentialError {
                 throw ZKRunError.signingUnavailable(message: Self.credentialMessage(error))
+            } catch let error where isTransientSignPollFailure(error) {
+                sawTransportFailure = true
             } catch {
                 throw ZKRunError.signingFailed(message: ZKProofRunner.message(for: error))
             }
 
-            guard now() < deadline else { throw ZKRunError.signingTimedOut }
+            guard now() < deadline else {
+                // Reported as a failure with a connection message rather than as
+                // `signingTimedOut`: the timeout case tells the holder they
+                // never approved, and after a transport failure that may be
+                // exactly wrong — 行動自然人憑證 can be showing 簽章成功 while
+                // this screen blames them.
+                if sawTransportFailure {
+                    throw ZKRunError.signingFailed(message: NSLocalizedString(
+                        "Your signature may have gone through, but the result could not be fetched. Check this device's connection and try again.",
+                        comment: ""))
+                }
+                throw ZKRunError.signingTimedOut
+            }
             await raceCallbackAgainstSleep(transactionID: ticket.transactionID)
         }
     }

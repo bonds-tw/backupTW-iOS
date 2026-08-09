@@ -246,10 +246,32 @@ struct EnvelopedVerifiableCredential: Codable, Equatable {
     /// compact JWS is base64url and dots — all of them legal in a `data:` URL.
     static let compactJWSPrefix = "data:application/vc+jwt,"
 
+    /// A credential secured by the cardholder's 自然人憑證 rather than by a
+    /// JOSE signature.
+    ///
+    /// Its own media type, not a variant of `vc+jwt`, and that is the load-bearing
+    /// part. The envelope verifies under entirely different rules — an RSA
+    /// signature over a digest, checked against a certificate that has to chain
+    /// to MOICA G3 — so a verifier that reached for a JOSE library on seeing it
+    /// would be wrong in the one direction that matters. An unrecognised media
+    /// type is refused; a mislabelled one would be checked with the wrong
+    /// machinery.
+    ///
+    /// `;base64,` because the envelope is JSON and a bare data URI would have to
+    /// percent-encode the braces and quotes.
+    static let moicaSignedPrefix = "data:application/vc+moica;base64,"
+
     static func enveloping(compactJWS jws: String) -> EnvelopedVerifiableCredential {
         EnvelopedVerifiableCredential(context: VerifiableCredential.credentialsV2Context,
                                       id: compactJWSPrefix + jws,
                                       type: typeName)
+    }
+
+    static func enveloping(moicaSigned serialized: String) -> EnvelopedVerifiableCredential {
+        EnvelopedVerifiableCredential(
+            context: VerifiableCredential.credentialsV2Context,
+            id: moicaSignedPrefix + Data(serialized.utf8).base64EncodedString(),
+            type: typeName)
     }
 
     /// The credential's original bytes, or `nil` if this envelope carries some
@@ -258,6 +280,15 @@ struct EnvelopedVerifiableCredential: Codable, Equatable {
     var compactJWS: String? {
         guard id.hasPrefix(Self.compactJWSPrefix) else { return nil }
         return String(id.dropFirst(Self.compactJWSPrefix.count))
+    }
+
+    /// The card-signed envelope's serialization, or `nil` for any other media
+    /// type.
+    var moicaSignedSerialization: String? {
+        guard id.hasPrefix(Self.moicaSignedPrefix) else { return nil }
+        let encoded = String(id.dropFirst(Self.moicaSignedPrefix.count))
+        guard let data = Data(base64Encoded: encoded) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }
 
@@ -315,8 +346,24 @@ extension VerifiablePresentation {
         // `issuer` because the subject is who the claims are about — which stays
         // correct on the day these credentials are issued by MOICA rather than
         // by the device itself.
-        guard try subjectIdentifier(ofCredential: credentialJWS) == holderDID else {
-            throw VerifiablePresentationError.credentialSubjectMismatch
+        //
+        // The stored credential may be either form. A card-signed envelope is
+        // what this app issues now; a compact JWS is what it used to, and one is
+        // still on disk for anyone who onboarded before that change. Refusing to
+        // present the older one would take a working document away from the
+        // people most likely to be relying on it, so both are enveloped here and
+        // the *verifier* is where the difference in what they establish shows up.
+        let enveloped: EnvelopedVerifiableCredential
+        if let cardSigned = try? MOICASignedCredential.parse(credentialJWS) {
+            guard try cardSigned.credential().credentialSubject["id"] == holderDID else {
+                throw VerifiablePresentationError.credentialSubjectMismatch
+            }
+            enveloped = .enveloping(moicaSigned: credentialJWS)
+        } else {
+            guard try subjectIdentifier(ofCredential: credentialJWS) == holderDID else {
+                throw VerifiablePresentationError.credentialSubjectMismatch
+            }
+            enveloped = .enveloping(compactJWS: credentialJWS)
         }
 
         let presentation = VerifiablePresentation(
@@ -324,7 +371,7 @@ extension VerifiablePresentation {
                       .definitions(presentationTermDefinitions)],
             type: [baseType],
             holder: holderDID,
-            verifiableCredential: [.enveloping(compactJWS: credentialJWS)],
+            verifiableCredential: [enveloped],
             challenge: request.challenge,
             audience: request.audience,
             purpose: request.purpose,

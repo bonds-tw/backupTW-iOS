@@ -178,7 +178,7 @@ final class HolderPresentationTests: @unchecked Sendable {
         // The W3C-CCG published P-256 test vector — a real did:key that this
         // device certainly does not hold the private half of.
         let strangerDID = "did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv"
-        let credential = VerifiableCredential.selfIssuedNationalID(
+        let credential = VerifiableCredential.nationalID(
             NationalIDModel(nationality: "中華民國（臺灣）", unifiedNo: "A123456789",
                             name: "王小明", birthdate: "0700101", addressOfHousehold: "臺北市"),
             issuerDID: strangerDID,
@@ -199,7 +199,7 @@ final class HolderPresentationTests: @unchecked Sendable {
         let store = try store()
         let key = try DeviceKey.loadOrCreate(tag: tag, installRecord: installRecord)
         let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
-        let credential = VerifiableCredential.selfIssuedNationalID(
+        let credential = VerifiableCredential.nationalID(
             NationalIDModel(nationality: "中華民國（臺灣）",
                             unifiedNo: "A123456789",
                             name: "王小明",

@@ -38,6 +38,17 @@ struct StoredNationalID: Equatable {
 
     let issuerDID: String
 
+    /// Whether the stored file is a `MOICASignedCredential` rather than the
+    /// older device-signed compact JWS.
+    ///
+    /// Carried because the holder's own screen has to say who signed, and the
+    /// two answers are opposite. `issuerDID` cannot stand in for it: it is the
+    /// device's `did:key` in *both* forms — the subject identifier the holder
+    /// presents under, which is a separate thing from what secured the document.
+    /// Reading the envelope is the only way to tell, and `decodePayload` already
+    /// has to do it, so the answer travels rather than being recomputed.
+    let isCardSigned: Bool
+
     /// As the credential stores it — an ISO 8601 string, not a `Date`.
     let validFromRaw: String
 
@@ -60,6 +71,10 @@ struct StoredNationalID: Equatable {
 
     static func == (a: StoredNationalID, b: StoredNationalID) -> Bool {
         a.issuerDID == b.issuerDID && a.validFromRaw == b.validFromRaw
+            // Two documents carrying identical fields but secured differently
+            // are not the same document — one is vouched for by a cardholder's
+            // certificate and the other by nothing but this phone.
+            && a.isCardSigned == b.isCardSigned
             && a.claims.map(\.key) == b.claims.map(\.key)
             && a.claims.map(\.value) == b.claims.map(\.value)
     }
@@ -75,7 +90,8 @@ struct StoredNationalID: Equatable {
     static func load(from store: CredentialStoring? = try? CredentialStore()) -> StoredNationalID? {
         guard let store,
               let jws = try? store.load(id: credentialID),
-              let credential = decodePayload(of: jws) else { return nil }
+              let decoded = decodePayload(of: jws) else { return nil }
+        let credential = decoded.credential
 
         let ordered = displayOrder.compactMap { key -> (key: String, value: String)? in
             guard let value = credential.credentialSubject[key], !value.isEmpty else { return nil }
@@ -99,22 +115,43 @@ struct StoredNationalID: Equatable {
         let parser = ISO8601DateFormatter()
         parser.formatOptions = [.withInternetDateTime]
         return StoredNationalID(issuerDID: credential.issuer,
+                                isCardSigned: decoded.isCardSigned,
                                 validFromRaw: credential.validFrom,
                                 validFrom: parser.date(from: credential.validFrom),
                                 claims: ordered + extras)
     }
 
-    /// Pulls the credential out of the middle segment of a compact JWS.
+    /// Pulls the credential out of whichever envelope `CredentialStore` holds.
+    ///
+    /// Both forms are read, and that is not indecision: a credential issued
+    /// before the card-signing change is still on disk for anyone who onboarded
+    /// then, and the home screen going blank for them would look exactly like
+    /// the defect this type was written to fix.
     ///
     /// Hand-rolled rather than routed through `OfflineVerifier`, which decodes a
     /// *presentation* — a different envelope with a different shape. Reusing it
     /// would have meant constructing a fake presentation around a credential in
     /// order to read the credential.
-    private static func decodePayload(of jws: String) -> VerifiableCredential? {
-        let segments = jws.split(separator: ".", omittingEmptySubsequences: false)
+    /// Returns which envelope it was as well as what was inside it. The two
+    /// travel together because the caller needs both and only this function can
+    /// tell them apart — a card-signed credential and a device-signed one decode
+    /// to indistinguishable `VerifiableCredential`s, since the device DID is the
+    /// subject identifier in both.
+    private static func decodePayload(of stored: String)
+        -> (credential: VerifiableCredential, isCardSigned: Bool)? {
+        if let cardSigned = try? MOICASignedCredential.parse(stored) {
+            // Not verified here, for the reason `load` gives above: this is the
+            // holder's own device reading the holder's own file back to them.
+            guard let credential = try? cardSigned.credential() else { return nil }
+            return (credential, true)
+        }
+        let segments = stored.split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3,
-              let payload = base64URLDecoded(String(segments[1])) else { return nil }
-        return try? JSONDecoder().decode(VerifiableCredential.self, from: payload)
+              let payload = base64URLDecoded(String(segments[1])),
+              let credential = try? JSONDecoder().decode(VerifiableCredential.self, from: payload) else {
+            return nil
+        }
+        return (credential, false)
     }
 
     private static func base64URLDecoded(_ string: String) -> Data? {
