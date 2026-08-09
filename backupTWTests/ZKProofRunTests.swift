@@ -1487,9 +1487,16 @@ private struct FakeSignSession: TWFidOSignSession {
     var pollResults: [TWFidOSignResult?] = []
     var pollFailure: Error?
 
-    func begin(idNumber: String, hint: String, timeLimit: Int) async throws
-        -> (ticket: TWFidOTicket, deepLink: URL) {
+    func begin(idNumber: String,
+               hint: String,
+               signing: TWFidOSigningTarget,
+               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
         log.record("begin")
+        // Recorded rather than stored, because the protocol's method is
+        // non-mutating and this stub is a value type. What it pins is that the
+        // holding proof still asks the card to sign the relying-party constant:
+        // a per-run TBS here would silently destroy nullifier stability.
+        log.record("signing:" + signing.toBeSigned)
         if let beginFailure { throw beginFailure }
         return (ticket, deepLink)
     }

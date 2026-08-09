@@ -35,16 +35,24 @@ extension VerifiableCredentialError: LocalizedError {
 
 /// A W3C Verifiable Credential 2.0 data model object.
 ///
-/// **What this proves, and what it does not.** The only trust root behind this
-/// credential is the key living in this device's keychain. A verifier who checks
-/// the signature learns that *this device holds the key and asserted these
-/// fields* — nothing more. It is **not** evidence that the data came from, or
-/// was signed by, any government system. The whitepaper (§5.2) deliberately
-/// splits 「資料可驗」 (the data is attested by its issuing authority) from
-/// 「本人可驗」 (the presenter is the person the data is about); this type only
-/// ever carries the second half, and the MOICA / TW FidO path is what supplies
-/// the first. Nothing here should be presented to a user as an official
-/// endorsement of the contents.
+/// **This type is the payload, and by itself it proves nothing.** What a
+/// verifier may believe depends entirely on what is wrapped around these bytes:
+///
+/// - `MOICASignedCredential` — the cardholder's 自然人憑證 over a digest of the
+///   credential. A verifier learns that a named cardholder, whose certificate
+///   chains to MOICA G3, asserted exactly these fields. This is what the app
+///   issues now.
+/// - `jwsCompactSerialization` — the device's own key. A verifier learns that
+///   *some device* asserted these fields, which is worth close to nothing on its
+///   own, since the device made the key up. Credentials issued before the
+///   card-signing change carry this and are still readable.
+///
+/// Neither is evidence that the *data* is correct. The whitepaper (§5.2) splits
+/// 「資料可驗」 (attested by the issuing authority) from 「本人可驗」 (the
+/// presenter is the person the data is about); a card signature is a strong
+/// version of the second and still not the first — the fields come from a MyData
+/// download that carries no signature of its own. Nothing here may be presented
+/// to a user as an official endorsement of the contents.
 ///
 /// Field names follow VC 2.0, not 1.1: `issuanceDate` was renamed `validFrom`,
 /// and its meaning shifted from "when this was signed" to "when this starts
@@ -139,18 +147,31 @@ struct VerifiableCredential: Codable, Equatable {
 
 extension VerifiableCredential {
 
-    /// Wraps the MyData national ID fields in a credential signed by this device.
+    /// Wraps the MyData national ID fields in a credential.
     ///
-    /// Subject and issuer are the same DID on purpose: this is a self-issued
-    /// credential, the device attesting to data it holds about its own owner.
+    /// **This builds the payload. It secures nothing.** The name it used to have
+    /// — `selfIssuedNationalID` — described both, back when the device's own key
+    /// was the only signature involved, and that made the important question
+    /// invisible: what a verifier should believe depends entirely on which
+    /// signature is wrapped around these bytes. `MOICASignedCredential` is the
+    /// one that matters now; `jwsCompactSerialization` is the older, weaker one.
+    ///
+    /// Subject and issuer are the same DID on purpose, and it is the *device's*
+    /// DID in both cases. That is not a claim that the device vouches for the
+    /// contents — the card signature does that — it is the identifier the holder
+    /// presents under, and the presentation layer binds to it. It stays the
+    /// device's because a cardholder identifier derived from the certificate
+    /// could not be put here at all: the certificate only arrives *after* the
+    /// signature, and the digest that gets signed has to cover these bytes
+    /// already.
     ///
     /// `nil` fields are dropped rather than written as `""`. An empty string is a
     /// claim — it says "this person's household address is the empty string" —
     /// whereas an absent key says "not asserted", which is what a field the MyData
     /// PDF never contained actually means.
-    static func selfIssuedNationalID(_ model: NationalIDModel,
-                                     issuerDID: String,
-                                     validFrom: Date) -> VerifiableCredential {
+    static func nationalID(_ model: NationalIDModel,
+                           issuerDID: String,
+                           validFrom: Date) -> VerifiableCredential {
         var subject: [String: String] = ["id": issuerDID]
         subject["nationality"] = model.nationality
         subject["unifiedNo"] = model.unifiedNo

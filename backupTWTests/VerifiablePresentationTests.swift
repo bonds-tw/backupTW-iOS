@@ -735,7 +735,7 @@ struct VerifiablePresentationTests {
     private static func fixture() throws -> Fixture {
         let key = try DeviceKey.loadOrCreate(tag: deviceKeyTag)
         let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
-        let credential = VerifiableCredential.selfIssuedNationalID(fullModel,
+        let credential = VerifiableCredential.nationalID(fullModel,
                                                                    issuerDID: did,
                                                                    validFrom: issuedAt)
         let request = try PresentationRequest(challenge: "Q0hBTExFTkdFLTAwMDAwMA",

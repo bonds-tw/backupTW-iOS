@@ -174,8 +174,13 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// `finishIssuance(_:)`.
     private func showParsedDocument(_ nationalIDModel: NationalIDModel) {
         coverItem = Item(
-            title: "⏳\n" + NSLocalizedString("Signing the document on this device", comment: ""),
-            secondaryText: "")
+            title: "⏳\n" + NSLocalizedString("Waiting for you to sign in 行動自然人憑證", comment: ""),
+            // The wait is not this app's — it is a hand-off to another app and
+            // back, and a screen that said only 「處理中」 would leave somebody
+            // watching a spinner while the prompt they need to tap sits behind
+            // it.
+            secondaryText: NSLocalizedString("Your certificate signs these details, which is what lets anyone checking them see that you are the one making the claim.",
+                                             comment: ""))
         items = [
             Item(title: NSLocalizedString("Nationality", comment: ""),
                  secondaryText: nationalIDModel.nationality ?? NSLocalizedString("Unknown", comment: "")),
@@ -206,33 +211,35 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// and both are exactly the kind of call that stalls for a second on a bad
     /// one, right when a sheet is animating away.
     private func issueCredential(for nationalIDModel: NationalIDModel) {
-        // Read out of the type here rather than inside the closure, so that the
-        // closure needs nothing from the instance except the weak reference it
-        // reports through.
         let credentialID = Self.nationalIDCredentialID
 
-        // The weak capture belongs on this closure, not on the main-queue hop
-        // inside it: a `[weak self]` nested one level deeper still forces this
-        // outer closure to hold the instance strongly in order to resolve it.
-        // Issuance deliberately outlives the screen — if the user taps Done
-        // mid-write the credential is still saved, only the reporting is skipped.
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = Result<Void, Error> {
+        // Detached rather than a child of any screen's task: issuance is a round
+        // trip out to 行動自然人憑證 and back, and if the user taps Done in the
+        // middle of it the credential should still be saved. Only the reporting
+        // needs the screen, and that is what the weak reference is for.
+        Task.detached(priority: .userInitiated) { [weak self] in
+            // `Result(catching:)` has no `async` overload, so the two arms are
+            // written out rather than smuggled through a synchronous closure.
+            let result: Result<Void, Error>
+            do {
+                guard let issuance = CredentialIssuanceAssembly.make() else {
+                    throw CredentialIssuanceError.signingUnavailable(
+                        message: SPCredentialError.requiresBackend.description)
+                }
+                // The device key is still what the holder presents under — the
+                // credential's subject identifier — even though it no longer
+                // signs anything. See `VerifiableCredential.nationalID`.
                 let deviceKey = try DeviceKey.loadOrCreate()
-                // Issuer and subject are the same DID: nobody outside this device
-                // vouches for these fields. What the credential proves is that
-                // this device holds them and has not altered them since.
-                let issuerDID = try DIDKey.did(fromP256PublicKeyX963: deviceKey.publicKeyX963)
-                let credential = VerifiableCredential.selfIssuedNationalID(nationalIDModel,
-                                                                          issuerDID: issuerDID,
-                                                                          validFrom: Date())
-                let jws = try credential.jwsCompactSerialization(signedBy: deviceKey, issuerDID: issuerDID)
-                try CredentialStore().save(jws: jws, id: credentialID)
+                let subjectDID = try DIDKey.did(fromP256PublicKeyX963: deviceKey.publicKeyX963)
+
+                let signed = try await issuance.issue(nationalIDModel, subjectDID: subjectDID)
+                try CredentialStore().save(jws: try signed.serialized(), id: credentialID)
+                result = .success(())
+            } catch {
+                result = .failure(error)
             }
 
-            DispatchQueue.main.async {
-                self?.finishIssuance(result)
-            }
+            await MainActor.run { self?.finishIssuance(result) }
         }
     }
 

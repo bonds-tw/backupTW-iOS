@@ -91,7 +91,7 @@ struct OfflineVerifierTests {
         let key = try DeviceKey.loadOrCreate(tag: Self.deviceKeyTag)
         let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
 
-        let credential = VerifiableCredential.selfIssuedNationalID(Fixture.model,
+        let credential = VerifiableCredential.nationalID(Fixture.model,
                                                                    issuerDID: did,
                                                                    validFrom: Fixture.issuedAt)
         let credentialJWS = try credential.jwsCompactSerialization(signedBy: key, issuerDID: did)

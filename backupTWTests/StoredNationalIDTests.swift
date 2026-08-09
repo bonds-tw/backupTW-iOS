@@ -32,7 +32,7 @@ struct StoredNationalIDTests {
                                     name: subject["name"],
                                     birthdate: subject["birthdate"],
                                     addressOfHousehold: subject["addressOfHousehold"])
-        let credential = VerifiableCredential.selfIssuedNationalID(model, issuerDID: did,
+        let credential = VerifiableCredential.nationalID(model, issuerDID: did,
                                                                    validFrom: Date())
         let store = FakeStore()
         try store.save(jws: credential.jwsCompactSerialization(signedBy: key, issuerDID: did),

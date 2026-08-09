@@ -225,7 +225,7 @@ final class VerifierSessionTests: @unchecked Sendable {
         let store = try CredentialStore(directory: root.appendingPathComponent("Credentials", isDirectory: true))
         let key = try DeviceKey.loadOrCreate(tag: tag, installRecord: installRecord)
         let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
-        let credential = VerifiableCredential.selfIssuedNationalID(
+        let credential = VerifiableCredential.nationalID(
             NationalIDModel(nationality: "中華民國（臺灣）",
                             unifiedNo: "A123456789",
                             name: "王小明",

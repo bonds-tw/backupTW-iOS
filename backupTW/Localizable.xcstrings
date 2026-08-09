@@ -1,3485 +1,3605 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "(blank)" : {
-      "comment" : "A disclosed field whose value is empty",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "（空白）"
+  "sourceLanguage": "en",
+  "strings": {
+    "%.1f s": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.1f 秒"
           }
         }
       }
     },
-    "%.1f s" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%.1f 秒"
+    "%@ already on this device": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機上已有 %@"
           }
         }
       }
     },
-    "%@ already on this device" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機上已有 %@"
+    "%d fields · created %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 個欄位 · %@ 建立"
           }
         }
       }
     },
-    "%d file(s) left over: %@" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "殘留 %d 個檔案：%@"
+    "%d file(s) left over: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "殘留 %d 個檔案：%@"
           }
         }
       }
     },
-    "%llu ms" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%llu 毫秒"
+    "%llu ms": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%llu 毫秒"
           }
         }
       }
     },
-    "內政部 is told your ID number and which service asked, every time a proof is made. This hides you from the person checking the proof, not from 內政部." : {
-      "comment" : "Limitation attached to a zero-knowledge proof",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "每產生一次證明，內政部都會知道你的身分證統一編號，以及是哪個服務提出要求。這份證明對查驗的人隱藏了你的身分，對內政部沒有。"
+    "(blank)": {
+      "comment": "A disclosed field whose value is empty",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（空白）"
           }
         }
       }
     },
-    "內政部 needs this to send the signing request to your phone. It goes to 內政部 and nowhere else, and this app does not keep it — but 內政部 records that you asked, and which service asked." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "內政部需要這個號碼才能把簽章請求推送到你的手機。它只會送給內政部，不會送到別的地方，這個 App 也不會保存它——但內政部會留下你提出過要求、以及是哪個服務要求的紀錄。"
+    "A file this app ships with is missing.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 內建的檔案遺失了。"
           }
         }
       }
     },
-    "A file this app ships with is missing." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App 內建的檔案遺失了。"
+    "A fresh identifier was issued": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產生了全新的識別碼"
           }
         }
       }
     },
-    "A fresh identifier was issued" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "產生了全新的識別碼"
+    "A proof was created but nothing checked it": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已產生證明，但沒有任何人驗過它"
           }
         }
       }
     },
-    "A proof was created but nothing checked it" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已產生證明，但沒有任何人驗過它"
+    "A refusal is not proof of a forgery. A wrong clock, a partial scan, or an out-of-date app produce the same answer.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「未通過」不等於偽造。裝置時間不準、條碼沒掃完、App 版本太舊，都會得到同樣的結果。"
           }
         }
       }
     },
-    "A refusal is not proof of a forgery. A wrong clock, a partial scan, or an out-of-date app produce the same answer." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「未通過」不等於偽造。裝置時間不準、條碼沒掃完、App 版本太舊，都會得到同樣的結果。"
+    "A stored credential is damaged and cannot be read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存的憑證損毀，無法讀取。"
           }
         }
       }
     },
-    "A stored credential is damaged and cannot be read." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已儲存的憑證損毀，無法讀取。"
+    "A zero-knowledge proof is about 290 KB — too large for a QR code, so it arrives as a file.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "零知識證明大約 290 KB——太大了塞不進 QR code，所以是用檔案傳過來的。"
           }
         }
       }
     },
-    "A123456789" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A123456789"
+    "A123456789": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A123456789"
           }
         }
       }
     },
-    "About Bond" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "關於有備而來"
+    "About Bond": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關於有備而來"
           }
         }
       }
     },
-    "Address of household" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "戶籍地址"
+    "Address of household": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戶籍地址"
           }
         }
       }
     },
-    "All information are stored only on your phone." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所有資料僅儲存在你的手機中。"
+    "All information are stored only on your phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有資料僅儲存在你的手機中。"
           }
         }
       }
     },
-    "Already prepared" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已經備妥"
+    "Already prepared": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已經備妥"
           }
         }
       }
     },
-    "Answer a checker's code. Works with no network on either phone." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "掃描查驗者的條碼並回應，兩支手機都不需要網路。"
+    "Answer a checker's code. Works with no network on either phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描查驗者的條碼並回應，兩支手機都不需要網路。"
           }
         }
       }
     },
-    "Ask the other person to scan this" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請對方掃描這個條碼"
+    "Ask the other person to scan this": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請對方掃描這個條碼"
           }
         }
       }
     },
-    "Back up my national ID" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "備份我的身分證件"
+    "Back up my national ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "備份我的身分證件"
           }
         }
       }
     },
-    "Before you start" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開始之前"
+    "Back up your national ID from the home screen first.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先從首頁備份你的身分證件。"
           }
         }
       }
     },
-    "Birth date" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "出生日期"
+    "Before you start": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始之前"
           }
         }
       }
     },
-    "Bond" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有備而來"
+    "Birth date": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出生日期"
           }
         }
       }
     },
-    "Camera access is turned off by a restriction on this device." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置的使用限制關閉了相機權限。"
+    "Bond": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有備而來"
           }
         }
       }
     },
-    "Can't start" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法開始"
+    "Both circuits completed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "兩組電路都完成了"
           }
         }
       }
     },
-    "Cancel" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取消"
+    "Camera access is turned off by a restriction on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置的使用限制關閉了相機權限。"
           }
         }
       }
     },
-    "Certificate chain checking key" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "憑證鏈驗證金鑰"
+    "Can't start": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法開始"
           }
         }
       }
     },
-    "Certificate chain proving key" : {
-      "comment" : "ZK circuit asset",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "憑證鏈證明金鑰"
+    "Cancel": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
           }
         }
       }
     },
-    "Certificate revocation snapshot" : {
-      "comment" : "ZK circuit asset",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "憑證撤銷清單快照"
+    "Certificate chain %@ · Signature %@ · Linked %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證鏈 %@ · 簽章 %@ · 同一人 %@"
           }
         }
       }
     },
-    "Check a document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗證件"
+    "Certificate chain checking key": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證鏈驗證金鑰"
           }
         }
       }
     },
-    "Check a document someone shows you, without contacting any server." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗別人出示的證件，全程不連任何伺服器。"
+    "Certificate chain proving key": {
+      "comment": "ZK circuit asset",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證鏈證明金鑰"
           }
         }
       }
     },
-    "Check result" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗結果"
+    "Certificate revocation snapshot": {
+      "comment": "ZK circuit asset",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證撤銷清單快照"
           }
         }
       }
     },
-    "Check someone else's document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗他人證件"
+    "Check a document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗證件"
           }
         }
       }
     },
-    "Check the proof on this device" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在這支手機上驗證證明"
+    "Check a document someone shows you, without contacting any server.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗別人出示的證件，全程不連任何伺服器。"
           }
         }
       }
     },
-    "Checked in %@, with no network" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 完成驗證，全程未連網"
+    "Check a proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗證明"
           }
         }
       }
     },
-    "Checked on this device: the proof does not hold" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已在這支手機上驗證：證明不成立"
+    "Check a proof file. Needs the large checking files on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗一個證明檔案。這支手機上要先有那組很大的查驗檔案。"
           }
         }
       }
     },
-    "Checked on this device: the proof holds" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已在這支手機上驗證：證明成立"
+    "Check a zero-knowledge proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗零知識證明"
           }
         }
       }
     },
-    "Checking what's already downloaded…" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在檢查已經下載了哪些檔案…"
+    "Check result": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗結果"
           }
         }
       }
     },
-    "Code %1$d of %2$d" : {
-      "comment" : "Carousel position",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "第 %1$d／%2$d 張"
+    "Check someone else's document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗他人證件"
           }
         }
       }
     },
-    "Confirm" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "確認"
+    "Check the proof on this device": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這支手機上驗證證明"
           }
         }
       }
     },
-    "Continue" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "繼續"
+    "Checked in %@, with no network": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 完成驗證，全程未連網"
           }
         }
       }
     },
-    "Copied" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已複製"
+    "Checked on this device: the proof does not hold": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在這支手機上驗證：證明不成立"
           }
         }
       }
     },
-    "Could not reach the digital certificate service." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法連線到行動自然人憑證服務。"
+    "Checked on this device: the proof holds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在這支手機上驗證：證明成立"
           }
         }
       }
     },
-    "Could not read" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法讀取"
+    "Checked on this phone, and it passed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這支手機上查驗過，通過"
           }
         }
       }
     },
-    "Couldn't check the verification files." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法檢查驗證檔案。"
+    "Checking what's already downloaded…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在檢查已經下載了哪些檔案…"
           }
         }
       }
     },
-    "Create a proof" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開始產生證明"
+    "Checking…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗中…"
           }
         }
       }
     },
-    "Create a Valid Document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "建立正式證件"
+    "Choose a proof file": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇證明檔案"
           }
         }
       }
     },
-    "Create a valid document from the home screen first. Nothing can be shown until this device holds one." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請先從首頁建立有效證件。這台裝置還沒有證件之前，沒有東西可以出示。"
+    "Code %1$d of %2$d": {
+      "comment": "Carousel position",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %1$d／%2$d 張"
           }
         }
       }
     },
-    "Create the proof" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "產生證明"
+    "Confirm": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認"
           }
         }
       }
     },
-    "Creates a mathematical proof that your 自然人憑證 was issued by 內政部憑證管理中心, and checks its serial number against a revocation list this app cannot confirm is complete. The person checking the proof never sees your name, your ID number, or the certificate itself." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "產生一份數學證明，說明你的自然人憑證是由內政部憑證管理中心簽發，並把序號拿去比對一份撤銷清單——但這個 App 無法確認那份清單是完整的。查驗證明的人不會看到你的姓名、身分證統一編號，也不會看到憑證本身。"
+    "Continue": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "繼續"
           }
         }
       }
     },
-    "Credential store" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "憑證儲存區"
+    "Copied": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已複製"
           }
         }
       }
     },
-    "Data and Privacy" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "資料與隱私"
+    "Could not reach the digital certificate service.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連線到行動自然人憑證服務。"
           }
         }
       }
     },
-    "Diagnostics" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "診斷"
+    "Could not read": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取"
           }
         }
       }
     },
-    "Document code" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證件條碼"
+    "Couldn't check the verification files.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法檢查驗證檔案。"
           }
         }
       }
     },
-    "Document information" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證件資料"
+    "Create a Valid Document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立正式證件"
           }
         }
       }
     },
-    "Done" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完成"
+    "Create a proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始產生證明"
           }
         }
       }
     },
-    "Download" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下載"
+    "Create a valid document from the home screen first. Nothing can be shown until this device holds one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先從首頁建立有效證件。這台裝置還沒有證件之前，沒有東西可以出示。"
           }
         }
       }
     },
-    "Download %@ · %@ on disk" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下載 %@ · 佔用 %@"
+    "Create the proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產生證明"
           }
         }
       }
     },
-    "Download %@ · uses %@ on this device" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下載 %@ · 在這支手機上佔用 %@"
+    "Created": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立時間"
           }
         }
       }
     },
-    "Download the verification files?" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要下載驗證檔案嗎？"
+    "Creates a mathematical proof that your 自然人憑證 was issued by 內政部憑證管理中心, and checks its serial number against a revocation list this app cannot confirm is complete. The person checking the proof never sees your name, your ID number, or the certificate itself.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產生一份數學證明，說明你的自然人憑證是由內政部憑證管理中心簽發，並把序號拿去比對一份撤銷清單——但這個 App 無法確認那份清單是完整的。查驗證明的人不會看到你的姓名、身分證統一編號，也不會看到憑證本身。"
           }
         }
       }
     },
-    "Downloaded and installed" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已下載並安裝"
+    "Credential store": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證儲存區"
           }
         }
       }
     },
-    "Erase" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刪除"
+    "Data and Privacy": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料與隱私"
           }
         }
       }
     },
-    "Erase all local data" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刪除所有本機資料"
+    "Date of birth": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出生年月日"
           }
         }
       }
     },
-    "Erase all local data?" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要刪除所有本機資料嗎？"
+    "Diagnostics": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "診斷"
           }
         }
       }
     },
-    "Erasing really gives you a new identity" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刪除之後真的會換一個新身分"
+    "Document code": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證件條碼"
           }
         }
       }
     },
-    "Error" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "錯誤"
+    "Document information": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證件資料"
           }
         }
       }
     },
-    "Every field in your document: name, ID number, date of birth, household address and nationality. This version cannot show only part of it." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證件裡的每一個欄位：姓名、統一編號、出生日期、戶籍地址與國籍。這個版本無法只出示其中一部分。"
+    "Document-level signature": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件級簽章"
           }
         }
       }
     },
-    "Every time you show this document it reveals the same identifier. Different checkers can compare notes and tell it was you both times." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件每次出示都會露出同一組識別碼。不同的查驗者只要互相比對，就能看出兩次都是你。"
+    "Done": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
           }
         }
       }
     },
-    "Excluded from backup" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已排除備份"
+    "Download": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載"
           }
         }
       }
     },
-    "Expected here — there is no Secure Enclave to use." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這裡本來就是這樣——沒有安全隔離區可用。"
+    "Download %@ · %@ on disk": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載 %@ · 佔用 %@"
           }
         }
       }
     },
-    "Experimental" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "實驗中"
+    "Download %@ · uses %@ on this device": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載 %@ · 在這支手機上佔用 %@"
           }
         }
       }
     },
-    "Field named by their document: “%@”" : {
-      "comment" : "Heading for a disclosed field whose name this build does not know",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "對方文件自訂的欄位「%@」"
+    "Download the verification files?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要下載驗證檔案嗎？"
           }
         }
       }
     },
-    "File protection" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檔案保護"
+    "Downloaded and installed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已下載並安裝"
           }
         }
       }
     },
-    "Files in Documents" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Documents 裡的檔案"
+    "Erase": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除"
           }
         }
       }
     },
-    "For this unzipping only, not to be used for any other purpose." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "僅用於此次解壓縮，絕不另作他用"
+    "Erase all local data": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除所有本機資料"
           }
         }
       }
     },
-    "Go to Application Guide" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "前往申辦指南"
+    "Erase all local data?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要刪除所有本機資料嗎？"
           }
         }
       }
     },
-    "Hidden while this app is not in front" : {
-      "comment" : "App switcher privacy cover",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App 不在前景時已隱藏畫面內容"
+    "Erasing really gives you a new identity": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除之後真的會換一個新身分"
           }
         }
       }
     },
-    "Hold this up to the checker" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請把畫面對著查驗者"
+    "Error": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "錯誤"
           }
         }
       }
     },
-    "Home" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首頁"
+    "Every field in your document: name, ID number, date of birth, household address and nationality. This version cannot show only part of it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證件裡的每一個欄位：姓名、統一編號、出生日期、戶籍地址與國籍。這個版本無法只出示其中一部分。"
           }
         }
       }
     },
-    "Identifier" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "識別碼"
+    "Every time you show this document it reveals the same identifier. Different checkers can compare notes and tell it was you both times.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件每次出示都會露出同一組識別碼。不同的查驗者只要互相比對，就能看出兩次都是你。"
           }
         }
       }
     },
-    "Identity check" : {
-      "comment" : "Default reason a verifier gives for a check",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "身分查驗"
+    "Excluded from backup": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已排除備份"
           }
         }
       }
     },
-    "If erasing kept your old identifier, anyone you showed a document to before could recognise you again afterwards." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "如果刪除後還是舊的識別碼，之前看過你證件的人，之後還是能認出你。"
+    "Expected here — there is no Secure Enclave to use.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這裡本來就是這樣——沒有安全隔離區可用。"
           }
         }
       }
     },
-    "Input National ID number (unzipping password)" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請輸入身分證字號（解壓縮密碼）"
+    "Experimental": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實驗中"
           }
         }
       }
     },
-    "Issuing authority certificate" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽發機關憑證"
+    "Fetch it again and replace what's stored.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新抓一次，取代目前存的這份。"
           }
         }
       }
     },
-    "It claims to have been made %@ from now, so this phone cannot tell how old it really is. One of the two clocks is wrong." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "它宣稱的產生時間比現在還晚 %@，因此這支手機無法判斷它究竟多舊。兩支裝置其中一支的時間不準。"
+    "Field named by their document: “%@”": {
+      "comment": "Heading for a disclosed field whose name this build does not know",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方文件自訂的欄位「%@」"
           }
         }
       }
     },
-    "It contained characters that can rearrange text on screen; they are shown as �." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "其中含有能把畫面文字重新排列的字元，已用 � 標示。"
+    "Fields": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "欄位"
           }
         }
       }
     },
-    "It was made %@ ago. A code taped to a wall or kept in a photograph looks exactly like a checker standing in front of you. Ask them to show a new one." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "它是在 %@ 前產生的。貼在牆上或存在相簿裡的條碼，看起來和眼前有人查驗一模一樣。請對方重新產生一個。"
+    "File protection": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案保護"
           }
         }
       }
     },
-    "License" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "授權條款"
+    "Files in Documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documents 裡的檔案"
           }
         }
       }
     },
-    "Local data erased" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本機資料已刪除"
+    "For this unzipping only, not to be used for any other purpose.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅用於此次解壓縮，絕不另作他用"
           }
         }
       }
     },
-    "Measurement report. Use the copy button to read it elsewhere." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "量測數據報告。用複製按鈕把它帶到別的地方閱讀。"
+    "Go to Application Guide": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前往申辦指南"
           }
         }
       }
     },
-    "Measurements" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "量測數據"
+    "Hand this proof to a verifier": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把這份證明交給查驗方"
           }
         }
       }
     },
-    "Minimal disclosure" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "最小揭露"
+    "Hidden while this app is not in front": {
+      "comment": "App switcher privacy cover",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 不在前景時已隱藏畫面內容"
           }
         }
       }
     },
-    "MOICA generation 1" : {
-      "comment" : "Certificate authority name",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "內政部憑證管理中心第一代（G1）"
+    "Hold this up to the checker": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請把畫面對著查驗者"
           }
         }
       }
     },
-    "MOICA generation 2" : {
-      "comment" : "Certificate authority name",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "內政部憑證管理中心第二代（G2）"
+    "Home": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "首頁"
           }
         }
       }
     },
-    "MOICA generation 3" : {
-      "comment" : "Certificate authority name",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "內政部憑證管理中心第三代（G3）"
+    "Household address": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戶籍地址"
           }
         }
       }
     },
-    "Name" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "姓名"
+    "ID number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身分證字號"
           }
         }
       }
     },
-    "Nationality" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "國籍"
+    "Identifier": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "識別碼"
           }
         }
       }
     },
-    "No — software keys are the only option here" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有——這裡只能用軟體金鑰"
+    "Identity check": {
+      "comment": "Default reason a verifier gives for a check",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身分查驗"
           }
         }
       }
     },
-    "No document to show yet" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還沒有可以出示的證件"
+    "If erasing kept your old identifier, anyone you showed a document to before could recognise you again afterwards.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "如果刪除後還是舊的識別碼，之前看過你證件的人，之後還是能認出你。"
           }
         }
       }
     },
-    "No documents yet — create one first" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還沒有證件——請先建立一份"
+    "Includes your ID number and home address. Check who can see your screen.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "包含身分證字號與戶籍地址。先確認旁邊有沒有人看得到螢幕。"
           }
         }
       }
     },
-    "No key yet — create a document first" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還沒有金鑰——請先建立證件"
+    "Input National ID number (unzipping password)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請輸入身分證字號（解壓縮密碼）"
           }
         }
       }
     },
-    "No protection reported" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有回報任何保護等級"
+    "Issuing authority certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽發機關憑證"
           }
         }
       }
     },
-    "No readable copies left lying around" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有留下看得懂的副本"
+    "It claims to have been made %@ from now, so this phone cannot tell how old it really is. One of the two clocks is wrong.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它宣稱的產生時間比現在還晚 %@，因此這支手機無法判斷它究竟多舊。兩支裝置其中一支的時間不準。"
           }
         }
       }
     },
-    "None reported" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有回報"
+    "It contained characters that can rearrange text on screen; they are shown as �.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其中含有能把畫面文字重新排列的字元，已用 � 標示。"
           }
         }
       }
     },
-    "Not accepted" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗未通過"
+    "It was made %@ ago. A code taped to a wall or kept in a photograph looks exactly like a checker standing in front of you. Ask them to show a new one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它是在 %@ 前產生的。貼在牆上或存在相簿裡的條碼，看起來和眼前有人查驗一模一樣。請對方重新產生一個。"
           }
         }
       }
     },
-    "Not created yet" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "尚未建立"
+    "License": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "授權條款"
           }
         }
       }
     },
-    "Not excluded" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未排除"
+    "Local data erased": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機資料已刪除"
           }
         }
       }
     },
-    "not reported" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未回報"
+    "MOICA generation 1": {
+      "comment": "Certificate authority name",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內政部憑證管理中心第一代（G1）"
           }
         }
       }
     },
-    "Not started" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "尚未開始"
+    "MOICA generation 2": {
+      "comment": "Certificate authority name",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內政部憑證管理中心第二代（G2）"
           }
         }
       }
     },
-    "Nothing is sent anywhere. This check works with the phone in aeroplane mode." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "不會向外傳送任何資料。開飛航模式也能完成這次查驗。"
+    "MOICA generation 3": {
+      "comment": "Certificate authority name",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內政部憑證管理中心第三代（G3）"
           }
         }
       }
     },
-    "Nothing left over" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有殘留"
+    "Made on this phone · %@ on disk": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這支手機上產生 · 佔用 %@"
           }
         }
       }
     },
-    "Nothing ties this proof to the person checking it, so it could be shown again elsewhere." : {
-      "comment" : "Limitation attached to a zero-knowledge proof",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個證明沒有綁定眼前的查驗者，可能被拿到別處再次出示。"
+    "Measurement report. Use the copy button to read it elsewhere.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "量測數據報告。用複製按鈕把它帶到別的地方閱讀。"
           }
         }
       }
     },
-    "Offline check" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "離線出示與查驗"
+    "Measurements": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "量測數據"
           }
         }
       }
     },
-    "Open Settings" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開啟「設定」"
+    "Minimal disclosure": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最小揭露"
           }
         }
       }
     },
-    "Out of date · download %@ again" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已過期 · 需重新下載 %@"
+    "My identity document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的身分證件"
           }
         }
       }
     },
-    "Please apply for TW FidO first" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請先申請行動自然人憑證"
+    "MyData PDF signature": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData PDF 簽章"
           }
         }
       }
     },
-    "Please enter the National ID number (unzipping password)" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請輸入身分證字號（解壓縮密碼）"
+    "Name": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "姓名"
           }
         }
       }
     },
-    "Point the camera at the checker's screen." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請將鏡頭對準查驗者的畫面。"
+    "Nationality": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "國籍"
           }
         }
       }
     },
-    "Point the camera at the code." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請將鏡頭對準條碼。"
+    "No document stored yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有存任何證件"
           }
         }
       }
     },
-    "Point the camera at the other phone." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請將鏡頭對準對方的手機。"
+    "No document to show yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有可以出示的證件"
           }
         }
       }
     },
-    "Prepare the verification files" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "準備驗證檔案"
+    "No document-level signature found.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有找到文件級簽章。"
           }
         }
       }
     },
-    "Producing a proof is not evidence that anyone would accept it." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "產得出證明，不代表任何驗證方會接受它。"
+    "No documents yet — create one first": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有證件——請先建立一份"
           }
         }
       }
     },
-    "Progress" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "進度"
+    "No download · uses %@ on this device": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不需下載 · 在這支手機上佔用 %@"
           }
         }
       }
     },
-    "Proof size" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證明大小"
+    "No key yet — create a document first": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有金鑰——請先建立證件"
           }
         }
       }
     },
-    "Prove you hold a valid 自然人憑證 without showing it. Needs a large one-time download." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證明你持有有效的自然人憑證，但不出示憑證內容。需要一次性的大量下載。"
+    "No proof loaded yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒載入證明"
           }
         }
       }
     },
-    "Prove you hold a valid certificate" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證明持有有效的自然人憑證"
+    "No protection reported": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有回報任何保護等級"
           }
         }
       }
     },
-    "Proves you hold a valid certificate" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證明你持有有效的自然人憑證"
+    "No readable copies left lying around": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有留下看得懂的副本"
           }
         }
       }
     },
-    "Quoted from their document: %@" : {
-      "comment" : "VoiceOver framing for a disclosed field's value",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "引述自對方文件：%@"
+    "No verdict": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法判定"
           }
         }
       }
     },
-    "Read %1$d of %2$d codes" : {
-      "comment" : "Multi-frame scan progress",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已讀取 %1$d／%2$d 張"
+    "No — software keys are the only option here": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有——這裡只能用軟體金鑰"
           }
         }
       }
     },
-    "Reason shown to them: %@" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "對方會看到的查驗事由：%@"
+    "None reported": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有回報"
           }
         }
       }
     },
-    "Reason the checker gave" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗者填寫的事由"
+    "Not accepted": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗未通過"
           }
         }
       }
     },
-    "Registered scheme does not match the one the app listens for" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "註冊的 scheme 與 App 監聽的不一致"
+    "Not created yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未建立"
           }
         }
       }
     },
-    "Removes your credentials, the documents they came from, and the key that identifies you." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "會刪除你的憑證、產生憑證的原始文件，以及識別你的金鑰。"
+    "Not excluded": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未排除"
           }
         }
       }
     },
-    "Required files" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要的檔案"
+    "Not measured yet — download your ID once and come back.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒量過——先跑一次身分證下載，再回來看。"
           }
         }
       }
     },
-    "Result" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "結果"
+    "Not started": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未開始"
           }
         }
       }
     },
-    "Returning from 行動自然人憑證 works" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從行動自然人憑證返回可以運作"
+    "Nothing is sent anywhere. This check works with the phone in aeroplane mode.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不會向外傳送任何資料。開飛航模式也能完成這次查驗。"
           }
         }
       }
     },
-    "Scan the checker's code" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "掃描查驗者的條碼"
+    "Nothing left over": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有殘留"
           }
         }
       }
     },
-    "Scan their document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "掃描對方的證件"
+    "Nothing ties this proof to the person checking it, so it could be shown again elsewhere.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個證明沒有綁定眼前的查驗者，可能被拿到別處再次出示。"
           }
         }
       }
     },
-    "Secure Enclave" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "安全隔離區（Secure Enclave）"
+    "Offline check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離線出示與查驗"
           }
         }
       }
     },
-    "Self-check" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自我檢查"
+    "Open Settings": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟「設定」"
           }
         }
       }
     },
-    "Settings" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定"
+    "Out of date · download %@ again": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已過期 · 需重新下載 %@"
           }
         }
       }
     },
-    "Show my document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "出示我的證件"
+    "Please apply for TW FidO first": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先申請行動自然人憑證"
           }
         }
       }
     },
-    "Show your document?" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要出示證件嗎？"
+    "Please enter the National ID number (unzipping password)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請輸入身分證字號（解壓縮密碼）"
           }
         }
       }
     },
-    "Sign with your digital certificate" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用自然人憑證簽章"
+    "Point the camera at the checker's screen.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請將鏡頭對準查驗者的畫面。"
           }
         }
       }
     },
-    "Signature checking key" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽章驗證金鑰"
+    "Point the camera at the code.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請將鏡頭對準條碼。"
           }
         }
       }
     },
-    "Signature proving key" : {
-      "comment" : "ZK circuit asset",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽章證明金鑰"
+    "Point the camera at the other phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請將鏡頭對準對方的手機。"
           }
         }
       }
     },
-    "Signed" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已完成簽章"
+    "Prepare the verification files": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備驗證檔案"
           }
         }
       }
     },
-    "Signed at %@ by the other device's clock." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "依對方裝置的時間，簽署於 %@。"
+    "Producing a proof is not evidence that anyone would accept it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產得出證明，不代表任何驗證方會接受它。"
           }
         }
       }
     },
-    "Signing" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽署"
+    "Progress": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "進度"
           }
         }
       }
     },
-    "Signing has to go through the bonds-tw server, which this build can't reach." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽章必須經過 bonds-tw 伺服器，而這個版本連不到它。"
+    "Proof size": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明大小"
           }
         }
       }
     },
-    "Signing key" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽署金鑰"
+    "Prove you hold a valid certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明持有有效的自然人憑證"
           }
         }
       }
     },
-    "Signing the document on this device" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在此裝置上簽署證件"
+    "Prove you hold a valid 自然人憑證 without showing it. Needs a large one-time download.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明你持有有效的自然人憑證，但不出示憑證內容。需要一次性的大量下載。"
           }
         }
       }
     },
-    "Signing would complete but never return to this app." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽章會完成，但永遠回不到這個 App。"
+    "Proves you hold a valid certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明你持有有效的自然人憑證"
           }
         }
       }
     },
-    "So the details on this screen are not left behind in the app switcher." : {
-      "comment" : "App switcher privacy cover",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以免這個畫面上的資料留在多工切換畫面裡。"
+    "Quoted from their document: %@": {
+      "comment": "VoiceOver framing for a disclosed field's value",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引述自對方文件：%@"
           }
         }
       }
     },
-    "Some data could not be erased" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有部分資料無法刪除"
+    "Read %1$d of %2$d codes": {
+      "comment": "Multi-frame scan progress",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已讀取 %1$d／%2$d 張"
           }
         }
       }
     },
-    "Something went wrong on this device." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機上出了問題。"
+    "Reason shown to them: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方會看到的查驗事由：%@"
           }
         }
       }
     },
-    "Still unproven" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仍未證明的事"
+    "Reason the checker gave": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗者填寫的事由"
           }
         }
       }
     },
-    "Stop" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停止"
+    "Registered scheme does not match the one the app listens for": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "註冊的 scheme 與 App 監聽的不一致"
           }
         }
       }
     },
-    "Stopped." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已停止。"
+    "Removes your credentials, the documents they came from, and the key that identifies you.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "會刪除你的憑證、產生憑證的原始文件，以及識別你的金鑰。"
           }
         }
       }
     },
-    "Storage" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "儲存"
+    "Required files": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要的檔案"
           }
         }
       }
     },
-    "Storage unavailable" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "儲存區無法使用"
+    "Result": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結果"
           }
         }
       }
     },
-    "Stored credentials" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已儲存的憑證"
+    "Returning from 行動自然人憑證 works": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從行動自然人憑證返回可以運作"
           }
         }
       }
     },
-    "Stored in the Keychain, not the Secure Enclave" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "存在 Keychain，不是安全隔離區"
+    "Saves a %@ file. Too large for a QR code — send it as a file.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存成一個 %@ 的檔案。太大了塞不進 QR code——請用檔案傳送。"
           }
         }
       }
     },
-    "Successfully downloaded but processing error" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下載成功，但後續處理錯誤"
+    "Scan the checker's code": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描查驗者的條碼"
           }
         }
       }
     },
-    "Support and About" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "支援與關於"
+    "Scan their document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描對方的證件"
           }
         }
       }
     },
-    "That code could not be read. Ask them to show it again from the start." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個條碼讀不出來。請對方從第一張重新出示。"
+    "Secure Enclave": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安全隔離區（Secure Enclave）"
           }
         }
       }
     },
-    "The 行動自然人憑證 app isn't installed on this device." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機沒有安裝行動自然人憑證 App。"
+    "Self-check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自我檢查"
           }
         }
       }
     },
-    "The certificate authority file that ships with this app couldn't be read." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法讀取 App 內建的憑證機構檔案。"
+    "Settings": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定"
           }
         }
       }
     },
-    "The certificate authority file that ships with this app has been altered, so it won't be used." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App 內建的憑證機構檔案已遭竄改，不會使用。"
+    "Show %d fields": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示 %d 個欄位"
           }
         }
       }
     },
-    "The certificate authority file that ships with this app is missing." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App 內建的憑證機構檔案遺失了。"
+    "Show my document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示我的證件"
           }
         }
       }
     },
-    "The certificate authority that ships with this app expired on %@. Please update the app." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App 內建的憑證機構已於 %@ 到期，請更新 App。"
+    "Show your document?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要出示證件嗎？"
           }
         }
       }
     },
-    "The certificate authority that ships with this app isn't valid until %@. Check your device's date and time." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App 內建的憑證機構要到 %@ 才生效，請檢查裝置的日期與時間。"
+    "Sign with your digital certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用自然人憑證簽章"
           }
         }
       }
     },
-    "The certificate revocation list was not applied, so this proof would be refused." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有套用憑證撤銷清單，這個證明會被拒絕。"
+    "Sign your national ID details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署你的身分證欄位"
           }
         }
       }
     },
-    "The check on this device did not finish" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機上的驗證沒有完成"
+    "Signature checking key": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章驗證金鑰"
           }
         }
       }
     },
-    "The checker shows a code first. It carries a one-time number that your document has to answer, which is what stops an old screenshot being reused." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗者會先出示一個條碼，裡面帶著一組一次性的數字，你的證件必須回應這組數字——這就是舊截圖無法重複使用的原因。"
+    "Signature proving key": {
+      "comment": "ZK circuit asset",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章證明金鑰"
           }
         }
       }
     },
-    "The credential identifier is not usable." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "憑證識別碼無法使用。"
+    "Signed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成簽章"
           }
         }
       }
     },
-    "The device's signing key could not be read." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法讀取此裝置的簽署金鑰。"
+    "Signed at %@ by the other device's clock.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "依對方裝置的時間，簽署於 %@。"
           }
         }
       }
     },
-    "The digital certificate service refused the request (%@)." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "行動自然人憑證服務拒絕了這個請求（%@）。"
+    "Signed by": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署者"
           }
         }
       }
     },
-    "The digital certificate service returned an unexpected response." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "行動自然人憑證服務回傳了非預期的內容。"
+    "Signed — %d signature(s), SubFilter %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有簽章——%d 份，SubFilter %@"
           }
         }
       }
     },
-    "The document could not be signed" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "證件無法簽署"
+    "Signing": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署"
           }
         }
       }
     },
-    "The document could not be signed on this device." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件無法在此裝置上簽署。"
+    "Signing has to go through the bonds-tw server, which this build can't reach.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章必須經過 bonds-tw 伺服器，而這個版本連不到它。"
           }
         }
       }
     },
-    "The downloaded file was damaged. Please try again." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下載的檔案已損毀，請再試一次。"
+    "Signing key": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署金鑰"
           }
         }
       }
     },
-    "The files for creating a proof are ready, but the extra ones for checking it on this device aren't: %@" : {
-      "comment" : "Assets stage: everything a proof needs installed, only the checking keys did not",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "產生證明的檔案已經備妥，但在這支手機上檢查證明的額外檔案沒有備妥：%@"
+    "Signing the document on this device": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在此裝置上簽署證件"
           }
         }
       }
     },
-    "The holder was shown a different reason for this check than the one you asked for." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "持證人看到的查驗事由與您提出的不同。"
+    "Signing would complete but never return to this app.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章會完成，但永遠回不到這個 App。"
           }
         }
       }
     },
-    "The identifier survived being deleted" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "識別碼在刪除後仍然存活"
+    "So the details on this screen are not left behind in the app switcher.": {
+      "comment": "App switcher privacy cover",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以免這個畫面上的資料留在多工切換畫面裡。"
           }
         }
       }
     },
-    "The lines below are the document's own words, quoted. This app checked the signature over them, not whether any of it is true." : {
-      "comment" : "Attribution above the fields a verified presentation disclosed",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以下是這份文件自己填的內容，原樣引述。本 App 只驗了它們的簽章，沒有查核內容是不是真的。"
+    "Some data could not be erased": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有部分資料無法刪除"
           }
         }
       }
     },
-    "The offline verification files aren't ready yet. Finish preparing them, then try again." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "離線驗證檔案還沒備妥。請先完成準備，再試一次。"
+    "Something went wrong on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機上出了問題。"
           }
         }
       }
     },
-    "The other device's clock is too far off for this to be checked." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "對方裝置的時間誤差太大，無法查驗。"
+    "Still unproven": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仍未證明的事"
           }
         }
       }
     },
-    "The person holding this device signed this check" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "持有這台裝置的人簽署了本次查驗"
+    "Stop": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止"
           }
         }
       }
     },
-    "The proof could not be created on this device." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置無法產生證明。"
+    "Stopped.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已停止。"
           }
         }
       }
     },
-    "The revocation list was applied but not checked against an authoritative source." : {
-      "comment" : "Limitation attached to a zero-knowledge proof",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已套用撤銷清單，但沒有與權威來源核對。"
+    "Storage": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存"
           }
         }
       }
     },
-    "The signature on this document is not valid; its contents may have been altered." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件的簽章無效，內容可能遭到竄改。"
+    "Storage unavailable": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存區無法使用"
           }
         }
       }
     },
-    "The signature on this presentation is not valid." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這次出示的簽章無效。"
+    "Stored credentials": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存的憑證"
           }
         }
       }
     },
-    "The signature this proof is built from never changes and never expires. Anyone who has ever received a copy — 內政部 included — can keep making new proofs from it, on any device, without you." : {
-      "comment" : "Limitation attached to a zero-knowledge proof",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證明所依據的簽章永遠是同一份，也不會過期。任何拿過一次的人——包括內政部——都可以在你不在場、也不知情的情況下，用任何一台裝置繼續產生新的證明。"
+    "Stored in the Keychain, not the Secure Enclave": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存在 Keychain，不是安全隔離區"
           }
         }
       }
     },
-    "The signing request expired before it was approved on the certificate app." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽章請求在憑證 App 上完成核可前就過期了。"
+    "Successfully downloaded but processing error": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載成功，但後續處理錯誤"
           }
         }
       }
     },
-    "The valid document has been created" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正式證件已建立"
+    "Support and About": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "支援與關於"
           }
         }
       }
     },
-    "The verification files couldn't be downloaded." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "驗證檔案下載失敗。"
+    "That code could not be read. Ask them to show it again from the start.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個條碼讀不出來。請對方從第一張重新出示。"
           }
         }
       }
     },
-    "The verification files on the server aren't the ones this app expects. Try again after updating the app." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "伺服器上的驗證檔案與這個版本的 App 預期的不符。請更新 App 後再試。"
+    "The certificate authority file that ships with this app couldn't be read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取 App 內建的憑證機構檔案。"
           }
         }
       }
     },
-    "There is no document on this device to show yet." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置上還沒有可以出示的證件。"
+    "The certificate authority file that ships with this app has been altered, so it won't be used.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 內建的憑證機構檔案已遭竄改，不會使用。"
           }
         }
       }
     },
-    "There isn't enough free space to prepare the verification files." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "可用空間不足，無法準備驗證檔案。"
+    "The certificate authority file that ships with this app is missing.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 內建的憑證機構檔案遺失了。"
           }
         }
       }
     },
-    "These are the plain documents your credentials came from. Deleting your credentials would not remove them." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這些是產生憑證的原始明文文件。刪除憑證並不會刪掉它們。"
+    "The certificate authority that ships with this app expired on %@. Please update the app.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 內建的憑證機構已於 %@ 到期，請更新 App。"
           }
         }
       }
     },
-    "These files have to be downloaded first" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這些檔案要先下載"
+    "The certificate authority that ships with this app isn't valid until %@. Check your device's date and time.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 內建的憑證機構要到 %@ 才生效，請檢查裝置的日期與時間。"
           }
         }
       }
     },
-    "Third Party Software License" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "第三方軟體授權條款"
+    "The certificate revocation list was not applied, so this proof would be refused.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有套用憑證撤銷清單，這個證明會被拒絕。"
           }
         }
       }
     },
-    "This app can't tell which authority issued your citizen certificate. Only certificates from MOICA G3 are supported." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法判斷你的自然人憑證由哪個憑證機構簽發；目前只支援內政部憑證管理中心第三代（G3）簽發的憑證。"
+    "The check on this device did not finish": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機上的驗證沒有完成"
           }
         }
       }
     },
-    "This app does not have permission to use the camera, so it cannot read the code." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本 App 沒有相機權限，無法讀取條碼。"
+    "The check ran but could not reach a verdict.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檢查跑完了，但無法判定結果。"
           }
         }
       }
     },
-    "This build can't request a signature: it has no credentials for the digital certificate service." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個版本無法送出簽章請求：它沒有內政部的 SP 憑據。"
+    "The checker shows a code first. It carries a one-time number that your document has to answer, which is what stops an old screenshot being reused.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗者會先出示一個條碼，裡面帶著一組一次性的數字，你的證件必須回應這組數字——這就是舊截圖無法重複使用的原因。"
           }
         }
       }
     },
-    "This build has no credentials for the digital certificate service, so it can't request a signature." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個版本沒有內政部的 SP 憑據，無法送出簽章請求。"
+    "The credential identifier is not usable.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證識別碼無法使用。"
           }
         }
       }
     },
-    "This certificate can't be used to create a proof." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這張憑證無法用來產生證明。"
+    "The device's signing key could not be read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取此裝置的簽署金鑰。"
           }
         }
       }
     },
-    "This check cannot confirm that the person in front of you is the one who answered it. The answer may have been obtained somewhere else and passed on." : {
-      "comment" : "Shown alongside a successful offline verification",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本次查驗無法確認眼前這個人就是回應的那一方。這份答案有可能是在別處取得後轉傳過來的。"
+    "The digital certificate service refused the request (%@).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行動自然人憑證服務拒絕了這個請求（%@）。"
           }
         }
       }
     },
-    "This check was made offline. Nothing was sent to any server." : {
-      "comment" : "Shown alongside a successful offline verification",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本次查驗未連線，未向任何伺服器傳送資料。"
+    "The digital certificate service returned an unexpected response.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行動自然人憑證服務回傳了非預期的內容。"
           }
         }
       }
     },
-    "This checker had no request outstanding. Each request can be answered once; start a new check and ask them to scan it again." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本查驗端目前沒有等待回應的請求。每個請求只能回應一次，請重新開始查驗，再請對方掃描一次。"
+    "The digital certificate that signed this document cannot be checked — most often because it has expired.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署這份文件的憑證無法查驗，最常見的原因是憑證已經過期。"
           }
         }
       }
     },
-    "This code carries a one-time number. Their document has to answer this exact number, so a photograph of an earlier check cannot be reused here." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個條碼帶著一組一次性的數字。對方的證件必須回應這組數字，所以先前查驗的翻拍照片在這裡無法重複使用。"
+    "The document could not be signed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證件無法簽署"
           }
         }
       }
     },
-    "This code is dated ahead of your phone's clock" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個條碼的時間比你手機的時鐘還晚"
+    "The document could not be signed on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件無法在此裝置上簽署。"
           }
         }
       }
     },
-    "This code is not a document presented by this app." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個條碼不是本 App 出示的證件。"
+    "The download carries its own trust root. Re-signing these fields with this phone's key is weaker than what arrived — the credential design should use the original signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載下來的檔案自己就帶著信任根。用這支手機的金鑰重簽這些欄位，比原本收到的還弱——憑證設計應該改用原始簽章。"
           }
         }
       }
     },
-    "This code stops being accepted about five minutes after it was made." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個條碼產生約五分鐘後就不再被接受。"
+    "The downloaded document is missing details this app needs, so it cannot be signed.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載回來的文件缺少本程式需要的欄位，無法簽署。"
           }
         }
       }
     },
-    "This code was not made just now" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個條碼不是剛才產生的"
+    "The downloaded file was damaged. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載的檔案已損毀，請再試一次。"
           }
         }
       }
     },
-    "This device can't check the proof yet: the verification keys aren't downloaded." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機還沒辦法驗證這份證明：驗證金鑰尚未下載。"
+    "The files for creating a proof are ready, but the extra ones for checking it on this device aren't: %@": {
+      "comment": "Assets stage: everything a proof needs installed, only the checking keys did not",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產生證明的檔案已經備妥，但在這支手機上檢查證明的額外檔案沒有備妥：%@"
           }
         }
       }
     },
-    "This device checked the proof and it did not pass." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機驗過了，這份證明沒有通過。"
+    "The holder signed these details with their own government-issued certificate. That confirms who is making the claim, not that the government has confirmed the details.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些欄位由持有人自己的自然人憑證簽署。這證明的是「誰在主張」，不是政府已經確認過這些內容。"
           }
         }
       }
     },
-    "This device could not create a signing key." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此裝置無法建立簽署金鑰。"
+    "The holder was shown a different reason for this check than the one you asked for.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "持證人看到的查驗事由與您提出的不同。"
           }
         }
       }
     },
-    "This device could not create a verification request." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置無法建立查驗請求。"
+    "The identifier survived being deleted": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "識別碼在刪除後仍然存活"
           }
         }
       }
     },
-    "This device could not generate a secure random number." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機無法產生安全的亂數。"
+    "The lines below are the document's own words, quoted. This app checked the signature over them, not whether any of it is true.": {
+      "comment": "Attribution above the fields a verified presentation disclosed",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以下是這份文件自己填的內容，原樣引述。本 App 只驗了它們的簽章，沒有查核內容是不是真的。"
           }
         }
       }
     },
-    "This device couldn't finish checking the proof." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機無法完成驗證。"
+    "The offline verification files aren't ready yet. Finish preparing them, then try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離線驗證檔案還沒備妥。請先完成準備，再試一次。"
           }
         }
       }
     },
-    "This device has a Secure Enclave" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置有安全隔離區"
+    "The other device's clock is too far off for this to be checked.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方裝置的時間誤差太大，無法查驗。"
           }
         }
       }
     },
-    "This device has a Secure Enclave but the key was not put in it. Anyone who can read the Keychain could sign credentials as you." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置有安全隔離區，金鑰卻沒放進去。能讀取 Keychain 的人就能冒用你的身分簽發憑證。"
+    "The person holding this device signed this check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "持有這台裝置的人簽署了本次查驗"
           }
         }
       }
     },
-    "This device has no camera available, so codes cannot be scanned here." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置沒有可用的相機，無法在這裡掃描條碼。"
+    "The proof could not be created on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置無法產生證明。"
           }
         }
       }
     },
-    "This device is already creating a proof." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置正在產生證明。"
+    "The revocation list was applied but not checked against an authoritative source.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已套用撤銷清單，但沒有與權威來源核對。"
           }
         }
       }
     },
-    "This document belongs to someone other than the person presenting it." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件的持有人不是出示的人。"
+    "The signature on this document is not valid; its contents may have been altered.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件的簽章無效，內容可能遭到竄改。"
           }
         }
       }
     },
-    "This document could not be shown" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件無法出示"
+    "The signature on this presentation is not valid.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次出示的簽章無效。"
           }
         }
       }
     },
-    "This document could not be signed on this device." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件無法在此裝置上簽署。"
+    "The signature that came back does not match the document, so nothing was saved.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回傳的簽章與文件不符，因此沒有存下任何東西。"
           }
         }
       }
     },
-    "This document could not be turned into a code on this device." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這台裝置無法把這份證件轉成條碼。"
+    "The signature this proof is built from never changes and never expires. Anyone who has ever received a copy — 內政部 included — can keep making new proofs from it, on any device, without you.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明所依據的簽章永遠是同一份，也不會過期。任何拿過一次的人——包括內政部——都可以在你不在場、也不知情的情況下，用任何一台裝置繼續產生新的證明。"
           }
         }
       }
     },
-    "This document disclosed %d more field(s) that are not shown here." : {
-      "comment" : "Shown when a presentation carries more fields than the screen draws",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份文件還出示了 %d 個欄位，這裡沒有顯示。"
+    "The signing request expired before it was approved on the certificate app.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章請求在憑證 App 上完成核可前就過期了。"
           }
         }
       }
     },
-    "This document disclosed no fields." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件沒有揭露任何欄位。"
+    "The signing request expired before it was approved.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署請求在你確認之前就過期了。"
           }
         }
       }
     },
-    "This document does not fit in one code, so it cycles through %d. Keep the screen still until the checker's phone says it has them all; the order does not matter." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件放不進單一條碼，因此會輪流顯示 %d 張。請維持畫面穩定，直到查驗者的手機顯示已全部讀取；順序不影響。"
+    "The valid document has been created": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正式證件已建立"
           }
         }
       }
     },
-    "This document does not say when it becomes valid." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件沒有記載生效時間。"
+    "The verification files couldn't be downloaded.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案下載失敗。"
           }
         }
       }
     },
-    "This document does not state an expiry date." : {
-      "comment" : "Shown alongside a successful offline verification",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件沒有記載有效期限。"
+    "The verification files on the server aren't the ones this app expects. Try again after updating the app.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "伺服器上的驗證檔案與這個版本的 App 預期的不符。請更新 App 後再試。"
           }
         }
       }
     },
-    "This document has expired." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件已過期。"
+    "The 行動自然人憑證 app isn't installed on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機沒有安裝行動自然人憑證 App。"
           }
         }
       }
     },
-    "This document is not valid yet." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件尚未生效。"
+    "There is no document on this device to show yet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置上還沒有可以出示的證件。"
           }
         }
       }
     },
-    "This document is signed in a way this app cannot check." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件的簽章方式本 App 無法查驗。"
+    "There isn't enough free space to prepare the verification files.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可用空間不足，無法準備驗證檔案。"
           }
         }
       }
     },
-    "This document names one signer but is signed under another." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件標示的簽署者與實際簽章的金鑰不符。"
+    "These are the plain documents your credentials came from. Deleting your credentials would not remove them.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些是產生憑證的原始明文文件。刪除憑證並不會刪掉它們。"
           }
         }
       }
     },
-    "This document shows the same identifier every time it is presented, so different checkers can tell it is the same person." : {
-      "comment" : "Shown alongside a successful offline verification",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件每次出示都會露出同一組識別碼，不同查驗者可據此比對出是同一個人。"
+    "These files have to be downloaded first": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些檔案要先下載"
           }
         }
       }
     },
-    "This document uses fields this app does not understand." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件含有本 App 無法解讀的欄位。"
+    "These files have to be prepared first": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些檔案要先準備"
           }
         }
       }
     },
-    "This document was created under an identifier this device no longer has." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件是用這台裝置已經沒有的識別碼建立的。"
+    "Third Party Software License": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第三方軟體授權條款"
           }
         }
       }
     },
-    "This document was issued by someone this app has no way to check." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件的簽發者本 App 無從查驗。"
+    "This app can't tell which authority issued your citizen certificate. Only certificates from MOICA G3 are supported.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法判斷你的自然人憑證由哪個憑證機構簽發；目前只支援內政部憑證管理中心第三代（G3）簽發的憑證。"
           }
         }
       }
     },
-    "This document was issued by the holder's own device, not by a government authority." : {
-      "comment" : "Shown alongside a successful offline verification",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件由持證人的裝置自行簽發，並非政府機關簽發。"
+    "This app cannot check government certificates right now. This is a problem with the app, not with the document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本程式目前無法查驗政府憑證。這是程式的問題，不是這份文件的問題。"
           }
         }
       }
     },
-    "This document's identifier is not one this app can check." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件的識別碼不是本 App 能查驗的格式。"
+    "This app does not have permission to use the camera, so it cannot read the code.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本 App 沒有相機權限，無法讀取條碼。"
           }
         }
       }
     },
-    "This download is already running." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個下載已經在進行中。"
+    "This build can't request a signature: it has no credentials for the digital certificate service.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法送出簽章請求：它沒有內政部的 SP 憑據。"
           }
         }
       }
     },
-    "This download needs Wi-Fi or full cellular data. Check your connection, or turn off Low Data Mode." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個下載需要 Wi-Fi 或完整行動網路。請檢查連線，或關閉低數據模式。"
+    "This build has no credentials for the digital certificate service, so it can't request a signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本沒有內政部的 SP 憑據，無法送出簽章請求。"
           }
         }
       }
     },
-    "This downloads %@ and uses about %@ on this device. They're the mathematical circuits used to create and check the proof, published by the Privacy & Scaling Explorations team. They stay on your phone and are only downloaded once." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這會下載 %@，並在這支手機上佔用約 %@。這些是用來產生與驗證證明的數學電路，由 Privacy & Scaling Explorations 團隊發布。檔案只留在你的手機上，而且只需要下載一次。"
+    "This certificate can't be used to create a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張憑證無法用來產生證明。"
           }
         }
       }
     },
-    "This field was too long to show in full." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個欄位太長，沒有完整顯示。"
+    "This check cannot confirm that the person in front of you is the one who answered it. The answer may have been obtained somewhere else and passed on.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次查驗無法確認眼前這個人就是回應的那一方。這份答案有可能是在別處取得後轉傳過來的。"
           }
         }
       }
     },
-    "This is a stored document rather than a presentation made for this check." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這是已儲存的證件本身，不是為本次查驗簽出的出示檔。"
+    "This check was made offline. Nothing was sent to any server.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次查驗未連線，未向任何伺服器傳送資料。"
           }
         }
       }
     },
-    "This presentation answers a different check, so it may be a copy of an earlier one." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這次出示回應的不是本次查驗，可能是先前出示的複本。"
+    "This checker had no request outstanding. Each request can be answered once; start a new check and ask them to scan it again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本查驗端目前沒有等待回應的請求。每個請求只能回應一次，請重新開始查驗，再請對方掃描一次。"
           }
         }
       }
     },
-    "This presentation carries more than one document, which this app cannot check yet." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這次出示包含多份證件，本 App 尚無法查驗。"
+    "This code carries a one-time number. Their document has to answer this exact number, so a photograph of an earlier check cannot be reused here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個條碼帶著一組一次性的數字。對方的證件必須回應這組數字，所以先前查驗的翻拍照片在這裡無法重複使用。"
           }
         }
       }
     },
-    "This presentation has expired. Ask for it to be shown again." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這次出示已逾時，請對方重新出示。"
+    "This code is dated ahead of your phone's clock": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個條碼的時間比你手機的時鐘還晚"
           }
         }
       }
     },
-    "This presentation is not tied to this checker specifically." : {
-      "comment" : "Shown alongside a successful offline verification",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這次出示並未指定給本查驗端。"
+    "This code is not a document presented by this app.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個條碼不是本 App 出示的證件。"
           }
         }
       }
     },
-    "This presentation was made for a different checker." : {
-      "comment" : "Offline verification failure",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這次出示是給其他查驗端的。"
+    "This code stops being accepted about five minutes after it was made.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個條碼產生約五分鐘後就不再被接受。"
           }
         }
       }
     },
-    "This proof cannot show whether the same identity has already been used elsewhere." : {
-      "comment" : "Limitation attached to a zero-knowledge proof",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個證明無法顯示同一個身分是否已經在別處用過。"
+    "This code was not made just now": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個條碼不是剛才產生的"
           }
         }
       }
     },
-    "This proves who issued the certificate, not that it is still valid today." : {
-      "comment" : "Limitation attached to a zero-knowledge proof",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這只證明憑證由誰簽發，不證明它今天仍然有效。"
+    "This device can't check the proof yet: the verification keys aren't downloaded.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機還沒辦法驗證這份證明：驗證金鑰尚未下載。"
           }
         }
       }
     },
-    "This request could not be read." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法讀取這個查驗請求。"
+    "This device checked the proof and it did not pass.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機驗過了，這份證明沒有通過。"
           }
         }
       }
     },
-    "This takes a while and uses a lot of memory." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這一步要花一段時間，而且很吃記憶體。"
+    "This device checked the proof and refused it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機檢查了這份證明，並判定不通過。"
           }
         }
       }
     },
-    "This wording was written by the checker. This app cannot confirm who they are." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這段文字是查驗者自己填的。本 App 無法確認對方的身分。"
+    "This device could not create a signing key.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此裝置無法建立簽署金鑰。"
           }
         }
       }
     },
-    "Time to create the proof" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "產生證明耗時"
+    "This device could not create a verification request.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置無法建立查驗請求。"
           }
         }
       }
     },
-    "Total size when installed" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "安裝後總大小"
+    "This device could not generate a secure random number.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機無法產生安全的亂數。"
           }
         }
       }
     },
-    "Unavailable" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法使用"
+    "This device couldn't finish checking the proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機無法完成驗證。"
           }
         }
       }
     },
-    "Unified No." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "統一編號"
+    "This device does not have the files needed to check a proof yet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機還沒有查驗證明所需的檔案。"
           }
         }
       }
     },
-    "Unknown" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未知"
+    "This device has a Secure Enclave": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置有安全隔離區"
           }
         }
       }
     },
-    "Unzipping failed (wrong password). Please enter the correct National ID number." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "解壓縮失敗（密碼錯誤），請輸入正確的身分證字號。"
+    "This device has a Secure Enclave but the key was not put in it. Anyone who can read the Keychain could sign credentials as you.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置有安全隔離區，金鑰卻沒放進去。能讀取 Keychain 的人就能冒用你的身分簽發憑證。"
           }
         }
       }
     },
-    "Valid Document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正式證件"
+    "This device has no camera available, so codes cannot be scanned here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置沒有可用的相機，無法在這裡掃描條碼。"
           }
         }
       }
     },
-    "Verification files" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "驗證檔案"
+    "This device is already creating a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置正在產生證明。"
           }
         }
       }
     },
-    "Verification files are ready" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "驗證檔案已備妥"
+    "This document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件"
           }
         }
       }
     },
-    "Verification request code" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗請求條碼"
+    "This document belongs to someone other than the person presenting it.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件的持有人不是出示的人。"
           }
         }
       }
     },
-    "Version" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "版本"
+    "This document could not be shown": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件無法出示"
           }
         }
       }
     },
-    "Waiting for approval in the digital certificate app…" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "等待你在行動自然人憑證 App 上完成核可…"
+    "This document could not be signed on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件無法在此裝置上簽署。"
           }
         }
       }
     },
-    "What it cannot show" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "它證明不了什麼"
+    "This document could not be turned into a code on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置無法把這份證件轉成條碼。"
           }
         }
       }
     },
-    "What they disclosed" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "對方揭露了什麼"
+    "This document disclosed %d more field(s) that are not shown here.": {
+      "comment": "Shown when a presentation carries more fields than the screen draws",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份文件還出示了 %d 個欄位，這裡沒有顯示。"
           }
         }
       }
     },
-    "What they will see" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "對方會看到什麼"
+    "This document disclosed no fields.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件沒有揭露任何欄位。"
           }
         }
       }
     },
-    "What this check did not establish" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這次查驗沒有確認的事"
+    "This document does not fit in one code, so it cycles through %d. Keep the screen still until the checker's phone says it has them all; the order does not matter.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件放不進單一條碼，因此會輪流顯示 %d 張。請維持畫面穩定，直到查驗者的手機顯示已全部讀取；順序不影響。"
           }
         }
       }
     },
-    "What this does" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個功能做什麼"
+    "This document does not match the signature on it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份文件與它上面的簽章不符。"
           }
         }
       }
     },
-    "Where your key lives, how your credentials are protected, and what identifier you present." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的金鑰在哪、憑證受什麼保護、你出示的是哪個識別碼。"
+    "This document does not say when it becomes valid.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件沒有記載生效時間。"
           }
         }
       }
     },
-    "Whether this document has been revoked cannot be checked offline." : {
-      "comment" : "Shown alongside a successful offline verification",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "離線狀態無法確認這份證件是否已被撤銷。"
+    "This document does not state an expiry date.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件沒有記載有效期限。"
           }
         }
       }
     },
-    "with Taiwan's official MyData service" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "透過台灣官方MyData服務"
+    "This document has expired.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件已過期。"
           }
         }
       }
     },
-    "Working…" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "進行中…"
+    "This document is in a format this app cannot read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份文件的格式，本程式讀不懂。"
           }
         }
       }
     },
-    "Yes" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有"
+    "This document is not valid yet.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件尚未生效。"
           }
         }
       }
     },
-    "You will use TW FiDO to retrieve your National ID data, and create a valid document." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你將使用行動自然人憑證，從MyData取得自己的數位身分資料，建立一張正式證件。"
+    "This document is signed in a way this app cannot check.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件的簽章方式本 App 無法查驗。"
           }
         }
       }
     },
-    "You'll be asked to approve this in the 行動自然人憑證 app." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "過程中會請你到行動自然人憑證 App 完成核可。"
+    "This document names one signer but is signed under another.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件標示的簽署者與實際簽章的金鑰不符。"
           }
         }
       }
     },
-    "Your citizen certificate couldn't be read." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法讀取你的自然人憑證。"
+    "This document shows the same identifier every time it is presented, so different checkers can tell it is the same person.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件每次出示都會露出同一組識別碼，不同查驗者可據此比對出是同一個人。"
           }
         }
       }
     },
-    "Your citizen certificate doesn't match the signature of MOICA G3." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的自然人憑證通不過內政部憑證管理中心第三代（G3）的簽章驗證。"
+    "This document uses fields this app does not understand.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件含有本 App 無法解讀的欄位。"
           }
         }
       }
     },
-    "Your citizen certificate expired on %@. Renew it before generating a proof." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的自然人憑證已於 %@ 到期，請更新後再產生證明。"
+    "This document was created under an identifier this device no longer has.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件是用這台裝置已經沒有的識別碼建立的。"
           }
         }
       }
     },
-    "Your citizen certificate isn't valid until %@. Check your device's date and time." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的自然人憑證要到 %@ 才生效，請檢查裝置的日期與時間。"
+    "This document was issued by someone this app has no way to check.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件的簽發者本 App 無從查驗。"
           }
         }
       }
     },
-    "Your citizen certificate was issued by %@, which this version can't prove. Only certificates from MOICA G3 are supported." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的自然人憑證由%@簽發，這一版還無法為它產生證明；目前只支援內政部憑證管理中心第三代（G3）簽發的憑證。"
+    "This document was issued by the holder's own device, not by a government authority.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件由持證人的裝置自行簽發，並非政府機關簽發。"
           }
         }
       }
     },
-    "Your credentials, the source documents, and your device key will be deleted. The next document you create will use a new identifier and cannot be linked to the current one. This cannot be undone." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的憑證、原始文件與裝置金鑰都會被刪除。之後重新建立的證件會使用全新的識別碼，無法與目前這一個連結起來。此動作無法復原。"
+    "This document was signed by a different person from the one it describes.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署這份文件的人，與文件所描述的人不是同一位。"
           }
         }
       }
     },
-    "Your document could be readable from a copy of the device's storage." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有人拿到這支手機的儲存內容副本時，可能讀得到你的證件。"
+    "This document's identifier is not one this app can check.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件的識別碼不是本 App 能查驗的格式。"
           }
         }
       }
     },
-    "Your documents are encrypted at rest" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的證件在裝置上是加密的"
+    "This download is already running.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個下載已經在進行中。"
           }
         }
       }
     },
-    "Your documents stay off iCloud" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的證件不會進 iCloud"
+    "This download needs Wi-Fi or full cellular data. Check your connection, or turn off Low Data Mode.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個下載需要 Wi-Fi 或完整行動網路。請檢查連線，或關閉低數據模式。"
           }
         }
       }
     },
-    "Your ID number" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的身分證統一編號"
+    "This downloads %@ and uses about %@ on this device. They're the mathematical circuits used to create and check the proof, published by the Privacy & Scaling Explorations team. They stay on your phone and are only downloaded once.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會下載 %@，並在這支手機上佔用約 %@。這些是用來產生與驗證證明的數學電路，由 Privacy & Scaling Explorations 團隊發布。檔案只留在你的手機上，而且只需要下載一次。"
           }
         }
       }
     },
-    "Your identity documents would be copied into every iCloud backup." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的身分證件會被複製進每一次 iCloud 備份。"
+    "This field was too long to show in full.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個欄位太長，沒有完整顯示。"
           }
         }
       }
     },
-    "Your signing key is in hardware" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的簽署金鑰放在硬體裡"
+    "This is a stored document rather than a presentation made for this check.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是已儲存的證件本身，不是為本次查驗簽出的出示檔。"
           }
         }
       }
     },
-    "These files have to be prepared first" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這些檔案要先準備"
+    "This phone checked the proof and refused it": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機查驗了這份證明，判定不通過"
           }
         }
       }
     },
-    "No download · uses %@ on this device" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "不需下載 · 在這支手機上佔用 %@"
+    "This phone — nobody else vouches for these values.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機——沒有任何其他人為這些內容背書。"
           }
         }
       }
     },
-    "Made on this phone · %@ on disk" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在這支手機上產生 · 佔用 %@"
+    "This presentation answers a different check, so it may be a copy of an earlier one.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次出示回應的不是本次查驗，可能是先前出示的複本。"
           }
         }
       }
     },
-    "Both circuits completed" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "兩組電路都完成了"
+    "This presentation carries more than one document, which this app cannot check yet.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次出示包含多份證件，本 App 尚無法查驗。"
           }
         }
       }
     },
-    "This device checked the proof and refused it." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機檢查了這份證明，並判定不通過。"
+    "This presentation has expired. Ask for it to be shown again.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次出示已逾時，請對方重新出示。"
           }
         }
       }
     },
-    "The check ran but could not reach a verdict." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檢查跑完了，但無法判定結果。"
+    "This presentation is not tied to this checker specifically.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次出示並未指定給本查驗端。"
           }
         }
       }
     },
-    "Hand this proof to a verifier" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "把這份證明交給查驗方"
+    "This presentation was made for a different checker.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次出示是給其他查驗端的。"
           }
         }
       }
     },
-    "Saves a %@ file. Too large for a QR code — send it as a file." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "存成一個 %@ 的檔案。太大了塞不進 QR code——請用檔案傳送。"
+    "This proof cannot show whether the same identity has already been used elsewhere.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個證明無法顯示同一個身分是否已經在別處用過。"
           }
         }
       }
     },
-    "This proof could not be packaged" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證明無法打包"
+    "This proof could not be packaged": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明無法打包"
           }
         }
       }
     },
-    "This device does not have the files needed to check a proof yet." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機還沒有查驗證明所需的檔案。"
+    "This proof file could not be read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個證明檔案讀不出來。"
           }
         }
       }
     },
-    "This proof file could not be read." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這個證明檔案讀不出來。"
+    "This proves who issued the certificate, not that it is still valid today.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這只證明憑證由誰簽發，不證明它今天仍然有效。"
           }
         }
       }
     },
-    "Check a zero-knowledge proof" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗零知識證明"
+    "This request could not be read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取這個查驗請求。"
           }
         }
       }
     },
-    "Check a proof file. Needs the large checking files on this phone." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗一個證明檔案。這支手機上要先有那組很大的查驗檔案。"
+    "This takes a while and uses a lot of memory.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這一步要花一段時間，而且很吃記憶體。"
           }
         }
       }
     },
-    "Check a proof" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗證明"
+    "This takes about fifteen seconds and runs entirely on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大約需要十五秒，全程在這支手機上跑，不連任何伺服器。"
           }
         }
       }
     },
-    "No proof loaded yet" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還沒載入證明"
+    "This wording was written by the checker. This app cannot confirm who they are.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這段文字是查驗者自己填的。本 App 無法確認對方的身分。"
           }
         }
       }
     },
-    "A zero-knowledge proof is about 290 KB — too large for a QR code, so it arrives as a file." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "零知識證明大約 290 KB——太大了塞不進 QR code，所以是用檔案傳過來的。"
+    "Time to create the proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產生證明耗時"
           }
         }
       }
     },
-    "Choose a proof file" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇證明檔案"
+    "Took %.1f seconds · %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "花了 %.1f 秒 · %@"
           }
         }
       }
     },
-    "Checking…" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查驗中…"
+    "Total size when installed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安裝後總大小"
           }
         }
       }
     },
-    "This takes about fifteen seconds and runs entirely on this phone." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "大約需要十五秒，全程在這支手機上跑，不連任何伺服器。"
+    "Unavailable": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法使用"
           }
         }
       }
     },
-    "Certificate chain %@ · Signature %@ · Linked %@" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "憑證鏈 %@ · 簽章 %@ · 同一人 %@"
+    "Unified No.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統一編號"
           }
         }
       }
     },
-    "Took %.1f seconds · %@" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "花了 %.1f 秒 · %@"
+    "Unknown": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
           }
         }
       }
     },
-    "What this does not establish:" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證明沒有證明的事："
+    "Unzipping failed (wrong password). Please enter the correct National ID number.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解壓縮失敗（密碼錯誤），請輸入正確的身分證字號。"
           }
         }
       }
     },
-    "Checked on this phone, and it passed" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在這支手機上查驗過，通過"
+    "Valid Document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正式證件"
           }
         }
       }
     },
-    "This phone checked the proof and refused it" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機查驗了這份證明，判定不通過"
+    "Verification files": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案"
           }
         }
       }
     },
-    "No verdict" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法判定"
+    "Verification files are ready": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案已備妥"
           }
         }
       }
     },
-    "MyData PDF signature" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MyData PDF 簽章"
+    "Verification request code": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗請求條碼"
           }
         }
       }
     },
-    "Document-level signature" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "文件級簽章"
+    "Version": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
           }
         }
       }
     },
-    "Not measured yet — download your ID once and come back." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還沒量過——先跑一次身分證下載，再回來看。"
+    "Waiting for approval in the digital certificate app…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待你在行動自然人憑證 App 上完成核可…"
           }
         }
       }
     },
-    "No document-level signature found." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有找到文件級簽章。"
+    "Waiting for you to sign in 行動自然人憑證": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等你在行動自然人憑證上簽名"
           }
         }
       }
     },
-    "Signed — %d signature(s), SubFilter %@" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有簽章——%d 份，SubFilter %@"
+    "What it cannot show": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它證明不了什麼"
           }
         }
       }
     },
-    "What this means" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這代表什麼"
+    "What they disclosed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方揭露了什麼"
           }
         }
       }
     },
-    "The download carries its own trust root. Re-signing these fields with this phone's key is weaker than what arrived — the credential design should use the original signature." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下載下來的檔案自己就帶著信任根。用這支手機的金鑰重簽這些欄位，比原本收到的還弱——憑證設計應該改用原始簽章。"
+    "What they will see": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方會看到什麼"
           }
         }
       }
     },
-    "My identity document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "我的身分證件"
+    "What this check did not establish": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次查驗沒有確認的事"
           }
         }
       }
     },
-    "%d fields · created %@" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%d 個欄位 · %@ 建立"
+    "What this does": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個功能做什麼"
           }
         }
       }
     },
-    "Fetch it again and replace what's stored." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重新抓一次，取代目前存的這份。"
+    "What this does not establish:": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明沒有證明的事："
           }
         }
       }
     },
-    "This document" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這份證件"
+    "What this means": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這代表什麼"
           }
         }
       }
     },
-    "Created" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "建立時間"
+    "Where your key lives, how your credentials are protected, and what identifier you present.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的金鑰在哪、憑證受什麼保護、你出示的是哪個識別碼。"
           }
         }
       }
     },
-    "Signed by" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簽署者"
+    "Whether this document has been revoked cannot be checked offline.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離線狀態無法確認這份證件是否已被撤銷。"
           }
         }
       }
     },
-    "This phone — nobody else vouches for these values." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這支手機——沒有任何其他人為這些內容背書。"
+    "Working…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "進行中…"
           }
         }
       }
     },
-    "Fields" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "欄位"
+    "Yes": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有"
           }
         }
       }
     },
-    "Show %d fields" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示 %d 個欄位"
+    "You will use TW FiDO to retrieve your National ID data, and create a valid document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你將使用行動自然人憑證，從MyData取得自己的數位身分資料，建立一張正式證件。"
           }
         }
       }
     },
-    "Includes your ID number and home address. Check who can see your screen." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "包含身分證字號與戶籍地址。先確認旁邊有沒有人看得到螢幕。"
+    "You'll be asked to approve this in the 行動自然人憑證 app.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "過程中會請你到行動自然人憑證 App 完成核可。"
           }
         }
       }
     },
-    "No document stored yet" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還沒有存任何證件"
+    "Your ID number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的身分證統一編號"
           }
         }
       }
     },
-    "Back up your national ID from the home screen first." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請先從首頁備份你的身分證件。"
+    "Your certificate signs these details, which is what lets anyone checking them see that you are the one making the claim.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由你的憑證簽署這些欄位，查驗的人才看得出來，是你本人在主張這些內容。"
           }
         }
       }
     },
-    "ID number" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "身分證字號"
+    "Your citizen certificate couldn't be read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取你的自然人憑證。"
           }
         }
       }
     },
-    "Date of birth" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "出生年月日"
+    "Your citizen certificate doesn't match the signature of MOICA G3.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的自然人憑證通不過內政部憑證管理中心第三代（G3）的簽章驗證。"
           }
         }
       }
     },
-    "Household address" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "戶籍地址"
+    "Your citizen certificate expired on %@. Renew it before generating a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的自然人憑證已於 %@ 到期，請更新後再產生證明。"
+          }
+        }
+      }
+    },
+    "Your citizen certificate isn't valid until %@. Check your device's date and time.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的自然人憑證要到 %@ 才生效，請檢查裝置的日期與時間。"
+          }
+        }
+      }
+    },
+    "Your citizen certificate was issued by %@, which this version can't prove. Only certificates from MOICA G3 are supported.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的自然人憑證由%@簽發，這一版還無法為它產生證明；目前只支援內政部憑證管理中心第三代（G3）簽發的憑證。"
+          }
+        }
+      }
+    },
+    "Your credentials, the source documents, and your device key will be deleted. The next document you create will use a new identifier and cannot be linked to the current one. This cannot be undone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的憑證、原始文件與裝置金鑰都會被刪除。之後重新建立的證件會使用全新的識別碼，無法與目前這一個連結起來。此動作無法復原。"
+          }
+        }
+      }
+    },
+    "Your document could be readable from a copy of the device's storage.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有人拿到這支手機的儲存內容副本時，可能讀得到你的證件。"
+          }
+        }
+      }
+    },
+    "Your documents are encrypted at rest": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的證件在裝置上是加密的"
+          }
+        }
+      }
+    },
+    "Your documents stay off iCloud": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的證件不會進 iCloud"
+          }
+        }
+      }
+    },
+    "Your identity documents would be copied into every iCloud backup.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的身分證件會被複製進每一次 iCloud 備份。"
+          }
+        }
+      }
+    },
+    "Your signing key is in hardware": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的簽署金鑰放在硬體裡"
+          }
+        }
+      }
+    },
+    "not reported": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未回報"
+          }
+        }
+      }
+    },
+    "with Taiwan's official MyData service": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "透過台灣官方MyData服務"
+          }
+        }
+      }
+    },
+    "內政部 is told your ID number and which service asked, every time a proof is made. This hides you from the person checking the proof, not from 內政部.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每產生一次證明，內政部都會知道你的身分證統一編號，以及是哪個服務提出要求。這份證明對查驗的人隱藏了你的身分，對內政部沒有。"
+          }
+        }
+      }
+    },
+    "內政部 needs this to send the signing request to your phone. It goes to 內政部 and nowhere else, and this app does not keep it — but 內政部 records that you asked, and which service asked.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內政部需要這個號碼才能把簽章請求推送到你的手機。它只會送給內政部，不會送到別的地方，這個 App 也不會保存它——但內政部會留下你提出過要求、以及是哪個服務要求的紀錄。"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

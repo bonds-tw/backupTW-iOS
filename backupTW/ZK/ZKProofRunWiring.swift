@@ -395,8 +395,14 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
 /// polling cadence, the deadline, the holder-certificate gate — can be tested
 /// without 內政部.
 protocol TWFidOSignSession: Sendable {
-    func begin(idNumber: String, hint: String, timeLimit: Int) async throws
-        -> (ticket: TWFidOTicket, deepLink: URL)
+    /// `signing` is not optional and has no default: the two callers ask the
+    /// card for different things — a holding proof needs the relying-party
+    /// constant, issuance needs the credential's digest — and a session that
+    /// picked one silently is how the fields came to be signed by nothing.
+    func begin(idNumber: String,
+               hint: String,
+               signing: TWFidOSigningTarget,
+               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL)
     func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult?
 }
 
@@ -426,18 +432,14 @@ struct LiveTWFidOSignSession: TWFidOSignSession, @unchecked Sendable {
     let client: TWFidOClient
     let returnURL: URL
 
-    func begin(idNumber: String, hint: String, timeLimit: Int) async throws
-        -> (ticket: TWFidOTicket, deepLink: URL) {
-        // The relying-party identifier, not a credential digest, and the choice
-        // is not stylistic. The circuit takes this exact string as `tbs` and
-        // derives the nullifier from it, so a verifier can only treat a proof as
-        // Sybil-resistant by pinning the public input to a value it knows in
-        // advance. A per-run TBS would let a holder mint a fresh nullifier at
-        // will, which is the property the whole holding proof exists to deny.
+    func begin(idNumber: String,
+               hint: String,
+               signing: TWFidOSigningTarget,
+               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
         try await client.requestSignAppToApp(
             TWFidOSignRequest(idNumber: idNumber,
                               hint: hint,
-                              signing: .relyingPartyIdentifier(client.configuration.appID),
+                              signing: signing,
                               timeLimit: timeLimit),
             returnURL: returnURL)
     }
@@ -522,7 +524,18 @@ struct TWFidOHolderSigner: ZKHolderSigning {
     func sign(challenge: ProofChallenge) async throws -> ProvingInputs {
         let started: (ticket: TWFidOTicket, deepLink: URL)
         do {
-            started = try await session.begin(idNumber: idNumber, hint: hint, timeLimit: timeLimit)
+            // The relying-party identifier, not a credential digest, and the
+            // choice is not stylistic. The circuit takes this exact string as
+            // `tbs` and derives the nullifier from it, so a verifier can only
+            // treat a proof as Sybil-resistant by pinning the public input to a
+            // value it knows in advance. A per-run TBS would let a holder mint a
+            // fresh nullifier at will, which is the property the whole holding
+            // proof exists to deny.
+            started = try await session.begin(
+                idNumber: idNumber,
+                hint: hint,
+                signing: .relyingPartyIdentifier(TWFidOConfiguration.bondsAppID),
+                timeLimit: timeLimit)
         } catch let error as SPCredentialError {
             // Not a failure of the holder's certificate and retrying changes
             // nothing: this build has no way to authenticate to the SP API.
