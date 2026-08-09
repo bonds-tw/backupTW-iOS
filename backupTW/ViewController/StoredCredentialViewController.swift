@@ -93,12 +93,24 @@ final class StoredCredentialViewController: UICollectionViewController {
                 isSensitive: false, isAction: false),
             Row(id: "about.issuer",
                 title: NSLocalizedString("Signed by", comment: ""),
-                // Named plainly. `issuer == subject` is the whole story of what
-                // this credential is worth, and a screen that showed a DID
-                // without saying it is this phone's own key would imply an
-                // authority that does not exist.
-                value: NSLocalizedString("This phone — nobody else vouches for these values.",
-                                         comment: ""),
+                // Named plainly, and it has to be the *right* plain answer:
+                // this row is the only place the holder is told what their own
+                // document is worth, and the two envelopes are worth opposite
+                // amounts. Showing a DID instead would be worse than either —
+                // `issuer` is this phone's key in both forms, so it would imply
+                // an authority that does not exist for the older one and hide
+                // the real one for the newer.
+                //
+                // The wording tracks `VerificationCaveat.assertedByCardholder`
+                // on purpose. The holder and whoever checks their document must
+                // not read two different accounts of the same file, which is
+                // exactly what this screen did when card signing landed and this
+                // row kept saying the phone had signed it.
+                value: stored.isCardSigned
+                    ? NSLocalizedString("Your own digital certificate. That shows you are the one making these claims — not that the government has confirmed them.",
+                                        comment: "")
+                    : NSLocalizedString("This phone — nobody else vouches for these values.",
+                                        comment: ""),
                 isSensitive: false, isAction: false)
         ]))
 

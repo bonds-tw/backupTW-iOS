@@ -3549,6 +3549,16 @@
         }
       }
     },
+    "Your own digital certificate. That shows you are the one making these claims — not that the government has confirmed them.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你自己的自然人憑證。這證明的是「這些主張出自你本人」，不是政府已經確認過這些內容。"
+          }
+        }
+      }
+    },
     "Your signing key is in hardware": {
       "localizations": {
         "zh-Hant": {

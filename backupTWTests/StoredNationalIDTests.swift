@@ -40,6 +40,32 @@ struct StoredNationalIDTests {
         return store
     }
 
+    /// The same fields, but stored the way the app writes them now: a
+    /// `MOICASignedCredential` envelope rather than a compact JWS. The signature
+    /// is a throwaway one — `StoredNationalID` deliberately does not verify, so
+    /// what matters here is only that the envelope is the shape it parses.
+    private static func storeHoldingCardSignedCredential() throws -> FakeStore {
+        let key = try DeviceKey.loadOrCreate()
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+        let model = NationalIDModel(nationality: "中華民國",
+                                    unifiedNo: "A123456789",
+                                    name: "王小明",
+                                    birthdate: "1990-01-01",
+                                    addressOfHousehold: "臺北市中正區某路 1 號")
+        let credential = VerifiableCredential.nationalID(model, issuerDID: did, validFrom: Date())
+        let (digest, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        let envelope = MOICASignedCredential(
+            payload: VerifiableCredential.base64URLEncoded(bytes),
+            proof: MOICACredentialProof(
+                tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
+                certificate: holderCertificateDER,
+                signature: try cardSignature(over: Data(digest.utf8)).base64EncodedString()))
+
+        let store = FakeStore()
+        try store.save(jws: try envelope.serialized(), id: StoredNationalID.credentialID)
+        return store
+    }
+
     /// The defect this whole type exists for: the credential was saved and then
     /// no screen a user could reach ever read it back, so finishing the MyData
     /// flow left the app looking exactly as it had before.
@@ -94,11 +120,33 @@ struct StoredNationalIDTests {
                 "不認得的欄位被丟掉了：\(stored.claims.map(\.key))")
     }
 
+    /// Which envelope the file is has to survive being read back, because it is
+    /// the only thing that decides what the holder's own screen tells them their
+    /// document is worth. Both forms decode to indistinguishable credentials —
+    /// the device DID is the subject identifier in each — so losing the flag
+    /// here is not recoverable further up.
+    @Test(.enabled(if: DeviceKeyAvailability.isAvailable))
+    func aDeviceSignedCredentialIsReportedAsDeviceSigned() throws {
+        let stored = try #require(StoredNationalID.load(from: try Self.storeHoldingCredential()))
+        #expect(stored.isCardSigned == false)
+    }
+
+    @Test(.enabled(if: DeviceKeyAvailability.isAvailable))
+    func aCardSignedCredentialIsReportedAsCardSigned() throws {
+        let stored = try #require(StoredNationalID.load(from: try Self.storeHoldingCardSignedCredential()))
+
+        #expect(stored.isCardSigned)
+        // And the fields still read back, so the flag is not being bought by
+        // silently failing to decode the newer envelope.
+        #expect(stored.claims.count == 5)
+    }
+
     /// `validFrom` is a string in the credential. A build that cannot parse it
     /// must show the raw value, never quietly substitute a plausible date.
     @Test("看不懂的時間格式顯示原字串，不會擅自代換")
     func unparseableDateFallsBackToRaw() {
         let stored = StoredNationalID(issuerDID: "did:key:z…",
+                                      isCardSigned: false,
                                       validFromRaw: "民國 115 年 8 月 9 日",
                                       validFrom: nil,
                                       claims: [])
