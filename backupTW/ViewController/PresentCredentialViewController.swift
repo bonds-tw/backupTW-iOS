@@ -295,6 +295,26 @@ final class PresentCredentialViewController: UIViewController {
         contentStack.addArrangedSubview(PresentationUI.footnote(
             NSLocalizedString("This code stops being accepted about five minutes after it was made.", comment: "")))
         contentStack.addArrangedSubview(linkabilityWarning())
+
+        #if DEBUG
+        // Counterpart of the verifier screen's paste button: copies every frame,
+        // one per line, so a simulator with no camera can act as the checker.
+        // The payload is the holder's own presentation — data they are at this
+        // moment holding up on screen for a stranger to scan — so copying it
+        // discloses nothing the QR carousel is not already disclosing.
+        // Deliberately unlocalized; development affordances stay out of the
+        // string catalog.
+        let copyButton = UIButton(type: .system)
+        var copyConfiguration = UIButton.Configuration.gray()
+        copyConfiguration.title = "複製出示內容（開發用）"
+        copyConfiguration.image = UIImage(systemName: "doc.on.doc")
+        copyConfiguration.imagePadding = 8
+        copyButton.configuration = copyConfiguration
+        copyButton.addAction(UIAction { _ in
+            UIPasteboard.general.string = frames.joined(separator: "\n")
+        }, for: .touchUpInside)
+        contentStack.addArrangedSubview(copyButton)
+        #endif
         // The carousel is *not* started here. Rendering happens once; running is
         // a function of whether this screen is in front of the user, which can
         // change any number of times afterwards.
