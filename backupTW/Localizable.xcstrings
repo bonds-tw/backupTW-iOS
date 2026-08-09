@@ -3569,6 +3569,16 @@
         }
       }
     },
+    "Your signature may have gone through, but the result could not be fetched. Check this device's connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的簽章可能已經完成，但結果拿不回來。請確認這支手機的網路，再試一次。"
+          }
+        }
+      }
+    },
     "Your signing key is in hardware": {
       "localizations": {
         "zh-Hant": {

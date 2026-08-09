@@ -209,6 +209,42 @@ extension TWFidOError: LocalizedError {
     }
 }
 
+/// Whether a failed ATH-02 poll may simply be polled again.
+///
+/// # Why this exists, measured on a real iPhone (2026-08-09)
+///
+/// The app-to-app flow *guarantees* a transport failure on real hardware: the
+/// first poll fires in the same breath as the `mobilemoica://` hand-off, so the
+/// request is in flight exactly as iOS backgrounds this app — and a suspended
+/// app's sockets are the system's to kill. The holder signs, 行動自然人憑證
+/// reports success, the return leg foregrounds us, and the parked request
+/// completes with `URLError.networkConnectionLost`. A polling loop that treats
+/// that as terminal then throws away a ticket that is still valid and a
+/// signature that already exists, one second after it was made.
+///
+/// So: transport-layer failures — `URLError`, an HTTP status, a body that is
+/// not the documented envelope — are retryable, bounded by the ticket's own
+/// deadline. Everything else stays terminal, and two cases deserve their
+/// reasons spelled out:
+///
+/// - `.server` is 內政部 *answering* — the transport works and the answer is
+///   no. (Pending codes never reach here; `fetchResult` returns nil for those.)
+/// - `.unauthenticatedResult` is a body that failed the `idp_checksum` check.
+///   Retrying it would hand whoever is forging bodies an unlimited number of
+///   attempts inside the polling window, silently. One bad body ends the flow.
+func isTransientSignPollFailure(_ error: Error) -> Bool {
+    if let error = error as? TWFidOError {
+        switch error {
+        case .httpStatus, .invalidResponse:
+            return true
+        case .server, .malformedTicket, .missingResultField, .invalidReturnURL,
+             .unauthenticatedResult, .invalidTimeLimit:
+            return false
+        }
+    }
+    return error is URLError
+}
+
 // MARK: - Client
 
 struct TWFidOClient {

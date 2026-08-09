@@ -30,6 +30,13 @@ enum CredentialIssuanceError: Error, Equatable {
     /// The holder did not finish within the ticket's own `time_limit`.
     case timedOut
 
+    /// Polling failed at the transport layer until the deadline. Distinct from
+    /// `timedOut` because the two accuse different parties: `timedOut` says the
+    /// holder never approved, and on this path they may well have — 行動自然人憑證
+    /// can be showing 簽章成功 on screen while we report it. The message must
+    /// blame the connection, never the holder.
+    case resultUnreachable
+
     /// The SP API refused, or the round trip failed.
     case signingFailed(message: String)
 
@@ -52,6 +59,9 @@ extension CredentialIssuanceError: LocalizedError {
             return message
         case .timedOut:
             return NSLocalizedString("The signing request expired before it was approved.", comment: "")
+        case .resultUnreachable:
+            return NSLocalizedString("Your signature may have gone through, but the result could not be fetched. Check this device's connection and try again.",
+                                     comment: "")
         case .issuedCredentialDoesNotVerify:
             return NSLocalizedString("The signature that came back does not match the document, so nothing was saved.",
                                      comment: "")
@@ -196,6 +206,11 @@ struct CredentialIssuance {
     /// ATH-02 response. `cancelWait` runs on every exit because the router parks
     /// the continuation in a dictionary and nothing else would resume it.
     private func awaitResult(ticket: TWFidOTicket, deadline: Date) async throws -> TWFidOSignResult {
+        // Set when a poll fails at the transport layer, because the deadline
+        // then means something different: not "the holder never approved" but
+        // "we could not ask". The two must not share an error — see
+        // `CredentialIssuanceError.resultUnreachable`.
+        var sawTransportFailure = false
         while true {
             try Task.checkCancellation()
             do {
@@ -204,11 +219,20 @@ struct CredentialIssuance {
                 }
             } catch let error as SPCredentialError {
                 throw CredentialIssuanceError.signingUnavailable(message: error.description)
+            } catch let error where isTransientSignPollFailure(error) {
+                // Deliberately not terminal. The first poll races the app's own
+                // backgrounding — see `isTransientSignPollFailure` for the
+                // measured failure — and the ticket outlives a killed socket.
+                // The deadline below is what bounds this.
+                sawTransportFailure = true
             } catch {
                 throw CredentialIssuanceError.signingFailed(message: Self.message(for: error))
             }
 
-            guard now() < deadline else { throw CredentialIssuanceError.timedOut }
+            guard now() < deadline else {
+                throw sawTransportFailure ? CredentialIssuanceError.resultUnreachable
+                                          : CredentialIssuanceError.timedOut
+            }
 
             let callbacks = self.callbacks
             let sleep = self.sleep

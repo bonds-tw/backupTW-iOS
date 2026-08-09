@@ -19,11 +19,20 @@ private final class SignSessionRecorder: @unchecked Sendable {
     var pollCount = 0
 }
 
+/// What one poll does. A script of these is how a test says "fail once, then
+/// succeed" — the shape the real flow has on real hardware, where the first
+/// poll dies with the app's own backgrounding.
+private enum PollOutcome {
+    case pending
+    case success(TWFidOSignResult)
+    case failure(Error)
+}
+
 private struct StubSignSession: TWFidOSignSession, @unchecked Sendable {
 
     let recorder: SignSessionRecorder
-    /// One entry per poll; `nil` means "the holder has not finished yet".
-    let pollResults: [TWFidOSignResult?]
+    /// One entry per poll; runs off the end as `.pending`.
+    let pollScript: [PollOutcome]
 
     func begin(idNumber: String,
                hint: String,
@@ -37,8 +46,12 @@ private struct StubSignSession: TWFidOSignSession, @unchecked Sendable {
 
     func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult? {
         defer { recorder.pollCount += 1 }
-        guard recorder.pollCount < pollResults.count else { return nil }
-        return pollResults[recorder.pollCount]
+        guard recorder.pollCount < pollScript.count else { return nil }
+        switch pollScript[recorder.pollCount] {
+        case .pending: return nil
+        case .success(let result): return result
+        case .failure(let error): throw error
+        }
     }
 }
 
@@ -71,13 +84,13 @@ struct CredentialIssuanceTests {
     /// needs a certificate 內政部 signed. What is under test is everything
     /// *before* that: what was sent, in what order, and what is refused.
     private func issuance(recorder: SignSessionRecorder,
-                          pollResults: [TWFidOSignResult?] = [signResult()],
+                          pollScript: [PollOutcome] = [.success(signResult())],
                           open: @escaping @Sendable (URL) async -> Bool = { _ in true },
                           timeLimit: Int = 600,
                           clock: @escaping @Sendable () -> Date = { CredentialIssuanceTests.issuedAt })
         -> CredentialIssuance {
         CredentialIssuance(
-            session: StubSignSession(recorder: recorder, pollResults: pollResults),
+            session: StubSignSession(recorder: recorder, pollScript: pollScript),
             callbacks: StubCallbacks(),
             open: open,
             timeLimit: timeLimit,
@@ -170,6 +183,64 @@ struct CredentialIssuanceTests {
         #expect(recorder.beginCount == 1)
     }
 
+    // MARK: Transport failures while polling
+
+    /// The failure real hardware guarantees: the first poll fires in the same
+    /// breath as the `mobilemoica://` hand-off, iOS kills the suspended app's
+    /// socket, and the request completes as a connection error *after the
+    /// holder has already signed*. Measured on an iPhone 14 on 2026-08-09 —
+    /// 行動自然人憑證 showing 簽章成功 while this app reported failure. A
+    /// transient transport error must be retried, not treated as the outcome.
+    @Test func aKilledSocketOnTheFirstPollIsRetriedNotFatal() async throws {
+        let recorder = SignSessionRecorder()
+        let issuance = issuance(recorder: recorder,
+                                pollScript: [.failure(URLError(.networkConnectionLost)),
+                                             .pending,
+                                             .success(Self.signResult())])
+
+        // The stub anchor still throws, so the flow errs *after* polling — what
+        // matters here is that polling consumed the whole script instead of
+        // dying on entry number one.
+        _ = try? await issuance.issue(Self.model, subjectDID: Self.subjectDID)
+
+        #expect(recorder.pollCount == 3)
+    }
+
+    /// The counter-case that keeps the retry honest: a body that failed the
+    /// `idp_checksum` check is not a hiccup, it is evidence. Retrying it would
+    /// hand whoever is forging bodies unlimited attempts inside the polling
+    /// window, so one bad body ends the flow.
+    @Test func anUnauthenticatedResultIsTerminalNotRetried() async throws {
+        let recorder = SignSessionRecorder()
+        let issuance = issuance(recorder: recorder,
+                                pollScript: [.failure(TWFidOError.unauthenticatedResult),
+                                             .success(Self.signResult())])
+
+        await #expect(throws: CredentialIssuanceError.self) {
+            _ = try await issuance.issue(Self.model, subjectDID: Self.subjectDID)
+        }
+        // Never reached the success entry: the first poll was the end.
+        #expect(recorder.pollCount == 1)
+    }
+
+    /// When the deadline arrives after transport failures, the error must blame
+    /// the connection — `timedOut`'s message says the holder never approved,
+    /// and on this path they may be looking at 簽章成功 on the other screen.
+    @Test func transportFailuresUntilTheDeadlineReportUnreachableNotExpired() async throws {
+        let recorder = SignSessionRecorder()
+        let readings = ClockStub(times: [Self.issuedAt,
+                                         Self.issuedAt,
+                                         Self.issuedAt.addingTimeInterval(601)])
+        let issuance = issuance(recorder: recorder,
+                                pollScript: [.failure(URLError(.notConnectedToInternet)),
+                                             .failure(URLError(.notConnectedToInternet))],
+                                clock: { readings.next() })
+
+        await #expect(throws: CredentialIssuanceError.resultUnreachable) {
+            _ = try await issuance.issue(Self.model, subjectDID: Self.subjectDID)
+        }
+    }
+
     /// The deadline is the ticket's own `time_limit`, so this app and 內政部
     /// cannot disagree about when the request died.
     @Test func pollingStopsAtTheTicketsOwnDeadline() async throws {
@@ -180,7 +251,7 @@ struct CredentialIssuanceTests {
                                          Self.issuedAt,
                                          Self.issuedAt.addingTimeInterval(601)])
         let issuance = issuance(recorder: recorder,
-                                pollResults: [nil, nil, nil],
+                                pollScript: [.pending, .pending, .pending],
                                 clock: { readings.next() })
 
         await #expect(throws: CredentialIssuanceError.timedOut) {

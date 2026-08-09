@@ -579,6 +579,11 @@ struct TWFidOHolderSigner: ZKHolderSigning {
     /// resume it, so a wait abandoned here would strand a task for the life of
     /// the process — and the task group would never finish.
     private func awaitResult(ticket: TWFidOTicket, deadline: Date) async throws -> TWFidOSignResult {
+        // Same shape as `CredentialIssuance.awaitResult`, for the same measured
+        // reason: the first poll races this app's own backgrounding during the
+        // `mobilemoica://` hand-off, and a socket the system killed is not the
+        // holder declining. See `isTransientSignPollFailure`.
+        var sawTransportFailure = false
         while true {
             try Task.checkCancellation()
             do {
@@ -587,11 +592,25 @@ struct TWFidOHolderSigner: ZKHolderSigning {
                 }
             } catch let error as SPCredentialError {
                 throw ZKRunError.signingUnavailable(message: Self.credentialMessage(error))
+            } catch let error where isTransientSignPollFailure(error) {
+                sawTransportFailure = true
             } catch {
                 throw ZKRunError.signingFailed(message: ZKProofRunner.message(for: error))
             }
 
-            guard now() < deadline else { throw ZKRunError.signingTimedOut }
+            guard now() < deadline else {
+                // Reported as a failure with a connection message rather than as
+                // `signingTimedOut`: the timeout case tells the holder they
+                // never approved, and after a transport failure that may be
+                // exactly wrong — 行動自然人憑證 can be showing 簽章成功 while
+                // this screen blames them.
+                if sawTransportFailure {
+                    throw ZKRunError.signingFailed(message: NSLocalizedString(
+                        "Your signature may have gone through, but the result could not be fetched. Check this device's connection and try again.",
+                        comment: ""))
+                }
+                throw ZKRunError.signingTimedOut
+            }
             await raceCallbackAgainstSleep(transactionID: ticket.transactionID)
         }
     }
