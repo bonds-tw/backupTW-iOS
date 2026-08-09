@@ -24,13 +24,26 @@ final class ZKVerifyUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
+        // Scrolled for, not just waited for. This row is the third in its
+        // section, and the section above it grows by a row once a credential
+        // exists — so whether it starts on screen depends on device height and
+        // on whether the MyData flow has ever been completed. An earlier version
+        // only waited, passed on an empty device, and went red the moment the
+        // section above it got taller. `DiagnosticsUITests` already carries the
+        // same note: rows below the fold are not in the hierarchy at all until
+        // they scroll into view.
         let row = app.staticTexts.matching(
             NSPredicate(format: "label IN {'查驗零知識證明', 'Check a zero-knowledge proof'}"))
             .firstMatch
-        if !row.waitForExistence(timeout: 15) {
+        var attempts = 0
+        while !row.exists, attempts < 6 {
+            app.collectionViews.firstMatch.swipeUp()
+            attempts += 1
+        }
+        if !row.waitForExistence(timeout: 10) {
             let visible = app.staticTexts.allElementsBoundByIndex
                 .map(\.label).filter { !$0.isEmpty }
-            XCTFail("no proof-checking row on the home screen. On screen: \(visible)")
+            XCTFail("no proof-checking row on the home screen after scrolling. On screen: \(visible)")
             return
         }
         row.tap()
