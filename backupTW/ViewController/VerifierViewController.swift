@@ -62,6 +62,9 @@ final class VerifierViewController: UIViewController {
         title = NSLocalizedString("Check a document", comment: "")
         view.backgroundColor = .systemGroupedBackground
         buildInterface()
+        #if DEBUG
+        startDebugPresentationDropPollIfRequested()
+        #endif
     }
 
     /// A fresh challenge every time this screen comes into view, including on the
@@ -163,9 +166,133 @@ final class VerifierViewController: UIViewController {
         scanButton.addTarget(self, action: #selector(scanPresentation), for: .touchUpInside)
         contentStack.addArrangedSubview(scanButton)
 
+        #if DEBUG
+        // The simulator has no camera, and cross-device testing against a real
+        // credential needs *some* verifier that is not a second iPhone. This
+        // feeds pasted frames through `receive(_:)` — the exact path a camera
+        // scan takes — so everything after the lens is still what is being
+        // tested. Deliberately unlocalized: a development affordance must not
+        // read as part of the product, and must not enter the string catalog.
+        let pasteButton = UIButton(type: .system)
+        var pasteConfiguration = UIButton.Configuration.gray()
+        pasteConfiguration.title = "貼上出示內容（開發用）"
+        pasteConfiguration.image = UIImage(systemName: "doc.on.clipboard")
+        pasteConfiguration.imagePadding = 8
+        pasteButton.configuration = pasteConfiguration
+        pasteButton.addTarget(self, action: #selector(pastePresentation), for: .touchUpInside)
+        contentStack.addArrangedSubview(pasteButton)
+        #endif
+
         contentStack.addArrangedSubview(PresentationUI.footnote(
             NSLocalizedString("Nothing is sent anywhere. This check works with the phone in aeroplane mode.", comment: "")))
     }
+
+    #if DEBUG
+    /// The pasted text is the frames of one presentation, one per line — what
+    /// the holder side's own debug button copies.
+    @objc private func pastePresentation() {
+        collector.reset()
+        // The simulator's pasteboard sync is lazy and cross-process: a poller
+        // in a test runner can see content a beat before this process does —
+        // measured on 2026-08-09, where the runner saw the frames and this
+        // read came back nil. Retry briefly before declaring it empty.
+        var pasted: String?
+        for _ in 0..<6 {
+            pasted = UIPasteboard.general.string
+            if pasted?.contains("BTWVP1") == true { break }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        guard let text = pasted else {
+            presentPasteDiagnosis("剪貼簿是空的。先在出示畫面按「複製出示內容」。")
+            return
+        }
+
+        var last: ScannedFrame = .ignored
+        for line in text.split(whereSeparator: \.isNewline) {
+            let frame = String(line).trimmingCharacters(in: .whitespaces)
+            guard !frame.isEmpty else { continue }
+            last = FrameIntake.accept(frame, into: collector)
+            if case .payload(let payload) = last {
+                guard let jws = String(data: payload, encoding: .utf8) else {
+                    session.cancel()
+                    _ = finish(.rejected(.presentationIsNotAJWS))
+                    return
+                }
+                _ = finish(session.check(presentationJWS: jws))
+                return
+            }
+        }
+
+        // Ran out of lines without a payload. Unlike the camera, paste has an
+        // end, so silence here would look like a button that does nothing —
+        // the exact defect the frame-intake comment above describes.
+        switch last {
+        case .progress(let progress):
+            presentPasteDiagnosis("只收到 \(progress.received)/\(progress.total) 個 frame。出示畫面的複製鈕會把全部 frame 一次複製，確認貼的是那一份。")
+        case .ignored:
+            presentPasteDiagnosis("剪貼簿內容不是這個 App 的出示 frame。")
+        case .unreadable:
+            presentPasteDiagnosis("Frame 讀不出來——可能被別的 App 改寫過（改行、去空白）。")
+        case .payload:
+            break
+        }
+    }
+
+    /// A frame channel that iOS privacy does not gate: a file the app reads out
+    /// of its own Documents directory.
+    ///
+    /// The pasteboard route above cannot be driven headlessly. A UI test with no
+    /// one to tap 「允許貼上」 gets `Operation not authorized` on every read —
+    /// measured 2026-08-10, and it is the wall the first cross-device attempts
+    /// hit. An app reading its *own* container is never gated, so a host that
+    /// drops frames there (`simctl get_app_container … data`) can feed a live
+    /// verifier instance without a second phone and without a camera.
+    ///
+    /// DEBUG-only and opt-in via a launch environment flag, so it exists in no
+    /// shipping build and lies dormant in every normal debug run. The verifier
+    /// screen has a live, single-use challenge while this polls, so a dropped
+    /// presentation answers the challenge currently on screen — the same
+    /// property the camera path relies on.
+    private func startDebugPresentationDropPollIfRequested() {
+        guard ProcessInfo.processInfo.environment["BONDSTW_DEBUG_PRESENTATION_DROP"] == "1" else {
+            return
+        }
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("debug-presentation.txt")
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            guard let text = try? String(contentsOf: url, encoding: .utf8),
+                  text.contains("BTWVP1") else { return }
+            // One-shot: remove before consuming so a slow verification cannot be
+            // re-triggered by the next tick reading the same file.
+            try? FileManager.default.removeItem(at: url)
+            timer.invalidate()
+
+            self.collector.reset()
+            for line in text.split(whereSeparator: \.isNewline) {
+                let frame = line.trimmingCharacters(in: .whitespaces)
+                guard !frame.isEmpty else { continue }
+                if case .payload(let payload) = FrameIntake.accept(frame, into: self.collector) {
+                    guard let jws = String(data: payload, encoding: .utf8) else {
+                        self.session.cancel()
+                        _ = self.finish(.rejected(.presentationIsNotAJWS))
+                        return
+                    }
+                    _ = self.finish(self.session.check(presentationJWS: jws))
+                    return
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func presentPasteDiagnosis(_ message: String) {
+        let alert = UIAlertController(title: "貼上失敗（開發用診斷）", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    #endif
 
     // MARK: - The challenge
 
@@ -457,6 +584,30 @@ final class VerificationResultViewController: UIViewController {
                     NSLocalizedString("What this check did not establish", comment: "")))
                 for caveat in presentation.caveats {
                     stack.addArrangedSubview(PresentationUI.caveat(caveat.message))
+                }
+
+            case .whoSigned:
+                // Absent entirely for a device-signed credential: the
+                // `selfIssuedByTheHolder` caveat already says who vouched
+                // (nobody), and a section that said it again would dilute the
+                // one case where this section carries real information.
+                if let rawName = presentation.cardholderName {
+                    // Sanitized like every other string off the other device.
+                    // The name passed verification's equality check against the
+                    // credential's own `name`, but "verified" is not "safe to
+                    // hand a UILabel" — a CN is whatever DirectoryString the CA
+                    // encoded, and this app's parser is deliberately more
+                    // permissive than any CA's issuing rules.
+                    let name = UntrustedText.value(rawName)
+                    stack.addArrangedSubview(PresentationUI.sectionTitle(
+                        NSLocalizedString("Who signed", comment: "")))
+                    // App words first — the same bidirectional discipline as
+                    // `ClaimLabel`: a leading strong-direction prefix keeps a
+                    // hostile right-to-left run from reordering the sentence.
+                    stack.addArrangedSubview(PresentationUI.body(String(
+                        format: NSLocalizedString("The certificate that signed these details was issued by the government certification authority to “%@”. That names the signer — it does not mean the government checked the details below.",
+                                                  comment: "Verifier result: who the signing certificate belongs to"),
+                        name.text)))
                 }
 
             case .whatTheyDisclosed:

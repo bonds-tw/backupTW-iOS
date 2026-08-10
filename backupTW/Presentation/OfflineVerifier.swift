@@ -378,6 +378,19 @@ struct VerifiedPresentation: Equatable {
     /// logging or storing it.
     let holder: String
 
+    /// The name on the certificate that signed the credential's fields, or nil
+    /// for a device-signed credential — where nobody's name is on the signature
+    /// at all.
+    ///
+    /// This is the one string on the result screen that is *stronger* than the
+    /// quoted claims: verification checked that the certificate carrying it
+    /// chains to MOICA G3 and that it equals the credential's own `name`. It is
+    /// still bytes the other device supplied — the certificate travels in the
+    /// presentation — so a screen must draw it under the same `UntrustedText`
+    /// discipline as everything else from that side, and must never let it sit
+    /// between the verdict and the caveats.
+    let cardholderName: String?
+
     let credentialTypes: [String]
 
     /// Ordered for reading, not in the order the credential serialized them.
@@ -782,6 +795,7 @@ enum OfflineVerifier {
         if !audienceIsBound { caveats.append(.notBoundToThisVerifier) }
 
         return VerifiedPresentation(holder: holder,
+                                    cardholderName: credential.cardholderName,
                                     credentialTypes: decoded.type,
                                     claims: disclosedClaims(from: decoded.credentialSubject),
                                     validFrom: validFrom,

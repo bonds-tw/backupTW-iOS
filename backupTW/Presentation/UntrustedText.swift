@@ -229,6 +229,8 @@ struct PresentableClaims: Equatable {
 enum VerifiedResultSection: Hashable, CaseIterable {
     case verdict
     case whatThisCheckDidNotEstablish
+    /// Only drawn for a card-signed credential; contributes nothing otherwise.
+    case whoSigned
     case whatTheyDisclosed
     case whenItWasSigned
 }
@@ -266,9 +268,17 @@ extension VerifiedResultSection {
     ///
     /// What this still does not buy is that a caveat was *read*. Nothing inside
     /// a scroll view can.
+    /// `whoSigned` sits *after* the caveats, and that placement is a security
+    /// decision, not a layout one. The cardholder's name comes off the
+    /// certificate the other device presented — verified, but still their
+    /// bytes — and the invariant this ordering exists to keep is that nothing
+    /// the other device supplied can get between the verdict and the caveats.
+    /// It sits *before* the disclosed fields because it is the app's own
+    /// sentence about who signed, which outranks quoted claims.
     static let order: [VerifiedResultSection] = [
         .verdict,
         .whatThisCheckDidNotEstablish,
+        .whoSigned,
         .whatTheyDisclosed,
         .whenItWasSigned,
     ]
