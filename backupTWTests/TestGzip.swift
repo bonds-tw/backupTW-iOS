@@ -87,3 +87,20 @@ enum TestGzip {
         return crc ^ 0xFFFF_FFFF
     }
 }
+
+// MARK: - Searching bytes for bytes
+
+extension Data {
+    /// Whether `subsequence` appears anywhere in these bytes.
+    ///
+    /// Exists because "the value did not leave the device" is a claim about the
+    /// whole payload, and `contains(_:)` on `Data` asks about a single byte. A
+    /// test that searches one field of a structure and concludes something about
+    /// the structure is the shape of an assertion that passes for the wrong
+    /// reason — which is exactly what happened to
+    /// `awithheldValueIsAbsentFromTheBytesThatLeave`.
+    func contains(subsequence: Data) -> Bool {
+        guard !subsequence.isEmpty, count >= subsequence.count else { return false }
+        return range(of: subsequence) != nil
+    }
+}
