@@ -55,12 +55,79 @@ struct DevelopmentSPCredentialProvider: SPCredentialProviding {
         if let injected {
             return injected
         }
-        guard let serviceID = environment["TWFIDO_SP_SERVICE_ID"],
-              let aesKeyBase64 = environment["TWFIDO_SP_AES_KEY"],
-              !serviceID.isEmpty, !aesKeyBase64.isEmpty else {
-            throw SPCredentialError.notConfigured
+        if let serviceID = environment["TWFIDO_SP_SERVICE_ID"],
+           let aesKeyBase64 = environment["TWFIDO_SP_AES_KEY"],
+           !serviceID.isEmpty, !aesKeyBase64.isEmpty {
+            return SPCredentials(serviceID: serviceID, aesKeyBase64: aesKeyBase64)
         }
-        return SPCredentials(serviceID: serviceID, aesKeyBase64: aesKeyBase64)
+        if let dropped = Self.droppedCredentials() {
+            return dropped
+        }
+        throw SPCredentialError.notConfigured
+    }
+
+    /// Credentials a developer dropped into this app's own container.
+    ///
+    /// # Why this exists — it is the difference between a usable build and a
+    /// screen that always says "no credentials"
+    ///
+    /// Scheme environment variables reach the app **only when Xcode or
+    /// `devicectl` launches it with them**. Tapping the icon does not, so on a
+    /// real phone every TW FidO screen reported 「this build has no credentials」
+    /// for anyone who launched the app the way people launch apps — measured on
+    /// device, repeatedly, and it is what made the ZK screen look broken.
+    ///
+    /// The alternatives were both worse. Compiling the key in through
+    /// `Secrets.swift` puts a shared AES key inside `~/Developer/`, against the
+    /// workspace's own rule that keys live in `~/.config/secrets/`, and one
+    /// mistake away from an archive. Living with terminal-only launches makes
+    /// the feature untestable by the person who most needs to test it.
+    ///
+    /// A file in the app's own Data container is neither: it is not in the
+    /// repository, not in the binary, not in a backup (the containing directory
+    /// is `Application Support`, which this app already excludes), and it
+    /// survives however the app is launched. Dropping it is one command:
+    ///
+    /// ```
+    /// source ~/.config/secrets/twfido-sim.env
+    /// printf '{"serviceID":"%s","aesKeyBase64":"%s"}' "$FIDO_SP_SERVICE_ID" "$FIDO_AES_KEY_BASE64" \
+    ///   > "$(xcrun simctl get_app_container <udid> tw.bonds.backupTW data)/Library/Application Support/twfido-sp.json"
+    /// ```
+    ///
+    /// On a device the same file goes in via `devicectl device copy` — or the
+    /// env-var launch, which still works and is still the option that leaves
+    /// nothing behind.
+    ///
+    /// ⚠️ It is a *development* affordance and the whole file is inside
+    /// `#if DEBUG`, so it does not exist in a distribution build. Production
+    /// remains what `SPCredentialProviding` documents: the key never reaches a
+    /// device, and `sp_checksum` is computed by the bonds-tw backend.
+    /// - Parameter directory: where to look. Injectable for the same reason
+    ///   `CredentialStore` takes one: tests run in parallel, and two tests
+    ///   sharing one real Application Support path race on a single file —
+    ///   which is how this function's own first test suite managed to fail
+    ///   against correct code.
+    static func droppedCredentials(in directory: URL? = nil) -> SPCredentials? {
+        guard let support = directory ?? (try? FileManager.default.url(for: .applicationSupportDirectory,
+                                                                       in: .userDomainMask,
+                                                                       appropriateFor: nil,
+                                                                       create: false)) else {
+            return nil
+        }
+        let url = support.appendingPathComponent(droppedCredentialsFilename)
+        guard let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode(DroppedSPCredentials.self, from: data),
+              !decoded.serviceID.isEmpty, !decoded.aesKeyBase64.isEmpty else {
+            return nil
+        }
+        return SPCredentials(serviceID: decoded.serviceID, aesKeyBase64: decoded.aesKeyBase64)
+    }
+
+    static let droppedCredentialsFilename = "twfido-sp.json"
+
+    private struct DroppedSPCredentials: Decodable {
+        let serviceID: String
+        let aesKeyBase64: String
     }
 }
 

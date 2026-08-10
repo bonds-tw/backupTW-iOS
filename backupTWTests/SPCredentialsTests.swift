@@ -246,4 +246,61 @@ struct SPCredentialsTests {
                     && !line.hasPrefix("import ")
             }
     }
+
+    // MARK: - Credentials dropped into the container
+
+    /// The resolution order matters and this is the case that made it matter: a
+    /// phone launched by tapping its icon has no scheme environment, and before
+    /// the file source existed every TW FidO screen on such a launch reported
+    /// "this build has no credentials".
+    ///
+    /// Each case gets its own directory. The first version of these tests shared
+    /// the real Application Support path, and Swift Testing's parallel execution
+    /// had one case deleting the file another had just written — correct code,
+    /// red test, and the failure was entirely mine.
+    @Test func credentialsDroppedIntoTheContainerAreFound() throws {
+        let directory = try Self.scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try Data(#"{"serviceID":"SP-DROP-0001","aesKeyBase64":"\#(Self.aesKey)"}"#.utf8)
+            .write(to: directory.appendingPathComponent(
+                DevelopmentSPCredentialProvider.droppedCredentialsFilename))
+
+        let found = try #require(DevelopmentSPCredentialProvider.droppedCredentials(in: directory))
+        #expect(found.serviceID == "SP-DROP-0001")
+        #expect(found.aesKeyBase64 == Self.aesKey)
+    }
+
+    /// A half-written or foreign file must read as "no credentials", not as
+    /// empty ones: empty strings produce a well-formed `sp_checksum` over an
+    /// empty service ID, which 內政部 rejects with a generic code and no hint.
+    @Test(arguments: [#"{"serviceID":"","aesKeyBase64":"x"}"#,
+                      #"{"serviceID":"a"}"#,
+                      "not json"])
+    func anUnusableDroppedFileReadsAsAbsent(_ contents: String) throws {
+        let directory = try Self.scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try Data(contents.utf8).write(to: directory.appendingPathComponent(
+            DevelopmentSPCredentialProvider.droppedCredentialsFilename))
+
+        #expect(DevelopmentSPCredentialProvider.droppedCredentials(in: directory) == nil)
+    }
+
+    /// No file at all is the ordinary case on a fresh machine.
+    @Test func anAbsentDroppedFileReadsAsAbsent() throws {
+        let directory = try Self.scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        #expect(DevelopmentSPCredentialProvider.droppedCredentials(in: directory) == nil)
+    }
+
+    private static func scratchDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sp-drop-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    private static let aesKey = Data(repeating: 0x2A, count: 32).base64EncodedString()
 }
