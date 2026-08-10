@@ -40,7 +40,14 @@ final class VerifierViewController: UIViewController {
 
     /// Holds the challenge and spends it exactly once. The single-use rule is the
     /// half of replay protection `OfflineVerifier` deliberately does not own.
-    private let session = VerifierSession()
+    ///
+    /// Given a revocation lookup when — and only when — a snapshot is installed
+    /// on this device. There is no fallback that fetches one: a verifier screen
+    /// that reached for the network to answer 「這張卡還有效嗎」 would spend the
+    /// property this whole design exists to buy, and would do it at the moment a
+    /// stranger is standing in front of the person holding the phone.
+    private let session = VerifierSession(
+        revocation: VerifierViewController.installedRevocationLookup())
 
     /// Reassembles the holder's frames. Reset before every scan: a collector
     /// carrying the previous holder's identifier rejects everyone behind them.
@@ -218,7 +225,7 @@ final class VerifierViewController: UIViewController {
                     _ = finish(.rejected(.presentationIsNotAJWS))
                     return
                 }
-                _ = finish(session.check(presentationJWS: jws))
+                session.check(presentationJWS: jws) { [weak self] in _ = self?.finish($0) }
                 return
             }
         }
@@ -279,7 +286,7 @@ final class VerifierViewController: UIViewController {
                         _ = self.finish(.rejected(.presentationIsNotAJWS))
                         return
                     }
-                    _ = self.finish(self.session.check(presentationJWS: jws))
+                    self.session.check(presentationJWS: jws) { [weak self] in _ = self?.finish($0) }
                     return
                 }
             }
@@ -373,8 +380,32 @@ final class VerifierViewController: UIViewController {
                 session.cancel()
                 return finish(.rejected(.presentationIsNotAJWS))
             }
-            return finish(session.check(presentationJWS: jws))
+            // Stops the camera now and shows the result when it arrives. The
+            // gap is real — a revocation lookup rebuilds the tree from a 22 MB
+            // snapshot — so the viewfinder is left with a line saying so rather
+            // than frozen and silent.
+            session.check(presentationJWS: jws) { [weak self] result in
+                _ = self?.finish(result)
+            }
+            return .keepScanning(status: NSLocalizedString("Checking…", comment: "Shown while a scanned presentation is being verified"))
         }
+    }
+
+    /// Points the session at the snapshot `CircuitAssets` installs, if it is
+    /// there.
+    ///
+    /// Presence is the whole condition. The snapshot arrives with the ZK proving
+    /// assets, so most installs will not have one and will keep saying 「離線無法
+    /// 確認是否已被撤銷」 — which is true for them. Nothing here downloads
+    /// anything, and a missing file is not an error to report.
+    private static func installedRevocationLookup() -> RevocationLookup {
+        guard let asset = CircuitAssets.required.first(where: { $0.name == "g3_tree_snapshot" }),
+              let directory = try? CircuitAssets.defaultDirectory() else {
+            return .unavailable
+        }
+        let url = directory.appendingPathComponent(asset.localFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { return .unavailable }
+        return .snapshot(at: url, provider: OpenACRevocationProofProvider())
     }
 
     private func finish(_ result: VerifierSessionResult) -> QRScanningViewController.Decision {
@@ -567,6 +598,17 @@ final class VerificationResultViewController: UIViewController {
     /// one the next edit to that function repeals without anything noticing.
     /// The switch is exhaustive, so a new section cannot be added without a
     /// decision about where it goes.
+    /// Date and hour, in the checker's locale. The hour is there because the
+    /// snapshot is rebuilt twice a day and a list from this morning is a
+    /// materially better answer than one from last night.
+    private static let snapshotDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        formatter.timeZone = TimeZone(identifier: "Asia/Taipei") ?? .current
+        return formatter
+    }()
+
     private func buildVerified(_ presentation: VerifiedPresentation, into stack: UIStackView) {
         for section in VerifiedResultSection.order {
             switch section {
@@ -584,6 +626,21 @@ final class VerificationResultViewController: UIViewController {
                     NSLocalizedString("What this check did not establish", comment: "")))
                 for caveat in presentation.caveats {
                     stack.addArrangedSubview(PresentationUI.caveat(caveat.message))
+                }
+                // The caveat above says the list has a date; this is that date.
+                // Saying "a revocation list was consulted" without saying which
+                // one leaves the checker unable to tell this morning's answer
+                // from a fortnight-old one, and those are different answers.
+                //
+                // Not drawn through `UntrustedText` because it is not the other
+                // device's text: the number is parsed out of a file this device
+                // downloaded, and it reaches the screen as a formatted date or
+                // not at all.
+                if let date = presentation.revocation.snapshot?.generatedAt {
+                    stack.addArrangedSubview(PresentationUI.caveat(
+                        String(format: NSLocalizedString("That list was made on %@.",
+                                                         comment: "Date of the revocation snapshot used"),
+                               Self.snapshotDateFormatter.string(from: date))))
                 }
 
             case .whoSigned:

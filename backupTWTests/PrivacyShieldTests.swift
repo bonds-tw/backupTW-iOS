@@ -182,7 +182,8 @@ struct PrivacyShieldTests {
                              validFrom: Date(timeIntervalSince1970: 1_754_400_000),
                              validUntil: nil,
                              presentedAt: Date(timeIntervalSince1970: 1_754_400_000),
-                             caveats: [.noNetworkQuery])
+                             caveats: [.noNetworkQuery],
+                             revocation: .notChecked(reason: .snapshotUnavailable))
     }
 
     /// A screen that adopts the protocol and then declines. Exists only so the

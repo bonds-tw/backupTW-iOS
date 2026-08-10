@@ -303,7 +303,8 @@ struct VerifiedResultScreenTests {
                                     validFrom: Date(timeIntervalSince1970: 1_754_000_000),
                                     validUntil: nil,
                                     presentedAt: Date(timeIntervalSince1970: 1_754_400_000),
-                                    caveats: VerificationCaveat.allCases)
+                                    caveats: VerificationCaveat.allCases,
+                                    revocation: .notChecked(reason: .snapshotUnavailable))
     }
 
     /// In drawing order, which for a vertical `UIStackView` is reading order.
@@ -383,12 +384,53 @@ struct VerifiedResultScreenTests {
             validFrom: Date(timeIntervalSince1970: 1_754_000_000),
             validUntil: nil,
             presentedAt: Date(timeIntervalSince1970: 1_754_400_000),
-            caveats: VerificationCaveat.allCases)
+            caveats: VerificationCaveat.allCases,
+            revocation: .notChecked(reason: .snapshotUnavailable))
         let drawn = Self.drawnText(presentation)
 
         for value in ["王小明", "A123456789", "臺北市中正區重慶南路一段122號"] {
             #expect(drawn.contains(value), "\(value) is not on the screen")
         }
+    }
+
+    // MARK: The revocation list's own date
+
+    /// The caveat promises the checker that the list has a date. A date the
+    /// checker cannot see is not a date, and the difference between this
+    /// morning's list and a fortnight-old one is the difference between two
+    /// materially different answers.
+    @Test func aListThatWasConsultedSaysWhenItWasMade() {
+        let drawn = Self.drawnText(Self.checked(against: RevocationSnapshotInfo(
+            root: "0xa2ed", crlNumber: 2_026_050_323, entryCount: 115_584)))
+
+        #expect(drawn.contains { $0.contains(VerificationCaveat.revocationCheckedInLocalSnapshotOnly.message) })
+        // 2026-05-03 23:00 Asia/Taipei. Asserted through the year and the day
+        // rather than a whole formatted string, because the formatter follows
+        // the checker's locale and this test must not pin it to one.
+        #expect(drawn.contains { $0.contains("2026") && $0.contains("3") },
+                "the screen does not say when the revocation list was made")
+    }
+
+    /// And when nothing was consulted there is no date to show — a date beside
+    /// 「無法確認是否已被撤銷」 would read as though something had been checked.
+    @Test func aListThatWasNotConsultedShowsNoDate() {
+        let drawn = Self.drawnText(Self.forged())
+
+        #expect(!drawn.contains { $0.contains("That list was made on") })
+    }
+
+    private static func checked(against snapshot: RevocationSnapshotInfo) -> VerifiedPresentation {
+        VerifiedPresentation(holder: "did:key:zDnaeTest",
+                             cardholderName: "王小明",
+                             cardholderNameWasChecked: true,
+                             withheldClaimCount: 0,
+                             credentialTypes: ["VerifiableCredential"],
+                             claims: [DisclosedClaim(term: "name", value: "王小明")],
+                             validFrom: Date(timeIntervalSince1970: 1_754_000_000),
+                             validUntil: nil,
+                             presentedAt: Date(timeIntervalSince1970: 1_754_400_000),
+                             caveats: [.noNetworkQuery, .revocationCheckedInLocalSnapshotOnly],
+                             revocation: .notRevokedInThisSnapshot(snapshot: snapshot))
     }
 
     // MARK: Who signed

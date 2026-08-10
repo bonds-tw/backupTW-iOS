@@ -188,24 +188,70 @@ enum GzipDecoder {
     /// ~662 MB allocation and an immediate jetsam, so the cap turns that
     /// mistake into a thrown error instead of a crash report.
     static func decompress(_ data: Data, limit: Int = inMemoryOutputLimit) throws -> Data {
-        var offset = 0
+        let reader = DataReader(data)
         var output = Data()
 
         _ = try run(
-            fill: { buffer in
-                let count = min(buffer.count, data.count - offset)
-                guard count > 0 else { return 0 }
-                data.withUnsafeBytes { source in
-                    buffer.baseAddress!.copyMemory(from: source.baseAddress! + offset, byteCount: count)
-                }
-                offset += count
-                return count
-            },
+            fill: { reader.fill($0) },
             drain: { block in output.append(contentsOf: block) },
             limit: Int64(limit),
             progress: nil)
 
         return output
+    }
+
+    /// Inflates the first `maxBytes` of a stream and stops there.
+    ///
+    /// The difference from `decompress(_:limit:)` is which outcome counts as an
+    /// error. There, a payload larger than the limit is a fault — the caller
+    /// asked for the whole thing and it did not fit. Here, a larger payload is
+    /// the expected case: this exists to read a header off an asset whose body
+    /// runs to hundreds of megabytes, and stopping early is the point.
+    ///
+    /// **What comes back is unauthenticated.** The trailing CRC32 and length are
+    /// never reached, so a caller learns only that the first bytes of a gzip
+    /// stream inflated to this — not that the file is intact. The magic number
+    /// is still checked, so something that is not gzip at all still throws.
+    static func decompressPrefix(_ data: Data, maxBytes: Int) throws -> Data {
+        /// Not a failure — the sentinel that unwinds `run` once enough has been
+        /// read. Private to this function so nothing else can throw or catch it.
+        struct Enough: Error {}
+
+        let reader = DataReader(data)
+        var output = Data()
+
+        do {
+            _ = try run(
+                fill: { reader.fill($0) },
+                drain: { block in
+                    output.append(contentsOf: block)
+                    if output.count >= maxBytes { throw Enough() }
+                },
+                limit: nil,
+                progress: nil)
+        } catch is Enough {
+            // Exactly what was asked for.
+        }
+
+        return Data(output.prefix(maxBytes))
+    }
+
+    /// Adapts a `Data` to the `fill` contract of `run`.
+    private final class DataReader {
+        private let data: Data
+        private var offset = 0
+
+        init(_ data: Data) { self.data = data }
+
+        func fill(_ buffer: UnsafeMutableRawBufferPointer) -> Int {
+            let count = min(buffer.count, data.count - offset)
+            guard count > 0 else { return 0 }
+            data.withUnsafeBytes { source in
+                buffer.baseAddress!.copyMemory(from: source.baseAddress! + offset, byteCount: count)
+            }
+            offset += count
+            return count
+        }
     }
 
     // MARK: - Core loop
