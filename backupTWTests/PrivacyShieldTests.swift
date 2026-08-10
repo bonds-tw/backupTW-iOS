@@ -158,18 +158,39 @@ struct PrivacyShieldTests {
         #expect(Set(exposed).count > 1, "nothing was drawn on the row the ID number is on")
 
         PrivacyShield().coverIfNeeded(window)
-
         let covered = try #require(Self.pixelRow(row, of: Self.render(window)))
-        #expect(Set(covered).count == 1,
-                "the row the ID number was on is still not uniform, so something is showing through")
         #expect(covered != exposed)
+
+        // The property that actually matters: once covered, the pixels do not
+        // depend on what is underneath. Asserted by rendering a *different*
+        // document at the same position and demanding identical covered output —
+        // a transparent cover, a cover inserted below the content, or a cover
+        // that draws nothing all fail this, which is everything the previous
+        // assertion caught.
+        //
+        // The previous assertion was 「the covered row is one flat colour」,
+        // which is stronger than the shield promises: the cover carries its own
+        // eye-slash symbol and explanation text, and the first layout change
+        // that moved the ID row under that artwork turned the test red with the
+        // shield working perfectly (measured 2026-08-11, when the disclosed
+        // fields grew to `.title3`).
+        let other = Self.window(showing: VerificationResultViewController(
+            outcome: .verified(Self.presentation(unifiedNo: "B987654321"))))
+        let otherLabel = try #require(Self.label(withText: "B987654321", in: other))
+        let otherRow = Int(otherLabel.convert(otherLabel.bounds, to: other).midY.rounded())
+        try #require(otherRow == row, "the two fixtures laid out differently, so their rows cannot be compared")
+
+        PrivacyShield().coverIfNeeded(other)
+        let otherCovered = try #require(Self.pixelRow(otherRow, of: Self.render(other)))
+        #expect(otherCovered == covered,
+                "the covered pixels changed with the content beneath, so the content is showing through")
     }
 
     // MARK: - Fixtures
 
     private static let unifiedNo = "A123456789"
 
-    private static func presentation() -> VerifiedPresentation {
+    private static func presentation(unifiedNo: String = PrivacyShieldTests.unifiedNo) -> VerifiedPresentation {
         VerifiedPresentation(holder: "did:key:zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169",
                              cardholderName: nil,
                              cardholderNameWasChecked: false,

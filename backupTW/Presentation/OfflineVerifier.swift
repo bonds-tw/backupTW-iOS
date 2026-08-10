@@ -205,6 +205,70 @@ extension VerificationCaveat {
     }
 }
 
+extension VerificationCaveat {
+
+    /// Where a caveat sits on the result screen.
+    ///
+    /// Presentation only — grouping changes how the list reads, not what it
+    /// contains, and nothing here may collapse or reorder within a group. The
+    /// switch in `group` is exhaustive on purpose: a caveat added without a
+    /// decision about where a checker meets it is a compile error, not a pill
+    /// appended wherever the loop happened to put it.
+    enum Group: CaseIterable {
+        /// Facts about the document itself: who vouched, revocation, expiry.
+        case aboutTheDocument
+        /// Facts about the person standing there — the relay, the binding.
+        case aboutThePersonPresenting
+        /// What the holder gives away by presenting at all.
+        case whatEveryCheckerLearns
+
+        /// Fixed rendering order: document first (what am I looking at), person
+        /// second (is it theirs), cost last (what did it cost them to show me).
+        static let displayOrder: [Group] = [.aboutTheDocument,
+                                            .aboutThePersonPresenting,
+                                            .whatEveryCheckerLearns]
+
+        var subtitle: String {
+            switch self {
+            case .aboutTheDocument:
+                return NSLocalizedString("About this document", comment: "Caveat group subtitle")
+            case .aboutThePersonPresenting:
+                return NSLocalizedString("About the person showing it", comment: "Caveat group subtitle")
+            case .whatEveryCheckerLearns:
+                return NSLocalizedString("What every checker learns", comment: "Caveat group subtitle")
+            }
+        }
+    }
+
+    var group: Group {
+        switch self {
+        case .noNetworkQuery,
+             .revocationNotChecked, .revocationCheckedInLocalSnapshotOnly,
+             .revocationCheckedInStaleSnapshot,
+             .selfIssuedByTheHolder, .assertedByCardholder, .noExpiryAsserted:
+            // `noNetworkQuery` is drawn under the verdict rather than in a
+            // group; its membership here is a fallback so a future caller that
+            // does group it puts it somewhere sensible.
+            return .aboutTheDocument
+        case .verifierNotAuthenticated, .notBoundToThisVerifier:
+            return .aboutThePersonPresenting
+        case .identifierIsLinkable:
+            return .whatEveryCheckerLearns
+        }
+    }
+
+    /// Whether this caveat's sentence is about the revocation list — the ones
+    /// the snapshot's date belongs beside.
+    var concernsRevocation: Bool {
+        switch self {
+        case .revocationCheckedInLocalSnapshotOnly, .revocationCheckedInStaleSnapshot:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 /// Why a presentation was refused.
 ///
 /// One case per thing that can be wrong, deliberately. Collapsing them into a

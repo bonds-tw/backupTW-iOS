@@ -11,17 +11,6 @@
         }
       }
     },
-    "%1$@ (%2$@) is shown either way. It is written into the certificate that signs this document, and the checker needs that certificate to check the signature.": {
-      "comment": "A field the holder cannot withhold",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@（%2$@）一定會被看到。它寫在替這份證件簽章的憑證裡，而查驗方需要那張憑證才能驗簽。"
-          }
-        }
-      }
-    },
     "%@ already on this device": {
       "localizations": {
         "zh-Hant": {
@@ -153,6 +142,28 @@
         }
       }
     },
+    "About the person showing it": {
+      "comment": "Caveat group subtitle",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關於出示它的人"
+          }
+        }
+      }
+    },
+    "About this document": {
+      "comment": "Caveat group subtitle",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關於這份文件"
+          }
+        }
+      }
+    },
     "Address of household": {
       "localizations": {
         "zh-Hant": {
@@ -179,6 +190,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "已經備妥"
+          }
+        }
+      }
+    },
+    "Always shown": {
+      "comment": "Trailing text on the field the holder cannot withhold",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一律出示"
           }
         }
       }
@@ -1725,16 +1747,6 @@
         }
       }
     },
-    "Show %d field(s)": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出示 %d 個欄位"
-          }
-        }
-      }
-    },
     "Show %d fields": {
       "localizations": {
         "zh-Hant": {
@@ -1745,12 +1757,34 @@
         }
       }
     },
+    "Show %d fields (name included)": {
+      "comment": "Present button",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示 %d 個欄位（含姓名）"
+          }
+        }
+      }
+    },
     "Show my document": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "出示我的證件"
+          }
+        }
+      }
+    },
+    "Show only my name": {
+      "comment": "Present button when nothing else is ticked",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只出示姓名"
           }
         }
       }
@@ -1822,16 +1856,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "已完成簽章"
-          }
-        }
-      }
-    },
-    "Signed at %@ by the other device's clock.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "依對方裝置的時間，簽署於 %@。"
           }
         }
       }
@@ -2580,6 +2604,17 @@
         }
       }
     },
+    "They signed this on %@. That time comes from their phone's clock, which this app cannot verify.": {
+      "comment": "Verifier result sign-off",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方在 %@ 簽署了這次出示。時間以對方手機的時鐘為準，本 App 無法核實。"
+          }
+        }
+      }
+    },
     "Third Party Software License": {
       "localizations": {
         "zh-Hant": {
@@ -2925,12 +2960,12 @@
         }
       }
     },
-    "This document does not fit in one code, so it cycles through %d. Keep the screen still until the checker's phone says it has them all; the order does not matter.": {
+    "This document does not fit in one code, so it cycles through %1$d — one full cycle takes about %2$d seconds. Keep the screen still until the checker's phone says it has them all; the order does not matter.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件放不進單一條碼，因此會輪流顯示 %d 張。請維持畫面穩定，直到查驗者的手機顯示已全部讀取；順序不影響。"
+            "value": "這份證件放不進一張碼，會輪流顯示 %1$d 張——轉完一輪約 %2$d 秒。請把螢幕拿穩，直到查驗方的手機說全部收到為止；順序沒有影響。"
           }
         }
       }
@@ -3464,6 +3499,17 @@
         }
       }
     },
+    "What every checker learns": {
+      "comment": "Caveat group subtitle",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每個查驗方都會知道的事"
+          }
+        }
+      }
+    },
     "What it cannot show": {
       "localizations": {
         "zh-Hant": {
@@ -3721,6 +3767,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "你的身分證件會被複製進每一次 iCloud 備份。"
+          }
+        }
+      }
+    },
+    "Your name is written into the certificate that signs this document, and the checker needs that certificate to check the signature.": {
+      "comment": "Why the name row has no switch",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "姓名寫在替這份證件簽章的憑證裡，而查驗方需要那張憑證才能驗簽。"
           }
         }
       }

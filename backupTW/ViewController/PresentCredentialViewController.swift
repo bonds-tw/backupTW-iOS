@@ -74,6 +74,12 @@ final class PresentCredentialViewController: UIViewController {
     private var carousel: Timer?
     private let frameImageView = UIImageView()
     private let frameCountLabel = UILabel()
+    /// Filled in step with the carousel, so the eye has somewhere to see 「it is
+    /// moving forward」 that is not a two-digit number.
+    private let frameProgress = UIProgressView(progressViewStyle: .default)
+    /// One place for the carousel pace. The cycle-time sentence above and the
+    /// timer below must never quote two different speeds.
+    private static let frameInterval: TimeInterval = 0.55
 
     /// Restored on the way out. Raised on the way in because a dim OLED panel at
     /// an angle is the single most common reason a screen-to-screen scan fails.
@@ -300,16 +306,62 @@ final class PresentCredentialViewController: UIViewController {
         // So the name is stated as a consequence of showing the document at all,
         // in the same place the holder is choosing. A switch that reads
         // 「不給姓名」 and then gives the name is worse than no switch.
-        let alwaysVisible = disclosableClaims.filter { Self.cannotBeWithheld.contains($0.name) }
-        for claim in disclosableClaims where !Self.cannotBeWithheld.contains(claim.name) {
-            contentStack.addArrangedSubview(disclosureRow(for: claim))
+        // One pass, in the document's own order. The unwithholdable claim used
+        // to be pulled out of the list and appended at the bottom as a warning
+        // pill — which made a neutral fact read like an error, and put 「姓名」
+        // in a different place from every other field. It is a row like the
+        // others; what differs is the trailing control, and that difference is
+        // the whole message.
+        var explainedTheLockedRow = false
+        for claim in disclosableClaims {
+            if Self.cannotBeWithheld.contains(claim.name) {
+                contentStack.addArrangedSubview(nonWithholdableRow(for: claim))
+                explainedTheLockedRow = true
+            } else {
+                contentStack.addArrangedSubview(disclosureRow(for: claim))
+            }
         }
-        for claim in alwaysVisible {
-            contentStack.addArrangedSubview(PresentationUI.caveat(
-                String(format: NSLocalizedString("%1$@ (%2$@) is shown either way. It is written into the certificate that signs this document, and the checker needs that certificate to check the signature.",
-                                                 comment: "A field the holder cannot withhold"),
-                       StoredNationalID.label(for: claim.name), claim.value)))
+        if explainedTheLockedRow {
+            contentStack.addArrangedSubview(PresentationUI.footnote(
+                NSLocalizedString("Your name is written into the certificate that signs this document, and the checker needs that certificate to check the signature.",
+                                  comment: "Why the name row has no switch")))
         }
+    }
+
+    /// A claim the holder is shown but not asked about.
+    ///
+    /// Same layout as `disclosureRow` — the same heading, the same value — with
+    /// the switch's place taken by a word. Keeping the shape identical is the
+    /// point: the screen says 「this is a field like the others, and this one is
+    /// not yours to withhold」, not 「something went wrong」.
+    private func nonWithholdableRow(for claim: (name: String, value: String)) -> UIView {
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = 12
+
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.adjustsFontForContentSizeCategory = true
+        let title = NSMutableAttributedString(
+            string: StoredNationalID.label(for: claim.name),
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .headline)])
+        title.append(NSAttributedString(
+            string: "\n" + claim.value,
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .subheadline),
+                         .foregroundColor: UIColor.secondaryLabel]))
+        label.attributedText = title
+
+        let always = UILabel()
+        always.text = NSLocalizedString("Always shown", comment: "Trailing text on the field the holder cannot withhold")
+        always.font = .preferredFont(forTextStyle: .footnote)
+        always.adjustsFontForContentSizeCategory = true
+        always.textColor = .secondaryLabel
+        always.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        row.addArrangedSubview(label)
+        row.addArrangedSubview(always)
+        return row
     }
 
     /// Claims the holder is not offered a choice about, because the choice would
@@ -381,9 +433,20 @@ final class PresentCredentialViewController: UIViewController {
     private func updateShowButtonTitle() {
         guard let showButton else { return }
         var configuration = showButton.configuration ?? UIButton.Configuration.filled()
-        configuration.title = disclosableClaims.isEmpty
-            ? NSLocalizedString("Show my document", comment: "")
-            : String(format: NSLocalizedString("Show %d field(s)", comment: ""), chosenClaims.count)
+        // Counted by the same function that decides what actually leaves —
+        // `claimsToDisclose` — not by the switches. The old title read the
+        // switches and said 「Show 0 field(s)」 while the presentation went out
+        // carrying the name; a button caption is still a sentence on a screen,
+        // and it was one the evidence did not support.
+        let disclosing = Self.claimsToDisclose(chosen: chosenClaims,
+                                               offered: disclosableClaims.map(\.name))
+        if let disclosing {
+            configuration.title = disclosing == ["name"]
+                ? NSLocalizedString("Show only my name", comment: "Present button when nothing else is ticked")
+                : String(format: NSLocalizedString("Show %d fields (name included)", comment: "Present button"), disclosing.count)
+        } else {
+            configuration.title = NSLocalizedString("Show my document", comment: "")
+        }
         showButton.configuration = configuration
     }
 
@@ -435,17 +498,28 @@ final class PresentCredentialViewController: UIViewController {
 
         frameCountLabel.numberOfLines = 0
         frameCountLabel.textAlignment = .center
-        frameCountLabel.font = .preferredFont(forTextStyle: .headline)
+        // Monospaced digits: at fifteen frames the counter ticks twice a
+        // second, and proportional digits make the whole line shiver.
+        frameCountLabel.font = UIFontMetrics(forTextStyle: .headline)
+            .scaledFont(for: .monospacedDigitSystemFont(ofSize: 17, weight: .semibold))
         frameCountLabel.adjustsFontForContentSizeCategory = true
         contentStack.addArrangedSubview(frameCountLabel)
 
         if frames.count > 1 {
+            frameProgress.progressTintColor = .systemBlue
+            frameProgress.trackTintColor = .systemFill
+            contentStack.addArrangedSubview(frameProgress)
+            contentStack.setCustomSpacing(12, after: frameProgress)
+
             // The count is stated rather than left to be inferred from a
-            // flickering image. A checker who does not know there are three
-            // codes stops after the first and reports a broken document.
+            // flickering image — and so is the time. Measured on device: a real
+            // card's presentation is fifteen frames, which at the carousel's
+            // pace is a little over eight seconds a cycle. A holder who expects
+            // two seconds moves the phone away at four and restarts the scan.
+            let cycleSeconds = Int((Double(frames.count) * Self.frameInterval).rounded())
             contentStack.addArrangedSubview(PresentationUI.body(String(
-                format: NSLocalizedString("This document does not fit in one code, so it cycles through %d. Keep the screen still until the checker's phone says it has them all; the order does not matter.", comment: ""),
-                frames.count)))
+                format: NSLocalizedString("This document does not fit in one code, so it cycles through %1$d — one full cycle takes about %2$d seconds. Keep the screen still until the checker's phone says it has them all; the order does not matter.", comment: ""),
+                frames.count, cycleSeconds)))
         }
         contentStack.addArrangedSubview(PresentationUI.footnote(
             NSLocalizedString("This code stops being accepted about five minutes after it was made.", comment: "")))
@@ -699,7 +773,7 @@ final class PresentCredentialViewController: UIViewController {
         //
         // `.common` mode so the carousel keeps running while the user scrolls this
         // screen — a carousel that stops mid-scan looks like a crash.
-        let timer = Timer(timeInterval: 0.55, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: Self.frameInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.showFrame((self.frameIndex + 1) % self.renderedFrames.count)
         }
@@ -710,6 +784,8 @@ final class PresentCredentialViewController: UIViewController {
     private func showFrame(_ index: Int) {
         frameIndex = index
         frameImageView.image = renderedFrames[index]
+        frameProgress.setProgress(Float(index + 1) / Float(max(renderedFrames.count, 1)),
+                                  animated: false)
         frameCountLabel.text = renderedFrames.count > 1
             ? String(format: NSLocalizedString("Code %1$d of %2$d", comment: "Carousel position"),
                      index + 1, renderedFrames.count)
