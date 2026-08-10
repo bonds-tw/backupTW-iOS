@@ -258,9 +258,29 @@ final class VerifierViewController: UIViewController {
                 presentPasteDiagnosis("frames 重組失敗——收到 \(frames.count) 張但拼不回來。")
                 return
             }
-            presentPasteDiagnosis("出示內容 \(jws.utf8.count) bytes，\(frames.count) 張 frame。按 OK 開始查驗。") { [weak self] in
+            // Timed, and reported before the result screen replaces everything.
+            //
+            // `VerifierSession` justifies its asynchronous path with a figure
+            // measured on a Mac against the Go reference implementation: 1.35 s
+            // to build the tree from the snapshot. Nobody had measured the Rust
+            // one on a phone, and the first device run looked instant — which is
+            // exactly the shape of "it is fast" and "it never ran" being
+            // indistinguishable. So the number goes on screen.
+            let started = Date()
+            session.check(presentationJWS: jws) { [weak self] result in
                 guard let self else { return }
-                self.session.check(presentationJWS: jws) { [weak self] result in
+                let elapsed = Date().timeIntervalSince(started) * 1000
+                let revocation: String
+                if case .checked(.verified(let presentation)) = result {
+                    revocation = String(describing: presentation.revocation)
+                } else {
+                    revocation = "（未通過或無結果）"
+                }
+                self.presentPasteDiagnosis(
+                    "出示內容 \(jws.utf8.count) bytes，\(frames.count) 張 frame。\n"
+                    + "查驗耗時 \(Int(elapsed.rounded())) ms。\n"
+                    + "撤銷檢查：\(revocation)"
+                ) { [weak self] in
                     _ = self?.finish(result)
                 }
             }
