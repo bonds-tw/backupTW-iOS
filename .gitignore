@@ -81,3 +81,6 @@ tw_fido_sign_response.json
 # Issued credentials. A compact JWS is not encrypted: its payload is the
 # national ID data in base64url, readable by anyone who gets the file.
 *.jws
+
+# Local-only replay of a real card presentation — contains real cardholder data, never commit
+backupTWTests/ReplayLocal*.swift

@@ -62,6 +62,9 @@ final class VerifierViewController: UIViewController {
         title = NSLocalizedString("Check a document", comment: "")
         view.backgroundColor = .systemGroupedBackground
         buildInterface()
+        #if DEBUG
+        startDebugPresentationDropPollIfRequested()
+        #endif
     }
 
     /// A fresh challenge every time this screen comes into view, including on the
@@ -189,7 +192,17 @@ final class VerifierViewController: UIViewController {
     /// the holder side's own debug button copies.
     @objc private func pastePresentation() {
         collector.reset()
-        guard let text = UIPasteboard.general.string else {
+        // The simulator's pasteboard sync is lazy and cross-process: a poller
+        // in a test runner can see content a beat before this process does —
+        // measured on 2026-08-09, where the runner saw the frames and this
+        // read came back nil. Retry briefly before declaring it empty.
+        var pasted: String?
+        for _ in 0..<6 {
+            pasted = UIPasteboard.general.string
+            if pasted?.contains("BTWVP1") == true { break }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        guard let text = pasted else {
             presentPasteDiagnosis("剪貼簿是空的。先在出示畫面按「複製出示內容」。")
             return
         }
@@ -223,6 +236,55 @@ final class VerifierViewController: UIViewController {
         case .payload:
             break
         }
+    }
+
+    /// A frame channel that iOS privacy does not gate: a file the app reads out
+    /// of its own Documents directory.
+    ///
+    /// The pasteboard route above cannot be driven headlessly. A UI test with no
+    /// one to tap 「允許貼上」 gets `Operation not authorized` on every read —
+    /// measured 2026-08-10, and it is the wall the first cross-device attempts
+    /// hit. An app reading its *own* container is never gated, so a host that
+    /// drops frames there (`simctl get_app_container … data`) can feed a live
+    /// verifier instance without a second phone and without a camera.
+    ///
+    /// DEBUG-only and opt-in via a launch environment flag, so it exists in no
+    /// shipping build and lies dormant in every normal debug run. The verifier
+    /// screen has a live, single-use challenge while this polls, so a dropped
+    /// presentation answers the challenge currently on screen — the same
+    /// property the camera path relies on.
+    private func startDebugPresentationDropPollIfRequested() {
+        guard ProcessInfo.processInfo.environment["BONDSTW_DEBUG_PRESENTATION_DROP"] == "1" else {
+            return
+        }
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("debug-presentation.txt")
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            guard let text = try? String(contentsOf: url, encoding: .utf8),
+                  text.contains("BTWVP1") else { return }
+            // One-shot: remove before consuming so a slow verification cannot be
+            // re-triggered by the next tick reading the same file.
+            try? FileManager.default.removeItem(at: url)
+            timer.invalidate()
+
+            self.collector.reset()
+            for line in text.split(whereSeparator: \.isNewline) {
+                let frame = line.trimmingCharacters(in: .whitespaces)
+                guard !frame.isEmpty else { continue }
+                if case .payload(let payload) = FrameIntake.accept(frame, into: self.collector) {
+                    guard let jws = String(data: payload, encoding: .utf8) else {
+                        self.session.cancel()
+                        _ = self.finish(.rejected(.presentationIsNotAJWS))
+                        return
+                    }
+                    _ = self.finish(self.session.check(presentationJWS: jws))
+                    return
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private func presentPasteDiagnosis(_ message: String) {

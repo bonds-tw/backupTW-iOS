@@ -45,6 +45,10 @@ final class CrossDeviceVerifierHarnessUITests: XCTestCase {
         }
 
         let app = XCUIApplication()
+        // The file-drop channel, not the pasteboard: iOS refuses a headless
+        // pasteboard read (Operation not authorized), so the app polls a file in
+        // its own container that the host writes instead.
+        app.launchEnvironment["BONDSTW_DEBUG_PRESENTATION_DROP"] = "1"
         app.launch()
 
         // Home → the verifier flow. Matched in both languages so the harness
@@ -61,32 +65,15 @@ final class CrossDeviceVerifierHarnessUITests: XCTestCase {
             "Verification request code", "查驗請求條碼")).firstMatch
         XCTAssertTrue(requestCode.waitForExistence(timeout: 10), "no request code appeared")
 
-        // Wait for the holder. The pasteboard is simulator-wide, so what
-        // `simctl pbcopy` wrote is what `UIPasteboard.general` reads here.
-        let deadline = Date().addingTimeInterval(300)
-        var framesArrived = false
-        while Date() < deadline {
-            if UIPasteboard.general.string?.contains("BTWVP1") == true {
-                framesArrived = true
-                break
-            }
-            Thread.sleep(forTimeInterval: 2)
-        }
-        XCTAssertTrue(framesArrived, "no presentation frames reached the simulator pasteboard within five minutes")
-
-        // The DEBUG paste button is deliberately unlocalized, so one literal is
-        // enough — and this harness only makes sense against a DEBUG build,
-        // which is the only build that has the button.
-        let paste = app.buttons.matching(NSPredicate(
-            format: "label CONTAINS %@", "貼上出示內容")).firstMatch
-        XCTAssertTrue(paste.exists, "the DEBUG paste button is missing — is this a DEBUG build?")
-        paste.tap()
-
-        // Production verification runs now. Wait for either verdict, then park
-        // so an external screenshot can capture what a checker would see.
+        // The app polls its own container for the dropped frames and runs
+        // production verification itself; this test just holds the screen up
+        // and waits for the verdict to appear. Ten minutes covers the whole
+        // human loop — scan, approve, relay the frames back — and the only hard
+        // ceiling is the presentation's own freshness window.
         let verdict = app.staticTexts.matching(NSPredicate(
             format: "label CONTAINS %@ OR label CONTAINS %@", "✅", "⚠️")).firstMatch
-        XCTAssertTrue(verdict.waitForExistence(timeout: 30), "no verdict appeared after pasting")
+        XCTAssertTrue(verdict.waitForExistence(timeout: 600),
+                      "no verdict appeared within ten minutes — were frames dropped into the container?")
 
         Thread.sleep(forTimeInterval: 60)
     }
