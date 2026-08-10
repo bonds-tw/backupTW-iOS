@@ -10,11 +10,30 @@ import Foundation
 
 /// Which of the two paths a scenario would have to be answered on.
 enum PresentationPath: String, Codable, Equatable, Sendable {
-    /// The self-issued credential, shown over QR. Fast, works today, and
-    /// carries a fixed `did:key` — so two presentations are linkable.
+    /// The card-signed credential, shown over QR. Fast and works today.
+    ///
+    /// Not linkable-via-`did:key` as this used to say — that described the
+    /// self-issued era. What it actually reveals is larger: the cardholder's
+    /// X.509 certificate travels with the credential (the checker cannot verify
+    /// the signature without it) and its Subject CN is the holder's legal name.
+    /// Every checker learns who they are, disclosure switches notwithstanding.
+    /// Measured 2026-08-10 at about 7.4 KB, roughly fourteen QR frames.
     case credential
-    /// The zero-knowledge proof. Unlinkable across relying parties, ~294 KB,
-    /// and ~14 seconds to check.
+
+    /// The zero-knowledge proof. ~294 KB, and ~14 seconds to check.
+    ///
+    /// **Not** "unlinkable across relying parties", which is what this line used
+    /// to claim. The nullifier is derived from the relying-party identifier and
+    /// the cardholder's key, and this app has exactly one such identifier —
+    /// `TWFidOConfiguration.bondsAppID`, a constant shared by the production and
+    /// UAT configurations. So the nullifier is one value per person, identical
+    /// for every checker they ever present to, and it is a public signal.
+    ///
+    /// Unlinkability across relying parties is a property of *per-verifier*
+    /// namespaces, which this build does not have. The proof does hide the
+    /// certificate, so it reveals far less than the credential path — that is a
+    /// real difference and it is the reason the path exists. It is not the same
+    /// as unlinkable.
     case zeroKnowledge
 }
 

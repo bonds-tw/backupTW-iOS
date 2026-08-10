@@ -69,6 +69,16 @@ struct LocalizationCoverageTests {
         }
     }
 
+    /// The ZK screen draws `ProofCaveat.allCases` in full — every qualification a
+    /// proof carries, none of them collapsed behind a disclosure arrow. This
+    /// suite covered `VerificationCaveat` and not this one, which is the same
+    /// omission one enum over.
+    @Test(arguments: ProofCaveat.allCases)
+    func everyProofCaveatReachesAChineseReader(_ caveat: ProofCaveat) {
+        #expect(Self.readableInChinese(caveat.localizedDescription),
+                "untranslated proof caveat: \(caveat)")
+    }
+
     /// Same construction as `OfflineVerifierTests.everyFailure`, and for the same
     /// reason: `VerificationFailure` has associated values so it cannot be
     /// `CaseIterable`, and a hand-written list silently stops covering the case
