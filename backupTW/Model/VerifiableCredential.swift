@@ -133,6 +133,7 @@ struct VerifiableCredential: Codable, Equatable {
             "unifiedNo": termNamespace + "unifiedNo",
             "birthdate": termNamespace + "birthdate",
             "addressOfHousehold": termNamespace + "addressOfHousehold",
+            AgePredicate.claimName: termNamespace + AgePredicate.claimName,
         ])
 
     /// Terms the v2 context already defines, which this credential uses and must
@@ -178,6 +179,14 @@ extension VerifiableCredential {
         subject["name"] = model.name
         subject["birthdate"] = model.birthdate
         subject["addressOfHousehold"] = model.addressOfHousehold
+        // Derived at issuance, because that is the only moment the birthdate and
+        // a trustworthy clock are both in hand — and because a predicate the
+        // card signs carries the same authority as the date it came from, while
+        // a predicate computed later by whoever is holding the file carries
+        // none. Absent when the birthdate is not a form this build can read:
+        // see `AgePredicate.claimValue` for why that must not become "false".
+        subject[AgePredicate.claimName] = AgePredicate.claimValue(birthdate: model.birthdate,
+                                                                  asOf: validFrom)
 
         // The embedded definitions ride along with every copy of the credential.
         // Anything else would mean a verifier's reading of the document depends

@@ -34,7 +34,8 @@ struct StoredNationalID: Equatable {
     /// Ordered for reading, not in the order the credential serialised them.
     /// The order is deliberate: what the document *is*, then who it is about,
     /// then where — the order a person reads an ID card in.
-    static let displayOrder = ["nationality", "unifiedNo", "name", "birthdate", "addressOfHousehold"]
+    static let displayOrder = ["nationality", "unifiedNo", "name", "birthdate",
+                               AgePredicate.claimName, "addressOfHousehold"]
 
     let issuerDID: String
 
@@ -171,6 +172,11 @@ struct StoredNationalID: Equatable {
         case "name": return NSLocalizedString("Name", comment: "")
         case "birthdate": return NSLocalizedString("Date of birth", comment: "")
         case "addressOfHousehold": return NSLocalizedString("Household address", comment: "")
+        case AgePredicate.claimName:
+            // Named for when it was true. "Over 18" alone would read as a
+            // statement about today, and on a credential issued years ago the
+            // false case would then be a lie by omission of its own timestamp.
+            return NSLocalizedString("Had turned 18 when issued", comment: "")
         default: return key
         }
     }

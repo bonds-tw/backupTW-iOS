@@ -53,14 +53,26 @@ enum ScenarioSupport: Equatable, Sendable {
 ///
 /// # What the analysis found
 ///
-/// **滿 18 歲** — the two circuits take a certificate chain and an RSA signature.
-/// There is no date field among their inputs; `ProofCaveat.certificateExpiryNotProven`
-/// says as much about the certificate's own dates. So an age predicate cannot be
-/// proven in zero knowledge on this build at all. The credential path *does*
-/// carry `birthdate` — but it discloses the date itself, not the predicate, and
-/// it is self-issued and linkable. Answering "are you over 18" by handing over a
-/// full date of birth attached to a stable identifier is worse than useless: it
-/// is the opposite of minimal disclosure while looking like a feature.
+/// **滿 18 歲** — supported on the credential path, and this entry is a
+/// correction. It used to read "cannot be proven at all", which was true of the
+/// *circuits* and written as though it were true of the app: the same
+/// conflation of "the current architecture cannot" with "this cannot" that this
+/// project has made and had to retract three times before.
+///
+/// What is true of the circuits is unchanged — `generateCertChainRs4096Input`
+/// takes a certificate chain and an RSA signature, and there is no date among
+/// their inputs, so the *zero-knowledge* path still cannot carry an age
+/// predicate. What changed is everything around them. The predicate is derived
+/// at issuance from `birthdate`, carried as its own claim
+/// (`AgePredicate.claimName`), signed by the holder's 自然人憑證 along with
+/// every other field, and shown on its own through `SelectiveDisclosure` while
+/// the date stays withheld.
+///
+/// The remaining qualification is real and is why the caveats below are not
+/// empty: this is minimal disclosure of the *field*, not unlinkability. The
+/// presentation still carries the app's subject identifier, so two verifiers can
+/// still tell they saw the same person — a weaker property than the ZK path's,
+/// and one a screen must not blur into "anonymous".
 ///
 /// **真人且唯一** — the "real person" half is what the ZK proof establishes. The
 /// "and only once" half is `ProofCaveat.noGlobalUniqueness`: the nullifier is
@@ -91,8 +103,8 @@ struct PresentationScenario: Equatable, Sendable {
         request: NSLocalizedString("Prove you are over 18", comment: "scenario"),
         isEmergency: false,
         path: .credential,
-        support: .unsupported(blockedBy: NSLocalizedString(
-            "The circuits take a certificate chain and a signature — there is no date among their inputs, so an age predicate cannot be proven in zero knowledge. The credential path holds a birthdate, but it would disclose the date itself under a linkable identifier, which is the opposite of what this screen is for.",
+        support: .partial(actually: NSLocalizedString(
+            "The document carries whether the holder had turned 18 when it was issued, signed by their digital certificate, and that line can be shown on its own without the date of birth. It is not anonymous: the same identifier appears every time, so different checkers can tell it is the same person.",
             comment: "")),
         caveats: [])
 
