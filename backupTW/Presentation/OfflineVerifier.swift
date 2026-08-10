@@ -71,12 +71,29 @@ enum VerificationCaveat: Equatable, CaseIterable {
     /// evidence does not support.
     case assertedByCardholder
 
-    /// The `did:key` in this presentation is the same one the holder shows
-    /// everybody, every time — it is `holder`, the credential's `issuer`, and
-    /// its `credentialSubject.id`, all the same 57 characters. Two verifiers
-    /// comparing notes can prove they saw the same person; one verifier can
-    /// count visits. This is the unlinkability floor the whitepaper sets and
-    /// this version does not clear, so it is stated rather than hidden.
+    /// Everything about this presentation that is the same every time, and for a
+    /// card-signed credential that includes the holder's legal name.
+    ///
+    /// The original wording described a `did:key`: 57 stable characters, shown to
+    /// everybody, letting two verifiers compare notes. That was accurate for a
+    /// device-signed credential and it survived the change to card signing
+    /// unedited, at which point it became a description of the wrong problem.
+    ///
+    /// A card-signed credential carries the certificate that signed it, because
+    /// this verifier cannot check the signature without it. That certificate is
+    /// an X.509 whose Subject CN is the cardholder's legal name, alongside a
+    /// certificate serial number and an RSA public key — all stable, all in the
+    /// bytes, whether or not the holder disclosed the `name` claim. So this is
+    /// not "two shops can work out you are the same person"; it is "every shop
+    /// learns who you are". Naming that plainly is the same discipline
+    /// `verifierNotAuthenticated` documents: a verifier given the word
+    /// 「可連結」 has a term, not a fact they can act on.
+    ///
+    /// Structural, not a gap in this build. X.509 has no selective disclosure —
+    /// the CA's signature covers the whole TBSCertificate — so a certificate with
+    /// the name removed does not verify. Closing it means not sending the
+    /// certificate at all, which means proving the chain inside a circuit
+    /// instead, which is what the ZK path is for.
     case identifierIsLinkable
 
     /// Nothing in this check establishes that the person holding out the phone
@@ -145,7 +162,10 @@ extension VerificationCaveat {
             return NSLocalizedString("The holder signed these details with their own government-issued certificate. That confirms who is making the claim, not that the government has confirmed the details.",
                                      comment: "Shown alongside a successful offline verification")
         case .identifierIsLinkable:
-            return NSLocalizedString("This document shows the same identifier every time it is presented, so different checkers can tell it is the same person.",
+            // Names what was disclosed rather than the property it violates. The
+            // holder chose which fields to send; none of those choices covered
+            // the certificate, and the certificate has their name on it.
+            return NSLocalizedString("The certificate that signed this document carries the holder's legal name, and it is sent to every checker whether or not they chose to disclose it. Any two checkers can tell it was the same person.",
                                      comment: "Shown alongside a successful offline verification")
         case .verifierNotAuthenticated:
             // Says what a relay *looks like* rather than naming one. A verifier

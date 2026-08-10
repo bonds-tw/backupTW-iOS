@@ -14,17 +14,28 @@ import UIKit
 ///
 /// # ⚠️ Presenting is not free, and the user has to be told before, not after
 ///
-/// The document carries a `did:key`, and a `did:key` is the public key written
-/// out, so it is the *same* string every time it is shown. Two checkers who
-/// compare notes can prove they saw the same person; one checker can count
-/// visits. That is a miss against the whitepaper's unlinkability floor and this
-/// build does not clear it — the fix is ZK selective disclosure, which cannot be
-/// integrated while the upstream circuit library ships without a licence.
+/// This paragraph used to say the cost was a `did:key`: the public key written
+/// out, the same string every time, so two checkers comparing notes could prove
+/// they saw the same person. That was true when the device signed the credential.
+/// It has not been true since the cardholder's 自然人憑證 started signing it, and
+/// the paragraph did not change with the code.
 ///
-/// So the sentence appears on the screen the user taps 「出示」 on. Putting it on
-/// the result, or in Settings, or in a footnote, would be a way of having said it
-/// without anyone having read it. `VerifiablePresentation` and `QRTransport` both
-/// carry the same warning at their own layer; this is where it reaches a person.
+/// What a card-signed presentation actually costs is larger and simpler. The
+/// certificate that signed the credential travels with it, because a checker
+/// cannot verify a signature without it, and that certificate is an X.509 whose
+/// Subject CN **is** the cardholder's legal name — alongside a serial number and
+/// an RSA public key, all stable across every presentation. So it is not that two
+/// checkers can work out you are the same person. It is that every checker learns
+/// who you are, and no switch on this screen changes that: X.509 has no selective
+/// disclosure, the CA's signature covers the whole TBSCertificate, and a
+/// certificate with the name removed does not verify. Closing this needs the
+/// chain proved inside a circuit instead of sent — the ZK path.
+///
+/// So the sentence appears on the screen the user taps 「出示」 on, and `name` is
+/// stated as a consequence rather than offered as a switch. Putting it on the
+/// result, or in Settings, or in a footnote, would be a way of having said it
+/// without anyone having read it; offering a switch that does not work would be
+/// worse than either.
 final class PresentCredentialViewController: UIViewController {
 
     private enum Stage {
@@ -269,9 +280,62 @@ final class PresentCredentialViewController: UIViewController {
         contentStack.addArrangedSubview(PresentationUI.body(
             NSLocalizedString("Nothing is selected to begin with. Whatever you leave off is not sent — the checker sees only that some fields were held back, not what they were.", comment: "")))
 
-        for claim in disclosableClaims {
+        // The sentence above was false for one field, and the switch that made it
+        // false has been taken away rather than left as a choice that does
+        // nothing.
+        //
+        // A card-signed credential travels with the certificate that signed it,
+        // because the checker cannot verify the signature without it — and that
+        // certificate is an X.509 whose Subject CN *is* the cardholder's legal
+        // name (measured: the name sits at byte 76 of the DER this app's own test
+        // fixture carries). `MOICASignedCredential` refuses a certificate with no
+        // CN, so there is no card-signed presentation that omits it.
+        //
+        // Nothing here can change that. X.509 has no selective disclosure: the
+        // CA's signature covers the whole TBSCertificate, so removing the CN
+        // breaks verification. Not drawing the name would change what this app
+        // *displays*, not what leaves the device — and the bytes are going to
+        // somebody else's program.
+        //
+        // So the name is stated as a consequence of showing the document at all,
+        // in the same place the holder is choosing. A switch that reads
+        // 「不給姓名」 and then gives the name is worse than no switch.
+        let alwaysVisible = disclosableClaims.filter { Self.cannotBeWithheld.contains($0.name) }
+        for claim in disclosableClaims where !Self.cannotBeWithheld.contains(claim.name) {
             contentStack.addArrangedSubview(disclosureRow(for: claim))
         }
+        for claim in alwaysVisible {
+            contentStack.addArrangedSubview(PresentationUI.caveat(
+                String(format: NSLocalizedString("%1$@ (%2$@) is shown either way. It is written into the certificate that signs this document, and the checker needs that certificate to check the signature.",
+                                                 comment: "A field the holder cannot withhold"),
+                       StoredNationalID.label(for: claim.name), claim.value)))
+        }
+    }
+
+    /// Claims the holder is not offered a choice about, because the choice would
+    /// not be honoured.
+    ///
+    /// Exactly one, and it is not a policy — it is a fact about where the value
+    /// is. See `renderDisclosureChoices`.
+    static let cannotBeWithheld: Set<String> = ["name"]
+
+    /// What actually gets disclosed, given what the holder ticked.
+    ///
+    /// Separated from the screen so it can be tested, because the interesting
+    /// case is the one a screen test would not reach: the holder ticks nothing,
+    /// and `name` goes anyway. Returning `nil` means "everything", which is what
+    /// a credential with nothing to withhold does — an older credential with no
+    /// `_sd` commitments cannot be shown in part at all.
+    ///
+    /// The unwithholdable claims are **added**, never subtracted. Withholding
+    /// `name` never hid it — the certificate carries it — but it did cost the
+    /// checker the CN-to-`name` comparison that `MOICASignedCredential.verify`
+    /// only performs when the claim is disclosed. So disclosing it buys a binding
+    /// check for a value that was leaving regardless.
+    static func claimsToDisclose(chosen: Set<String>, offered: [String]) -> [String]? {
+        guard !offered.isEmpty else { return nil }
+        let forced = offered.filter(cannotBeWithheld.contains)
+        return Array(chosen.union(forced)).sorted()
     }
 
     private func disclosureRow(for claim: (name: String, value: String)) -> UIView {
@@ -417,9 +481,25 @@ final class PresentCredentialViewController: UIViewController {
         contentStack.addArrangedSubview(PresentationUI.card(body: message))
     }
 
+    /// What every presentation gives away regardless of the switches above.
+    ///
+    /// This used to say the document 「reveals the same identifier」 and that
+    /// different checkers 「can compare notes and tell it was you both times」.
+    /// That sentence was written when the credential was signed by the device and
+    /// the only stable thing in it was a `did:key`; it survived the change to
+    /// card signing unedited, and by then it was describing the wrong problem in
+    /// the wrong register.
+    ///
+    /// Linkability is 「two shops can work out you are the same person」. What
+    /// actually leaves the device is the cardholder's certificate: legal name,
+    /// certificate serial number, RSA public key. Every checker learns who you
+    /// are outright — no comparing of notes required. That is a difference in
+    /// kind, and describing it with the abstract word is the failure this project
+    /// names in `verifierNotAuthenticated`: giving somebody a term instead of a
+    /// fact they can act on.
     private func linkabilityWarning() -> UIView {
         PresentationUI.caveat(NSLocalizedString(
-            "Every time you show this document it reveals the same identifier. Different checkers can compare notes and tell it was you both times.", comment: ""))
+            "Showing this document always reveals your name, because it is written into the certificate that signs it. The same certificate goes to every checker, so any two of them can tell it was the same person.", comment: ""))
     }
 
     // MARK: - How old the checker's code is
@@ -564,7 +644,17 @@ final class PresentCredentialViewController: UIViewController {
         // second on a bad one, with a person waiting at a counter.
         // Read on the main thread, before the hop: `chosenClaims` is UI state and
         // a switch flipped mid-signing must not change what was signed.
-        let disclosing: [String]? = disclosableClaims.isEmpty ? nil : Array(chosenClaims)
+        //
+        // The unwithholdable claims are added back in rather than left out, and
+        // that direction is deliberate. Withholding `name` never hid it — the
+        // certificate carries it regardless — but it *did* cost something:
+        // `MOICASignedCredential.verify` only compares the certificate's CN
+        // against the credential's own `name` when that claim was disclosed, so a
+        // withheld name meant the checker was shown a name with nothing
+        // confirming it belonged to this document. Disclosing it buys the
+        // binding check for a value the checker was going to see anyway.
+        let disclosing: [String]? = Self.claimsToDisclose(chosen: chosenClaims,
+                                                          offered: disclosableClaims.map(\.name))
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self, holder = self.holder] in
             let result = Result { try holder.frames(answering: request, disclosing: disclosing) }
@@ -600,10 +690,15 @@ final class PresentCredentialViewController: UIViewController {
         guard renderedFrames.count > 1 else { return }
 
         // 0.55 s per frame: slow enough that a camera at 30 fps gets a dozen
-        // clean looks at each code, fast enough that a three-frame cycle
-        // completes in under two seconds. `.common` mode so the carousel keeps
-        // running while the user scrolls this screen — a carousel that stops
-        // mid-scan looks like a crash.
+        // clean looks at each code. This comment used to finish "fast enough that
+        // a three-frame cycle completes in under two seconds", which was true of
+        // the device-signed payload and has not been true since the card started
+        // signing — a card-signed presentation is about fourteen frames, so a full
+        // cycle is nearer eight seconds and a scanner that misses one waits for
+        // the next pass. `PresentationFrameCountTests` measures both.
+        //
+        // `.common` mode so the carousel keeps running while the user scrolls this
+        // screen — a carousel that stops mid-scan looks like a crash.
         let timer = Timer(timeInterval: 0.55, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.showFrame((self.frameIndex + 1) % self.renderedFrames.count)

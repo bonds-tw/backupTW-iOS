@@ -74,20 +74,31 @@ enum VerifiablePresentationError: Error, Equatable {
 ///
 /// # ⚠️ Size: too large for one QR code, and that is not a detail
 ///
-/// Measured, not estimated, on the national-ID credential this app issues: the
-/// credential's own compact JWS is 1386 bytes, its JSON payload 816. Putting it
-/// inside a presentation applies base64url to those bytes a second time, and the
-/// presentation adds its own context, holder, challenge and timestamp, so the
-/// result is **3022 bytes**, or 3076 once the verifier names itself. The largest
-/// QR code that exists — version 40 at error correction level L — holds 2953,
-/// and `CIQRCodeGenerator` reports the overflow by returning nil, not by
-/// throwing.
+/// Measured, not estimated — but note *when*. The figures this paragraph gave for
+/// a long time (a 1,386-byte credential JWS, a 3,022-byte presentation) were
+/// measured on the device-signed credential this app issued before the
+/// cardholder's 自然人憑證 started signing. They were quoted for years after that
+/// stopped being the shipping shape.
 ///
-/// Even that ceiling is the wrong target. Decoding needs roughly 4 pixels per
-/// module at a comfortable 15–25 cm on the oldest supported phone; version 40
-/// gives 2.4. The usable ceiling is version 18–22, about 400–780 bytes, which is
-/// where the EU's DCC — the largest deployment of exactly this pattern —
-/// operates. This document is four to seven times that.
+/// Measured on what actually ships, 2026-08-10: a card-signed, selectively
+/// disclosable national-ID presentation is about **7,400 bytes** of compact JWS.
+/// Roughly 90% of that is the enveloped credential, and inside it the certificate
+/// alone accounts for about 2,000 — the DER is 861 bytes in this repo's test
+/// fixture and each of the three base64 layers costs it another third. A real
+/// MOICA certificate is larger again (the two in `backupTW/ZK/` are 1,643 and
+/// 1,409 bytes), so a presentation made with a real card is bigger than anything
+/// measurable here.
+///
+/// The largest QR code that exists — version 40 at error correction level L —
+/// holds 2,953 bytes, and `CIQRCodeGenerator` reports the overflow by returning
+/// nil, not by throwing. But that ceiling is the wrong target and quoting it has
+/// caused real confusion: dividing a payload by 2,953 is where the claim that
+/// this takes 「約 3 個 QR frame」 came from. Decoding needs roughly 4 pixels per
+/// module at a comfortable 15–25 cm on the oldest supported phone, and version 40
+/// gives 2.4, so `QRTransport` pins symbols at 89 modules and level Q instead —
+/// which leaves 364 bytes per frame. That is the number that decides how many
+/// frames there are, and it makes today's payload about **fourteen**. See
+/// `PresentationFrameCountTests`.
 ///
 /// `QRTransport` closes the gap by splitting the presentation across animated
 /// frames, which is the right call for a screen-to-screen handoff and is what

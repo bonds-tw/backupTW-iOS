@@ -11,6 +11,17 @@
         }
       }
     },
+    "%1$@ (%2$@) is shown either way. It is written into the certificate that signs this document, and the checker needs that certificate to check the signature.": {
+      "comment": "A field the holder cannot withhold",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（%2$@）一定會被看到。它寫在替這份證件簽章的憑證裡，而查驗方需要那張憑證才能驗簽。"
+          }
+        }
+      }
+    },
     "%@ already on this device": {
       "localizations": {
         "zh-Hant": {
@@ -801,16 +812,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "證件裡的每一個欄位：姓名、統一編號、出生日期、戶籍地址與國籍。這個版本無法只出示其中一部分。"
-          }
-        }
-      }
-    },
-    "Every time you show this document it reveals the same identifier. Different checkers can compare notes and tell it was you both times.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這份證件每次出示都會露出同一組識別碼。不同的查驗者只要互相比對，就能看出兩次都是你。"
           }
         }
       }
@@ -1764,6 +1765,16 @@
         }
       }
     },
+    "Showing this document always reveals your name, because it is written into the certificate that signs it. The same certificate goes to every checker, so any two of them can tell it was the same person.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示這份證件一定會露出你的姓名——姓名寫在替它簽章的憑證裡。每個查驗方拿到的都是同一張憑證，所以任兩個查驗方都能看出是同一個人。"
+          }
+        }
+      }
+    },
     "Sign with your digital certificate": {
       "localizations": {
         "zh-Hant": {
@@ -2103,6 +2114,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "簽署這些欄位的憑證，是政府憑證機構簽發給「%@」的。這說明的是簽章者是誰——不代表政府查核過下面的欄位內容。"
+          }
+        }
+      }
+    },
+    "The certificate that signed this document carries the holder's legal name, and it is sent to every checker whether or not they chose to disclose it. Any two checkers can tell it was the same person.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替這份文件簽章的憑證帶著持有人的法定姓名，無論他有沒有選擇揭露姓名，那張憑證都會送給每一個查驗方。任兩個查驗方都能看出是同一個人。"
           }
         }
       }
@@ -2984,17 +3006,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "這份證件標示的簽署者與實際簽章的金鑰不符。"
-          }
-        }
-      }
-    },
-    "This document shows the same identifier every time it is presented, so different checkers can tell it is the same person.": {
-      "comment": "Shown alongside a successful offline verification",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這份證件每次出示都會露出同一組識別碼，不同查驗者可據此比對出是同一個人。"
           }
         }
       }

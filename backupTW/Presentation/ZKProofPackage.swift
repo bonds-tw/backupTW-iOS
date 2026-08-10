@@ -12,9 +12,9 @@ import Foundation
 ///
 /// # Why this is a file and not a QR code
 ///
-/// `VerifiablePresentation` travels by QR because a credential JWS is about
-/// 3 KB and `QRTransport` can chunk that across a handful of frames. A ZK proof
-/// cannot. Measured on 2026-08-08 by `VerifierCostSpike`, against real proofs
+/// `VerifiablePresentation` travels by QR because a card-signed credential JWS is
+/// about 7.4 KB and `QRTransport` can chunk that across about fourteen frames
+/// (`PresentationFrameCountTests`). A ZK proof cannot. Measured on 2026-08-08 by `VerifierCostSpike`, against real proofs
 /// generated from upstream's own circuit inputs:
 ///
 ///     cert_chain_rs4096_proof.bin       113,055 bytes
@@ -24,10 +24,16 @@ import Foundation
 ///     ────────────────────────────────────────────
 ///                                       293,916 bytes
 ///
-/// At QR version 40's ceiling of 2,953 bytes per frame that is **100 frames**,
-/// before base64 expansion. Animated QR at a realistic five frames per second is
-/// twenty seconds of holding two phones still, with no error recovery for a
-/// dropped frame. So this format exists to be carried by something else — a
+/// That is not a QR payload at any frame size. Divided by version 40's ceiling of
+/// 2,953 bytes it comes to 100 frames, which is the figure this comment used to
+/// give and the source of the roadmap's 「約 100 張」 — but 2,953 is not the number
+/// that applies. `QRTransport` pins symbols at 89 modules and error-correction
+/// level Q so they survive being read off a phone screen, which leaves 364 bytes
+/// per frame: **about 808 frames**. In practice it never gets that far, because
+/// `QRTransport.frames(for:)` refuses any payload over 64 KB and this one is four
+/// and a half times that — it is rejected outright rather than sharded. Even the
+/// optimistic 100 frames, at a realistic five per second, is twenty seconds of
+/// holding two phones still with no recovery for a dropped frame. So this format exists to be carried by something else — a
 /// file, AirDrop, and eventually the Wi-Fi Aware or BLE transport M3 still owes.
 ///
 /// The instances are in here because they are not optional decoration: they are

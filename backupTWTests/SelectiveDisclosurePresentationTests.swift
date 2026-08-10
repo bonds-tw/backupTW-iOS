@@ -84,13 +84,34 @@ struct SelectiveDisclosurePresentationTests {
         let names = envelope.disclosures.compactMap { Disclosure(encoded: $0)?.claimName }
 
         #expect(names == [AgePredicate.claimName])
-        // And the values themselves are gone, not merely unlisted.
-        for value in ["A123456789", "王小明", "民國 083年03月06日", "臺北市中正區重慶南路一段122號"] {
-            let leaked = envelope.disclosures.contains { encoded in
-                Disclosure(encoded: encoded)?.claimValue == value
-            }
-            #expect(!leaked, "\(value) left the device despite being withheld")
+
+        // Searched across the **whole envelope**, not just the disclosures.
+        //
+        // This test used to look only at `envelope.disclosures`, which is what
+        // made it green while being wrong: the certificate travels in
+        // `proof.certificate` in the same envelope, and the cardholder's name is
+        // inside it. The assertion passed, its name claimed the value was
+        // "absent from the bytes that leave", and the value had left.
+        let everything = try #require(serialized.data(using: .utf8))
+        let certificate = try #require(Data(base64Encoded: envelope.proof.certificate))
+
+        for value in ["A123456789", "民國 083年03月06日", "臺北市中正區重慶南路一段122號"] {
+            let bytes = Data(value.utf8)
+            #expect(!everything.contains(subsequence: bytes),
+                    "\(value) left the device despite being withheld")
         }
+
+        // And the asymmetry, asserted rather than glossed. The name is not in the
+        // disclosures — the holder withheld it — and it is in the certificate
+        // anyway, because the checker cannot verify the signature without a
+        // certificate and X.509 has no way to leave a field out of one.
+        //
+        // This reads like a test asserting a defect, and that is the point: if
+        // anybody restores 「姓名不會送出」 to the holder's screen, this goes red.
+        let name = Data("王小明".utf8)
+        #expect(!envelope.disclosures.contains { Disclosure(encoded: $0)?.claimValue == "王小明" })
+        #expect(certificate.contains(subsequence: name),
+                "the certificate no longer carries the name — if that is real, the holder's screen can stop saying it does")
     }
 
     /// Withholding must not disturb the signature. If it did, the holder would

@@ -145,11 +145,24 @@ struct CardSignedPresentationTests {
             holderDID: did)
 
         let size = jws.utf8.count
-        // A single QR code holds 2,953 bytes of binary at the lowest error
-        // correction, so this is the number that decides how many frames the
-        // holder has to hold still for.
+        // What decides the frame count is **not** the 2,953 bytes a QR version 40
+        // symbol holds — this comment used to say it was, and that is where the
+        // roadmap's 「約 3 個 QR frame」 came from. It is `QRTransport`'s own
+        // `chunkByteBudget`, which is 364: this app caps symbols at 89 modules at
+        // error-correction level Q so the code stays scannable off a phone screen,
+        // and 364 bytes is what fits under that cap after base45 and the frame
+        // header. See `PresentationFrameCountTests` for the measured count.
         #expect(size > 3200, "smaller than a device-signed presentation — did the certificate stop travelling?")
-        #expect(size < 9000, "the card-signed presentation grew; check what was added before accepting more QR frames")
+
+        // The upper bound has to leave room for a *real* certificate. This
+        // fixture's is 861 bytes; the two real MOICA certificates in this repo are
+        // 1,643 (MOICA-G3.cer) and 1,409 (GRCA-G3.cer) bytes, and every extra byte
+        // of DER costs about 1.78 bytes here — base64 into the envelope, base64
+        // again into the enveloped credential, base64url again into the JWS.
+        // 9,000 left 3.5% of headroom against a 1,400-byte certificate, so it
+        // would have gone red on the day somebody first presented with a real
+        // card, when nothing was wrong.
+        #expect(size < 12_000, "the card-signed presentation grew; check what was added before accepting more QR frames")
     }
 
     // MARK: Verifying
