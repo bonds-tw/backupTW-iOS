@@ -416,7 +416,16 @@ struct VerifiedResultScreenTests {
     @Test func aListThatWasNotConsultedShowsNoDate() {
         let drawn = Self.drawnText(Self.forged())
 
-        #expect(!drawn.contains { $0.contains("That list was made on") })
+        // Matched on the rendered string rather than an English fragment: this
+        // app ships in Chinese, so an English needle would find nothing and the
+        // test would pass no matter what the screen drew.
+        let dateLine = String(format: NSLocalizedString("That list was made on %@.",
+                                                        comment: "Date of the revocation snapshot used"),
+                              "")
+        let stem = String(dateLine.prefix(while: { $0 != "." && $0 != "。" }))
+        #expect(!stem.isEmpty)
+        #expect(!drawn.contains { $0.contains(stem) },
+                "a snapshot date was drawn for a check that never consulted a list")
     }
 
     private static func checked(against snapshot: RevocationSnapshotInfo) -> VerifiedPresentation {
