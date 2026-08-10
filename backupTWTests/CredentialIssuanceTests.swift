@@ -108,20 +108,42 @@ struct CredentialIssuanceTests {
 
     /// The heart of the change: the card signs a digest of *this* credential,
     /// not the relying-party constant it used to sign.
-    @Test func theCardIsAskedToSignTheDigestOfTheCredentialBeingIssued() async throws {
+    ///
+    /// The exact digest cannot be predicted any more, and that is the newer
+    /// property rather than a weakening of this one: selective disclosure salts
+    /// every claim, so two issuances of the same document commit to different
+    /// digests. What stays checkable — and is what this test is for — is that
+    /// the card is asked to sign *this credential's* TBS and not a constant.
+    @Test func theCardIsAskedToSignTheCredentialsOwnTBS() async throws {
         let recorder = SignSessionRecorder()
 
         _ = try? await issuance(recorder: recorder).issue(Self.model, subjectDID: Self.subjectDID)
 
-        let expected = VerifiableCredential.nationalID(Self.model,
-                                                       issuerDID: Self.subjectDID,
-                                                       validFrom: Self.issuedAt)
-        let (tbs, _) = try MOICASignedCredential.toBeSigned(for: expected)
+        let sent = try #require(recorder.signing)
+        guard case .credentialTBS = sent else {
+            Issue.record("issuance signed \(sent) rather than a credential TBS")
+            return
+        }
+        // Emphatically not the value the holding proof signs — the mistake this
+        // whole change exists to undo.
+        #expect(sent != .relyingPartyIdentifier(TWFidOConfiguration.bondsAppID))
+    }
 
-        #expect(recorder.signing == .credentialTBS(tbs))
-        // And emphatically not the value the holding proof signs — the mistake
-        // this whole change exists to undo.
-        #expect(recorder.signing != .relyingPartyIdentifier(TWFidOConfiguration.bondsAppID))
+    /// Two issuances of the same document must not produce the same TBS.
+    ///
+    /// Salted commitments are what make that true, and it matters beyond
+    /// tidiness: identical digests across issuances would let anyone holding two
+    /// presentations tell they came from one document, which is a correlator the
+    /// holder never agreed to.
+    @Test func twoIssuancesOfTheSameDocumentSignDifferentDigests() async throws {
+        let first = SignSessionRecorder()
+        let second = SignSessionRecorder()
+
+        _ = try? await issuance(recorder: first).issue(Self.model, subjectDID: Self.subjectDID)
+        _ = try? await issuance(recorder: second).issue(Self.model, subjectDID: Self.subjectDID)
+
+        #expect(first.signing != nil)
+        #expect(first.signing != second.signing)
     }
 
     /// The TBS is the domain prefix plus the full SHA-256 — not a truncation

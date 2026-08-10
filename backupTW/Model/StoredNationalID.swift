@@ -143,7 +143,23 @@ struct StoredNationalID: Equatable {
         if let cardSigned = try? MOICASignedCredential.parse(stored) {
             // Not verified here, for the reason `load` gives above: this is the
             // holder's own device reading the holder's own file back to them.
-            guard let credential = try? cardSigned.credential() else { return nil }
+            guard var credential = try? cardSigned.credential() else { return nil }
+            // The holder sees everything: they hold every disclosure, and a
+            // screen that showed them digests would be hiding their own document
+            // from them. Withholding is a decision made at presentation, not a
+            // property of the file.
+            if let committed = credential.sd,
+               let revealed = try? SelectiveDisclosure.reveal(disclosures: cardSigned.disclosures,
+                                                              committedDigests: committed) {
+                credential = VerifiableCredential(
+                    context: credential.context,
+                    type: credential.type,
+                    issuer: credential.issuer,
+                    validFrom: credential.validFrom,
+                    credentialSubject: credential.credentialSubject
+                        .merging(Dictionary(revealed.map { ($0.name, $0.value) }) { a, _ in a }) { a, _ in a },
+                    sd: committed)
+            }
             return (credential, true)
         }
         let segments = stored.split(separator: ".", omittingEmptySubsequences: false)

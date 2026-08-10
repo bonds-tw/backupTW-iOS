@@ -653,7 +653,8 @@ struct VerifiablePresentationTests {
             type: [VerifiableCredential.baseType, VerifiableCredential.nationalIDType],
             issuer: fixture.did,
             validFrom: VerifiableCredential.timestamp(from: Self.issuedAt),
-            credentialSubject: ["id": Self.otherDID, "unifiedNo": "A123456789"])
+            credentialSubject: ["id": Self.otherDID, "unifiedNo": "A123456789"],
+            sd: nil)
         let foreignJWS = try foreign.jwsCompactSerialization(signedBy: fixture.key,
                                                              issuerDID: fixture.did)
 

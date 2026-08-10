@@ -147,9 +147,12 @@ struct CredentialIssuance {
             throw CredentialIssuanceError.nameMissing
         }
 
-        let credential = VerifiableCredential.nationalID(model,
-                                                         issuerDID: subjectDID,
-                                                         validFrom: now())
+        // Selectively disclosable from the moment it is issued. The commitment
+        // has to happen here or not at all: the card signs the payload, so a
+        // claim left in the clear now is one the holder can never withhold, and
+        // re-issuing later to gain the ability costs another 行憑 round trip.
+        let (credential, disclosures) = VerifiableCredential.selectivelyDisclosableNationalID(
+            model, issuerDID: subjectDID, validFrom: now())
         let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
 
         let started: (ticket: TWFidOTicket, deepLink: URL)
@@ -186,6 +189,7 @@ struct CredentialIssuance {
                                                    payloadBytes: bytes,
                                                    signResult: result,
                                                    anchor: trustAnchor,
+                                                   disclosures: disclosures,
                                                    now: now())
         } catch let error as IssuerCertificateError {
             // Worth its own sentence: an expired or G2 card is the common case

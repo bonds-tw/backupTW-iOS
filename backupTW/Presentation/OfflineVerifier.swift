@@ -1001,7 +1001,10 @@ enum OfflineVerifier {
                 throw VerificationFailure.cardholderIsNotTheSubject
             case .malformedPayload, .unsupportedProofConstruction, .malformedSignature:
                 throw VerificationFailure.credentialUnreadable
-            case .signatureInvalid:
+            case .signatureInvalid, .disclosureNotCommitted:
+                // A disclosure the card never committed to is a holder adding a
+                // claim, which is the same accusation as an altered payload and
+                // deserves the same sentence.
                 throw VerificationFailure.cardSignatureInvalid
             }
         } catch {

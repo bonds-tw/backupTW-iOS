@@ -70,7 +70,34 @@ struct VerifiableCredential: Codable, Equatable {
     /// XSD 1.1 `dateTimeStamp` — see `timestamp(from:)` for why the format matters.
     let validFrom: String
     /// Flat string map; `id` identifies the subject.
+    ///
+    /// When `sd` is present this holds only `id` — every factual claim has moved
+    /// behind a digest, and a claim left in the clear here would be one the
+    /// holder can never withhold.
     let credentialSubject: [String: String]
+
+    /// Sorted digests of the claims the issuer committed to, SD-JWT style.
+    ///
+    /// `nil` on credentials issued before selective disclosure, which carry
+    /// their claims in `credentialSubject` and cannot withhold any of them.
+    ///
+    /// # Why the digests are here and not inside `credentialSubject`
+    ///
+    /// SD-JWT puts `_sd` inside the object whose members are hidden. This model
+    /// types `credentialSubject` as `[String: String]`, which cannot hold an
+    /// array, and widening it to a general JSON value would change how every
+    /// existing claim is read, signed and displayed — a much larger change than
+    /// the one being made. A sibling field is a project-defined placement, it is
+    /// named as such, and what matters for soundness is that one side commits
+    /// and the other checks against the same list. `MOICASignedCredential`
+    /// verifies the card's signature over the whole payload including this
+    /// array, so the commitment is as protected as any other field.
+    ///
+    /// The array is **sorted**, which `SelectiveDisclosure.commit` does and this
+    /// relies on: left in claim order, position would say which digest belongs
+    /// to which field, and a verifier receiving one disclosure would learn what
+    /// the withheld ones are.
+    let sd: [String]?
 
     /// `@context` cannot be spelled as a Swift property name, so the mapping is explicit.
     enum CodingKeys: String, CodingKey {
@@ -79,6 +106,7 @@ struct VerifiableCredential: Codable, Equatable {
         case issuer
         case validFrom
         case credentialSubject
+        case sd = "_sd"
     }
 
     // MARK: - Vocabulary
@@ -173,30 +201,76 @@ extension VerifiableCredential {
     static func nationalID(_ model: NationalIDModel,
                            issuerDID: String,
                            validFrom: Date) -> VerifiableCredential {
-        var subject: [String: String] = ["id": issuerDID]
-        subject["nationality"] = model.nationality
-        subject["unifiedNo"] = model.unifiedNo
-        subject["name"] = model.name
-        subject["birthdate"] = model.birthdate
-        subject["addressOfHousehold"] = model.addressOfHousehold
+        VerifiableCredential(context: [.url(credentialsV2Context),
+                                       .definitions(nationalIDTermDefinitions)],
+                             type: [baseType, nationalIDType],
+                             issuer: issuerDID,
+                             validFrom: timestamp(from: validFrom),
+                             credentialSubject: ["id": issuerDID]
+                                 .merging(nationalIDClaims(model, validFrom: validFrom)) { a, _ in a },
+                             sd: nil)
+    }
+
+    /// The claims this build derives from a MyData document, in one place so the
+    /// plain credential and the selectively-disclosable one cannot disagree
+    /// about what a credential contains.
+    ///
+    /// `nil` fields are dropped rather than written as `""`. An empty string is a
+    /// claim — it says "this person's household address is the empty string" —
+    /// whereas an absent key says "not asserted", which is what a field the MyData
+    /// PDF never contained actually means.
+    static func nationalIDClaims(_ model: NationalIDModel, validFrom: Date) -> [String: String] {
+        var claims: [String: String] = [:]
+        claims["nationality"] = model.nationality
+        claims["unifiedNo"] = model.unifiedNo
+        claims["name"] = model.name
+        claims["birthdate"] = model.birthdate
+        claims["addressOfHousehold"] = model.addressOfHousehold
         // Derived at issuance, because that is the only moment the birthdate and
         // a trustworthy clock are both in hand — and because a predicate the
         // card signs carries the same authority as the date it came from, while
         // a predicate computed later by whoever is holding the file carries
         // none. Absent when the birthdate is not a form this build can read:
         // see `AgePredicate.claimValue` for why that must not become "false".
-        subject[AgePredicate.claimName] = AgePredicate.claimValue(birthdate: model.birthdate,
-                                                                  asOf: validFrom)
+        claims[AgePredicate.claimName] = AgePredicate.claimValue(birthdate: model.birthdate,
+                                                                 asOf: validFrom)
+        return claims
+    }
 
-        // The embedded definitions ride along with every copy of the credential.
-        // Anything else would mean a verifier's reading of the document depends
-        // on a URL bonds-tw has to keep serving forever.
-        return VerifiableCredential(context: [.url(credentialsV2Context),
-                                              .definitions(nationalIDTermDefinitions)],
-                                    type: [baseType, nationalIDType],
-                                    issuer: issuerDID,
-                                    validFrom: timestamp(from: validFrom),
-                                    credentialSubject: subject)
+    /// The same credential with every factual claim behind a digest, plus the
+    /// disclosures that open them.
+    ///
+    /// This is what issuance builds now. The card signs the credential — digests
+    /// and all — so a holder can later hand over any subset of the disclosures
+    /// and a verifier can check each one against a commitment the cardholder
+    /// signed. Nothing here is secret from the holder: they hold every
+    /// disclosure and choose which to part with.
+    ///
+    /// `credentialSubject` keeps only `id`, and that is deliberate rather than
+    /// tidy: any claim left beside it would be one the holder has no way to
+    /// withhold, which is exactly the property this exists to give them.
+    static func selectivelyDisclosableNationalID(
+        _ model: NationalIDModel,
+        issuerDID: String,
+        validFrom: Date
+    ) -> (credential: VerifiableCredential, disclosures: [Disclosure]) {
+        let claims = nationalIDClaims(model, validFrom: validFrom)
+            // Sorted so that issuing the same document twice produces the same
+            // *set* of digests in the same order. The salts still differ, so the
+            // digests themselves differ — this is reproducibility of structure,
+            // not of value, and the sort in `commit` is what protects position.
+            .sorted { $0.key < $1.key }
+            .map { (name: $0.key, value: $0.value) }
+        let (digests, disclosures) = SelectiveDisclosure.commit(claims)
+
+        let credential = VerifiableCredential(
+            context: [.url(credentialsV2Context), .definitions(nationalIDTermDefinitions)],
+            type: [baseType, nationalIDType],
+            issuer: issuerDID,
+            validFrom: timestamp(from: validFrom),
+            credentialSubject: ["id": issuerDID],
+            sd: digests)
+        return (credential, disclosures)
     }
 
     /// VC 2.0 requires an XSD 1.1 `dateTimeStamp`, which — unlike the RFC 3339

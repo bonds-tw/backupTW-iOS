@@ -28,7 +28,8 @@ struct MOICASignedCredentialTests {
             credentialSubject: ["id": Self.subjectDID,
                                 "nationality": "中華民國（臺灣）",
                                 "name": name,
-                                "birthdate": birthdate])
+                                "birthdate": birthdate],
+            sd: nil)
     }
 
     private func holderCertificate() throws -> X509Certificate {
@@ -124,7 +125,8 @@ struct MOICASignedCredentialTests {
             type: [VerifiableCredential.baseType],
             issuer: Self.subjectDID,
             validFrom: "2026-08-09T12:00:00Z",
-            credentialSubject: ["id": Self.subjectDID, "birthdate": "0700101"])
+            credentialSubject: ["id": Self.subjectDID, "birthdate": "0700101"],
+            sd: nil)
         let (_, bytes) = try MOICASignedCredential.toBeSigned(for: nameless)
         let signed = try sign(bytes)
 

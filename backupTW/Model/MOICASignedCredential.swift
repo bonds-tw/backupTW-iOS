@@ -56,6 +56,12 @@ enum MOICASignedCredentialError: Error, Equatable {
     /// The certificate's common name and the credential's `name` claim are
     /// different people.
     case cardholderNameDiffersFromSubject
+
+    /// A disclosure arrived that the card never committed to. The holder is
+    /// trying to add a claim, and the whole set is refused rather than the one
+    /// entry — a document that can be partly believed is one a screen has to
+    /// explain, and there is no honest explanation of "some of these are real".
+    case disclosureNotCommitted
 }
 
 extension MOICASignedCredentialError: LocalizedError {
@@ -65,6 +71,8 @@ extension MOICASignedCredentialError: LocalizedError {
         case .malformedPayload, .unsupportedProofConstruction, .malformedSignature:
             return NSLocalizedString("This document is in a format this app cannot read.", comment: "")
         case .signatureInvalid:
+            return NSLocalizedString("This document does not match the signature on it.", comment: "")
+        case .disclosureNotCommitted:
             return NSLocalizedString("This document does not match the signature on it.", comment: "")
         case .cardholderNameMissing, .credentialNameMissing, .cardholderNameDiffersFromSubject:
             return NSLocalizedString("This document was signed by a different person from the one it describes.",
@@ -122,6 +130,28 @@ struct MOICASignedCredential: Codable, Equatable {
     let payload: String
 
     let proof: MOICACredentialProof
+
+    /// The disclosures that open the credential's committed digests, when it has
+    /// any. Empty for a credential that carries its claims in the clear.
+    ///
+    /// # Why these are not signed, and why that is safe
+    ///
+    /// Each disclosure's digest is in the payload the card signed, so a
+    /// disclosure that was altered no longer matches any commitment and is
+    /// refused by `SelectiveDisclosure.reveal`. Signing them again would add
+    /// nothing and would break the property the whole design rests on: the
+    /// holder can *drop* disclosures freely, and dropping one must leave the
+    /// signature intact.
+    ///
+    /// They live in the envelope rather than the payload for the same reason.
+    /// The holder keeps the full set on their own device and hands over a subset
+    /// at presentation; a set inside the signed bytes could not be subsetted.
+    ///
+    /// ⚠️ On disk this is the whole document in the clear — the disclosures are
+    /// the claims. The file's protection is `CredentialStore`'s Data Protection
+    /// class, exactly as before; nothing here is encrypted by being hashed
+    /// somewhere else.
+    var disclosures: [String] = []
 
     /// The credential inside `payload`.
     ///
@@ -245,13 +275,15 @@ extension MOICASignedCredential {
                       payloadBytes: Data,
                       signResult: TWFidOSignResult,
                       anchor: IssuerCertificate,
+                      disclosures: [Disclosure] = [],
                       now: Date = Date()) throws -> MOICASignedCredential {
         let signed = MOICASignedCredential(
             payload: VerifiableCredential.base64URLEncoded(payloadBytes),
             proof: MOICACredentialProof(
                 tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
                 certificate: signResult.cert,
-                signature: signResult.signedResponse))
+                signature: signResult.signedResponse),
+            disclosures: disclosures.map(\.encoded))
 
         _ = try signed.verify(against: anchor, now: now)
         return signed
@@ -284,6 +316,24 @@ struct MOICACredentialVerification: Equatable {
     /// so this is the same string seen from the other side, and having it means
     /// a screen can say *whose* certificate signed without re-parsing the DER.
     let cardholderName: String
+
+    /// The claims this presentation actually opened: every claim for a plain
+    /// credential, or the revealed subset for a selectively-disclosable one.
+    let claims: [String: String]
+
+    /// How many committed claims were held back. Zero for a plain credential,
+    /// which has nothing to hold back.
+    let withheldClaimCount: Int
+
+    /// Whether the certificate's common name was checked against a `name` claim.
+    ///
+    /// `false` when the holder withheld `name` — there was then nothing to
+    /// contradict, and the check is skipped rather than failed. What is lost is
+    /// defence in depth, not the binding itself: 內政部 routes a SIGN request to
+    /// the cardholder named by `id_num`, so the claims a card signed are that
+    /// cardholder's whether or not a verifier can re-derive it. A screen must not
+    /// report this as though the name had been confirmed.
+    let cardholderNameWasChecked: Bool
 
     /// The certificate's own serial number, lowercase hex.
     ///
@@ -363,25 +413,60 @@ extension MOICASignedCredential {
         guard let cardholderName = try holder.subjectAttribute(.commonName) else {
             throw MOICASignedCredentialError.cardholderNameMissing
         }
-        guard let subjectName = credential.credentialSubject["name"], !subjectName.isEmpty else {
-            throw MOICASignedCredentialError.credentialNameMissing
+
+        // Open whatever the holder chose to hand over. Every disclosure must
+        // match a digest the card signed; one that does not is a holder trying
+        // to add a claim, and `reveal` refuses the whole set.
+        let opened: [String: String]
+        let withheld: Int
+        if let committed = credential.sd {
+            let revealed: [(name: String, value: String)]
+            do {
+                revealed = try SelectiveDisclosure.reveal(disclosures: disclosures,
+                                                          committedDigests: committed)
+            } catch {
+                throw MOICASignedCredentialError.disclosureNotCommitted
+            }
+            opened = Dictionary(revealed.map { ($0.name, $0.value) }) { a, _ in a }
+            withheld = SelectiveDisclosure.withheldCount(committedDigests: committed,
+                                                         revealed: revealed.count)
+        } else {
+            opened = credential.credentialSubject.filter { $0.key != "id" }
+            withheld = 0
         }
-        // Compared after canonical composition. A name typed into a government
-        // form, extracted from a PDF's text layer, and encoded into a DER
-        // DirectoryString has passed through three systems with their own ideas
-        // about how a CJK character is composed; NFC is what makes those three
-        // agree without weakening the comparison to a prefix or a fold.
-        guard cardholderName.precomposedStringWithCanonicalMapping
-                == subjectName.precomposedStringWithCanonicalMapping else {
-            // ⚠️ If this ever fires on a genuine document, suspect the
-            // comparison before suspecting the holder: the certificate's common
-            // name may carry a disambiguating suffix for duplicate names, which
-            // has not been measured against more than one real certificate.
-            throw MOICASignedCredentialError.cardholderNameDiffersFromSubject
+
+        // The name binding runs only when a name was disclosed. See
+        // `MOICACredentialVerification.cardholderNameWasChecked` for why
+        // skipping it is not the same as failing it.
+        var nameWasChecked = false
+        if let subjectName = opened["name"], !subjectName.isEmpty {
+            // Compared after canonical composition. A name typed into a
+            // government form, extracted from a PDF's text layer, and encoded
+            // into a DER DirectoryString has passed through three systems with
+            // their own ideas about how a CJK character is composed; NFC is what
+            // makes those three agree without weakening the comparison to a
+            // prefix or a fold.
+            guard cardholderName.precomposedStringWithCanonicalMapping
+                    == subjectName.precomposedStringWithCanonicalMapping else {
+                // ⚠️ If this ever fires on a genuine document, suspect the
+                // comparison before suspecting the holder: the certificate's
+                // common name may carry a disambiguating suffix for duplicate
+                // names, which has not been measured against more than one real
+                // certificate.
+                throw MOICASignedCredentialError.cardholderNameDiffersFromSubject
+            }
+            nameWasChecked = true
+        } else if credential.sd == nil {
+            // A plain credential with no name is one this build refuses to have
+            // issued — there is nothing for the card signature to bind to.
+            throw MOICASignedCredentialError.credentialNameMissing
         }
 
         return MOICACredentialVerification(credential: credential,
                                            cardholderName: cardholderName,
+                                           claims: opened,
+                                           withheldClaimCount: withheld,
+                                           cardholderNameWasChecked: nameWasChecked,
                                            certificateSerialNumberHex: holder.serialNumberHex)
     }
 }
