@@ -875,9 +875,98 @@ struct OfflineVerifierTests {
         case .credentialExpired: return .cardSignatureInvalid
         case .cardSignatureInvalid: return .cardholderIsNotTheSubject
         case .cardholderIsNotTheSubject: return .cardholderCertificateUnusable
-        case .cardholderCertificateUnusable: return .trustAnchorUnavailable
+        case .cardholderCertificateUnusable: return .cardholderCertificateRevoked
+        case .cardholderCertificateRevoked: return .trustAnchorUnavailable
         case .trustAnchorUnavailable: return nil
         }
+    }
+}
+
+// MARK: - When revocation gets asked about
+//
+// Here rather than in `RevocationVerificationTests` because it needs `Fixture`,
+// which is file-private on purpose. What that file covers is the decision a
+// revocation answer produces; what this covers is whether the question is put at
+// all — and to whom.
+
+struct RevocationLookupOrderTests {
+
+    /// Records every serial it is asked about, so a test can assert on the
+    /// questions that were *not* asked.
+    private final class Spy: @unchecked Sendable {
+        private let lock = NSLock()
+        private var asked: [String] = []
+        private let answer: RevocationStatus
+
+        init(answering answer: RevocationStatus) { self.answer = answer }
+
+        var questions: [String] {
+            lock.lock(); defer { lock.unlock() }
+            return asked
+        }
+
+        var lookup: RevocationLookup {
+            RevocationLookup { [self] serial in
+                lock.lock(); asked.append(serial); lock.unlock()
+                return answer
+            }
+        }
+    }
+
+    private static let revoked = RevocationStatus.revoked(
+        snapshot: RevocationSnapshotInfo(root: "0xa2ed", crlNumber: 2_026_050_323, entryCount: 1))
+
+    /// A device-signed credential has no certificate, so there is nothing whose
+    /// revocation anyone could look up. The lookup must not be consulted with
+    /// some substitute identifier — and the answer must be `noCertificateToCheck`
+    /// rather than a silent pass.
+    @Test func aDeviceSignedCredentialAsksNobodyAnything() throws {
+        let spy = Spy(answering: Self.revoked)
+        let request = try Fixture.request()
+        let presentation = try Fixture.presentation(request: request)
+
+        let outcome = OfflineVerifier.verify(presentationJWS: presentation,
+                                             against: request,
+                                             now: Fixture.presentedAt,
+                                             revocation: spy.lookup)
+
+        // The spy answers `revoked`, so anything that consulted it would have
+        // been refused. Passing is the assertion.
+        let verified = try #require(outcome.verified)
+        #expect(spy.questions.isEmpty, "a device-signed credential has no certificate to look up")
+        #expect(verified.revocation == .notChecked(reason: .noCertificateToCheck))
+        #expect(verified.caveats.contains(.revocationNotChecked))
+        #expect(!verified.caveats.contains(.revocationCheckedInLocalSnapshotOnly))
+    }
+
+    /// The ordering property. A serial read off a certificate whose signature has
+    /// not been checked is a serial the *presenter* chose, and looking it up
+    /// would answer a question about a document this verifier has not yet agreed
+    /// is genuine.
+    @Test func nothingIsLookedUpForAPresentationThatFailsItsChecks() throws {
+        let spy = Spy(answering: Self.revoked)
+        let request = try Fixture.request()
+        let presentation = try Fixture.presentation(request: request, signedBy: try Party())
+
+        let outcome = OfflineVerifier.verify(presentationJWS: presentation,
+                                             against: request,
+                                             now: Fixture.presentedAt,
+                                             revocation: spy.lookup)
+
+        #expect(outcome.failure == .presentationSignatureInvalid)
+        #expect(spy.questions.isEmpty, "a serial was looked up for a presentation that never verified")
+    }
+
+    /// The default has to be the honest one: a verifier built without a snapshot
+    /// reports that nothing was checked rather than skipping the step in silence.
+    @Test func aVerifierWithNoSnapshotSaysSoRatherThanSayingNothing() throws {
+        let request = try Fixture.request()
+        let verified = try #require(OfflineVerifier.verify(
+            presentationJWS: try Fixture.presentation(request: request),
+            against: request,
+            now: Fixture.presentedAt).verified)
+
+        #expect(verified.caveats.contains(.revocationNotChecked))
     }
 }
 

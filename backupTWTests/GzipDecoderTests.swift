@@ -129,6 +129,51 @@ struct GzipDecoderTests {
         }
     }
 
+    // MARK: - Reading a header without inflating the body
+    //
+    // `decompressPrefix` exists because the revocation snapshot is 27 MB
+    // compressed and expands past half a gigabyte, while the three fields worth
+    // reading sit in its first hundred bytes. The distinction from
+    // `decompress(_:limit:)` is which outcome is an error: there, too-large is a
+    // fault; here it is the normal case.
+
+    @Test(arguments: [1, 10, 4096, 65_535, 300_000])
+    func prefixReturnsExactlyWhatWasAskedFor(_ maxBytes: Int) throws {
+        let payload = Fixtures.pattern(count: 1_000_000)
+        let head = try GzipDecoder.decompressPrefix(Fixtures.storedGzip(payload), maxBytes: maxBytes)
+
+        #expect(head.count == maxBytes)
+        #expect(head == payload.prefix(maxBytes))
+    }
+
+    /// A payload shorter than the window is not an error either — it just ends.
+    @Test func prefixOfAShortPayloadIsTheWholePayload() throws {
+        let payload = Fixtures.pattern(count: 100)
+        let head = try GzipDecoder.decompressPrefix(Fixtures.storedGzip(payload), maxBytes: 4096)
+
+        #expect(head == payload)
+    }
+
+    /// The bytes come back unauthenticated by design — the trailer is never
+    /// reached — but a stream that is not gzip at all must still be refused,
+    /// because that is the case where a 404 page gets read as a header.
+    @Test func prefixStillRefusesSomethingThatIsNotGzip() {
+        #expect(throws: GzipError.notGzip) {
+            _ = try GzipDecoder.decompressPrefix(Data("<html>404</html>".utf8), maxBytes: 4096)
+        }
+    }
+
+    /// Pinning the trade this makes. A corrupt trailer is invisible here, so
+    /// nothing downstream may treat a successful prefix read as evidence the
+    /// file is intact.
+    @Test func prefixDoesNotNoticeADamagedTrailer() throws {
+        var damaged = Array(Fixtures.storedGzip(Fixtures.pattern(count: 100_000)))
+        damaged[damaged.count - 8] ^= 0xff          // first CRC32 byte
+
+        let head = try GzipDecoder.decompressPrefix(Data(damaged), maxBytes: 64)
+        #expect(head == Fixtures.pattern(count: 100_000).prefix(64))
+    }
+
     // MARK: - Damaged input throws rather than crashing
 
     @Test(arguments: [
@@ -385,77 +430,11 @@ private enum Fixtures {
 
     static let huffmanText = "有備而來 backupTW gzip fixture\n"
 
-    /// Deterministic, mildly compressible filler.
-    static func pattern(count: Int) -> Data {
-        var data = Data(capacity: count)
-        for index in 0..<count {
-            data.append(UInt8(truncatingIfNeeded: index &* 31 &+ (index >> 8)))
-        }
-        return data
-    }
+    static func pattern(count: Int) -> Data { TestGzip.pattern(count: count) }
 
-    /// Builds a gzip stream using only RFC 1951 *stored* blocks.
-    ///
-    /// Stored blocks let a fixture of any size be produced without a compressor,
-    /// so the decoder is never being checked against its own library's encoder.
-    /// Verified against `/usr/bin/gunzip` for empty, 12-byte, 65535-byte and
-    /// 1 MiB payloads.
-    static func storedGzip(_ payload: Data) -> Data {
-        // RFC 1952 header: magic, CM=deflate, no flags, no mtime, OS=Unix.
-        var output = Data([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03])
-
-        if payload.isEmpty {
-            // One final, empty stored block.
-            output.append(contentsOf: [0x01, 0x00, 0x00, 0xff, 0xff])
-        } else {
-            var offset = payload.startIndex
-            while offset < payload.endIndex {
-                let end = payload.index(offset, offsetBy: 65_535, limitedBy: payload.endIndex)
-                    ?? payload.endIndex
-                let block = payload[offset..<end]
-                offset = end
-
-                // BFINAL in bit 0, BTYPE=00 in bits 1-2, remaining bits padding.
-                output.append(offset >= payload.endIndex ? 0x01 : 0x00)
-                let length = UInt16(block.count)
-                output.append(contentsOf: [UInt8(length & 0xff), UInt8(length >> 8)])
-                let complement = ~length
-                output.append(contentsOf: [UInt8(complement & 0xff), UInt8(complement >> 8)])
-                output.append(contentsOf: block)
-            }
-        }
-
-        appendLittleEndian(crc32(payload), to: &output)
-        appendLittleEndian(UInt32(truncatingIfNeeded: payload.count), to: &output)
-        return output
-    }
-
-    private static func appendLittleEndian(_ value: UInt32, to data: inout Data) {
-        data.append(contentsOf: [
-            UInt8(value & 0xff),
-            UInt8((value >> 8) & 0xff),
-            UInt8((value >> 16) & 0xff),
-            UInt8((value >> 24) & 0xff),
-        ])
-    }
-
-    /// Textbook CRC-32/ISO-HDLC, written out rather than borrowed from zlib so
-    /// the fixture's checksum is not computed by the same code that verifies it.
-    private static let crcTable: [UInt32] = (0..<256).map { index in
-        var value = UInt32(index)
-        for _ in 0..<8 {
-            value = (value & 1) == 1 ? (0xEDB8_8320 ^ (value >> 1)) : (value >> 1)
-        }
-        return value
-    }
-
-    private static func crc32(_ data: Data) -> UInt32 {
-        var crc: UInt32 = 0xFFFF_FFFF
-        for byte in data {
-            crc = crcTable[Int((crc ^ UInt32(byte)) & 0xff)] ^ (crc >> 8)
-        }
-        return crc ^ 0xFFFF_FFFF
-    }
+    /// See `TestGzip` — stored blocks and a hand-rolled CRC32, so the decoder is
+    /// never checked against its own library's encoder.
+    static func storedGzip(_ payload: Data) -> Data { TestGzip.stored(payload) }
 }
 
 /// Seeded so a fuzz failure is reproducible from the printed seed.

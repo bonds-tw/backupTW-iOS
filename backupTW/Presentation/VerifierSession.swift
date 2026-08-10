@@ -59,9 +59,22 @@ enum VerifierSessionResult: Equatable {
 /// lock here would suggest the single-use property survives concurrent callers,
 /// and the property that actually matters — that two presentations cannot both
 /// spend one challenge — is only worth as much as the weakest path into it. One
-/// owner, on one queue, is a claim that can be read off the call sites. A check
-/// costs about a millisecond (two ECDSA verifications over a few kilobytes), so
-/// there is no reason to move it off the main queue in the first place.
+/// owner, on one queue, is a claim that can be read off the call sites.
+///
+/// The cryptography costs about a millisecond — two ECDSA verifications over a
+/// few kilobytes — and for a long time that was the whole check, so it ran on
+/// the main queue and this comment said there was no reason not to. Revocation
+/// changed that. Building the SMT from the snapshot took **1.35 s** on an M-series
+/// Mac (measured 2026-08-10 against the published G3 snapshot: 22 MB compressed,
+/// 51 MB of JSON, ~115,000 entries), and a phone will be slower still. The proof
+/// itself, once the tree is loaded, took 63 µs — the cost is all in the loading,
+/// and the FFI reloads on every call.
+///
+/// So `check(presentationJWS:completion:)` splits the two: the challenge is spent
+/// **synchronously, on this queue**, keeping the single-use property a property of
+/// one owner on one thread; only the verification runs elsewhere. The synchronous
+/// `check` remains for callers with no snapshot installed and for tests, where the
+/// lookup is `.unavailable` and the millisecond claim still holds.
 final class VerifierSession {
 
     /// How long an unanswered challenge stays outstanding.
@@ -82,7 +95,17 @@ final class VerifierSession {
 
     private var pending: PresentationRequest?
 
-    init() {}
+    /// How this session asks whether a signing certificate has been withdrawn.
+    ///
+    /// Defaults to `.unavailable`, which reports that nothing was checked. A
+    /// screen with a snapshot installed passes one that reads it; every other
+    /// caller, including every test that does not care, gets the honest default
+    /// rather than a silently skipped check.
+    private let revocation: RevocationLookup
+
+    init(revocation: RevocationLookup = .unavailable) {
+        self.revocation = revocation
+    }
 
     /// The outstanding request, or `nil` once it has aged out.
     ///
@@ -120,14 +143,47 @@ final class VerifierSession {
     /// — can leave the challenge outstanding. `check` returning `.rejected` and
     /// `check` never being reached must have the same effect on the pending set.
     func check(presentationJWS: String, now: Date = Date()) -> VerifierSessionResult {
-        guard let request = pendingRequest(now: now) else {
-            pending = nil
-            return .noPendingRequest
-        }
-        pending = nil
+        guard let request = spendChallenge(now: now) else { return .noPendingRequest }
         return .checked(OfflineVerifier.verify(presentationJWS: presentationJWS,
                                                against: request,
-                                               now: now))
+                                               now: now,
+                                               revocation: revocation))
+    }
+
+    /// The same check with the slow part moved off this queue.
+    ///
+    /// The challenge is spent before this returns, on the caller's thread — so a
+    /// second presentation arriving while the first is still being verified finds
+    /// nothing outstanding, exactly as it would have with the synchronous call.
+    /// Only the verification itself is elsewhere; see the note on this type for
+    /// why it is worth moving.
+    ///
+    /// `completion` runs on the main queue.
+    func check(presentationJWS: String,
+               now: Date = Date(),
+               completion: @escaping (VerifierSessionResult) -> Void) {
+        guard let request = spendChallenge(now: now) else {
+            completion(.noPendingRequest)
+            return
+        }
+        let lookup = revocation
+        DispatchQueue.global(qos: .userInitiated).async {
+            let outcome = OfflineVerifier.verify(presentationJWS: presentationJWS,
+                                                 against: request,
+                                                 now: now,
+                                                 revocation: lookup)
+            DispatchQueue.main.async { completion(.checked(outcome)) }
+        }
+    }
+
+    /// Takes the outstanding challenge, leaving none behind either way.
+    ///
+    /// Clearing happens whether or not there was something to return, so a stale
+    /// request and a spent one end in the same state.
+    private func spendChallenge(now: Date) -> PresentationRequest? {
+        let request = pendingRequest(now: now)
+        pending = nil
+        return request
     }
 
     /// Drops the outstanding challenge without answering it — for a screen being

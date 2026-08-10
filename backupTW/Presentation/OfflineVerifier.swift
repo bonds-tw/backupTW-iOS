@@ -32,6 +32,23 @@ enum VerificationCaveat: Equatable, CaseIterable {
     /// credential there is no authority that *could* publish an answer.
     case revocationNotChecked
 
+    /// A revocation list *was* consulted — one stored on this device — and the
+    /// signing certificate is not in it.
+    ///
+    /// Weaker than it sounds and the wording has to carry that. Two things are
+    /// unestablished. The list has a date on it and that date can be old: it is
+    /// regenerated twice a day and a phone that has been offline for a fortnight
+    /// holds a fortnight-old answer. And the list's authenticity was never
+    /// confirmed — `moica-revocation-smt` publishes each root on-chain precisely
+    /// so a snapshot can be checked against it, and reading that root is a
+    /// network call this app does not make. A device handed a doctored snapshot
+    /// with one serial quietly removed would produce this same sentence.
+    ///
+    /// So it replaces `revocationNotChecked` rather than removing it: what a
+    /// verifier gains is a real check against a dated list, not an assurance the
+    /// document is live.
+    case revocationCheckedInLocalSnapshotOnly
+
     /// The issuer is the holder's own device. A verifier who reads a valid
     /// signature as "the government says this is true" has misread it: this is
     /// the 「本人可驗」 half of §5.2 with 「資料可驗」 still missing.
@@ -109,6 +126,14 @@ extension VerificationCaveat {
                                      comment: "Shown alongside a successful offline verification")
         case .revocationNotChecked:
             return NSLocalizedString("Whether this document has been revoked cannot be checked offline.",
+                                     comment: "Shown alongside a successful offline verification")
+        case .revocationCheckedInLocalSnapshotOnly:
+            // Deliberately does not say 「未被撤銷」. The list is dated and its
+            // authenticity is unconfirmed, and a verifier who reads this as
+            // "the certificate is live" has been told something the check does
+            // not support. The date itself is on the result screen, next to the
+            // claims, where it can be read rather than inferred.
+            return NSLocalizedString("The signing certificate was checked against a revocation list stored on this device and is not on it. That list has a date, and this app cannot confirm it is the genuine current one.",
                                      comment: "Shown alongside a successful offline verification")
         case .selfIssuedByTheHolder:
             return NSLocalizedString("This document was issued by the holder's own device, not by a government authority.",
@@ -263,6 +288,22 @@ enum VerificationFailure: Error, Equatable {
     /// generation, out of date, or not signed by 內政部憑證管理中心 at all.
     case cardholderCertificateUnusable
 
+    /// The signing certificate's serial number is in the revocation list this
+    /// device holds.
+    ///
+    /// A rejection rather than a caveat. The asymmetry with
+    /// `revocationCheckedInLocalSnapshotOnly` is deliberate and it follows from
+    /// which way a stale list can be wrong: an old list can *miss* a revocation
+    /// that has since happened, but it cannot invent one. A serial in the tree
+    /// was put there by 內政部 publishing a CRL, so finding it is evidence that
+    /// only ever points one way — which is exactly why a positive answer can be
+    /// acted on while a negative one stays hedged.
+    ///
+    /// The document may well be a perfectly good copy of what the cardholder
+    /// signed; what has changed is that their card was withdrawn since. The
+    /// message says that rather than implying forgery.
+    case cardholderCertificateRevoked
+
     /// This build's own bundled MOICA certificate could not be loaded.
     ///
     /// Kept apart from every failure above because it is the only one that is
@@ -313,6 +354,14 @@ extension VerificationFailure {
             // Names the likeliest cause, because it is the only one with an
             // action attached: a 自然人憑證 lasts a year and lapsing is ordinary.
             return NSLocalizedString("The digital certificate that signed this document cannot be checked — most often because it has expired.",
+                                     comment: "Offline verification failure")
+        case .cardholderCertificateRevoked:
+            // Not an accusation. The commonest reason a 自然人憑證 is revoked is
+            // that the card was lost or replaced, and the person holding out the
+            // phone is very likely its rightful owner with an out-of-date
+            // document. What they need is to issue a new one, not to be told
+            // they are presenting a forgery.
+            return NSLocalizedString("The digital certificate that signed this document has been revoked. The document needs to be issued again with a current certificate.",
                                      comment: "Offline verification failure")
         case .trustAnchorUnavailable:
             return NSLocalizedString("This app cannot check government certificates right now. This is a problem with the app, not with the document.",
@@ -417,6 +466,16 @@ struct VerifiedPresentation: Equatable {
     let presentedAt: Date
 
     let caveats: [VerificationCaveat]
+
+    /// What checking the signing certificate against a revocation list
+    /// established — including, in the ordinary case, that nothing was checked.
+    ///
+    /// A verified presentation never carries `.revoked`: that is a rejection, not
+    /// a result. What this distinguishes is the two answers that *look* alike on
+    /// a screen — "not on the list this device holds, which was made on <date>"
+    /// and "no list was consulted" — and it carries the date so the screen can
+    /// show it rather than making the checker guess how old the answer is.
+    let revocation: RevocationStatus
 }
 
 /// The result of one check. Two cases only — a verifier standing in front of a
@@ -599,11 +658,17 @@ enum OfflineVerifier {
     /// - Returns: never throws. Every way this can go wrong is a
     ///   `VerificationFailure` carrying something to show the person at the
     ///   counter.
+    /// - Parameter revocation: how to ask whether the signing certificate has
+    ///   been withdrawn. Defaults to `.unavailable`, which reports that nothing
+    ///   was checked — the honest default, and the one every caller that has not
+    ///   installed a snapshot gets.
     static func verify(presentationJWS: String,
                        against request: PresentationRequest,
-                       now: Date = Date()) -> VerificationOutcome {
+                       now: Date = Date(),
+                       revocation: RevocationLookup = .unavailable) -> VerificationOutcome {
         do {
-            return .verified(try check(presentationJWS, against: request, now: now))
+            return .verified(try check(presentationJWS, against: request,
+                                       now: now, revocation: revocation))
         } catch let failure as VerificationFailure {
             return .rejected(failure)
         } catch {
@@ -626,7 +691,8 @@ enum OfflineVerifier {
     /// known to be authentic and about the presenter.
     private static func check(_ presentationJWS: String,
                               against request: PresentationRequest,
-                              now: Date) throws -> VerifiedPresentation {
+                              now: Date,
+                              revocation: RevocationLookup) throws -> VerifiedPresentation {
 
         // 1. Structure, and the domain separation that stops a stored credential
         //    passing as a live presentation.
@@ -783,8 +849,21 @@ enum OfflineVerifier {
             validUntil = parsed
         }
 
+        // Revocation runs only once the signature, the holder binding and the
+        // validity window have all passed. A serial number read off a
+        // certificate whose signature was never checked is a serial number the
+        // presenter chose, and looking it up would answer a question about a
+        // document this verifier has not yet agreed is genuine.
+        let revocationStatus: RevocationStatus
+        if let serial = credential.certificateSerialNumberHex {
+            revocationStatus = revocation.status(serial)
+        } else {
+            revocationStatus = .notChecked(reason: .noCertificateToCheck)
+        }
+        let revocationCaveat = try caveat(for: revocationStatus)
+
         var caveats: [VerificationCaveat] = [.noNetworkQuery,
-                                             .revocationNotChecked,
+                                             revocationCaveat,
                                              // Which of the two appears is the
                                              // only place the securing mechanism
                                              // reaches the screen, and they say
@@ -822,7 +901,34 @@ enum OfflineVerifier {
                                     validFrom: validFrom,
                                     validUntil: validUntil,
                                     presentedAt: presentedAt,
-                                    caveats: caveats)
+                                    caveats: caveats,
+                                    revocation: revocationStatus)
+    }
+
+    /// Turns a revocation result into the one sentence the screen may say about
+    /// it — or refuses the presentation outright.
+    ///
+    /// Separated from `check` because it is the only part of the revocation path
+    /// a test can reach. Everything upstream of it needs a certificate 內政部
+    /// issued to a real person: `IssuerCertificate` pins the MOICA G3 anchor by
+    /// digest so a test cannot substitute a CA of its own, which is deliberate
+    /// and is why `CardSignedPresentationTests` has no end-to-end happy path.
+    /// A three-way decision reachable only on device would be a three-way
+    /// decision nobody had ever seen take two of its branches.
+    ///
+    /// The asymmetry — one branch throws, two return — is the point of the
+    /// function. See `VerificationFailure.cardholderCertificateRevoked` for why
+    /// finding a serial in a stale list is actionable while not finding one is
+    /// not.
+    static func caveat(for status: RevocationStatus) throws -> VerificationCaveat {
+        switch status {
+        case .notRevokedInThisSnapshot:
+            return .revocationCheckedInLocalSnapshotOnly
+        case .notChecked:
+            return .revocationNotChecked
+        case .revoked:
+            throw VerificationFailure.cardholderCertificateRevoked
+        }
     }
 
     // MARK: - Steps
@@ -927,6 +1033,10 @@ enum OfflineVerifier {
         let claims: [String: String]
         let withheldClaimCount: Int
         let cardholderNameWasChecked: Bool
+        /// The serial number of the certificate that signed, hex, or nil for a
+        /// device-signed credential. The key MOICA's revocation tree is built
+        /// on, and the only thing the revocation check needs from here.
+        let certificateSerialNumberHex: String?
     }
 
     /// Pulls the credential out of the presentation without re-encoding it.
@@ -998,7 +1108,8 @@ enum OfflineVerifier {
                                  cardholderName: nil,
                                  claims: [:],
                                  withheldClaimCount: 0,
-                                 cardholderNameWasChecked: false)
+                                 cardholderNameWasChecked: false,
+                                 certificateSerialNumberHex: nil)
     }
 
     /// The current path: the fields were signed with the holder's 自然人憑證.
@@ -1055,7 +1166,8 @@ enum OfflineVerifier {
                                  cardholderName: verified.cardholderName,
                                  claims: verified.claims,
                                  withheldClaimCount: verified.withheldClaimCount,
-                                 cardholderNameWasChecked: verified.cardholderNameWasChecked)
+                                 cardholderNameWasChecked: verified.cardholderNameWasChecked,
+                                 certificateSerialNumberHex: verified.certificateSerialNumberHex)
     }
 
     /// Reads a field from the body, falling back to the protected header.
