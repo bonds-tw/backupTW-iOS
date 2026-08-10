@@ -608,10 +608,29 @@ final class VerificationResultViewController: UIViewController {
                         format: NSLocalizedString("The certificate that signed these details was issued by the government certification authority to “%@”. That names the signer — it does not mean the government checked the details below.",
                                                   comment: "Verifier result: who the signing certificate belongs to"),
                         name.text)))
+                    // Without this line the name above reads as confirmed. When
+                    // the holder withheld their name there was nothing to
+                    // confirm it against, and a checker comparing the screen to
+                    // a face has to know which of the two they are looking at.
+                    if !presentation.cardholderNameWasChecked {
+                        stack.addArrangedSubview(PresentationUI.caveat(
+                            NSLocalizedString("They did not show the name on the document, so this app could not check that the certificate above belongs to the same person.",
+                                              comment: "")))
+                    }
                 }
 
             case .whatTheyDisclosed:
                 buildDisclosedFields(presentation.claims, into: stack)
+                // "Three fields" and "three of eight" are materially different
+                // statements, and only one of them is what a checker is looking
+                // at. Said after the fields, where the count is about what was
+                // just read.
+                if presentation.withheldClaimCount > 0 {
+                    stack.addArrangedSubview(PresentationUI.caveat(String(
+                        format: NSLocalizedString("They held back %d more field(s). This app cannot tell which, only that the document commits to them.",
+                                                  comment: ""),
+                        presentation.withheldClaimCount)))
+                }
 
             case .whenItWasSigned:
                 let formatter = DateFormatter()

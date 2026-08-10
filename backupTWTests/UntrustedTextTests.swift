@@ -296,6 +296,8 @@ struct VerifiedResultScreenTests {
         }
         return VerifiedPresentation(holder: "did:key:zDnaeTest",
                                     cardholderName: cardholderName,
+                                    cardholderNameWasChecked: cardholderName != nil,
+                                    withheldClaimCount: 0,
                                     credentialTypes: ["VerifiableCredential"],
                                     claims: claims,
                                     validFrom: Date(timeIntervalSince1970: 1_754_000_000),
@@ -372,6 +374,8 @@ struct VerifiedResultScreenTests {
         let presentation = VerifiedPresentation(
             holder: "did:key:zDnaeTest",
             cardholderName: "王小明",
+            cardholderNameWasChecked: true,
+            withheldClaimCount: 0,
             credentialTypes: ["VerifiableCredential"],
             claims: [DisclosedClaim(term: "name", value: "王小明"),
                      DisclosedClaim(term: "unifiedNo", value: "A123456789"),

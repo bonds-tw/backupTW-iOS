@@ -45,6 +45,14 @@ final class PresentCredentialViewController: UIViewController {
     private let holder: HolderPresentation
     private var stage: Stage = .awaitingRequest
 
+    /// The claims the holder has ticked. Starts empty on purpose — see
+    /// `renderDisclosureChoices`.
+    private var chosenClaims: Set<String> = []
+    /// Rebuilt whenever the confirmation screen is drawn, so a stale set from a
+    /// previous request cannot decide what this one discloses.
+    private var disclosableClaims: [(name: String, value: String)] = []
+    private var showButton: UIButton?
+
     private let scrollView = UIScrollView()
     private let contentStack = UIStackView()
 
@@ -210,19 +218,17 @@ final class PresentCredentialViewController: UIViewController {
         contentStack.addArrangedSubview(PresentationUI.footnote(
             NSLocalizedString("This wording was written by the checker. This app cannot confirm who they are.", comment: "")))
 
-        contentStack.addArrangedSubview(PresentationUI.sectionTitle(
-            NSLocalizedString("What they will see", comment: "")))
-        contentStack.addArrangedSubview(PresentationUI.caveat(
-            NSLocalizedString("Every field in your document: name, ID number, date of birth, household address and nationality. This version cannot show only part of it.", comment: "")))
+        renderDisclosureChoices()
         contentStack.addArrangedSubview(linkabilityWarning())
 
         var configuration = UIButton.Configuration.filled()
-        configuration.title = NSLocalizedString("Show my document", comment: "")
         configuration.buttonSize = .large
         let button = UIButton(type: .system)
         button.configuration = configuration
         button.addTarget(self, action: #selector(confirmPresentation), for: .touchUpInside)
         contentStack.addArrangedSubview(button)
+        showButton = button
+        updateShowButtonTitle()
 
         var cancelConfiguration = UIButton.Configuration.plain()
         cancelConfiguration.title = NSLocalizedString("Cancel", comment: "")
@@ -230,6 +236,91 @@ final class PresentCredentialViewController: UIViewController {
         cancel.configuration = cancelConfiguration
         cancel.addTarget(self, action: #selector(cancelPresentation), for: .touchUpInside)
         contentStack.addArrangedSubview(cancel)
+    }
+
+    /// One switch per claim the document can withhold.
+    ///
+    /// # Everything starts off
+    ///
+    /// The default is to disclose nothing, and that is a decision rather than an
+    /// oversight. A pre-ticked list is a list nobody reads: the holder taps
+    /// through and hands over a national ID number because it was already
+    /// selected, which is the outcome an app called 最小揭露 exists to prevent.
+    /// Starting empty makes every field an act, and the button says how many
+    /// acts have been taken so a holder cannot show more than they meant to
+    /// without seeing the number change.
+    ///
+    /// A credential issued before selective disclosure has nothing to choose
+    /// from, and says so — an empty list would read as "nothing will be shown"
+    /// when in fact everything will be.
+    private func renderDisclosureChoices() {
+        disclosableClaims = (try? holder.disclosableClaims()) ?? []
+        chosenClaims = []
+
+        contentStack.addArrangedSubview(PresentationUI.sectionTitle(
+            NSLocalizedString("Choose what they will see", comment: "")))
+
+        guard !disclosableClaims.isEmpty else {
+            contentStack.addArrangedSubview(PresentationUI.caveat(
+                NSLocalizedString("This document was created by an older version of the app and cannot be shown in part. Every field in it will be shown: name, ID number, date of birth, household address and nationality.", comment: "")))
+            return
+        }
+
+        contentStack.addArrangedSubview(PresentationUI.body(
+            NSLocalizedString("Nothing is selected to begin with. Whatever you leave off is not sent — the checker sees only that some fields were held back, not what they were.", comment: "")))
+
+        for claim in disclosableClaims {
+            contentStack.addArrangedSubview(disclosureRow(for: claim))
+        }
+    }
+
+    private func disclosureRow(for claim: (name: String, value: String)) -> UIView {
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = 12
+
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.adjustsFontForContentSizeCategory = true
+        // The app's own noun first, then the holder's own value quoted after it.
+        // This is the holder's screen and the value is their own record, so it is
+        // shown in full — the sanitising `UntrustedText` does is for a stranger's
+        // bytes on the verifier's screen, not for a person reading their own
+        // document back.
+        let title = NSMutableAttributedString(
+            string: StoredNationalID.label(for: claim.name),
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .headline)])
+        title.append(NSAttributedString(
+            string: "\n" + claim.value,
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .subheadline),
+                         .foregroundColor: UIColor.secondaryLabel]))
+        label.attributedText = title
+
+        let toggle = UISwitch()
+        toggle.isOn = false
+        toggle.accessibilityLabel = StoredNationalID.label(for: claim.name)
+        toggle.addAction(UIAction { [weak self] action in
+            guard let self, let toggle = action.sender as? UISwitch else { return }
+            if toggle.isOn { self.chosenClaims.insert(claim.name) }
+            else { self.chosenClaims.remove(claim.name) }
+            self.updateShowButtonTitle()
+        }, for: .valueChanged)
+
+        row.addArrangedSubview(label)
+        row.addArrangedSubview(toggle)
+        return row
+    }
+
+    /// The count is on the button because that is the last thing read before the
+    /// tap. A holder who ticked one more field than they meant to sees it here.
+    private func updateShowButtonTitle() {
+        guard let showButton else { return }
+        var configuration = showButton.configuration ?? UIButton.Configuration.filled()
+        configuration.title = disclosableClaims.isEmpty
+            ? NSLocalizedString("Show my document", comment: "")
+            : String(format: NSLocalizedString("Show %d field(s)", comment: ""), chosenClaims.count)
+        showButton.configuration = configuration
     }
 
     private func renderFrames(_ frames: [String]) {
@@ -471,8 +562,12 @@ final class PresentCredentialViewController: UIViewController {
         // phone — and the deflate-and-shard pass runs over a few kilobytes. Both
         // are fast on a good day and both are exactly the calls that stall for a
         // second on a bad one, with a person waiting at a counter.
+        // Read on the main thread, before the hop: `chosenClaims` is UI state and
+        // a switch flipped mid-signing must not change what was signed.
+        let disclosing: [String]? = disclosableClaims.isEmpty ? nil : Array(chosenClaims)
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self, holder = self.holder] in
-            let result = Result { try holder.frames(answering: request) }
+            let result = Result { try holder.frames(answering: request, disclosing: disclosing) }
             DispatchQueue.main.async {
                 guard let self else { return }
                 switch result {

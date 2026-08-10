@@ -44,7 +44,8 @@ private func cardSignedEnvelope(subjectDID: String) throws -> MOICASignedCredent
         type: [VerifiableCredential.baseType, VerifiableCredential.nationalIDType],
         issuer: subjectDID,
         validFrom: "2026-08-09T12:00:00Z",
-        credentialSubject: ["id": subjectDID, "name": "王小明", "birthdate": "0700101"])
+        credentialSubject: ["id": subjectDID, "name": "王小明", "birthdate": "0700101"],
+        sd: nil)
     let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
     return MOICASignedCredential(
         payload: VerifiableCredential.base64URLEncoded(bytes),
