@@ -690,10 +690,15 @@ final class PresentCredentialViewController: UIViewController {
         guard renderedFrames.count > 1 else { return }
 
         // 0.55 s per frame: slow enough that a camera at 30 fps gets a dozen
-        // clean looks at each code, fast enough that a three-frame cycle
-        // completes in under two seconds. `.common` mode so the carousel keeps
-        // running while the user scrolls this screen — a carousel that stops
-        // mid-scan looks like a crash.
+        // clean looks at each code. This comment used to finish "fast enough that
+        // a three-frame cycle completes in under two seconds", which was true of
+        // the device-signed payload and has not been true since the card started
+        // signing — a card-signed presentation is about fourteen frames, so a full
+        // cycle is nearer eight seconds and a scanner that misses one waits for
+        // the next pass. `PresentationFrameCountTests` measures both.
+        //
+        // `.common` mode so the carousel keeps running while the user scrolls this
+        // screen — a carousel that stops mid-scan looks like a crash.
         let timer = Timer(timeInterval: 0.55, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.showFrame((self.frameIndex + 1) % self.renderedFrames.count)

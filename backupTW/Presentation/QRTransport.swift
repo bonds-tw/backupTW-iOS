@@ -137,7 +137,11 @@ enum QRTransport {
     /// A scanned string longer than this did not come from a camera.
     private static let absoluteAlphanumericCeiling = 4296
 
-    /// Two digits, so 99. The payload that motivated this file needs three.
+    /// Two digits, so 99. The payload that motivated this file needed three when
+    /// the device signed the credential; a card-signed one needs about fourteen,
+    /// and a real 自然人憑證 rather than the test fixture will push that to
+    /// sixteen or so. See `PresentationFrameCountTests`, which measures it — the
+    /// numbers in this file were quoted for a payload that no longer exists.
     static let maximumFrameCount = 99
 
     private static let deflateFlag = "Z"
@@ -171,11 +175,13 @@ enum QRTransport {
     /// differently here than it first appears. Because `maximumModuleCount` is
     /// fixed, raising the correction level does **not** make the code physically
     /// harder to read — the modules stay the same size. It costs capacity, and
-    /// capacity costs frames: at level M this payload takes two frames, at Q it
-    /// takes three. That is the whole price.
+    /// capacity costs frames: measured on today's card-signed payload, level M
+    /// takes about ten frames and level Q about fourteen. (The figures this
+    /// paragraph used to give — two and three — were measured on the
+    /// device-signed payload this app no longer produces. The argument survived
+    /// the change; the numbers did not.)
     ///
-    /// Three frames instead of two is worth it because 5.3's setting is not a
-    /// tidy one. A 里長 office window at noon puts glare across half an OLED
+    /// The extra frames are worth it because 5.3's setting is not a tidy one. A 里長 office window at noon puts glare across half an OLED
     /// panel; a border queue means a screen held at an angle; and the most
     /// robust carrier in a blackout is a sheet of paper, which gets folded,
     /// smudged, and photocopied. Level M's 15% covers none of those with much
@@ -211,7 +217,8 @@ enum QRTransport {
 
     /// The most a scanner will reassemble, before or after inflating.
     ///
-    /// A presentation is under 2 KB. This ceiling is 32× that, and it exists
+    /// A card-signed presentation is about 7.4 KB. This ceiling is roughly 8× that
+    /// — it was 32× when a presentation was under 2 KB — and it exists
     /// because the bytes arrive from a stranger's screen: DEFLATE's expansion
     /// ratio is chosen by whoever produced the stream, and a few hundred bytes
     /// of QR can inflate without bound. `GzipDecoder` bounds its output for the

@@ -163,8 +163,18 @@ struct VerifierCostSpike {
             payload += size
             print("instance \(name.replacingOccurrences(of: "keys/", with: "")) \(size) bytes")
         }
-        print(String(format: "要送到查驗方手上的總量 %d bytes ≈ %.0f 個 QR frame（每張上限 2,953）",
-                     payload, (Double(payload) / 2953).rounded(.up)))
+        // Divided by this app's own per-frame budget, not by QR version 40's
+        // 2,953-byte ceiling. This line used to use 2,953 and printed a number
+        // about eight times too small — `QRTransport` pins symbols at 89 modules
+        // and level Q so they stay scannable off a phone screen, which leaves 364
+        // bytes a frame. (Not that either figure is reachable: `QRTransport`
+        // refuses any payload over 65,536 bytes outright, so this one never gets
+        // as far as being sharded.)
+        print(String(format: "要送到查驗方手上的總量 %d bytes ≈ %.0f 個 QR frame（每張 %d bytes），超過 QRTransport 的 %d bytes 上限，根本排不出來",
+                     payload,
+                     (Double(payload) / Double(QRTransport.chunkByteBudget)).rounded(.up),
+                     QRTransport.chunkByteBudget,
+                     QRTransport.maximumPayloadBytes))
 
         // MARK: Cost, twice — the second pass is warm
 
