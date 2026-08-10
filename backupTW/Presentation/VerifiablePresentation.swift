@@ -57,11 +57,17 @@ enum VerifiablePresentationError: Error, Equatable {
 /// floor, and no amount of re-encoding fixes it: compression, CBOR and QR
 /// splitting all preserve that identifier exactly.
 ///
-/// What would fix it is ZK selective disclosure, which is not integrated because
-/// the upstream circuit library (OpenACSwift) ships without a licence and cannot
-/// be taken as a dependency. Until then this must be said in the holder-facing
-/// UI *before* they present, not discovered afterwards. Do not let the next
-/// person reading this file believe the problem is solved.
+/// What would fix it is proving the certificate chain inside a circuit rather
+/// than sending the certificate — the ZK path. The reason given here used to be
+/// that OpenACSwift shipped without a licence; it carries Apache and MIT as of
+/// 2026-08-07, so that is no longer the obstacle. The obstacle is that zkID's two
+/// circuits cannot do it: `user_sig` signs a fixed `app_id` constant and
+/// `cert_chain` takes no message at all, so neither proves a statement about a
+/// credential the holder chose. That needs a circuit upstream does not have.
+///
+/// Until then this must be said in the holder-facing UI *before* they present,
+/// not discovered afterwards. Do not let the next person reading this file
+/// believe the problem is solved.
 ///
 /// # The seam left for that fix
 ///
