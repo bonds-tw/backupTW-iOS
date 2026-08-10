@@ -224,11 +224,18 @@ final class VerifierViewController: UIViewController {
     /// the holder side's own debug button copies.
     /// Checks this device's own stored credential, start to finish.
     ///
-    /// Disclosing nothing, deliberately — that is the interesting case now. The
-    /// holder ticks no boxes, and the checker still sees the name, because it is
-    /// in the certificate rather than in the disclosures. The result screen
-    /// should therefore show the name, a withheld count of five, and the
-    /// revocation line if a snapshot is installed.
+    /// Disclosing nothing, deliberately — that is the interesting case now, and
+    /// running it on a real phone is what found the bug it now guards.
+    ///
+    /// The holder ticks no boxes. `VerifiablePresentation.create` still discloses
+    /// `name`, because the certificate carries it either way and withholding it
+    /// only cost the checker the CN-to-name comparison. The first time this
+    /// button ran, that forcing lived in the holder's *screen* and this method
+    /// walked straight past it: the result said 「對方沒有出示姓名，所以無法核對
+    /// 上面那張憑證是不是同一個人的」 while printing the name two lines above.
+    ///
+    /// So the expected result is: the name shown **and** checked, five fields
+    /// held back, and the revocation line if a snapshot is installed.
     @objc private func checkOwnCredential() {
         collector.reset()
         let holder = HolderPresentation(store: (try? CredentialStore()) ?? EmptyCredentialStore())
