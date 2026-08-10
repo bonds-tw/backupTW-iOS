@@ -2026,6 +2026,17 @@
         }
       }
     },
+    "That list was made on %@.": {
+      "comment": "Date of the revocation snapshot used",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "該名單製作於 %@。"
+          }
+        }
+      }
+    },
     "The certificate authority file that ships with this app couldn't be read.": {
       "localizations": {
         "zh-Hant": {
@@ -2172,6 +2183,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "簽署這份文件的憑證無法查驗，最常見的原因是憑證已經過期。"
+          }
+        }
+      }
+    },
+    "The digital certificate that signed this document has been revoked. The document needs to be issued again with a current certificate.": {
+      "comment": "Offline verification failure",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署這份文件的憑證已被撤銷。請用現行的憑證重新簽發一次。"
           }
         }
       }
@@ -2380,6 +2402,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "這份證明所依據的簽章永遠是同一份，也不會過期。任何拿過一次的人——包括內政部——都可以在你不在場、也不知情的情況下，用任何一台裝置繼續產生新的證明。"
+          }
+        }
+      }
+    },
+    "The signing certificate was checked against a revocation list stored on this device and is not on it. That list has a date, and this app cannot confirm it is the genuine current one.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已拿簽署憑證對照這支手機上的撤銷名單，不在名單上。那份名單有它自己的製作時間，而這個 App 無法確認它是不是真正的當前版本。"
           }
         }
       }
