@@ -85,12 +85,15 @@ import Security
 // ## Licensing, stated honestly
 //
 // These certificates are government-published public documents and are not
-// covered by any PSE licence. That matters because the surrounding stack is
-// unclear: `privacy-ethereum/zkID` carries an MIT LICENSE, but
-// `openac-rsa-x509-swift`, `go-zkid-verifier`, `moica-revocation-smt` and the
-// iOS example app still had **no LICENSE file at all** when checked on
-// 2026-08-07. We are proceeding on PSE's written statement that the terms are
-// MIT. Do not restate that as "upstream is MIT" — it is a promise, not a file.
+// covered by any PSE licence. That used to matter more than it does: for several
+// months `privacy-ethereum/zkID` carried an MIT LICENSE while
+// `openac-rsa-x509-swift`, `go-zkid-verifier` and `moica-revocation-smt` carried
+// none, and this app was building on a written statement rather than a file.
+//
+// Rechecked 2026-08-10: all three now carry licences in the repositories.
+// `go-zkid-verifier` and `openac-rsa-x509-swift` have LICENSE-APACHE and
+// LICENSE-MIT; `moica-revocation-smt` has LICENSE. The promise became a file, so
+// an auditor reading the upstream sources alone now finds the same terms we do.
 
 // MARK: - Generations
 

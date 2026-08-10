@@ -16,12 +16,17 @@ import OpenACSwift
 //
 // **Licensing, stated exactly.** `privacy-ethereum/zkID` — the circuits
 // themselves — carries an MIT LICENSE file. `openac-rsa-x509-swift`,
-// `go-zkid-verifier` and `moica-revocation-smt` **do not**: as of 2026-08-07
-// none of those three repositories contains a LICENSE file of any kind, and the
-// GitHub license endpoint returns 404 for each. We are proceeding on a written
-// statement from PSE that the intended licence is MIT. That statement is not in
-// the repositories, so anyone auditing this app from the upstream sources alone
-// will find no licence at all. Do not shorten this to "upstream is MIT".
+// `go-zkid-verifier` and `moica-revocation-smt` carried none for months, and
+// this app proceeded on a written statement from PSE that the terms were MIT —
+// a promise rather than a file, which anyone auditing from the upstream sources
+// alone could not see.
+//
+// Rechecked 2026-08-10: all three now carry licences. `openac-rsa-x509-swift`
+// added LICENSE-APACHE and LICENSE-MIT in cce06e1a (2026-08-07);
+// `go-zkid-verifier` carries the same pair; `moica-revocation-smt` carries
+// LICENSE. This app's own `Package.resolved` was still pinned to 4a53fba —
+// the revision immediately before that commit — until it was bumped, so for
+// three days it was genuinely building against an unlicensed snapshot.
 //
 // **What this proof establishes**, so that nothing downstream overstates it:
 // that *some* holder of a certificate issued by MOICA-G3 supplied signing
