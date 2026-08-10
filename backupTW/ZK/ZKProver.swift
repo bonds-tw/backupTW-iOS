@@ -488,6 +488,27 @@ enum ProofCaveat: String, Codable, Equatable, Sendable, CaseIterable {
     /// read as though it were done.
     case noGlobalUniqueness
 
+    /// **Present on every proof this build makes. The duplicate-detection
+    /// number is one value per person, shown identically to every checker.**
+    ///
+    /// The nullifier is derived from the relying-party identifier and the
+    /// cardholder's key — and this app has exactly one relying-party
+    /// identifier, `TWFidOConfiguration.bondsAppID`, a constant shared by the
+    /// production and UAT configurations. So the derivation that would give
+    /// different verifiers different numbers gives them all the same one, and
+    /// it is a public signal in the proof.
+    ///
+    /// The consequence is linkability, and it must not hide behind
+    /// `noGlobalUniqueness`'s wording: that caveat says the *check* for reuse
+    /// cannot be done offline, which reads as though the number were at least
+    /// compartmentalised per verifier. It is not, in this build. Two checkers
+    /// who compare notes can tell they saw the same person; the proof hides the
+    /// name and the certificate, not the fact of being the same holder.
+    ///
+    /// Becomes conditional the day this app derives per-verifier identifiers —
+    /// which is a protocol and registration question, not a code change here.
+    case nullifierSharedAcrossVerifiers
+
     /// Present on every proof. The circuit's inputs are moduli, signatures, a
     /// serial number and a Merkle witness — there is not one date field among
     /// them. An expired 自然人憑證, or an expired MOICA-G3, still produces a
@@ -523,8 +544,8 @@ enum ProofCaveat: String, Codable, Equatable, Sendable, CaseIterable {
     var isUnconditional: Bool {
         switch self {
         case .signatureMaterialIsReplayable, .idNumberDisclosedToIssuer,
-             .noGlobalUniqueness, .certificateExpiryNotProven,
-             .revocationRootNotAnchored:
+             .noGlobalUniqueness, .nullifierSharedAcrossVerifiers,
+             .certificateExpiryNotProven, .revocationRootNotAnchored:
             return true
         case .challengeNotBoundToVerifier:
             return false
@@ -559,6 +580,10 @@ enum ProofCaveat: String, Codable, Equatable, Sendable, CaseIterable {
         case .noGlobalUniqueness:
             return NSLocalizedString(
                 "This proof cannot show whether the same identity has already been used elsewhere.",
+                comment: "Limitation attached to a zero-knowledge proof")
+        case .nullifierSharedAcrossVerifiers:
+            return NSLocalizedString(
+                "This proof carries the same personal number every time and to every checker, so any two checkers can tell it was the same person. It hides who you are, not that you are the same one.",
                 comment: "Limitation attached to a zero-knowledge proof")
         case .certificateExpiryNotProven:
             return NSLocalizedString(
@@ -1202,7 +1227,7 @@ actor ZKProver {
 
     /// Everything this proof fails to establish.
     ///
-    /// Five of the six are unconditional, and they are unconditional because
+    /// Six of the seven are unconditional, and they are unconditional because
     /// they are properties of the design rather than of a particular run. A
     /// caller that finds this list inconveniently long is being told something
     /// true.

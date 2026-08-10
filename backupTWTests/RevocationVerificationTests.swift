@@ -19,6 +19,11 @@ private let snapshot = RevocationSnapshotInfo(root: "0xa2ed" + String(repeating:
                                               crlNumber: 2_026_050_323,
                                               entryCount: 115_584)
 
+/// One hour after the fixture snapshot was made — comfortably inside the
+/// 72-hour freshness window, so tests that are not about staleness read as the
+/// ordinary case.
+private let anHourAfterTheSnapshot = snapshot.generatedAt!.addingTimeInterval(3600)
+
 /// `OfflineVerifier.caveat(for:)` is the only part of the revocation path a test
 /// can reach end to end. Everything upstream needs a certificate 內政部 issued
 /// to a real person — `IssuerCertificate` pins the MOICA G3 anchor by digest so
@@ -36,7 +41,7 @@ struct RevocationVerdictTests {
     /// 內政部 published a CRL saying so.
     @Test func aRevokedCertificateRefusesThePresentation() {
         #expect(throws: VerificationFailure.cardholderCertificateRevoked) {
-            _ = try OfflineVerifier.caveat(for: .revoked(snapshot: snapshot))
+            _ = try OfflineVerifier.caveat(for: .revoked(snapshot: snapshot), now: anHourAfterTheSnapshot)
         }
     }
 
@@ -63,7 +68,7 @@ struct RevocationVerdictTests {
     }
 
     @Test func anAbsentCertificateEarnsTheHedgedSentence() throws {
-        let caveat = try OfflineVerifier.caveat(for: .notRevokedInThisSnapshot(snapshot: snapshot))
+        let caveat = try OfflineVerifier.caveat(for: .notRevokedInThisSnapshot(snapshot: snapshot), now: anHourAfterTheSnapshot)
         #expect(caveat == .revocationCheckedInLocalSnapshotOnly)
 
         // Two different sentences, always. Collapsing them would make "we did
@@ -101,7 +106,7 @@ struct RevocationVerdictTests {
                       .proofDidNotVerify,
                       .noCertificateToCheck])
     func notLookingIsNeverReportedAsLooking(_ reason: RevocationStatus.NotCheckedReason) throws {
-        let caveat = try OfflineVerifier.caveat(for: .notChecked(reason: reason))
+        let caveat = try OfflineVerifier.caveat(for: .notChecked(reason: reason), now: anHourAfterTheSnapshot)
 
         #expect(caveat == .revocationNotChecked)
     }
@@ -113,3 +118,67 @@ struct RevocationVerdictTests {
         #expect(!caveat.message.isEmpty)
     }
 }
+
+// MARK: - How old is too old to stay quiet about
+
+/// The threshold changes a sentence, never a verdict — because of which way a
+/// stale list can be wrong. An old list can miss a revocation published after
+/// it; it cannot invent one. So `.revoked` stays a rejection at any age, and
+/// what ages out is only the right to imply the silence is fresh.
+struct RevocationFreshnessTests {
+
+    /// 72 h: upstream rebuilds twice a day with a measured publish lag topping
+    /// out around 3.4 h, so a device online at any point in the last day holds a
+    /// list under ~52 h old. Past 72 the device has been offline a while — the
+    /// exact situation this app exists for, which is why the check is not
+    /// withheld, only re-worded.
+    @Test func theFreshSentenceEndsExactlyAtTheThreshold() throws {
+        let made = try #require(snapshot.generatedAt)
+        let justInside = made.addingTimeInterval(OfflineVerifier.maximumSnapshotFreshness - 1)
+        let justOutside = made.addingTimeInterval(OfflineVerifier.maximumSnapshotFreshness + 1)
+
+        #expect(try OfflineVerifier.caveat(for: .notRevokedInThisSnapshot(snapshot: snapshot),
+                                           now: justInside)
+                == .revocationCheckedInLocalSnapshotOnly)
+        #expect(try OfflineVerifier.caveat(for: .notRevokedInThisSnapshot(snapshot: snapshot),
+                                           now: justOutside)
+                == .revocationCheckedInStaleSnapshot)
+    }
+
+    /// A snapshot whose date cannot be read gets the stale sentence. "We cannot
+    /// say when this list was made" and "this list is old" both mean its silence
+    /// must not be read as fresh.
+    @Test func anUndatableSnapshotIsTreatedAsStale() throws {
+        let undatable = RevocationSnapshotInfo(root: "0xab", crlNumber: 999, entryCount: 1)
+        #expect(undatable.generatedAt == nil)
+
+        #expect(try OfflineVerifier.caveat(for: .notRevokedInThisSnapshot(snapshot: undatable),
+                                           now: anHourAfterTheSnapshot)
+                == .revocationCheckedInStaleSnapshot)
+    }
+
+    /// The one thing age must never do. A serial in the tree was put there by a
+    /// published CRL; three months do not un-publish it.
+    @Test func aRevokedCertificateIsRefusedAtAnyAge() throws {
+        let made = try #require(snapshot.generatedAt)
+        let monthsLater = made.addingTimeInterval(90 * 24 * 3600)
+
+        #expect(throws: VerificationFailure.cardholderCertificateRevoked) {
+            _ = try OfflineVerifier.caveat(for: .revoked(snapshot: snapshot), now: monthsLater)
+        }
+    }
+
+    /// And the stale sentence is still a "we looked" sentence — it must never
+    /// collapse into the "we did not look" one.
+    @Test func staleIsStillDistinctFromNotChecked() throws {
+        let made = try #require(snapshot.generatedAt)
+        let monthsLater = made.addingTimeInterval(90 * 24 * 3600)
+
+        let caveat = try OfflineVerifier.caveat(for: .notRevokedInThisSnapshot(snapshot: snapshot),
+                                                now: monthsLater)
+        #expect(caveat == .revocationCheckedInStaleSnapshot)
+        #expect(caveat != .revocationNotChecked)
+        #expect(caveat.message != VerificationCaveat.revocationNotChecked.message)
+    }
+}
+

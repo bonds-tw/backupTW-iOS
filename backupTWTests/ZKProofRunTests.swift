@@ -924,6 +924,7 @@ struct ZKProofRunReportTests {
         #expect(subject.omittedUnconditionalCaveats
                 == [.signatureMaterialIsReplayable,
                     .idNumberDisclosedToIssuer,
+                    .nullifierSharedAcrossVerifiers,
                     .certificateExpiryNotProven,
                     .revocationRootNotAnchored])
 

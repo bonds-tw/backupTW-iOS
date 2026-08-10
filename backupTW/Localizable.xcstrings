@@ -2428,6 +2428,17 @@
         }
       }
     },
+    "The signing certificate is not on the revocation list stored on this device — but that list is more than three days old, so anything revoked since would not show here.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署憑證不在這支手機儲存的撤銷名單上——但那份名單已超過三天，之後才被撤銷的憑證不會出現在這裡。"
+          }
+        }
+      }
+    },
     "The signing certificate was checked against a revocation list stored on this device and is not on it. That list has a date, and this app cannot confirm it is the genuine current one.": {
       "comment": "Shown alongside a successful offline verification",
       "localizations": {
@@ -3217,6 +3228,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "這個證明無法顯示同一個身分是否已經在別處用過。"
+          }
+        }
+      }
+    },
+    "This proof carries the same personal number every time and to every checker, so any two checkers can tell it was the same person. It hides who you are, not that you are the same one.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明每次、對每一位查驗者都帶著同一組個人編號，任兩位查驗者都能比對出是同一個人。它藏住的是你是誰，不是「你是同一個人」這件事。"
           }
         }
       }

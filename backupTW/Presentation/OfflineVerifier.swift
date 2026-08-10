@@ -49,6 +49,20 @@ enum VerificationCaveat: Equatable, CaseIterable {
     /// document is live.
     case revocationCheckedInLocalSnapshotOnly
 
+    /// The list *was* consulted, the certificate is not on it — and the list is
+    /// old enough that its silence has stopped meaning much.
+    ///
+    /// Why three days: upstream regenerates the snapshot twice a day, and the
+    /// measured publish lag tops out around 3.4 hours, so a device that was
+    /// online at any point in the last day holds a list under ~52 hours old.
+    /// Past 72 hours the device has been offline for a while — which is exactly
+    /// this app's situation, so the check is **not** withheld. A stale list can
+    /// only miss revocations published after it was made; every revocation
+    /// before that date it still catches, and in a blackout those are the ones
+    /// there are. What changes is the sentence: the age moves into it, so the
+    /// checker weighs the silence instead of mistaking it for a fresh answer.
+    case revocationCheckedInStaleSnapshot
+
     /// The issuer is the holder's own device. A verifier who reads a valid
     /// signature as "the government says this is true" has misread it: this is
     /// the 「本人可驗」 half of §5.2 with 「資料可驗」 still missing.
@@ -143,6 +157,12 @@ extension VerificationCaveat {
                                      comment: "Shown alongside a successful offline verification")
         case .revocationNotChecked:
             return NSLocalizedString("Whether this document has been revoked cannot be checked offline.",
+                                     comment: "Shown alongside a successful offline verification")
+        case .revocationCheckedInStaleSnapshot:
+            // The age is deliberately in the sentence rather than left to the
+            // date line below it: a checker who reads one bullet and stops must
+            // meet the staleness in that bullet.
+            return NSLocalizedString("The signing certificate is not on the revocation list stored on this device — but that list is more than three days old, so anything revoked since would not show here.",
                                      comment: "Shown alongside a successful offline verification")
         case .revocationCheckedInLocalSnapshotOnly:
             // Deliberately does not say 「未被撤銷」. The list is dated and its
@@ -880,7 +900,7 @@ enum OfflineVerifier {
         } else {
             revocationStatus = .notChecked(reason: .noCertificateToCheck)
         }
-        let revocationCaveat = try caveat(for: revocationStatus)
+        let revocationCaveat = try caveat(for: revocationStatus, now: now)
 
         var caveats: [VerificationCaveat] = [.noNetworkQuery,
                                              revocationCaveat,
@@ -940,13 +960,27 @@ enum OfflineVerifier {
     /// function. See `VerificationFailure.cardholderCertificateRevoked` for why
     /// finding a serial in a stale list is actionable while not finding one is
     /// not.
-    static func caveat(for status: RevocationStatus) throws -> VerificationCaveat {
+    /// A snapshot older than this earns the stale sentence. See
+    /// `VerificationCaveat.revocationCheckedInStaleSnapshot` for the derivation
+    /// (compliant-device worst case ≈ 52 h, plus margin).
+    static let maximumSnapshotFreshness: TimeInterval = 72 * 60 * 60
+
+    static func caveat(for status: RevocationStatus, now: Date) throws -> VerificationCaveat {
         switch status {
-        case .notRevokedInThisSnapshot:
+        case .notRevokedInThisSnapshot(let snapshot):
+            // A snapshot whose date cannot be read gets the stale sentence too:
+            // "we cannot say when this list was made" and "this list is old"
+            // both mean its silence must not be read as fresh.
+            guard let generatedAt = snapshot.generatedAt,
+                  now.timeIntervalSince(generatedAt) <= maximumSnapshotFreshness else {
+                return .revocationCheckedInStaleSnapshot
+            }
             return .revocationCheckedInLocalSnapshotOnly
         case .notChecked:
             return .revocationNotChecked
         case .revoked:
+            // Never demoted by age. An old list can miss a revocation that came
+            // after it; it cannot invent one that never happened.
             throw VerificationFailure.cardholderCertificateRevoked
         }
     }
