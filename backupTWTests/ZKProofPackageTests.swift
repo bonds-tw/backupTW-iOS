@@ -133,6 +133,43 @@ struct ZKProofPackageTests {
         }
     }
 
+    /// 使用者已經匯出過 v1 的 .zkproof（實機，2026-08-10）。版本 bump 到 2 的那天，
+    /// 那些檔案必須照樣讀得進來——加字彙不應該讓舊證明變成孤兒。反方向則要拒絕：
+    /// 舊 build 讀 v2 會失敗，那是對的，因為它顯示不了新的 caveat。
+    @Test("v1 封包在 v2 的讀取端仍然有效")
+    func stillReadsVersionOnePackages() throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let package = try ZKProofPackage(readingFrom: try Self.makeBundle(in: directory))
+        // A v1 package as an old build wrote it: version 1, the six caveats that
+        // existed then.
+        let vintage = try JSONEncoder().encode(
+            ZKProofPackageFixture(version: 1,
+                                  artifacts: package.artifacts,
+                                  caveats: [.signatureMaterialIsReplayable,
+                                            .idNumberDisclosedToIssuer,
+                                            .noGlobalUniqueness,
+                                            .certificateExpiryNotProven,
+                                            .revocationRootNotAnchored],
+                                  producerSelfCheckPassed: package.producerSelfCheckPassed))
+
+        let decoded = try ZKProofPackage.decoded(from: vintage)
+        try decoded.validate()
+        #expect(decoded.version == 1)
+        #expect(!decoded.caveats.contains(.nullifierSharedAcrossVerifiers))
+    }
+
+    @Test("寫出去的一律是現行版本")
+    func alwaysWritesTheCurrentVersion() throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let package = try ZKProofPackage(readingFrom: try Self.makeBundle(in: directory))
+        #expect(package.version == ZKProofPackage.currentVersion)
+        #expect(package.version == 2)
+    }
+
     @Test("不認得的版本一律拒絕，不猜")
     func refusesAnUnknownVersion() throws {
         let directory = try Self.temporaryDirectory()

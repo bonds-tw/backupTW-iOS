@@ -11,17 +11,6 @@
         }
       }
     },
-    "%1$@ (%2$@) is shown either way. It is written into the certificate that signs this document, and the checker needs that certificate to check the signature.": {
-      "comment": "A field the holder cannot withhold",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@（%2$@）一定會被看到。它寫在替這份證件簽章的憑證裡，而查驗方需要那張憑證才能驗簽。"
-          }
-        }
-      }
-    },
     "%@ already on this device": {
       "localizations": {
         "zh-Hant": {
@@ -153,6 +142,28 @@
         }
       }
     },
+    "About the person showing it": {
+      "comment": "Caveat group subtitle",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關於出示它的人"
+          }
+        }
+      }
+    },
+    "About this document": {
+      "comment": "Caveat group subtitle",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關於這份文件"
+          }
+        }
+      }
+    },
     "Address of household": {
       "localizations": {
         "zh-Hant": {
@@ -179,6 +190,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "已經備妥"
+          }
+        }
+      }
+    },
+    "Always shown": {
+      "comment": "Trailing text on the field the holder cannot withhold",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一律出示"
           }
         }
       }
@@ -1725,16 +1747,6 @@
         }
       }
     },
-    "Show %d field(s)": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出示 %d 個欄位"
-          }
-        }
-      }
-    },
     "Show %d fields": {
       "localizations": {
         "zh-Hant": {
@@ -1745,12 +1757,34 @@
         }
       }
     },
+    "Show %d fields (name included)": {
+      "comment": "Present button",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示 %d 個欄位（含姓名）"
+          }
+        }
+      }
+    },
     "Show my document": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "出示我的證件"
+          }
+        }
+      }
+    },
+    "Show only my name": {
+      "comment": "Present button when nothing else is ticked",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只出示姓名"
           }
         }
       }
@@ -1822,16 +1856,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "已完成簽章"
-          }
-        }
-      }
-    },
-    "Signed at %@ by the other device's clock.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "依對方裝置的時間，簽署於 %@。"
           }
         }
       }
@@ -2428,6 +2452,17 @@
         }
       }
     },
+    "The signing certificate is not on the revocation list stored on this device — but that list is more than three days old, so anything revoked since would not show here.": {
+      "comment": "Shown alongside a successful offline verification",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署憑證不在這支手機儲存的撤銷名單上——但那份名單已超過三天，之後才被撤銷的憑證不會出現在這裡。"
+          }
+        }
+      }
+    },
     "The signing certificate was checked against a revocation list stored on this device and is not on it. That list has a date, and this app cannot confirm it is the genuine current one.": {
       "comment": "Shown alongside a successful offline verification",
       "localizations": {
@@ -2565,6 +2600,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方另外保留了 %d 個欄位。本程式看不出來是哪些，只知道證件裡確實承諾了它們。"
+          }
+        }
+      }
+    },
+    "They signed this on %@. That time comes from their phone's clock, which this app cannot verify.": {
+      "comment": "Verifier result sign-off",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方在 %@ 簽署了這次出示。時間以對方手機的時鐘為準，本 App 無法核實。"
           }
         }
       }
@@ -2914,12 +2960,12 @@
         }
       }
     },
-    "This document does not fit in one code, so it cycles through %d. Keep the screen still until the checker's phone says it has them all; the order does not matter.": {
+    "This document does not fit in one code, so it cycles through %1$d — one full cycle takes about %2$d seconds. Keep the screen still until the checker's phone says it has them all; the order does not matter.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件放不進單一條碼，因此會輪流顯示 %d 張。請維持畫面穩定，直到查驗者的手機顯示已全部讀取；順序不影響。"
+            "value": "這份證件放不進一張碼，會輪流顯示 %1$d 張——轉完一輪約 %2$d 秒。請把螢幕拿穩，直到查驗方的手機說全部收到為止；順序沒有影響。"
           }
         }
       }
@@ -3221,6 +3267,17 @@
         }
       }
     },
+    "This proof carries the same personal number every time and to every checker, so any two checkers can tell it was the same person. It hides who you are, not that you are the same one.": {
+      "comment": "Limitation attached to a zero-knowledge proof",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明每次、對每一位查驗者都帶著同一組個人編號，任兩位查驗者都能比對出是同一個人。它藏住的是你是誰，不是「你是同一個人」這件事。"
+          }
+        }
+      }
+    },
     "This proof could not be packaged": {
       "localizations": {
         "zh-Hant": {
@@ -3438,6 +3495,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "等你在行動自然人憑證上簽名"
+          }
+        }
+      }
+    },
+    "What every checker learns": {
+      "comment": "Caveat group subtitle",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每個查驗方都會知道的事"
           }
         }
       }
@@ -3699,6 +3767,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "你的身分證件會被複製進每一次 iCloud 備份。"
+          }
+        }
+      }
+    },
+    "Your name is written into the certificate that signs this document, and the checker needs that certificate to check the signature.": {
+      "comment": "Why the name row has no switch",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "姓名寫在替這份證件簽章的憑證裡，而查驗方需要那張憑證才能驗簽。"
           }
         }
       }

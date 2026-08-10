@@ -64,11 +64,18 @@ enum VerifierSessionResult: Equatable {
 /// The cryptography costs about a millisecond — two ECDSA verifications over a
 /// few kilobytes — and for a long time that was the whole check, so it ran on
 /// the main queue and this comment said there was no reason not to. Revocation
-/// changed that. Building the SMT from the snapshot took **1.35 s** on an M-series
-/// Mac (measured 2026-08-10 against the published G3 snapshot: 22 MB compressed,
-/// 51 MB of JSON, ~115,000 entries), and a phone will be slower still. The proof
-/// itself, once the tree is loaded, took 63 µs — the cost is all in the loading,
-/// and the FFI reloads on every call.
+/// changed that.
+///
+/// Two measurements, and the second corrected the first's guess. Building the
+/// SMT from the snapshot took **1.35 s** on an M-series Mac (2026-08-10, Go
+/// reference implementation, published G3 snapshot: 22 MB compressed, ~115,000
+/// entries), and this comment predicted a phone would be slower still. Measured
+/// on an iPhone 14 the next day, the whole check — ECDSA, tree build from a
+/// 26.5 MB snapshot of 143,040 entries via OpenACSwift's Rust, proof, root
+/// comparison — took **865 ms**. The phone's Rust is faster than the Mac's Go;
+/// the prediction was wrong and the conclusion survives anyway: 865 ms on the
+/// main queue is a visible freeze with a stranger watching the screen, so the
+/// split below stays.
 ///
 /// So `check(presentationJWS:completion:)` splits the two: the challenge is spent
 /// **synchronously, on this queue**, keeping the single-use property a property of

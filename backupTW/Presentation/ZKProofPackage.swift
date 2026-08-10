@@ -66,7 +66,19 @@ struct ZKProofPackage: Codable, Equatable {
     /// Bumped when the meaning of any field changes. A verifier that does not
     /// recognise the version refuses rather than guessing: a ZK proof read under
     /// the wrong assumptions is not a proof.
-    static let currentVersion = 1
+    ///
+    /// Version 2 (2026-08-11) added `nullifierSharedAcrossVerifiers` to the
+    /// caveat vocabulary. Reading stays backward-compatible — see
+    /// `supportedVersions` — because a v1 package's six caveats mean today what
+    /// they meant then. Writing is always the current version, so an *old* build
+    /// handed a v2 package refuses it, which is the right direction to fail: it
+    /// cannot display the caveat the package carries, and a caveat it cannot
+    /// display is a caveat nobody reads.
+    static let currentVersion = 2
+
+    /// Versions this build can read. A range rather than an equality so that
+    /// adding vocabulary does not orphan every proof exported before the bump.
+    static let supportedVersions = 1...2
 
     let version: Int
 
@@ -129,7 +141,7 @@ struct ZKProofPackage: Codable, Equatable {
     /// gigabyte of keys, so a truncated or oversized package costs a parse and
     /// not a minute.
     func validate() throws {
-        guard version == Self.currentVersion else {
+        guard Self.supportedVersions.contains(version) else {
             throw PackagingError.unsupportedVersion(version)
         }
         for name in Self.artifactNames {

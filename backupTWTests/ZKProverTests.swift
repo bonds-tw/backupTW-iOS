@@ -748,13 +748,18 @@ struct ZKProverTests {
     /// Order is pinned as well as membership, because it is the order they are
     /// drawn in and the two that decide what this project may claim at all are
     /// first on purpose.
-    @Test func everyProofCarriesTheFiveUnconditionalCaveats() async throws {
+    @Test func everyProofCarriesTheSixUnconditionalCaveats() async throws {
         let fixture = try Fixture(challenge: .fromVerifier(Fixture.verifierChallenge))
         let bundle = try await fixture.prover().prove(fixture.inputs)
 
+        // Spelled out rather than referencing `unconditional`, so growing the
+        // vocabulary turns this red and forces exactly this edit — the moment to
+        // check the new caveat has a translation, a package-version decision,
+        // and a web-verifier entry. It caught the seventh case's addition.
         #expect(bundle.caveats == [.signatureMaterialIsReplayable,
                                    .idNumberDisclosedToIssuer,
                                    .noGlobalUniqueness,
+                                   .nullifierSharedAcrossVerifiers,
                                    .certificateExpiryNotProven,
                                    .revocationRootNotAnchored])
         // Same list, from the definition the screen and the report read.

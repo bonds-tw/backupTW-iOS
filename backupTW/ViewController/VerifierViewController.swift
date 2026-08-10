@@ -601,6 +601,16 @@ final class VerificationResultViewController: UIViewController {
     /// Date and hour, in the checker's locale. The hour is there because the
     /// snapshot is rebuilt twice a day and a list from this morning is a
     /// materially better answer than one from last night.
+    /// When the presenter signed, by their clock. Static for the same reason
+    /// `snapshotDateFormatter` is: building a `DateFormatter` per render is the
+    /// classic scroll hitch.
+    private static let signedAtFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     private static let snapshotDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -613,35 +623,59 @@ final class VerificationResultViewController: UIViewController {
         for section in VerifiedResultSection.order {
             switch section {
             case .verdict:
-                stack.addArrangedSubview(PresentationUI.verdict("✅",
-                    NSLocalizedString("The person holding this device signed this check", comment: ""), .systemGreen))
+                let verdict = PresentationUI.verdict("✅",
+                    NSLocalizedString("The person holding this device signed this check", comment: ""), .systemGreen)
+                stack.addArrangedSubview(verdict)
+                // What the check *gained*, said as this app's own sentence
+                // rather than filed among the costs. It reads directly under
+                // the verdict because it qualifies the verdict — and pinning
+                // it here keeps the group cards below purely about limits.
+                let gained = PresentationUI.body(VerificationCaveat.noNetworkQuery.message)
+                stack.addArrangedSubview(gained)
+                stack.setCustomSpacing(8, after: verdict)
+                stack.setCustomSpacing(24, after: gained)
 
             case .whatThisCheckDidNotEstablish:
-                // `.headline` rather than the verdict's `.title2`: this is the
-                // qualification on the verdict, not a second verdict. What makes
-                // it carry is position — nothing the other device supplied can
-                // get between these bullets and the tick above them, which is
-                // the property this block used to lack.
-                stack.addArrangedSubview(PresentationUI.sectionTitle(
-                    NSLocalizedString("What this check did not establish", comment: "")))
-                for caveat in presentation.caveats {
-                    stack.addArrangedSubview(PresentationUI.caveat(caveat.message))
-                }
-                // The caveat above says the list has a date; this is that date.
-                // Saying "a revocation list was consulted" without saying which
-                // one leaves the checker unable to tell this morning's answer
-                // from a fortnight-old one, and those are different answers.
-                //
-                // Not drawn through `UntrustedText` because it is not the other
-                // device's text: the number is parsed out of a file this device
-                // downloaded, and it reaches the screen as a formatted date or
-                // not at all.
+                // Position is the security property and it is untouched: every
+                // caveat still renders, in full, above anything the other
+                // device supplied. What changed is shape — eight visually
+                // identical pills became titled groups, because a wall a person
+                // scrolls past unread is the polite version of a caveat pushed
+                // off the screen.
+                let heading = PresentationUI.sectionTitle(
+                    NSLocalizedString("What this check did not establish", comment: ""))
+                stack.addArrangedSubview(heading)
+                stack.setCustomSpacing(8, after: heading)
+
+                // The revocation date rides in the same line as the revocation
+                // caveat — 「查了名單」 and 「哪一份名單」 are one statement.
+                // Joined with a space, never a newline: a label of its own (or a
+                // second line) is exactly the shape a forged field takes, and
+                // the tests pin every label to a single line. The date is
+                // parsed from a file this device downloaded, not the other
+                // device's bytes, so it does not pass through `UntrustedText`.
+                var dateSuffix = ""
                 if let date = presentation.revocation.snapshot?.generatedAt {
-                    stack.addArrangedSubview(PresentationUI.caveat(
-                        String(format: NSLocalizedString("That list was made on %@.",
-                                                         comment: "Date of the revocation snapshot used"),
-                               Self.snapshotDateFormatter.string(from: date))))
+                    dateSuffix = " " + String(
+                        format: NSLocalizedString("That list was made on %@.",
+                                                  comment: "Date of the revocation snapshot used"),
+                        Self.snapshotDateFormatter.string(from: date))
                 }
+
+                var lastGroup: UIView?
+                for group in VerificationCaveat.Group.displayOrder {
+                    let members = presentation.caveats.filter { $0.group == group && $0 != .noNetworkQuery }
+                    guard !members.isEmpty else { continue }
+                    let card = PresentationUI.caveatGroup(
+                        subtitle: group.subtitle,
+                        messages: members.map { caveat in
+                            caveat.concernsRevocation ? caveat.message + dateSuffix : caveat.message
+                        })
+                    stack.addArrangedSubview(card)
+                    stack.setCustomSpacing(12, after: card)
+                    lastGroup = card
+                }
+                if let lastGroup { stack.setCustomSpacing(28, after: lastGroup) }
 
             case .whoSigned:
                 // Absent entirely for a device-signed credential: the
@@ -690,12 +724,15 @@ final class VerificationResultViewController: UIViewController {
                 }
 
             case .whenItWasSigned:
-                let formatter = DateFormatter()
-                formatter.dateStyle = .medium
-                formatter.timeStyle = .short
-                stack.addArrangedSubview(PresentationUI.footnote(
-                    String(format: NSLocalizedString("Signed at %@ by the other device's clock.", comment: ""),
-                           formatter.string(from: presentation.presentedAt))))
+                // Person first, then the qualifier. The old phrasing — "Signed
+                // at ... by the other device's clock" — read as though the
+                // clock did the signing. The qualifier itself is load-bearing
+                // and stays: this timestamp is the presenter's claim, and a
+                // sign-off that dropped it would promote their clock to a fact.
+                let signedAt = PresentationUI.body(
+                    String(format: NSLocalizedString("They signed this on %@. That time comes from their phone's clock, which this app cannot verify.", comment: "Verifier result sign-off"),
+                           Self.signedAtFormatter.string(from: presentation.presentedAt)))
+                stack.addArrangedSubview(signedAt)
             }
         }
     }
@@ -710,8 +747,10 @@ final class VerificationResultViewController: UIViewController {
     /// without knowing anything about signatures, which sentences on this screen
     /// the app stands behind.
     private func buildDisclosedFields(_ claims: [DisclosedClaim], into stack: UIStackView) {
-        stack.addArrangedSubview(PresentationUI.sectionTitle(
-            NSLocalizedString("What they disclosed", comment: "")))
+        let heading = PresentationUI.sectionTitle(
+            NSLocalizedString("What they disclosed", comment: ""))
+        stack.addArrangedSubview(heading)
+        stack.setCustomSpacing(8, after: heading)
         stack.addArrangedSubview(PresentationUI.body(NSLocalizedString(
             "The lines below are the document's own words, quoted. This app checked the signature over them, not whether any of it is true.",
             comment: "Attribution above the fields a verified presentation disclosed")))
@@ -788,14 +827,68 @@ enum PresentationUI {
         return label
     }
 
+    /// The one line the whole screen exists to deliver, drawn so it reads first.
+    ///
+    /// A card rather than a bare label — measured on device (2026-08-11), the
+    /// bare `.title2` line in the accent colour had less visual weight than the
+    /// caveat pills under it, and coloured text on the grouped background sat
+    /// near 2:1 contrast. The colour moved into a tinted background; the text
+    /// went back to `.label`, bold. The 「✅  」 prefix stays inside `label.text`
+    /// because tests find the verdict by it, and because an icon that VoiceOver
+    /// reads with the sentence is part of the sentence.
     static func verdict(_ symbol: String, _ text: String, _ colour: UIColor) -> UIView {
         let label = UILabel()
         label.text = symbol + "  " + text
         label.numberOfLines = 0
-        label.font = .preferredFont(forTextStyle: .title2)
+        label.font = UIFontMetrics(forTextStyle: .title2)
+            .scaledFont(for: .systemFont(ofSize: 22, weight: .bold))
         label.adjustsFontForContentSizeCategory = true
-        label.textColor = colour
-        return label
+        label.textColor = .label
+
+        let card = UIStackView(arrangedSubviews: [label])
+        card.axis = .vertical
+        card.isLayoutMarginsRelativeArrangement = true
+        card.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        card.backgroundColor = colour.withAlphaComponent(0.14)
+        card.layer.cornerRadius = 12
+        return card
+    }
+
+    /// A titled group of caveats: one rounded container, a small app-authored
+    /// subtitle, one label per caveat.
+    ///
+    /// Grouping is presentation, not hierarchy — nothing collapses, nothing
+    /// truncates, and the group renders every message it is given in the order
+    /// it is given. What it buys is that eight visually identical pills become
+    /// three titled paragraphs a person can navigate.
+    static func caveatGroup(subtitle: String, messages: [String]) -> UIView {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.isLayoutMarginsRelativeArrangement = true
+        stack.layoutMargins = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+        stack.backgroundColor = .secondarySystemGroupedBackground
+        stack.layer.cornerRadius = 12
+
+        let title = UILabel()
+        title.text = subtitle
+        title.numberOfLines = 0
+        title.font = UIFontMetrics(forTextStyle: .caption1)
+            .scaledFont(for: .systemFont(ofSize: 12, weight: .semibold))
+        title.adjustsFontForContentSizeCategory = true
+        title.textColor = .secondaryLabel
+        stack.addArrangedSubview(title)
+
+        for message in messages {
+            let label = UILabel()
+            label.text = "•  " + message
+            label.numberOfLines = 0
+            label.font = .preferredFont(forTextStyle: .callout)
+            label.adjustsFontForContentSizeCategory = true
+            label.textColor = .secondaryLabel
+            stack.addArrangedSubview(label)
+        }
+        return stack
     }
 
     static func card(title: String? = nil, body: String) -> UIView {
@@ -869,7 +962,13 @@ enum PresentationUI {
             ? NSLocalizedString("(blank)", comment: "A disclosed field whose value is empty")
             : claim.value.text
         value.numberOfLines = 0
-        value.font = .preferredFont(forTextStyle: .body)
+        // `.title3`, not `.body`: the checker's actual task is reading this
+        // value against a face or a form, and it used to be the smallest text
+        // on the screen. Size is not the quoted-versus-asserted boundary — the
+        // quotation rule, the app-authored heading and the VoiceOver framing
+        // are — and the verdict grew in the same pass, so it still outranks
+        // this.
+        value.font = .preferredFont(forTextStyle: .title3)
         value.adjustsFontForContentSizeCategory = true
         value.accessibilityLabel = String(
             format: NSLocalizedString("Quoted from their document: %@",
