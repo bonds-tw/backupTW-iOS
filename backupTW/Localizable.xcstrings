@@ -906,6 +906,16 @@
         }
       }
     },
+    "Had turned 18 when issued": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發證時已滿 18 歲"
+          }
+        }
+      }
+    },
     "Hand this proof to a verifier": {
       "localizations": {
         "zh-Hant": {
@@ -2132,6 +2142,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "簽署這份文件的憑證無法查驗，最常見的原因是憑證已經過期。"
+          }
+        }
+      }
+    },
+    "The document carries whether the holder had turned 18 when it was issued, signed by their digital certificate, and that line can be shown on its own without the date of birth. It is not anonymous: the same identifier appears every time, so different checkers can tell it is the same person.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證件裡帶有「發證當下是否已滿 18 歲」這一項，由持有人的自然人憑證一併簽署，可以單獨出示而不出示出生日期。但這不是匿名：每次出示都是同一個識別碼，不同查驗方仍能看出是同一個人。"
           }
         }
       }

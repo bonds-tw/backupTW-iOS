@@ -21,16 +21,28 @@ struct PresentationScenarioTests {
                 "完全成立的場景變了：\(supported.map(\.id))")
     }
 
-    /// An age predicate is not provable here, and the reason has to travel with
-    /// the refusal — otherwise the next person to read it assumes it is a to-do
-    /// rather than a property of the circuits.
-    @Test("滿 18 歲被標為做不到，而且說得出為什麼")
-    func ageIsUnsupportedWithAReason() throws {
-        guard case .unsupported(let reason) = PresentationScenario.ageOver18.support else {
-            Issue.record("滿 18 歲不該被標成做得到——電路的輸入裡沒有日期")
+    /// 滿 18 歲 is answerable on the credential path, and this test is a
+    /// correction of its own earlier self.
+    ///
+    /// It used to assert `.unsupported`, on the reasoning that the circuits take
+    /// no date — which is true, and which is a fact about the *circuits*. The
+    /// test encoded the conflation along with the claim, so the wrong answer had
+    /// a green tick holding it in place. The predicate is derived at issuance,
+    /// signed by the card with every other field, and disclosed on its own.
+    ///
+    /// It stays `.partial` rather than `.supported` because the remaining gap is
+    /// real: the presentation carries a linkable identifier, so this is minimal
+    /// disclosure of the field and not anonymity.
+    @Test("滿 18 歲做得到，但要說清楚不是匿名")
+    func ageIsPartiallySupportedAndSaysWhy() throws {
+        guard case .partial(let actually) = PresentationScenario.ageOver18.support else {
+            Issue.record("滿 18 歲現在做得到——發證時推導、行憑簽、選擇性揭露")
             return
         }
-        #expect(reason.count > 40, "拒絕的理由太短，讀的人無從判斷這是待辦還是性質")
+        #expect(actually.count > 40, "說明太短，讀的人無從判斷剩下的限制是什麼")
+        // The one thing this scenario must not let a reader forget.
+        #expect(actually.contains("同一個人") || actually.lowercased().contains("same person"),
+                "沒講到可連結性，就會被讀成匿名")
     }
 
     /// The "and only once" half is the part a demo would quietly drop.

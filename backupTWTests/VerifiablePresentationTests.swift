@@ -710,8 +710,23 @@ struct VerifiablePresentationTests {
         defer { Self.tearDownKey() }
 
         let size = try fixture.presentation().utf8.count
-        #expect(size > 2953, "if this now fits, the QR path can be reconsidered — see the type documentation")
-        #expect(size < 3200, "the presentation grew; nothing should be added to a document already over capacity")
+        #expect(size > 2953,
+                "measured \(size) bytes — if this now fits in one code, the QR path can be reconsidered")
+        // Raised from 3200 to 3400 on 2026-08-10, deliberately and once: the
+        // 滿 18 歲 predicate added ~123 bytes (its term IRI in the context plus
+        // the claim itself), taking this fixture from ~3078 to a measured 3201.
+        // The tripwire is doing its job — this is a document already past one
+        // code's capacity and it grew — so the trade is recorded rather than
+        // absorbed: one line that answers an age question without disclosing a
+        // birthdate, against ~4% more bytes on a path that already needs
+        // multiple frames.
+        //
+        // ⚠️ This fixture is the *legacy* device-signed presentation. What ships
+        // now is card-signed and roughly twice this — bounded by
+        // `CardSignedPresentationTests.aCardSignedPresentationIsAboutTwiceTheSizeOfADeviceSignedOne`,
+        // which is the number to watch if frame count ever starts hurting.
+        #expect(size < 3400,
+                "measured \(size) bytes; nothing should be added to a document already over capacity")
     }
 
     // MARK: - Helpers
