@@ -391,6 +391,18 @@ struct VerifiedPresentation: Equatable {
     /// between the verdict and the caveats.
     let cardholderName: String?
 
+    /// Whether the certificate's name was checked against a disclosed `name`.
+    /// `false` when the holder withheld it — see
+    /// `MOICACredentialVerification.cardholderNameWasChecked`. A screen showing
+    /// `cardholderName` without this is telling a checker the name was
+    /// confirmed when nothing confirmed it.
+    let cardholderNameWasChecked: Bool
+
+    /// How many claims the holder committed to and chose not to send. A checker
+    /// looking at one field cannot otherwise tell whether that is the whole
+    /// document or one of six.
+    let withheldClaimCount: Int
+
     let credentialTypes: [String]
 
     /// Ordered for reading, not in the order the credential serialized them.
@@ -794,10 +806,19 @@ enum OfflineVerifier {
         if validUntil == nil { caveats.append(.noExpiryAsserted) }
         if !audienceIsBound { caveats.append(.notBoundToThisVerifier) }
 
+        // For a card-signed credential the disclosed claims are what the holder
+        // chose to open, not what sits in `credentialSubject` — which now holds
+        // only the subject identifier.
+        let disclosed = credential.cardholderName == nil
+            ? decoded.credentialSubject
+            : credential.claims
+
         return VerifiedPresentation(holder: holder,
                                     cardholderName: credential.cardholderName,
+                                    cardholderNameWasChecked: credential.cardholderNameWasChecked,
+                                    withheldClaimCount: credential.withheldClaimCount,
                                     credentialTypes: decoded.type,
-                                    claims: disclosedClaims(from: decoded.credentialSubject),
+                                    claims: disclosedClaims(from: disclosed),
                                     validFrom: validFrom,
                                     validUntil: validUntil,
                                     presentedAt: presentedAt,
@@ -901,6 +922,11 @@ enum OfflineVerifier {
         /// device-signed credential. Its presence is what decides which caveat
         /// the verifier reports.
         let cardholderName: String?
+        /// Claims the presentation actually opened. For a device-signed
+        /// credential these are simply the ones in `credentialSubject`.
+        let claims: [String: String]
+        let withheldClaimCount: Int
+        let cardholderNameWasChecked: Bool
     }
 
     /// Pulls the credential out of the presentation without re-encoding it.
@@ -969,7 +995,10 @@ enum OfflineVerifier {
         return CheckedCredential(payload: credential.payload,
                                  payloadData: credential.payloadData,
                                  issuer: issuer,
-                                 cardholderName: nil)
+                                 cardholderName: nil,
+                                 claims: [:],
+                                 withheldClaimCount: 0,
+                                 cardholderNameWasChecked: false)
     }
 
     /// The current path: the fields were signed with the holder's 自然人憑證.
@@ -1023,7 +1052,10 @@ enum OfflineVerifier {
         return CheckedCredential(payload: payload,
                                  payloadData: payloadData,
                                  issuer: issuer,
-                                 cardholderName: verified.cardholderName)
+                                 cardholderName: verified.cardholderName,
+                                 claims: verified.claims,
+                                 withheldClaimCount: verified.withheldClaimCount,
+                                 cardholderNameWasChecked: verified.cardholderNameWasChecked)
     }
 
     /// Reads a field from the body, falling back to the protected header.

@@ -318,6 +318,7 @@ extension VerifiablePresentation {
                        request: PresentationRequest,
                        signedBy key: DeviceKey,
                        holderDID: String,
+                       disclosing: [String]? = nil,
                        createdAt: Date = Date()) throws -> String {
         // Checked before the key comparison so that a DID that is not a did:key
         // is reported as such. Reversing these two would make the shape error
@@ -354,11 +355,23 @@ extension VerifiablePresentation {
         // people most likely to be relying on it, so both are enveloped here and
         // the *verifier* is where the difference in what they establish shows up.
         let enveloped: EnvelopedVerifiableCredential
-        if let cardSigned = try? MOICASignedCredential.parse(credentialJWS) {
+        if var cardSigned = try? MOICASignedCredential.parse(credentialJWS) {
             guard try cardSigned.credential().credentialSubject["id"] == holderDID else {
                 throw VerifiablePresentationError.credentialSubjectMismatch
             }
-            enveloped = .enveloping(moicaSigned: credentialJWS)
+            // Withholding is *subtraction* and nothing else: the disclosures the
+            // holder keeps back are simply not copied into what leaves the
+            // device. The payload and its signature are untouched, which is the
+            // property the whole scheme is built on — a verifier checks each
+            // disclosure it receives against a digest the card signed, and never
+            // notices the absence of the others except as a count.
+            if let disclosing {
+                let chosen = Set(disclosing)
+                cardSigned.disclosures = cardSigned.disclosures.filter { encoded in
+                    Disclosure(encoded: encoded).map { chosen.contains($0.claimName) } ?? false
+                }
+            }
+            enveloped = .enveloping(moicaSigned: try cardSigned.serialized())
         } else {
             guard try subjectIdentifier(ofCredential: credentialJWS) == holderDID else {
                 throw VerifiablePresentationError.credentialSubjectMismatch

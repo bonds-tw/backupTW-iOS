@@ -474,6 +474,16 @@
         }
       }
     },
+    "Choose what they will see": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇要讓對方看到什麼"
+          }
+        }
+      }
+    },
     "Code %1$d of %2$d": {
       "comment": "Carousel position",
       "localizations": {
@@ -1371,6 +1381,16 @@
         }
       }
     },
+    "Nothing is selected to begin with. Whatever you leave off is not sent — the checker sees only that some fields were held back, not what they were.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預設一項都不給。沒有勾的欄位不會送出——查驗方只會看到「有幾項被保留」，看不到那些是什麼。"
+          }
+        }
+      }
+    },
     "Nothing is sent anywhere. This check works with the phone in aeroplane mode.": {
       "localizations": {
         "zh-Hant": {
@@ -1700,6 +1720,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "設定"
+          }
+        }
+      }
+    },
+    "Show %d field(s)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示 %d 個欄位"
           }
         }
       }
@@ -2464,6 +2494,26 @@
         }
       }
     },
+    "They did not show the name on the document, so this app could not check that the certificate above belongs to the same person.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方沒有出示證件上的姓名，所以本程式無法核對上面那張憑證是不是同一個人的。"
+          }
+        }
+      }
+    },
+    "They held back %d more field(s). This app cannot tell which, only that the document commits to them.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方另外保留了 %d 個欄位。本程式看不出來是哪些，只知道證件裡確實承諾了它們。"
+          }
+        }
+      }
+    },
     "Third Party Software License": {
       "localizations": {
         "zh-Hant": {
@@ -2923,6 +2973,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這份證件含有本 App 無法解讀的欄位。"
+          }
+        }
+      }
+    },
+    "This document was created by an older version of the app and cannot be shown in part. Every field in it will be shown: name, ID number, date of birth, household address and nationality.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件是舊版本建立的，無法只出示一部分。裡面每個欄位都會被看到：姓名、統一編號、出生日期、戶籍地址與國籍。"
           }
         }
       }

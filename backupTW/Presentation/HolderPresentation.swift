@@ -86,7 +86,34 @@ struct HolderPresentation {
     ///
     /// - Parameter now: the holder's clock, stamped into the signed document as
     ///   `created`. Injectable so the signed bytes are reproducible in a test.
-    func frames(answering request: PresentationRequest, now: Date = Date()) throws -> [String] {
+    /// The claims the stored credential can disclose, in reading order.
+    ///
+    /// Empty for a credential issued before selective disclosure: those carry
+    /// their claims in the clear and the holder has no choice to make, which the
+    /// screen has to say rather than present as an empty list of options.
+    func disclosableClaims() throws -> [(name: String, value: String)] {
+        guard let credentialID = try storedCredentialID(),
+              let stored = try store.load(id: credentialID),
+              let envelope = try? MOICASignedCredential.parse(stored),
+              let committed = try? envelope.credential().sd,
+              let revealed = try? SelectiveDisclosure.reveal(disclosures: envelope.disclosures,
+                                                             committedDigests: committed) else {
+            return []
+        }
+        let order = StoredNationalID.displayOrder
+        return revealed.sorted {
+            (order.firstIndex(of: $0.name) ?? order.count,
+             $0.name) < (order.firstIndex(of: $1.name) ?? order.count, $1.name)
+        }
+    }
+
+    /// - Parameter disclosing: the claim names to hand over. `nil` discloses
+    ///   everything, which is what a credential with nothing to withhold does
+    ///   anyway; an empty array discloses nothing but the subject identifier,
+    ///   which is a legitimate answer to "prove you hold a document".
+    func frames(answering request: PresentationRequest,
+                disclosing: [String]? = nil,
+                now: Date = Date()) throws -> [String] {
         guard let credentialID = try storedCredentialID(),
               let credentialJWS = try store.load(id: credentialID) else {
             throw HolderPresentationError.noCredentialStored
@@ -105,6 +132,7 @@ struct HolderPresentation {
                                                     request: request,
                                                     signedBy: key,
                                                     holderDID: holderDID,
+                                                    disclosing: disclosing,
                                                     createdAt: now)
         // UTF-8 bytes, not the string: `QRTransport` deflates and base45-encodes
         // whatever it is handed and never looks inside, which is what lets a ZK
