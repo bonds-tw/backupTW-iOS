@@ -48,7 +48,7 @@ final class PresentCredentialViewController: UIViewController {
         /// had this code been sitting there before the camera saw it.
         case confirming(PresentationRequest, freshness: RequestFreshness)
         /// Signed; these are the frames.
-        case showing(frames: [String])
+        case showing(frames: [String], request: PresentationRequest)
         /// Signing failed.
         case failed(String)
     }
@@ -77,6 +77,16 @@ final class PresentCredentialViewController: UIViewController {
     /// Filled in step with the carousel, so the eye has somewhere to see 「it is
     /// moving forward」 that is not a two-digit number.
     private let frameProgress = UIProgressView(progressViewStyle: .default)
+    /// Alive only while the frames are on screen. Torn down in `stopCarousel`
+    /// together with everything else that makes this phone discoverable — a
+    /// peripheral that outlived the screen would keep advertising after the
+    /// holder had put the phone away.
+    private var link: BluetoothLinkPeripheral?
+    private let linkLabel = UILabel()
+    /// The signed presentation itself, kept so the radio sends the document
+    /// rather than the QR frames of it — the two transports carry the same
+    /// bytes, framed for different media.
+    private var presentationPayload: Data?
     /// One place for the carousel pace. The cycle-time sentence above and the
     /// timer below must never quote two different speeds.
     private static let frameInterval: TimeInterval = 0.55
@@ -177,8 +187,8 @@ final class PresentCredentialViewController: UIViewController {
             renderAwaitingRequest()
         case .confirming(let request, let freshness):
             renderConfirmation(request, freshness)
-        case .showing(let frames):
-            renderFrames(frames)
+        case .showing(let frames, let request):
+            renderFrames(frames, request: request)
         case .failed(let message):
             renderFailure(message)
         }
@@ -456,7 +466,7 @@ final class PresentCredentialViewController: UIViewController {
         showButton.configuration = configuration
     }
 
-    private func renderFrames(_ frames: [String]) {
+    private func renderFrames(_ frames: [String], request: PresentationRequest) {
         // Rasterised before a single view is built, so the failure path replaces
         // this screen instead of re-entering `render()` from halfway through it.
         // 1024 device pixels over an 89-module code is 11 whole pixels per
@@ -530,6 +540,27 @@ final class PresentCredentialViewController: UIViewController {
         // Body weight, not footnote: this is the only sentence on the screen
         // with a deadline in it, and blowing the deadline restarts the whole
         // exchange. It was in the lowest-contrast style the screen has.
+        // The radio, when the checker's code offered one. **Additive**: the
+        // codes stay on screen and stay scannable, because the other phone may
+        // be an older build, may have Bluetooth switched off, or may simply be
+        // a camera. A transport that replaced the QR would take away the one
+        // that works everywhere.
+        if let serviceID = request.linkServiceID, let payload = presentationPayload {
+            linkLabel.numberOfLines = 0
+            linkLabel.textAlignment = .center
+            linkLabel.font = .preferredFont(forTextStyle: .subheadline)
+            linkLabel.adjustsFontForContentSizeCategory = true
+            linkLabel.textColor = .secondaryLabel
+            linkLabel.text = NSLocalizedString("Also sending this over Bluetooth, so the checker does not have to scan every code.", comment: "")
+            contentStack.addArrangedSubview(linkLabel)
+
+            let link = BluetoothLinkPeripheral(payload: payload, serviceID: serviceID) { [weak self] state in
+                self?.showLink(state)
+            }
+            self.link = link
+            link.start()
+        }
+
         contentStack.addArrangedSubview(PresentationUI.body(
             NSLocalizedString("This code stops being accepted about five minutes after it was made.", comment: "")))
         contentStack.addArrangedSubview(linkabilityWarning())
@@ -740,12 +771,19 @@ final class PresentCredentialViewController: UIViewController {
                                                           offered: disclosableClaims.map(\.name))
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self, holder = self.holder] in
-            let result = Result { try holder.frames(answering: request, disclosing: disclosing) }
+            let result = Result { () -> (frames: [String], payload: Data) in
+                // Signed once; sharded twice. `presentation` is the document and
+                // `frames` is that same document cut for a camera — deriving
+                // them separately would sign the challenge twice.
+                let payload = try holder.presentation(answering: request, disclosing: disclosing)
+                return (try QRTransport.frames(for: payload), payload)
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 switch result {
-                case .success(let frames):
-                    self.stage = .showing(frames: frames)
+                case .success(let signed):
+                    self.presentationPayload = signed.payload
+                    self.stage = .showing(frames: signed.frames, request: request)
                 case .failure(let error):
                     self.stage = .failed((error as? LocalizedError)?.errorDescription
                                          ?? NSLocalizedString("This document could not be signed on this device.", comment: ""))
@@ -802,9 +840,33 @@ final class PresentCredentialViewController: UIViewController {
         frameCountLabel.isHidden = renderedFrames.count <= 1
     }
 
+    /// One line, in the register the rest of the screen uses: what is happening,
+    /// never a raw error. A holder who is told 「CBErrorDomain 7」 has been given
+    /// a fact they cannot act on.
+    private func showLink(_ state: BluetoothLinkState) {
+        switch state {
+        case .unavailable(let reason):
+            linkLabel.text = reason
+        case .waiting:
+            linkLabel.text = NSLocalizedString("Also sending this over Bluetooth, so the checker does not have to scan every code.", comment: "")
+        case .transferring(let fraction):
+            linkLabel.text = String(format: NSLocalizedString("Sending over Bluetooth… %d%%", comment: ""),
+                                    Int((fraction * 100).rounded()))
+        case .finished:
+            linkLabel.text = NSLocalizedString("The checker's phone has the document.", comment: "")
+        case .failed(let reason):
+            linkLabel.text = reason
+        }
+    }
+
     private func stopCarousel() {
         carousel?.invalidate()
         carousel = nil
+        // The radio stops with the carousel, not with the view controller. Both
+        // are 「this screen is in front of the holder」, and a peripheral that
+        // outlived that would keep this phone discoverable in a pocket.
+        link?.stop()
+        link = nil
     }
 }
 

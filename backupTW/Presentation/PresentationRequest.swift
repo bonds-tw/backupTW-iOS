@@ -115,6 +115,22 @@ struct PresentationRequest: Equatable {
     /// to survive an encode/decode round trip unchanged.
     let createdAt: Date
 
+    /// A one-time BLE service identifier the holder should advertise under, or
+    /// nil when this verifier is only offering the camera.
+    ///
+    /// This is the *engagement* half of ISO 18013-5's device retrieval, arrived
+    /// at the same way that standard arrives at it: the code already on screen
+    /// is the only channel the two devices share before they share a radio, so
+    /// it is the natural place to say 「find me here」.
+    ///
+    /// **Freshly generated per request, never a fixed identifier.** A constant
+    /// service UUID would make every holder's phone broadcast the same
+    /// well-known value to any receiver in range — a beacon saying 「somebody
+    /// with a national ID wallet is standing here」, readable by people who are
+    /// not being shown anything. The value is random, it lives as long as the
+    /// challenge does, and it is unlinkable to the next one.
+    let linkServiceID: UUID?
+
     // MARK: - Limits
 
     /// 16 bytes = 128 bits, base64url to 22 characters.
@@ -171,7 +187,11 @@ struct PresentationRequest: Equatable {
     /// The only initialiser, and it validates, so an invalid request cannot
     /// exist in memory — a check that lived only in the decoder would be absent
     /// for a request this app built itself.
-    init(challenge: String, purpose: String, createdAt: Date, audience: String? = nil) throws {
+    init(challenge: String,
+         purpose: String,
+         createdAt: Date,
+         audience: String? = nil,
+         linkServiceID: UUID? = nil) throws {
         guard !challenge.isEmpty,
               challenge.count <= Self.maximumChallengeLength,
               challenge.rangeOfCharacter(from: Self.challengeAlphabet.inverted) == nil else {
@@ -228,6 +248,7 @@ struct PresentationRequest: Equatable {
         self.purpose = trimmedPurpose
         self.audience = checkedAudience
         self.createdAt = Date(timeIntervalSince1970: createdAt.timeIntervalSince1970.rounded(.down))
+        self.linkServiceID = linkServiceID
     }
 
     /// Mints a request with a fresh challenge. Verifier side.
@@ -248,7 +269,12 @@ struct PresentationRequest: Equatable {
         return try PresentationRequest(challenge: VerifiableCredential.base64URLEncoded(Data(bytes)),
                                        purpose: purpose,
                                        createdAt: now,
-                                       audience: audience)
+                                       audience: audience,
+                                       // Minted with the challenge and thrown
+                                       // away with it. `UUID()` is the system
+                                       // CSPRNG, the same source as the bytes
+                                       // above.
+                                       linkServiceID: UUID())
     }
 }
 
@@ -268,6 +294,7 @@ extension PresentationRequest: Codable {
         case purpose = "p"
         case createdAt = "t"
         case audience = "a"
+        case linkServiceID = "b"
     }
 
     init(from decoder: Decoder) throws {
@@ -284,13 +311,25 @@ extension PresentationRequest: Codable {
         let purpose = try container.decode(String.self, forKey: .purpose)
         let createdAt = try container.decode(Int.self, forKey: .createdAt)
         let audience = try container.decodeIfPresent(String.self, forKey: .audience)
+        // Absent means 「this verifier is not offering a radio」, which every
+        // request built before this field existed also means. Decoded as a
+        // string and rejected if it is not a UUID, rather than trusted: it
+        // arrives from a stranger and goes on to name a service to advertise.
+        let linkServiceID = try container.decodeIfPresent(String.self, forKey: .linkServiceID)
+            .map { text -> UUID in
+                guard let uuid = UUID(uuidString: text) else {
+                    throw PresentationRequestError.malformedEncoding
+                }
+                return uuid
+            }
 
         // Straight through the validating initialiser: a request that arrived
         // over the air is the one that most needs the checks.
         try self.init(challenge: challenge,
                       purpose: purpose,
                       createdAt: Date(timeIntervalSince1970: TimeInterval(createdAt)),
-                      audience: audience)
+                      audience: audience,
+                      linkServiceID: linkServiceID)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -302,6 +341,10 @@ extension PresentationRequest: Codable {
         // identifier: `null` and "absent" have to decode to the same request,
         // and the shorter one is also the one that keeps the QR smaller.
         try container.encodeIfPresent(audience, forKey: .audience)
+        // Uppercase hyphenated, which is what `UUID.uuidString` produces and
+        // what `CBUUID` reads back — 36 characters in a code that is otherwise
+        // about a hundred, and omitted entirely when there is no radio on offer.
+        try container.encodeIfPresent(linkServiceID?.uuidString, forKey: .linkServiceID)
         // Whole seconds since the epoch. An ISO-8601 string would be three times
         // the bytes and would drag a formatter and a timezone into a value whose
         // only job is to be compared with another instant.

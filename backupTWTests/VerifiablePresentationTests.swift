@@ -235,12 +235,20 @@ struct VerifiablePresentationTests {
         let object = try JSONSerialization.jsonObject(with: Data(text.utf8))
         let json = try #require(object as? [String: Any])
 
-        #expect(Set(json.keys) == ["v", "c", "p", "t"])
+        // `b` is the one-time BLE service identifier — a generated request
+        // always offers the radio, and a decoded one from an older build may
+        // not, which is why the field is optional in the type and present here.
+        #expect(Set(json.keys) == ["v", "c", "p", "t", "b"])
         #expect(json["v"] as? Int == 1)
         #expect(json["t"] as? Int == Int(Self.issuedAt.timeIntervalSince1970))
-        // Comfortably inside QR version 10 at error correction level M (213
-        // bytes), which is a code a phone reads from half a metre away.
-        #expect(text.utf8.count < 200)
+        #expect(UUID(uuidString: try #require(json["b"] as? String)) != nil)
+
+        // The budget, and what engagement cost. A 36-character UUID plus its key
+        // and quotes adds about 44 bytes to a request that was around 120, and
+        // the ceiling that matters is QR version 10 at error correction level M
+        // — 213 bytes — because that is the code a phone reads from half a metre
+        // away. Still inside it, with the margin now stated rather than assumed.
+        #expect(text.utf8.count < 200, "request grew to \(text.utf8.count) bytes; QR version 10 @ M holds 213")
         // Printable UTF-8 keeps `AVMetadataMachineReadableCodeObject.stringValue`
         // non-nil, so the scanner never has to decode the raw QR bit stream.
         #expect(String(data: Data(text.utf8), encoding: .utf8) == text)

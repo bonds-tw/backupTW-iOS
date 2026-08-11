@@ -114,6 +114,24 @@ struct HolderPresentation {
     func frames(answering request: PresentationRequest,
                 disclosing: [String]? = nil,
                 now: Date = Date()) throws -> [String] {
+        // UTF-8 bytes, not the string: `QRTransport` deflates and base45-encodes
+        // whatever it is handed and never looks inside, which is what lets a ZK
+        // proof object replace this line unchanged.
+        try QRTransport.frames(for: try presentation(answering: request,
+                                                     disclosing: disclosing,
+                                                     now: now))
+    }
+
+    /// The signed presentation itself.
+    ///
+    /// `frames(answering:)` shards this for a camera; `LinkTransport` shards the
+    /// same bytes for a radio. One signing path, two shardings — two
+    /// presentations answering one challenge would be two chances to be
+    /// replayed, and the verifier's single-use rule would refuse the second
+    /// anyway.
+    func presentation(answering request: PresentationRequest,
+                      disclosing: [String]? = nil,
+                      now: Date = Date()) throws -> Data {
         guard let credentialID = try storedCredentialID(),
               let credentialJWS = try store.load(id: credentialID) else {
             throw HolderPresentationError.noCredentialStored
@@ -134,9 +152,6 @@ struct HolderPresentation {
                                                     holderDID: holderDID,
                                                     disclosing: disclosing,
                                                     createdAt: now)
-        // UTF-8 bytes, not the string: `QRTransport` deflates and base45-encodes
-        // whatever it is handed and never looks inside, which is what lets a ZK
-        // proof object replace this line unchanged.
-        return try QRTransport.frames(for: Data(jws.utf8))
+        return Data(jws.utf8)
     }
 }
