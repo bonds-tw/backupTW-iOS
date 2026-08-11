@@ -1306,6 +1306,17 @@
         }
       }
     },
+    "No": {
+      "comment": "Holder-facing value of the over-18 claim",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "否"
+          }
+        }
+      }
+    },
     "No document stored yet": {
       "localizations": {
         "zh-Hant": {

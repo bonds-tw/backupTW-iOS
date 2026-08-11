@@ -159,7 +159,7 @@ final class StoredCredentialViewController: UICollectionViewController {
                 rows: stored.claims.map {
                     Row(id: "field.\($0.key)",
                         title: StoredNationalID.label(for: $0.key),
-                        value: $0.value,
+                        value: StoredNationalID.displayValue(for: $0.key, value: $0.value),
                         isSensitive: true, isAction: false)
                 }))
             // Revealing was a deliberate step; un-revealing has to be one tap

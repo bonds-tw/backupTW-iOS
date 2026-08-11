@@ -186,6 +186,26 @@ struct StoredNationalID: Equatable {
         return Data(base64Encoded: s)
     }
 
+    /// The value a *holder* should see for a claim.
+    ///
+    /// One special case: the age predicate is stored as the strings "true" /
+    /// "false" because that is what the card signed, and the raw token leaked
+    /// straight onto the holder’s own screens (「發證時已滿 18 歲 / true」,
+    /// photographed on device 2026-08-11). A person reads 「是」.
+    ///
+    /// Holder-facing only. The verifier’s result screen quotes the document’s
+    /// own bytes under its 「原樣引述」 discipline and must keep showing the
+    /// literal value — translating there would put this app’s words in the
+    /// document’s mouth.
+    static func displayValue(for key: String, value: String) -> String {
+        guard key == AgePredicate.claimName else { return value }
+        switch value {
+        case "true": return NSLocalizedString("Yes", comment: "Holder-facing value of the over-18 claim")
+        case "false": return NSLocalizedString("No", comment: "Holder-facing value of the over-18 claim")
+        default: return value
+        }
+    }
+
     /// The label a person should see for a claim key.
     static func label(for key: String) -> String {
         switch key {

@@ -347,10 +347,16 @@ final class PresentCredentialViewController: UIViewController {
             string: StoredNationalID.label(for: claim.name),
             attributes: [.font: UIFont.preferredFont(forTextStyle: .headline)])
         title.append(NSAttributedString(
-            string: "\n" + claim.value,
+            string: "\n" + StoredNationalID.displayValue(for: claim.name, value: claim.value),
             attributes: [.font: UIFont.preferredFont(forTextStyle: .subheadline),
                          .foregroundColor: UIColor.secondaryLabel]))
         label.attributedText = title
+
+        // The text label stretches; the trailing word hugs. Without this the
+        // stack gave the slack to neither and 「一律出示」 floated mid-row next
+        // to the name instead of sitting where every switch sits (photographed
+        // on device 2026-08-11).
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         let always = UILabel()
         always.text = NSLocalizedString("Always shown", comment: "Trailing text on the field the holder cannot withhold")
@@ -408,7 +414,7 @@ final class PresentCredentialViewController: UIViewController {
             string: StoredNationalID.label(for: claim.name),
             attributes: [.font: UIFont.preferredFont(forTextStyle: .headline)])
         title.append(NSAttributedString(
-            string: "\n" + claim.value,
+            string: "\n" + StoredNationalID.displayValue(for: claim.name, value: claim.value),
             attributes: [.font: UIFont.preferredFont(forTextStyle: .subheadline),
                          .foregroundColor: UIColor.secondaryLabel]))
         label.attributedText = title
