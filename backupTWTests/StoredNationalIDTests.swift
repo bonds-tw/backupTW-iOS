@@ -159,3 +159,37 @@ enum DeviceKeyAvailability {
     /// one without them fails with -34018. Same gate the eraser tests use.
     static var isAvailable: Bool { (try? DeviceKey.loadOrCreate()) != nil }
 }
+
+// MARK: - What the holder reads for a predicate claim
+
+/// The age predicate is stored as the string the card signed — "true" — and
+/// that token leaked straight onto the holder's screens (photographed on
+/// device, 2026-08-11). A person reads a word.
+struct HolderFacingValueTests {
+
+    /// Locale-immune assertions: mapped means "not the raw token", never a
+    /// comparison against one language's word — this repo has twice shipped
+    /// wording tests that were only green while a string was untranslated.
+    @Test func thePredicateTokenIsMappedToAWord() {
+        let yes = StoredNationalID.displayValue(for: AgePredicate.claimName, value: "true")
+        let no = StoredNationalID.displayValue(for: AgePredicate.claimName, value: "false")
+
+        #expect(yes != "true")
+        #expect(no != "false")
+        #expect(!yes.isEmpty && !no.isEmpty)
+        #expect(yes != no)
+    }
+
+    /// Anything the mapping does not recognise passes through untouched — a
+    /// forged or future value must surface as itself, not as this app's word.
+    @Test func anUnknownPredicateValuePassesThroughVerbatim() {
+        #expect(StoredNationalID.displayValue(for: AgePredicate.claimName, value: "maybe") == "maybe")
+    }
+
+    /// Every other claim is a person's own record and is never rewritten.
+    @Test(arguments: [("name", "王小明"), ("unifiedNo", "A123456789"),
+                      ("birthdate", "民國 083年03月06日")])
+    func ordinaryClaimsAreNeverRewritten(_ pair: (String, String)) {
+        #expect(StoredNationalID.displayValue(for: pair.0, value: pair.1) == pair.1)
+    }
+}
