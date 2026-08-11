@@ -92,17 +92,14 @@ class SettingsViewController: UICollectionViewController {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
             var content = cell.defaultContentConfiguration()
             content.image = item.image
+            // Plain text with `textProperties`, not attributed strings: an
+            // attributed font is frozen at configure time, so a mid-session
+            // Dynamic Type change reflowed every label in the app except these.
             content.text = item.title
-            content.attributedText = NSAttributedString(
-                string: item.title,
-                attributes: [.font: UIFont.preferredFont(forTextStyle: .headline)]
-            )
-            content.secondaryAttributedText = NSAttributedString(
-                string: item.secondaryText,
-                attributes: [.foregroundColor: UIColor.secondaryLabel,
-                             .font: UIFont.preferredFont(forTextStyle: .subheadline)
-                            ]
-            )
+            content.textProperties.font = .preferredFont(forTextStyle: .headline)
+            content.secondaryText = item.secondaryText
+            content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
+            content.secondaryTextProperties.color = .secondaryLabel
             cell.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
@@ -146,7 +143,7 @@ extension SettingsViewController {
         case Row.diagnostics:
             navigationController?.pushViewController(DiagnosticsViewController(), animated: true)
         case Row.eraseEverything:
-            confirmEraseEverything()
+            confirmEraseEverything(from: indexPath)
         case Row.minimalDisclosure:
             navigationController?.pushViewController(ZKProofViewController(), animated: true)
         default:
@@ -158,7 +155,7 @@ extension SettingsViewController {
     /// everything" and silently keeps their DID has been misled, and the whole
     /// point of the erase is that the next presentation cannot be linked to the
     /// previous one.
-    private func confirmEraseEverything() {
+    private func confirmEraseEverything(from indexPath: IndexPath? = nil) {
         let alert = UIAlertController(
             title: NSLocalizedString("Erase all local data?", comment: ""),
             message: NSLocalizedString("Your credentials, the source documents, and your device key will be deleted. The next document you create will use a new identifier and cannot be linked to the current one. This cannot be undone.", comment: ""),
@@ -172,7 +169,10 @@ extension SettingsViewController {
         // back to a popover anchored anywhere sensible.
         if let popover = alert.popoverPresentationController {
             popover.sourceView = collectionView
-            popover.sourceRect = collectionView.bounds
+            // Anchored to the row that was tapped, so the iPad popover's arrow
+            // points at the action it belongs to instead of the whole list.
+            popover.sourceRect = indexPath.flatMap { collectionView.cellForItem(at: $0)?.frame }
+                ?? collectionView.bounds
         }
         present(alert, animated: true)
     }

@@ -164,11 +164,19 @@ final class ZKVerifyViewController: UIViewController {
         case .success(let verdict):
             var lines: [String] = []
             if let outcome = verdict.outcome {
-                lines.append(String(format: NSLocalizedString(
-                    "Certificate chain %@ · Signature %@ · Linked %@", comment: ""),
-                    outcome.certificateChainValid ? "✓" : "✗",
-                    outcome.userSignatureValid ? "✓" : "✗",
-                    outcome.linked ? "✓" : "✗"))
+                // One check per line, in words. The single dotted line wrapped
+                // unpredictably at accessibility sizes, and a bare ✗ gives
+                // VoiceOver a glyph where the person needs a verdict — worse,
+                // it never says *which* check the mark belongs to once the line
+                // has folded.
+                func stated(_ name: String, _ passed: Bool) -> String {
+                    String(format: passed
+                        ? NSLocalizedString("%@: passed", comment: "One ZK verification check")
+                        : NSLocalizedString("%@: failed", comment: "One ZK verification check"), name)
+                }
+                lines.append(stated(NSLocalizedString("Certificate chain", comment: ""), outcome.certificateChainValid))
+                lines.append(stated(NSLocalizedString("Signature", comment: ""), outcome.userSignatureValid))
+                lines.append(stated(NSLocalizedString("Linked", comment: ""), outcome.linked))
             }
             lines.append(String(format: NSLocalizedString("Took %.1f seconds · %@", comment: ""),
                                 verdict.seconds,

@@ -21,6 +21,28 @@
         }
       }
     },
+    "%@: failed": {
+      "comment": "One ZK verification check",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@：未通過"
+          }
+        }
+      }
+    },
+    "%@: passed": {
+      "comment": "One ZK verification check",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@：通過"
+          }
+        }
+      }
+    },
     "%d fields · created %@": {
       "localizations": {
         "zh-Hant": {
@@ -315,12 +337,12 @@
         }
       }
     },
-    "Certificate chain %@ · Signature %@ · Linked %@": {
+    "Certificate chain": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "憑證鏈 %@ · 簽章 %@ · 同一人 %@"
+            "value": "憑證鏈"
           }
         }
       }
@@ -387,12 +409,22 @@
         }
       }
     },
-    "Check a proof file. Needs the large checking files on this phone.": {
+    "Check a proof file. The checking files are on this phone.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "查驗一個證明檔案。這支手機上要先有那組很大的查驗檔案。"
+            "value": "查驗一份證明檔。查驗用的檔案已在這支手機上。"
+          }
+        }
+      }
+    },
+    "Check a proof file. The large checking files are not downloaded yet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗一份證明檔。大型查驗檔案尚未下載。"
           }
         }
       }
@@ -778,6 +810,16 @@
         }
       }
     },
+    "Downloaded files stay on this phone, and a partly finished download is kept for next time. Unpacking starts over.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已下載完成的檔案會留在這支手機上，下載到一半的進度也會保留給下次使用。解壓縮會重新開始。"
+          }
+        }
+      }
+    },
     "Erase": {
       "localizations": {
         "zh-Hant": {
@@ -970,6 +1012,16 @@
         }
       }
     },
+    "Hide the fields": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隱藏欄位"
+          }
+        }
+      }
+    },
     "Hold this up to the checker": {
       "localizations": {
         "zh-Hant": {
@@ -1101,12 +1153,32 @@
         }
       }
     },
+    "Keep going": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "繼續"
+          }
+        }
+      }
+    },
     "License": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "授權條款"
+          }
+        }
+      }
+    },
+    "Linked": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同一人"
           }
         }
       }
@@ -1829,6 +1901,16 @@
         }
       }
     },
+    "Signature": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章"
+          }
+        }
+      }
+    },
     "Signature checking key": {
       "localizations": {
         "zh-Hant": {
@@ -1910,16 +1992,6 @@
         }
       }
     },
-    "Signing the document on this device": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在此裝置上簽署證件"
-          }
-        }
-      }
-    },
     "Signing would complete but never return to this app.": {
       "localizations": {
         "zh-Hant": {
@@ -1977,6 +2049,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "停止"
+          }
+        }
+      }
+    },
+    "Stop this run?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要停止這次執行嗎？"
           }
         }
       }
@@ -3389,6 +3471,17 @@
         }
       }
     },
+    "Try again": {
+      "comment": "Retry minting a verification request",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再試一次"
+          }
+        }
+      }
+    },
     "Unavailable": {
       "localizations": {
         "zh-Hant": {
@@ -3526,16 +3619,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方揭露了什麼"
-          }
-        }
-      }
-    },
-    "What they will see": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "對方會看到什麼"
           }
         }
       }

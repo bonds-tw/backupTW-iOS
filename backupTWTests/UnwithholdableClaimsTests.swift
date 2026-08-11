@@ -26,6 +26,8 @@ import UIKit
 /// screen, and what these tests protect is the screen telling the truth.
 struct UnwithholdableClaimsTests {
 
+    private static let keyTag = "tw.bonds.backupTW.tests.unwithholdable"
+
     private static let everyClaim = ["nationality", "unifiedNo", "name", "birthdate",
                                      AgePredicate.claimName, "addressOfHousehold"]
 
@@ -84,6 +86,84 @@ struct UnwithholdableClaimsTests {
     /// provably leaves the device by another route.
     @Test func onlyTheNameIsTakenAwayAsAChoice() {
         #expect(PresentCredentialViewController.cannotBeWithheld == ["name"])
+    }
+
+    /// The screen and the presentation layer must not be able to disagree. The
+    /// screen removes the switch; the presentation layer is what actually decides
+    /// what leaves, and it is the one that has to hold.
+    @Test func theScreenAndThePresentationLayerAgreeOnWhatCannotBeWithheld() {
+        #expect(PresentCredentialViewController.cannotBeWithheld
+                == VerifiablePresentation.claimsThatCannotBeWithheld)
+    }
+
+    /// **The bug this file exists to stop, caught on a real phone.**
+    ///
+    /// The forcing lived only in the view controller. A debug affordance called
+    /// `HolderPresentation.frames(answering:disclosing:)` directly, asked to
+    /// disclose nothing, and got exactly that — so the checker's result screen
+    /// said 「對方沒有出示姓名，所以無法核對上面那張憑證是不是同一個人的」 while
+    /// printing the name off the certificate two lines above it.
+    ///
+    /// A guarantee enforced by one caller is not a guarantee. This asserts it
+    /// where every caller has to go through.
+    @Test func askingToDiscloseNothingStillDisclosesTheNameAtThePresentationLayer() throws {
+        defer { try? DeviceKey.deleteKey(tag: Self.keyTag) }
+        let key = try DeviceKey.loadOrCreate(tag: Self.keyTag)
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+
+        let model = NationalIDModel(nationality: "中華民國（臺灣）",
+                                    unifiedNo: "A123456789",
+                                    name: "王小明",
+                                    birthdate: "民國 083年03月06日",
+                                    addressOfHousehold: "臺北市中正區重慶南路一段122號")
+        let issuedAt = Date(timeIntervalSince1970: 1_786_000_000)
+        let (credential, disclosures) = VerifiableCredential.selectivelyDisclosableNationalID(
+            model, issuerDID: did, validFrom: issuedAt)
+        let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        let envelope = MOICASignedCredential(
+            payload: VerifiableCredential.base64URLEncoded(bytes),
+            proof: MOICACredentialProof(
+                tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
+                certificate: holderCertificateDER,
+                signature: try cardSignature(over: Data(tbs.utf8)).base64EncodedString()),
+            disclosures: disclosures.map { $0.encoded })
+
+        let request = try PresentationRequest(challenge: "Q0hBTExFTkdFLTAwMDAwMA",
+                                              purpose: "撤銷檢查測試",
+                                              createdAt: issuedAt,
+                                              audience: nil)
+        // Straight to the presentation layer, bypassing the screen entirely —
+        // which is precisely what the debug button did on the phone.
+        let jws = try VerifiablePresentation.create(credentialJWS: try envelope.serialized(),
+                                                    request: request,
+                                                    signedBy: key,
+                                                    holderDID: did,
+                                                    disclosing: [],
+                                                    createdAt: issuedAt)
+
+        let verified = try MOICASignedCredential
+            .parse(try Self.envelopeSerialization(inPresentation: jws))
+            .verify(signedBy: try X509Certificate.parse(base64DER: holderCertificateDER))
+
+        #expect(verified.claims["name"] == "王小明")
+        #expect(verified.cardholderNameWasChecked,
+                "the checker was shown a name with nothing tying it to the document")
+        #expect(verified.withheldClaimCount == 5)
+    }
+
+    private static func envelopeSerialization(inPresentation jws: String) throws -> String {
+        let segments = jws.components(separatedBy: ".")
+        var base64 = segments[1]
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
+        let object = try JSONSerialization.jsonObject(
+            with: try #require(Data(base64Encoded: base64))) as? [String: Any]
+        let array = try #require(object?["verifiableCredential"] as? [Any])
+        let first = try #require(array.first as? [String: Any])
+        let identifier = try #require(first["id"] as? String)
+        return try #require(EnvelopedVerifiableCredential(
+            context: "", id: identifier, type: "").moicaSignedSerialization)
     }
 
     /// The screen must not say the old sentence again.

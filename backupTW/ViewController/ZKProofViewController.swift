@@ -489,10 +489,33 @@ final class ZKProofViewController: UICollectionViewController {
 
     private func handleAction() {
         if isRunning {
-            runTask?.cancel()
+            confirmStop()
             return
         }
         confirmAndRun()
+    }
+
+    /// Stopping costs little and the button did not say so — and the first
+    /// version of this sentence said the opposite of what cancel does. It
+    /// claimed the running step 「下次會重新開始」, but `CircuitAssets` keeps the
+    /// resume sidecar precisely on cancellation, so an interrupted download is
+    /// *kept* and the next run tries to continue from it — succeeding while the
+    /// server's signed URL is still valid, restarting transparently once it has
+    /// expired. The alert claims only the part that always holds: nothing
+    /// already fetched is thrown away. Inflating and installing restart.
+    /// `deinit`'s unconditional cancel is untouched: leaving the screen is its
+    /// own answer.
+    private func confirmStop() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("Stop this run?", comment: ""),
+            message: NSLocalizedString("Downloaded files stay on this phone, and a partly finished download is kept for next time. Unpacking starts over.", comment: ""),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Keep going", comment: ""), style: .cancel))
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Stop", comment: ""),
+                                      style: .destructive) { [weak self] _ in
+            self?.runTask?.cancel()
+        })
+        present(alert, animated: true)
     }
 
     /// The consent gate. Nothing is fetched before this returns.
@@ -833,7 +856,13 @@ final class ZKProofViewController: UICollectionViewController {
             let package = try ZKProofPackage(readingFrom: report.bundle)
             let url = FileManager.default.temporaryDirectory
                 .appendingPathComponent("proof-\(Int(Date().timeIntervalSince1970)).zkproof")
-            try package.encoded().write(to: url, options: [.atomic])
+            // Same protection class the credential store uses. This file is
+            // somebody's identity proof sitting in a world-readable-when-
+            // unlocked scratch directory; before this it accumulated there at
+            // the default class, which is looser than the app applies to
+            // everything else it writes.
+            try package.encoded().write(to: url,
+                                        options: [.atomic, .completeFileProtectionUnlessOpen])
 
             let share = UIActivityViewController(activityItems: [url],
                                                  applicationActivities: nil)
@@ -842,6 +871,12 @@ final class ZKProofViewController: UICollectionViewController {
             if let popover = share.popoverPresentationController {
                 popover.sourceView = collectionView
                 popover.sourceRect = collectionView.bounds
+            }
+            // Gone once the share sheet closes, shared or not. AirDrop and the
+            // Files app have their copy by then; the scratch copy has no
+            // further job, and proofs must not pile up in tmp between runs.
+            share.completionWithItemsHandler = { _, _, _, _ in
+                try? FileManager.default.removeItem(at: url)
             }
             present(share, animated: true)
         } catch {
