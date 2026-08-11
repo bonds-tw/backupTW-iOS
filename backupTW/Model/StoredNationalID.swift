@@ -63,7 +63,13 @@ struct StoredNationalID: Equatable {
 
     /// What to put on screen for the creation time.
     func createdDescription(style: DateFormatter.Style = .medium) -> String {
-        guard let validFrom else { return validFromRaw }
+        // The raw string only reaches a screen when it failed to parse as a
+        // date — which is exactly when it might be anything at all. A stored
+        // credential file is this device's own, but "our own disk" and
+        // "trusted for layout" are different claims: a `validFrom` carrying a
+        // newline or a bidi override would rearrange the home screen. Same
+        // pipe as every other unparseable string, no bespoke filtering.
+        guard let validFrom else { return UntrustedText.value(validFromRaw).text }
         let formatter = DateFormatter()
         formatter.dateStyle = style
         formatter.timeStyle = style == .medium ? .none : .short

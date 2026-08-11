@@ -521,7 +521,10 @@ final class PresentCredentialViewController: UIViewController {
                 format: NSLocalizedString("This document does not fit in one code, so it cycles through %1$d — one full cycle takes about %2$d seconds. Keep the screen still until the checker's phone says it has them all; the order does not matter.", comment: ""),
                 frames.count, cycleSeconds)))
         }
-        contentStack.addArrangedSubview(PresentationUI.footnote(
+        // Body weight, not footnote: this is the only sentence on the screen
+        // with a deadline in it, and blowing the deadline restarts the whole
+        // exchange. It was in the lowest-contrast style the screen has.
+        contentStack.addArrangedSubview(PresentationUI.body(
             NSLocalizedString("This code stops being accepted about five minutes after it was made.", comment: "")))
         contentStack.addArrangedSubview(linkabilityWarning())
 

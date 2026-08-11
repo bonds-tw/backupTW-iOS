@@ -57,6 +57,32 @@ final class StoredCredentialViewController: UICollectionViewController {
         title = NSLocalizedString("My identity document", comment: "")
         configureDataSource()
         reload()
+
+        // Backgrounding closes the fields. `didEnterBackground` and not
+        // `willResignActive` — the latter fires for Control Centre and an
+        // incoming call, and yanking the fields shut mid-comparison for a
+        // banner would teach people to stop using the hide step at all. The
+        // app-switcher snapshot is already handled by `PrivacyShield`; this is
+        // for the return trip, so a phone handed back does not open on the
+        // address.
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.isRevealed else { return }
+            self.isRevealed = false
+            self.reload()
+        }
+    }
+
+    /// Held so the observation dies with the screen. The block API's token is
+    /// not auto-removed: discarding it leaves a live observer behind every
+    /// visit to this screen, each firing into a dead closure forever.
+    private var backgroundObserver: NSObjectProtocol?
+
+    deinit {
+        if let backgroundObserver {
+            NotificationCenter.default.removeObserver(backgroundObserver)
+        }
     }
 
     // MARK: - Content
@@ -124,6 +150,16 @@ final class StoredCredentialViewController: UICollectionViewController {
                         value: $0.value,
                         isSensitive: true, isAction: false)
                 }))
+            // Revealing was a deliberate step; un-revealing has to be one tap
+            // too, because the situation that made the fields sensitive — a
+            // counter, a queue, somebody alongside — does not end when the tap
+            // that opened them does.
+            groups.append(Group(id: "hide", title: "", rows: [
+                Row(id: "hide.action",
+                    title: NSLocalizedString("Hide the fields", comment: ""),
+                    value: "",
+                    isSensitive: false, isAction: true)
+            ]))
         } else {
             groups.append(Group(id: "reveal", title: "", rows: [
                 Row(id: "reveal.action",
@@ -188,8 +224,8 @@ final class StoredCredentialViewController: UICollectionViewController {
     override func collectionView(_ collectionView: UICollectionView,
                                  didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
-        guard dataSource.itemIdentifier(for: indexPath)?.isAction == true else { return }
-        isRevealed = true
+        guard let row = dataSource.itemIdentifier(for: indexPath), row.isAction else { return }
+        isRevealed = row.id == "reveal.action"
         reload()
     }
 }

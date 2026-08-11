@@ -61,6 +61,7 @@ final class VerifierViewController: UIViewController {
     private let purposeLabel = UILabel()
     private let unavailableLabel = UILabel()
     private let scanButton = UIButton(type: .system)
+    private let retryButton = UIButton(type: .system)
 
     // MARK: - Lifecycle
 
@@ -151,10 +152,14 @@ final class VerifierViewController: UIViewController {
 
         purposeLabel.numberOfLines = 0
         purposeLabel.textAlignment = .center
-        purposeLabel.font = .preferredFont(forTextStyle: .subheadline)
+        // Footnote weight: both ends are the same build, so the purpose is
+        // always the same sentence — worth stating (the holder sees it and the
+        // two must match), not worth a slot in the reading order.
+        purposeLabel.font = .preferredFont(forTextStyle: .footnote)
         purposeLabel.adjustsFontForContentSizeCategory = true
-        purposeLabel.textColor = .secondaryLabel
+        purposeLabel.textColor = .tertiaryLabel
         contentStack.addArrangedSubview(purposeLabel)
+        contentStack.setCustomSpacing(8, after: codeContainer)
 
         unavailableLabel.numberOfLines = 0
         unavailableLabel.textAlignment = .center
@@ -163,6 +168,13 @@ final class VerifierViewController: UIViewController {
         unavailableLabel.textColor = .systemRed
         unavailableLabel.isHidden = true
         contentStack.addArrangedSubview(unavailableLabel)
+
+        var retryConfiguration = UIButton.Configuration.bordered()
+        retryConfiguration.title = NSLocalizedString("Try again", comment: "Retry minting a verification request")
+        retryButton.configuration = retryConfiguration
+        retryButton.addTarget(self, action: #selector(retryBeginCheck), for: .touchUpInside)
+        retryButton.isHidden = true
+        contentStack.addArrangedSubview(retryButton)
 
         var configuration = UIButton.Configuration.filled()
         configuration.title = NSLocalizedString("Scan their document", comment: "")
@@ -318,6 +330,7 @@ final class VerifierViewController: UIViewController {
                                        request.purpose)
             purposeLabel.isHidden = false
             unavailableLabel.isHidden = true
+            retryButton.isHidden = true
             scanButton.isEnabled = true
         } catch {
             // `PresentationRequest.generate` refuses rather than inventing a
@@ -332,7 +345,17 @@ final class VerifierViewController: UIViewController {
                 ?? NSLocalizedString("This device could not create a verification request.", comment: "")
             unavailableLabel.isHidden = false
             scanButton.isEnabled = false
+            retryButton.isHidden = false
         }
+    }
+
+    /// Shown only when minting a challenge failed. A transient CSPRNG refusal
+    /// should cost one tap, not a navigation round trip — and the scan button
+    /// stays disabled meanwhile, because a check without a fresh challenge has
+    /// no replay defence.
+    @objc private func retryBeginCheck() {
+        retryButton.isHidden = true
+        beginCheck()
     }
 
     /// What the holder is told this check is for. Echoed into the signed

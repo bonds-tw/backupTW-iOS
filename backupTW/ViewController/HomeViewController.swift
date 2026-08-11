@@ -87,8 +87,26 @@ class HomeViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "eye.slash")?
                     .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
                  title: Row.verifyProof,
-                 secondaryText: NSLocalizedString("Check a proof file. Needs the large checking files on this phone.", comment: ""))
+                 secondaryText: Self.proofRowSubtitle())
         ])
+    }
+
+    /// Whether this phone can actually check a proof, said on the row itself.
+    ///
+    /// The generic sentence sent people into the screen to find out; the state
+    /// was knowable from here. Both variants state a *local* fact — files
+    /// present or files missing — and neither implies anything about any proof
+    /// being valid: readiness is not a verdict, so no tick, no colour.
+    private static func proofRowSubtitle() -> String {
+        let ready = (try? CircuitAssets.defaultDirectory()).map { directory in
+            CircuitAssets.required.allSatisfy { asset in
+                FileManager.default.fileExists(
+                    atPath: directory.appendingPathComponent(asset.localFilename).path)
+            }
+        } ?? false
+        return ready
+            ? NSLocalizedString("Check a proof file. The checking files are on this phone.", comment: "")
+            : NSLocalizedString("Check a proof file. The large checking files are not downloaded yet.", comment: "")
     }
 
     init() {
@@ -137,17 +155,13 @@ class HomeViewController: UICollectionViewController {
             // looking at the screen, which is the only way this class of defect
             // is ever found.
             content.image = item.image
+            // Plain text with `textProperties` — an attributed font is frozen
+            // at configure time and ignores mid-session Dynamic Type changes.
             content.text = item.title
-            content.attributedText = NSAttributedString(
-                string: item.title,
-                attributes: [.font: UIFont.preferredFont(forTextStyle: .headline)]
-            )
-            content.secondaryAttributedText = NSAttributedString(
-                string: item.secondaryText,
-                attributes: [.foregroundColor: UIColor.secondaryLabel,
-                             .font: UIFont.preferredFont(forTextStyle: .subheadline)
-                            ]
-            )
+            content.textProperties.font = .preferredFont(forTextStyle: .headline)
+            content.secondaryText = item.secondaryText
+            content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
+            content.secondaryTextProperties.color = .secondaryLabel
             cell.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
@@ -156,9 +170,16 @@ class HomeViewController: UICollectionViewController {
         }
         let headerRegistration = UICollectionView.SupplementaryRegistration<CustomHeaderView>(
             elementKind: UICollectionView.elementKindSectionHeader
-        ) { headerView, elementKind, indexPath in
-            let section = self.sections[indexPath.section]
-            headerView.configure(title: section.title, forTextStyle: .title2)
+        ) { [weak self] headerView, elementKind, indexPath in
+            // From the snapshot the data source is showing, not from
+            // `self.sections` — the computed property re-reads the credential
+            // store (a Keychain round trip) on every header dequeue, and its
+            // answer could disagree with what the rows on screen were built
+            // from. The strong `self` capture was also a retain cycle.
+            guard let dataSource = self?.dataSource else { return }
+            let sections = dataSource.snapshot().sectionIdentifiers
+            guard indexPath.section < sections.count else { return }
+            headerView.configure(title: sections[indexPath.section].title, forTextStyle: .title2)
         }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
             if kind == UICollectionView.elementKindSectionHeader {
