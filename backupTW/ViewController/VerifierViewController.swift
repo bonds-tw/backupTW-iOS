@@ -200,6 +200,31 @@ final class VerifierViewController: UIViewController {
         pasteButton.configuration = pasteConfiguration
         pasteButton.addTarget(self, action: #selector(pastePresentation), for: .touchUpInside)
         contentStack.addArrangedSubview(pasteButton)
+
+        // One phone cannot check its own document through the camera, and the
+        // clipboard route does not close the loop either: leaving this screen to
+        // go and present mints a fresh challenge on the way back
+        // (`viewWillAppear`), so the presentation answering the old one is
+        // correctly refused. That is the single-use rule working, not a bug —
+        // but it means a lone device could never see a card-signed verification
+        // end to end, which is exactly the path that is hardest to test and
+        // easiest to get wrong.
+        //
+        // So this runs the whole round trip in one tap, on this device's real
+        // stored credential: mint a request from the real session, have
+        // `HolderPresentation` answer it, reassemble the frames through the same
+        // `FrameCollector` a camera feeds, and hand the result to the same
+        // `check`. Nothing is stubbed and nothing skips a signature. What it
+        // does skip is the lens and the QR itself, so it proves everything
+        // except that the codes are scannable.
+        let selfCheckButton = UIButton(type: .system)
+        var selfCheckConfiguration = UIButton.Configuration.gray()
+        selfCheckConfiguration.title = "用這支手機自己的證件跑一次（開發用）"
+        selfCheckConfiguration.image = UIImage(systemName: "arrow.triangle.2.circlepath")
+        selfCheckConfiguration.imagePadding = 8
+        selfCheckButton.configuration = selfCheckConfiguration
+        selfCheckButton.addTarget(self, action: #selector(checkOwnCredential), for: .touchUpInside)
+        contentStack.addArrangedSubview(selfCheckButton)
         #endif
 
         contentStack.addArrangedSubview(PresentationUI.footnote(
@@ -209,6 +234,73 @@ final class VerifierViewController: UIViewController {
     #if DEBUG
     /// The pasted text is the frames of one presentation, one per line — what
     /// the holder side's own debug button copies.
+    /// Checks this device's own stored credential, start to finish.
+    ///
+    /// Disclosing nothing, deliberately — that is the interesting case now, and
+    /// running it on a real phone is what found the bug it now guards.
+    ///
+    /// The holder ticks no boxes. `VerifiablePresentation.create` still discloses
+    /// `name`, because the certificate carries it either way and withholding it
+    /// only cost the checker the CN-to-name comparison. The first time this
+    /// button ran, that forcing lived in the holder's *screen* and this method
+    /// walked straight past it: the result said 「對方沒有出示姓名，所以無法核對
+    /// 上面那張憑證是不是同一個人的」 while printing the name two lines above.
+    ///
+    /// So the expected result is: the name shown **and** checked, five fields
+    /// held back, and the revocation line if a snapshot is installed.
+    @objc private func checkOwnCredential() {
+        collector.reset()
+        let holder = HolderPresentation(store: (try? CredentialStore()) ?? EmptyCredentialStore())
+
+        do {
+            // The real session, so the challenge is minted and spent exactly as
+            // it would be for a stranger. `beginCheck` replaces whatever this
+            // screen last put on the display, which is the same thing tapping
+            // 「重新查驗」 does.
+            let request = try session.beginCheck(purpose: Self.purpose)
+            let frames = try holder.frames(answering: request, disclosing: [])
+
+            var payload: Data?
+            for frame in frames {
+                if case .payload(let data) = FrameIntake.accept(frame, into: collector) {
+                    payload = data
+                }
+            }
+            guard let payload, let jws = String(data: payload, encoding: .utf8) else {
+                presentPasteDiagnosis("frames 重組失敗——收到 \(frames.count) 張但拼不回來。")
+                return
+            }
+            // Timed, and reported before the result screen replaces everything.
+            //
+            // `VerifierSession` justifies its asynchronous path with a figure
+            // measured on a Mac against the Go reference implementation: 1.35 s
+            // to build the tree from the snapshot. Nobody had measured the Rust
+            // one on a phone, and the first device run looked instant — which is
+            // exactly the shape of "it is fast" and "it never ran" being
+            // indistinguishable. So the number goes on screen.
+            let started = Date()
+            session.check(presentationJWS: jws) { [weak self] result in
+                guard let self else { return }
+                let elapsed = Date().timeIntervalSince(started) * 1000
+                let revocation: String
+                if case .checked(.verified(let presentation)) = result {
+                    revocation = String(describing: presentation.revocation)
+                } else {
+                    revocation = "（未通過或無結果）"
+                }
+                self.presentPasteDiagnosis(
+                    "出示內容 \(jws.utf8.count) bytes，\(frames.count) 張 frame。\n"
+                    + "查驗耗時 \(Int(elapsed.rounded())) ms。\n"
+                    + "撤銷檢查：\(revocation)"
+                ) { [weak self] in
+                    _ = self?.finish(result)
+                }
+            }
+        } catch {
+            presentPasteDiagnosis("這支手機上沒有可出示的證件，或簽章失敗：\(error)")
+        }
+    }
+
     @objc private func pastePresentation() {
         collector.reset()
         // The simulator's pasteboard sync is lazy and cross-process: a poller
@@ -306,9 +398,10 @@ final class VerifierViewController: UIViewController {
         RunLoop.main.add(timer, forMode: .common)
     }
 
-    private func presentPasteDiagnosis(_ message: String) {
-        let alert = UIAlertController(title: "貼上失敗（開發用診斷）", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+    private func presentPasteDiagnosis(_ message: String, then continuation: (() -> Void)? = nil) {
+        let alert = UIAlertController(title: continuation == nil ? "貼上失敗（開發用診斷）" : "開發用診斷",
+                                      message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in continuation?() })
         present(alert, animated: true)
     }
     #endif

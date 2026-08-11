@@ -331,6 +331,21 @@ extension VerifiablePresentation {
     ///     end with no explanation.
     ///   - createdAt: Injectable so the signed bytes are reproducible in a
     ///     test; the default is what production uses.
+    /// Claims that are disclosed whether or not the holder chose them.
+    ///
+    /// Exactly one, and it is not policy — it is a fact about where the value
+    /// already is. A card-signed credential travels with the certificate that
+    /// signed it, because the checker cannot verify the signature without one,
+    /// and that certificate is an X.509 whose Subject CN is the cardholder's
+    /// legal name. Withholding the `name` claim never hid the name; it only cost
+    /// the checker the comparison `MOICASignedCredential.verify` makes between
+    /// the certificate's CN and the credential's own `name`, leaving them with a
+    /// name on screen and nothing tying it to the document.
+    ///
+    /// So the choice is removed rather than honoured dishonestly, and disclosing
+    /// is the direction that buys something back.
+    static let claimsThatCannotBeWithheld: Set<String> = ["name"]
+
     static func create(credentialJWS: String,
                        request: PresentationRequest,
                        signedBy key: DeviceKey,
@@ -383,7 +398,21 @@ extension VerifiablePresentation {
             // disclosure it receives against a digest the card signed, and never
             // notices the absence of the others except as a count.
             if let disclosing {
-                let chosen = Set(disclosing)
+                // The unwithholdable claims are added back before filtering, and
+                // that happens **here** rather than in the screen that draws the
+                // switches.
+                //
+                // It used to be in the screen, and a debug affordance that called
+                // this method directly walked straight past it: it asked to
+                // disclose nothing, got exactly that, and the checker's result
+                // then said 「對方沒有出示姓名，所以無法核對上面那張憑證是不是
+                // 同一個人的」 — while printing the name off the certificate two
+                // lines above. Measured on device, 2026-08-10.
+                //
+                // A guarantee enforced by one caller is not a guarantee. This is
+                // the only place disclosures are filtered, so it is the only
+                // place that can hold the line for every caller.
+                let chosen = Set(disclosing).union(Self.claimsThatCannotBeWithheld)
                 cardSigned.disclosures = cardSigned.disclosures.filter { encoded in
                     Disclosure(encoded: encoded).map { chosen.contains($0.claimName) } ?? false
                 }

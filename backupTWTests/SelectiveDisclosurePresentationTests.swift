@@ -83,7 +83,11 @@ struct SelectiveDisclosurePresentationTests {
         let envelope = try MOICASignedCredential.parse(serialized)
         let names = envelope.disclosures.compactMap { Disclosure(encoded: $0)?.claimName }
 
-        #expect(names == [AgePredicate.claimName])
+        // `name` rides along whether or not it was asked for — see
+        // `VerifiablePresentation.claimsThatCannotBeWithheld`. It is in the
+        // certificate regardless, so disclosing it costs nothing and buys the
+        // checker the CN-to-name comparison.
+        #expect(Set(names) == [AgePredicate.claimName, "name"])
 
         // Searched across the **whole envelope**, not just the disclosures.
         //
@@ -101,15 +105,14 @@ struct SelectiveDisclosurePresentationTests {
                     "\(value) left the device despite being withheld")
         }
 
-        // And the asymmetry, asserted rather than glossed. The name is not in the
-        // disclosures — the holder withheld it — and it is in the certificate
-        // anyway, because the checker cannot verify the signature without a
-        // certificate and X.509 has no way to leave a field out of one.
+        // And the asymmetry, asserted rather than glossed. Three values can be
+        // withheld and are; the name cannot be, because the certificate carries
+        // it and the checker needs the certificate to verify anything at all.
         //
-        // This reads like a test asserting a defect, and that is the point: if
-        // anybody restores 「姓名不會送出」 to the holder's screen, this goes red.
+        // The second assertion reads like a test protecting a defect, and that
+        // is the point: if anybody restores 「姓名不會送出」 to the holder's
+        // screen, this goes red.
         let name = Data("王小明".utf8)
-        #expect(!envelope.disclosures.contains { Disclosure(encoded: $0)?.claimValue == "王小明" })
         #expect(certificate.contains(subsequence: name),
                 "the certificate no longer carries the name — if that is real, the holder's screen can stop saying it does")
     }
@@ -132,13 +135,21 @@ struct SelectiveDisclosurePresentationTests {
         let verified = try MOICASignedCredential.parse(serialized)
             .verify(signedBy: try X509Certificate.parse(base64DER: holderCertificateDER))
 
-        #expect(verified.claims == [AgePredicate.claimName: "true"])
-        #expect(verified.withheldClaimCount == 5)
-        #expect(verified.cardholderNameWasChecked == false)
+        #expect(verified.claims == [AgePredicate.claimName: "true", "name": "王小明"])
+        #expect(verified.withheldClaimCount == 4)
+        // True now, and it is the whole reason the name is forced: the checker
+        // gets the certificate's CN compared against the document's own `name`
+        // rather than a name on screen with nothing tying it to the document.
+        #expect(verified.cardholderNameWasChecked)
     }
 
     /// Disclosing nothing is a legitimate answer to "prove you hold a document",
     /// and it must not be mistaken for a broken presentation.
+    ///
+    /// "Nothing" means nothing the holder could withhold. The name goes either
+    /// way — this is the exact request the on-device debug check makes, and it is
+    /// how the gap was found: it asked for nothing, got nothing, and the checker
+    /// was left printing a name it could not tie to the document.
     @Test func disclosingNothingStillProducesAValidPresentation() throws {
         defer { try? DeviceKey.deleteKey(tag: deviceKeyTag) }
         let key = try DeviceKey.loadOrCreate(tag: deviceKeyTag)
@@ -153,8 +164,9 @@ struct SelectiveDisclosurePresentationTests {
         let verified = try MOICASignedCredential.parse(serialized)
             .verify(signedBy: try X509Certificate.parse(base64DER: holderCertificateDER))
 
-        #expect(verified.claims.isEmpty)
-        #expect(verified.withheldClaimCount == 6)
+        #expect(verified.claims == ["name": "王小明"])
+        #expect(verified.withheldClaimCount == 5)
+        #expect(verified.cardholderNameWasChecked)
     }
 
     /// `nil` means everything, which is what a credential with nothing to
