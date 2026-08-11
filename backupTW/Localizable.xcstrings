@@ -347,16 +347,6 @@
         }
       }
     },
-    "Certificate chain %@ · Signature %@ · Linked %@": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "憑證鏈 %@ · 簽章 %@ · 同一人 %@"
-          }
-        }
-      }
-    },
     "Certificate chain checking key": {
       "localizations": {
         "zh-Hant": {
@@ -820,6 +810,16 @@
         }
       }
     },
+    "Downloaded files stay on this phone, and a partly finished download is kept for next time. Unpacking starts over.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已下載完成的檔案會留在這支手機上，下載到一半的進度也會保留給下次使用。解壓縮會重新開始。"
+          }
+        }
+      }
+    },
     "Erase": {
       "localizations": {
         "zh-Hant": {
@@ -947,16 +947,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "檔案保護"
-          }
-        }
-      }
-    },
-    "Files already downloaded stay on this phone. The step that is running now will start over next time.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已下載完成的檔案會留在這支手機上。正在進行的步驟下次會重新開始。"
           }
         }
       }
@@ -1188,7 +1178,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已連結"
+            "value": "同一人"
           }
         }
       }
@@ -1998,16 +1988,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "簽署金鑰"
-          }
-        }
-      }
-    },
-    "Signing the document on this device": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在此裝置上簽署證件"
           }
         }
       }
@@ -3639,16 +3619,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方揭露了什麼"
-          }
-        }
-      }
-    },
-    "What they will see": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "對方會看到什麼"
           }
         }
       }

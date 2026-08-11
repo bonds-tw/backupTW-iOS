@@ -70,7 +70,7 @@ final class StoredCredentialViewController: UICollectionViewController {
             object: nil, queue: .main) { [weak self] _ in
             guard let self, self.isRevealed else { return }
             self.isRevealed = false
-            self.reload()
+            self.applySnapshot()
         }
     }
 
@@ -89,6 +89,18 @@ final class StoredCredentialViewController: UICollectionViewController {
 
     private func reload() {
         stored = StoredNationalID.load()
+        applySnapshot()
+    }
+
+    /// Rebuilds the list from the `stored` already in memory, without touching
+    /// the disk.
+    ///
+    /// Split out for the backgrounding observer: the credential file is class B
+    /// (`.completeUnlessOpen`), and re-reading it at the exact moment the
+    /// device is locking is the one moment the read is entitled to fail — which
+    /// would blank a screen that only needed its switch flipped. Hiding the
+    /// fields needs no bytes it does not already have.
+    private func applySnapshot() {
         groups = buildGroups()
         var snapshot = NSDiffableDataSourceSnapshot<Group, Row>()
         for group in groups {

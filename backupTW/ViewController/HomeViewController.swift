@@ -97,9 +97,18 @@ class HomeViewController: UICollectionViewController {
     /// was knowable from here. Both variants state a *local* fact — files
     /// present or files missing — and neither implies anything about any proof
     /// being valid: readiness is not a verdict, so no tick, no colour.
+    ///
+    /// Keyed to `ZKVerifyingKeyAssets.all` — the exact set the destination
+    /// screen's `ZKPackageVerifier` gates on — and not to
+    /// `CircuitAssets.required`, which this first checked. The review that
+    /// caught it: `required` is the *prover's* set (proving keys + revocation
+    /// snapshot), so a phone whose verifying keys were derived but whose
+    /// proving keys were reclaimed would read 「尚未下載」 on a row that opens a
+    /// screen that works. A readiness sentence keyed to a different screen's
+    /// prerequisites is a sentence about nothing.
     private static func proofRowSubtitle() -> String {
         let ready = (try? CircuitAssets.defaultDirectory()).map { directory in
-            CircuitAssets.required.allSatisfy { asset in
+            ZKVerifyingKeyAssets.all.allSatisfy { asset in
                 FileManager.default.fileExists(
                     atPath: directory.appendingPathComponent(asset.localFilename).path)
             }

@@ -495,15 +495,20 @@ final class ZKProofViewController: UICollectionViewController {
         confirmAndRun()
     }
 
-    /// Stopping costs something and the button does not say what. Finished
-    /// downloads survive (`loadPlan` re-reads the directory), the stage that is
-    /// mid-flight starts over — said here, once, instead of being learned by
-    /// stopping. `deinit`'s unconditional cancel is untouched: leaving the
-    /// screen is its own answer.
+    /// Stopping costs little and the button did not say so — and the first
+    /// version of this sentence said the opposite of what cancel does. It
+    /// claimed the running step 「下次會重新開始」, but `CircuitAssets` keeps the
+    /// resume sidecar precisely on cancellation, so an interrupted download is
+    /// *kept* and the next run tries to continue from it — succeeding while the
+    /// server's signed URL is still valid, restarting transparently once it has
+    /// expired. The alert claims only the part that always holds: nothing
+    /// already fetched is thrown away. Inflating and installing restart.
+    /// `deinit`'s unconditional cancel is untouched: leaving the screen is its
+    /// own answer.
     private func confirmStop() {
         let alert = UIAlertController(
             title: NSLocalizedString("Stop this run?", comment: ""),
-            message: NSLocalizedString("Files already downloaded stay on this phone. The step that is running now will start over next time.", comment: ""),
+            message: NSLocalizedString("Downloaded files stay on this phone, and a partly finished download is kept for next time. Unpacking starts over.", comment: ""),
             preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: NSLocalizedString("Keep going", comment: ""), style: .cancel))
         alert.addAction(UIAlertAction(title: NSLocalizedString("Stop", comment: ""),
