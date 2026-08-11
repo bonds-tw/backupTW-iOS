@@ -565,7 +565,11 @@ enum QRTransport {
     /// of the four here, because these payloads are small and full of exact
     /// repeats rather than long enough for a modern entropy coder to pay for
     /// its own header.
-    private static func deflateIfSmaller(_ payload: Data) -> Data? {
+    /// Internal rather than private because `LinkTransport` frames the same
+    /// payloads for a radio and must make the same compress-or-not decision the
+    /// same way — two transports that disagreed about when to deflate would
+    /// produce two different identifiers for one document.
+    static func deflateIfSmaller(_ payload: Data) -> Data? {
         let capacity = payload.count - 1
         guard capacity > 0 else { return nil }
 
@@ -606,8 +610,14 @@ enum QRTransport {
     /// it is a digest over the *plaintext*, which covers inflation as well as
     /// transport — stronger than the checksum a framed container would have
     /// given us.
-    fileprivate static func inflate(_ body: Data) throws -> Data {
-        let capacity = maximumPayloadBytes + 1
+    ///
+    /// `limit` is a parameter rather than the constant it used to be because
+    /// `LinkTransport` carries payloads this transport refuses outright — a ZK
+    /// package is 294 KB against a QR ceiling of 64. The ceiling still exists
+    /// and is still the caller's to state; what changed is that there is now
+    /// more than one honest answer to what it should be.
+    static func inflate(_ body: Data, limit: Int = maximumPayloadBytes) throws -> Data {
+        let capacity = limit + 1
         var output = Data(count: capacity)
         let written = output.withUnsafeMutableBytes { destination -> Int in
             guard let destinationBase = destination.baseAddress else { return 0 }
@@ -622,7 +632,7 @@ enum QRTransport {
             }
         }
         guard written > 0 else { throw QRTransportError.decompressionFailed }
-        guard written <= maximumPayloadBytes else { throw QRTransportError.oversizedPayload }
+        guard written <= limit else { throw QRTransportError.oversizedPayload }
         output.count = written
         return output
     }
