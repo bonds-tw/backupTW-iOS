@@ -112,8 +112,13 @@ struct TrustList: Equatable, Sendable {
         case fieldContainsDelimiter(field: String)
         /// A field long enough to make the whole document unwieldy.
         case fieldTooLong(field: String, bytes: Int)
-        /// An identifier outside printable ASCII. See `allowedInIdentifier`.
+        /// An identifier outside printable ASCII, or empty. See
+        /// `allowedInIdentifier`.
         case identifierNotPrintableASCII(String)
+        /// The bytes parsed, but they are not the bytes this build emits for
+        /// what they parsed to — duplicate keys, unknown keys, or different
+        /// formatting. See `decoded(from:)`.
+        case notCanonicalJSON
     }
 
     /// Everything that may never appear inside a value.
@@ -126,7 +131,32 @@ struct TrustList: Equatable, Sendable {
     /// from the one the machine hashed, and this format's whole job is that
     /// those two readings agree.
     private static let forbidden: CharacterSet = {
-        var set = CharacterSet.controlCharacters          // C0 and C1
+        // `.controlCharacters` is Cc ∪ Cf — 235 scalars, and it does cover every
+        // invisible formatting character worth worrying about (ZWSP, the word
+        // joiners, U+FEFF, the tag block). What it does **not** cover is the two
+        // that matter most here.
+        //
+        // **U+2028 LINE SEPARATOR is category Zl and U+2029 is Zp.** Neither is a
+        // control character, so both passed — and every line-splitter on the
+        // machine treats them as line breaks: Foundation's `enumerateLines`,
+        // `CharacterSet.newlines`, Swift's `Character.isNewline`, CoreText when
+        // it draws a label, and Python's `splitlines`. An adversarial pass built
+        // the document that follows from that, and it is the worst shape this
+        // format has:
+        //
+        //     note = "MOICA G3\u{2028}did:key:zBackup<wide spaces>…\u{2028}end"
+        //
+        // The published bytes then read, to a human and to a Python verifier, as
+        // a two-entry list ending at `end` whose second issuer is `zBackup`,
+        // while the app trusts `zZEvil` on a line *after* the terminator. Header
+        // count and terminator both agree with the false reading — every check
+        // the format gave a reader to perform passes.
+        //
+        // **This repository had already found this exact gap and fixed it, in
+        // `UntrustedText`, on the display path.** The lesson existed and was
+        // written down; it just had not been carried across to the path where
+        // the bytes are hashed rather than drawn. `.newlines` is what carries it.
+        var set = CharacterSet.controlCharacters.union(.newlines)
         set.insert(charactersIn: "\u{202A}"..."\u{202E}")  // LRE…RLO
         set.insert(charactersIn: "\u{2066}"..."\u{2069}")  // LRI…PDI
         return set
@@ -232,6 +262,13 @@ struct TrustList: Equatable, Sendable {
             try check("id of \(entry.id)", entry.id)
             try check("displayName of \(entry.id)", entry.displayName)
             try check("note of \(entry.id)", entry.note)
+            // Non-empty first: `allSatisfy` over nothing is vacuously true, so
+            // an empty identifier used to sail through and `trusts("")` answered
+            // yes — a credential whose issuer field is missing or empty would
+            // have been on the list.
+            guard !entry.id.isEmpty else {
+                throw TrustListError.identifierNotPrintableASCII(entry.id)
+            }
             guard entry.id.unicodeScalars.allSatisfy(Self.allowedInIdentifier.contains) else {
                 throw TrustListError.identifierNotPrintableASCII(entry.id)
             }
@@ -288,12 +325,39 @@ struct TrustList: Equatable, Sendable {
 
     /// Decodes and validates in one step, so there is no window in which an
     /// unvalidated list exists and could be asked a question.
+    ///
+    /// # The published bytes must be exactly the bytes this type would emit
+    ///
+    /// Decoding alone is not enough, and this is the second thing an adversarial
+    /// pass found. The commitment is computed from the *parsed* fields, so
+    /// anything in the JSON that the parse does not model is invisible to it —
+    /// and two readers do not have to agree on what the parse is:
+    ///
+    ///   * **Duplicate keys.** Measured 2026-08-13: given
+    ///     `{"publishedAt":"A","publishedAt":"B"}`, Foundation's `JSONDecoder`
+    ///     takes **A** and Python's `json` takes **B**. Every other mainstream
+    ///     parser follows the last-wins reading. So one published file has two
+    ///     commitments depending on who reads it, which is precisely the
+    ///     disagreement between two honest parties this format exists to prevent.
+    ///   * **Unknown keys.** A `"note"` at the top level, or an extra field on an
+    ///     entry, is silently discarded — so a reviewer can read a
+    ///     trust-relevant annotation in the published file that no digest covers.
+    ///
+    /// Both close with one rule: **re-encode the parse and require it to equal
+    /// the input, byte for byte.** A document with duplicate keys does not
+    /// survive it, nor does one carrying anything this build does not model. The
+    /// cost is that a published list has to be exactly what `encoded()` emits —
+    /// sorted keys, pretty-printed — which for a commitment-pinned document is a
+    /// property rather than a restriction.
     static func decoded(from data: Data, expectedCommitment: String? = nil) throws -> TrustList {
         let wire = try JSONDecoder().decode(Wire.self, from: data)
         let list = TrustList(version: wire.version,
                              publishedAt: wire.publishedAt,
                              entries: wire.entries)
         try list.validate(expectedCommitment: expectedCommitment)
+        guard try list.encoded() == data else {
+            throw TrustListError.notCanonicalJSON
+        }
         return list
     }
 }

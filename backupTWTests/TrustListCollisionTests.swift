@@ -247,3 +247,100 @@ struct TrustListInjectivityTests {
         #expect(list.canonicalForm.hasSuffix("\nend\n"))
     }
 }
+
+/// # What an adversarial pass found after the first fix
+///
+/// Four independent attackers were pointed at canonical form v2. Fifteen
+/// findings survived their own verification pass; these are the three graded
+/// high, each reproduced here from the construction the attacker supplied.
+///
+/// All three share a shape worth naming: none of them is a hash collision. They
+/// are **disagreements about what the published bytes say** — between the app
+/// and a human, or between the app and any other parser. A commitment is a
+/// promise that one value names one list, and a list only has one meaning if
+/// every reader recovers the same one.
+@Suite("對抗式審查抓到的三個 high")
+@MainActor
+struct TrustListAdversarialTests {
+
+    private static func list(_ entries: [TrustList.Entry],
+                             publishedAt: String = "2026-08-09") -> TrustList {
+        TrustList(version: TrustList.currentVersion, publishedAt: publishedAt, entries: entries)
+    }
+
+    /// **U+2028 LINE SEPARATOR is category Zl, so it is not a control character.**
+    ///
+    /// It passed `CharacterSet.controlCharacters` while every line-splitter on
+    /// the machine — Foundation, the Swift stdlib, CoreText, Python — treats it
+    /// as a line break. A `note` carrying one plus a forged row and a second
+    /// `end` produces a document whose header count and terminator both agree
+    /// with a reading that names a different issuer from the one the app trusts.
+    @Test func aLineSeparatorCannotEnterAField() {
+        let forged = "MOICA G3\u{2028}did:key:zBackup\u{3000}primary\u{3000}備援\u{3000}x\u{2028}end"
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([TrustList.Entry(id: "did:key:zAMOICA", displayName: "內政部憑證管理中心",
+                                           note: forged, isMirror: false)]).validate()
+        }
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([TrustList.Entry(id: "did:key:zA", displayName: "x",
+                                           note: "a\u{2029}b", isMirror: false)]).validate()
+        }
+    }
+
+    /// **Duplicate JSON keys: Foundation takes the first, everyone else the last.**
+    ///
+    /// Measured, not assumed: `{"publishedAt":"A","publishedAt":"B"}` decodes to
+    /// `A` under `JSONDecoder` and to `B` under Python's `json`. One file, two
+    /// readings, therefore two commitments — the exact disagreement between two
+    /// honest parties that the canonical form exists to make impossible.
+    @Test func aDocumentWithDuplicateKeysIsRefused() throws {
+        let honest = Self.list([TrustList.Entry(id: "did:key:zA", displayName: "內政部憑證管理中心",
+                                                note: "G3", isMirror: false)])
+        let bytes = try honest.encoded()
+        let text = try #require(String(data: bytes, encoding: .utf8))
+        // A second `publishedAt`, inserted after the first.
+        let doubled = text.replacingOccurrences(
+            of: "\"publishedAt\" : \"2026-08-09\"",
+            with: "\"publishedAt\" : \"2026-08-09\",\n  \"publishedAt\" : \"2099-01-01\"")
+        #expect(doubled != text, "the fixture's formatting changed; this test is no longer testing anything")
+
+        #expect(throws: (any Error).self) {
+            try TrustList.decoded(from: Data(doubled.utf8))
+        }
+    }
+
+    /// **The commitment covers only the fields this build models**, so anything
+    /// else in the published JSON is readable by a reviewer and invisible to the
+    /// digest. Re-encoding and comparing bytes is what closes it.
+    @Test func aDocumentCarryingUnmodelledFieldsIsRefused() throws {
+        let honest = Self.list([TrustList.Entry(id: "did:key:zA", displayName: "內政部憑證管理中心",
+                                                note: "G3", isMirror: false)])
+        let text = try #require(String(data: try honest.encoded(), encoding: .utf8))
+        let annotated = text.replacingOccurrences(
+            of: "\"version\" : 1",
+            with: "\"authority\" : \"依行政院 2026-08 函示啟用\",\n  \"version\" : 1")
+
+        #expect(throws: (any Error).self) {
+            try TrustList.decoded(from: Data(annotated.utf8))
+        }
+    }
+
+    /// An honest document still round-trips. A fix that refused everything would
+    /// pass all three tests above.
+    @Test func anHonestDocumentStillDecodes() throws {
+        let honest = Self.list([TrustList.Entry(id: "did:key:zA", displayName: "內政部憑證管理中心",
+                                                note: "G3", isMirror: false)])
+        let decoded = try TrustList.decoded(from: try honest.encoded(),
+                                            expectedCommitment: honest.commitment)
+        #expect(decoded == honest)
+    }
+
+    /// An empty identifier used to validate, because `allSatisfy` over nothing is
+    /// vacuously true — and `trusts("")` then answered yes, so a credential whose
+    /// issuer field is empty was on the list.
+    @Test func anEmptyIdentifierIsRefused() {
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([TrustList.Entry(id: "", displayName: "x", note: "", isMirror: false)]).validate()
+        }
+    }
+}
