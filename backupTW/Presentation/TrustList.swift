@@ -110,13 +110,49 @@ struct TrustList: Equatable, Sendable {
         /// and refusing is chosen over escaping because the format's other job
         /// is to be reproducible by hand on a machine with no tooling.
         case fieldContainsDelimiter(field: String)
+        /// A field long enough to make the whole document unwieldy.
+        case fieldTooLong(field: String, bytes: Int)
+        /// An identifier outside printable ASCII. See `allowedInIdentifier`.
+        case identifierNotPrintableASCII(String)
     }
 
-    /// The characters that structure the canonical form, and may therefore
-    /// never appear inside a value. `\r` is included because a file that made
-    /// a round trip through a Windows editor would otherwise change its own
-    /// digest, which is a different bug with the same cause.
-    private static let delimiters = CharacterSet(charactersIn: "\t\n\r")
+    /// Everything that may never appear inside a value.
+    ///
+    /// The two delimiters, plus the rest of C0/C1 and the bidirectional
+    /// overrides. `\r` is here because a file that made a round trip through a
+    /// Windows editor would otherwise change its own digest; the overrides are
+    /// here for the same reason `UntrustedText` strips them — a value that can
+    /// reorder the line it is printed on can make a human read a different list
+    /// from the one the machine hashed, and this format's whole job is that
+    /// those two readings agree.
+    private static let forbidden: CharacterSet = {
+        var set = CharacterSet.controlCharacters          // C0 and C1
+        set.insert(charactersIn: "\u{202A}"..."\u{202E}")  // LRE…RLO
+        set.insert(charactersIn: "\u{2066}"..."\u{2069}")  // LRI…PDI
+        return set
+    }()
+
+    /// What an `id` may contain: printable ASCII, and nothing else.
+    ///
+    /// Not decoration. Sorting is what decides row order and therefore the
+    /// digest, and Swift's `String.<` is normalisation-aware: measured
+    /// 2026-08-13, `["e\u{0301}x", "éa"]` sorts as `[éa, éx]` in Swift and
+    /// `[éx, éa]` by UTF-8 bytes, because Swift compares the *characters* while
+    /// the bytes put `e` (0x65) before `Ã©` (0xC3 0xA9). On ASCII, Latin-1 and
+    /// CJK the two agree — so the hazard is narrow, and narrow is worse: it
+    /// waits for the first identifier somebody pastes in a decomposed form.
+    ///
+    /// Two implementations that sort differently compute different commitments
+    /// for the same list, which is a legitimate emergency rotation failing
+    /// across a whole fleet, in a way indistinguishable from an attack.
+    /// Restricting `id` removes the case, and `canonicalForm` sorts by bytes
+    /// anyway so that the guarantee does not rest on the restriction alone.
+    private static let allowedInIdentifier: CharacterSet = {
+        CharacterSet(charactersIn: UnicodeScalar(0x21)...UnicodeScalar(0x7E))
+    }()
+
+    /// A ceiling per field, so a list cannot be made enormous by one value.
+    private static let maximumFieldLength = 512
 
     // MARK: - Commitment
 
@@ -145,7 +181,10 @@ struct TrustList: Equatable, Sendable {
         // the encoding injective, and this is what makes a failure of that check
         // visible rather than silent.
         var lines = ["bonds.tw/trust-list/v\(version)/\(entries.count)", publishedAt]
-        for entry in entries.sorted(by: { $0.id < $1.id }) {
+        // Sorted by UTF-8 bytes, explicitly, rather than by `String.<` — see
+        // `allowedInIdentifier` for the measurement. A second implementation in
+        // Python, Go or on paper sorts bytes; this has to agree with it.
+        for entry in entries.sorted(by: { Array($0.id.utf8).lexicographicallyPrecedes(Array($1.id.utf8)) }) {
             // Tab-separated, and the fields that feed the digest are only the
             // ones that carry meaning for a trust decision. `displayName` and
             // `note` are included too: a list that could be relabelled without
@@ -156,6 +195,9 @@ struct TrustList: Equatable, Sendable {
                           entry.displayName,
                           entry.note].joined(separator: "\t"))
         }
+        // An explicit terminator, so a truncated file is not a shorter list
+        // with a different-but-valid digest — it is a file that does not parse.
+        lines.append("end")
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -177,18 +219,21 @@ struct TrustList: Equatable, Sendable {
         // field including the ones that look like metadata: `publishedAt` is a
         // string somebody types, and nobody audits it as though it carried
         // trust.
-        for (name, value) in [("publishedAt", publishedAt)] {
-            guard value.rangeOfCharacter(from: Self.delimiters) == nil else {
+        func check(_ name: String, _ value: String) throws {
+            guard value.rangeOfCharacter(from: Self.forbidden) == nil else {
                 throw TrustListError.fieldContainsDelimiter(field: name)
             }
+            guard value.utf8.count <= Self.maximumFieldLength else {
+                throw TrustListError.fieldTooLong(field: name, bytes: value.utf8.count)
+            }
         }
+        try check("publishedAt", publishedAt)
         for entry in entries {
-            for (name, value) in [("id", entry.id),
-                                  ("displayName", entry.displayName),
-                                  ("note", entry.note)] {
-                guard value.rangeOfCharacter(from: Self.delimiters) == nil else {
-                    throw TrustListError.fieldContainsDelimiter(field: "\(name) of \(entry.id)")
-                }
+            try check("id of \(entry.id)", entry.id)
+            try check("displayName of \(entry.id)", entry.displayName)
+            try check("note of \(entry.id)", entry.note)
+            guard entry.id.unicodeScalars.allSatisfy(Self.allowedInIdentifier.contains) else {
+                throw TrustListError.identifierNotPrintableASCII(entry.id)
             }
         }
 

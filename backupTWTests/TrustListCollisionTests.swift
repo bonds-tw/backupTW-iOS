@@ -141,3 +141,109 @@ struct TrustListCollisionTests {
         try Self.expanded.validate(expectedCommitment: Self.expanded.commitment)
     }
 }
+
+/// # Injectivity as a property, not as a list of remembered attacks
+///
+/// The collision above was found by reasoning about the format. These check the
+/// property directly, because the next collision will not be the one anybody
+/// thought of.
+@Suite("正規形式的單射性")
+struct TrustListInjectivityTests {
+
+    private static func entry(_ id: String, _ name: String, _ note: String,
+                              mirror: Bool = false) -> TrustList.Entry {
+        TrustList.Entry(id: id, displayName: name, note: note, isMirror: mirror)
+    }
+
+    private static func list(_ entries: [TrustList.Entry],
+                             publishedAt: String = "2026-08-09") -> TrustList {
+        TrustList(version: TrustList.currentVersion, publishedAt: publishedAt, entries: entries)
+    }
+
+    /// **The property.** Parse the canonical form back into rows and require
+    /// that it says exactly what went in. A format that round-trips cannot have
+    /// two inputs sharing an output.
+    @Test func theCanonicalFormRoundTrips() throws {
+        let original = Self.list([
+            Self.entry("did:key:zAlpha", "內政部憑證管理中心", "G3 錨"),
+            Self.entry("did:key:zBeta", "境外鏡像簽發者", "緊急期備援", mirror: true),
+            Self.entry("did:key:z-punctuation_.~", "邊界值", "可列印 ASCII 的兩端 !~"),
+        ])
+        try original.validate()
+
+        let lines = original.canonicalForm.split(separator: "\n", omittingEmptySubsequences: false)
+        // header, publishedAt, N rows, "end", and the trailing empty piece the
+        // final newline leaves behind.
+        #expect(lines.first == "bonds.tw/trust-list/v1/3")
+        #expect(lines.dropLast().last == "end")
+
+        let rowLines: [Substring] = Array(lines.dropFirst(2).dropLast(2))
+        let rows: [[Substring]] = rowLines.map { line in
+            line.split(separator: "\t", omittingEmptySubsequences: false)
+        }
+        #expect(rows.count == original.entries.count)
+        for row in rows { #expect(row.count == 4, "a row lost or gained a field: \(row)") }
+
+        let recovered = rows.map {
+            TrustList.Entry(id: String($0[0]), displayName: String($0[2]),
+                            note: String($0[3]), isMirror: $0[1] == "mirror")
+        }
+        // Compared as sets: row order is the format's business, not the caller's.
+        #expect(Set(recovered.map(\.id)) == Set(original.entries.map(\.id)))
+        #expect(Self.list(recovered).commitment == original.commitment)
+    }
+
+    /// Rows are ordered by UTF-8 bytes, not by Swift's collation.
+    ///
+    /// The two agree on ASCII, Latin-1 and CJK — measured — and disagree when
+    /// normalisation is involved, which is exactly the case a restricted `id`
+    /// no longer admits. Both defences are asserted because either could be
+    /// removed by an edit believing the other covers it.
+    @Test func rowsAreOrderedByBytes() throws {
+        let list = Self.list([Self.entry("did:key:za", "a", ""),
+                              Self.entry("did:key:zZ", "z", ""),
+                              Self.entry("did:key:z_", "u", "")])
+        try list.validate()
+        let bodyLines: [Substring] = Array(list.canonicalForm.split(separator: "\n").dropFirst(2).dropLast())
+        let ids: [String] = bodyLines.map { line in
+            String(line.split(separator: "\t")[0])
+        }
+        #expect(ids == ["did:key:zZ", "did:key:z_", "did:key:za"],
+                "row order is not UTF-8 byte order: \(ids)")
+    }
+
+    /// An identifier outside printable ASCII is refused, so the normalisation
+    /// hazard cannot enter through the field that decides row order.
+    @Test func anIdentifierOutsidePrintableASCIIIsRefused() {
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([Self.entry("did:key:z內政部", "x", "")]).validate()
+        }
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([Self.entry("did:key:ze\u{0301}", "x", "")]).validate()
+        }
+    }
+
+    /// Bidirectional overrides are refused everywhere. A value that can reorder
+    /// the line it is printed on makes a human read a different list from the
+    /// one the machine hashed — which is the exact failure this format exists to
+    /// prevent, arriving through presentation rather than through parsing.
+    @Test func bidirectionalOverridesAreRefused() {
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([Self.entry("did:key:zA", "內政部\u{202E}憑證管理中心", "")]).validate()
+        }
+    }
+
+    /// A field cannot be made unbounded.
+    @Test func anEnormousFieldIsRefused() {
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([Self.entry("did:key:zA", "x", String(repeating: "n", count: 600))]).validate()
+        }
+    }
+
+    /// Truncation is a parse failure, not a shorter list with a valid digest.
+    @Test func theCanonicalFormIsExplicitlyTerminated() throws {
+        let list = Self.list([Self.entry("did:key:zA", "x", "")])
+        try list.validate()
+        #expect(list.canonicalForm.hasSuffix("\nend\n"))
+    }
+}

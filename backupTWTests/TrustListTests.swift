@@ -142,6 +142,7 @@ struct TrustListTests {
         // a person copying this out counts the rows, which they were going to
         // read anyway.
         #expect(text.hasPrefix("bonds.tw/trust-list/v1/2\n2026-08-09T00:00:00Z\n"))
+        #expect(text.hasSuffix("end\n"))
         #expect(text.contains("did:key:zMirror\tmirror\t境外鏡像簽發者\t緊急期備援"))
         #expect(text.hasSuffix("\n"))
     }
