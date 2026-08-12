@@ -2081,13 +2081,13 @@
         }
       }
     },
-    "Scanning this only tells the other phone where to send the proof. It is not a one-time number: a zero-knowledge proof cannot answer one, so nothing here stops an old proof being sent again.": {
+    "Scanning this only tells the other phone where to send the proof. It is not a one-time number — the proof was made before you asked for it, so nothing here stops the same proof being sent again later.": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "掃這個碼只是告訴對方的手機要把證明送到哪裡。它不是一次性亂數：零知識證明無法回答亂數，所以這裡沒有任何機制阻止舊的證明被再送一次。"
+            "value": "掃這個碼只是告訴對方的手機要把證明送到哪裡。它不是一次性亂數——那份證明在你要求之前就已經產生好了，所以沒有任何機制阻止同一份證明日後再被送一次。"
           }
         }
       }

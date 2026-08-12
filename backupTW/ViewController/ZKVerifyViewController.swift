@@ -36,12 +36,21 @@ import UniformTypeIdentifiers
 /// It looks like the QR next door and it is not the same thing.
 /// `PresentationRequest` carries a one-time number the holder's signature has to
 /// cover; `ZKLinkEngagement` carries a Bluetooth service identifier and nothing
-/// else, because **a ZK proof cannot answer a challenge** — see
-/// `ProofCaveat.signatureMaterialIsReplayable`, and `ZKLinkEngagement`'s own
-/// documentation for why inventing one here would be worse than having none.
-/// The screen says so in words, next to the code, rather than leaving a reader
-/// to infer from the resemblance that this path has a replay defence it does
-/// not have.
+/// else.
+///
+/// **Not** because a ZK proof cannot answer a challenge — an earlier version of
+/// this comment said that and it was wrong. `ZKProver` takes one, it enters the
+/// circuit as a public input, and `go-zkid-verifier` reads it back out. The
+/// reason is narrower: **this app proves before it knows who is asking.**
+/// Producing a proof needs the card, a round trip to 內政部 and minutes of CPU,
+/// so the package already exists when this code is scanned and its challenge was
+/// minted by the holder's own device — which is what
+/// `ProofCaveat.challengeNotBoundToVerifier` is for. See `ZKLinkEngagement` for
+/// the full correction.
+///
+/// The consequence for the checker is the same either way, and the screen says
+/// it in words next to the code rather than leaving a reader to infer from the
+/// resemblance that this path has a replay defence it does not have.
 ///
 /// # What this screen is careful about
 ///
@@ -220,7 +229,7 @@ final class ZKVerifyViewController: UIViewController {
             codeImageView.image = UIImage(cgImage: code.image)
             codeImageView.isHidden = false
             codeCaptionLabel.text = NSLocalizedString(
-                "Scanning this only tells the other phone where to send the proof. It is not a one-time number: a zero-knowledge proof cannot answer one, so nothing here stops an old proof being sent again.",
+                "Scanning this only tells the other phone where to send the proof. It is not a one-time number — the proof was made before you asked for it, so nothing here stops the same proof being sent again later.",
                 comment: "Caption under the ZK Bluetooth pairing code")
             codeCaptionLabel.isHidden = false
         } catch {
