@@ -23,20 +23,40 @@ import Foundation
 /// `OfflineVerifier` compares it, `VerifierSession` spends it exactly once, and
 /// the whole replay story rests on that one field.
 ///
-/// **A ZK proof cannot answer a challenge.** `ProofCaveat.signatureMaterialIsReplayable`
-/// states why at length: TW FidO's SIGN flow signs `base64(UTF8(app_id))`, a
-/// constant, so the cardholder's RSA signature is the same 256 bytes every time.
-/// The challenge reaches the circuit as a separate argument and is bound by the
-/// circuit, not by anything a cardholder signed — which means `(cert,
-/// signed_response)` mints a valid proof for any challenge, forever, with no
-/// cardholder present. A number this screen minted and a number recovered from a
-/// months-old transcript are worth exactly the same to a proof.
+/// **This type had a wrong reason for omitting one, and the wrong reason is
+/// corrected here rather than deleted.** The first version of this comment said
+/// 「a ZK proof cannot answer a challenge」. That is false. `ZKProver` takes a
+/// challenge, it enters the circuit as a public input, and
+/// `go-zkid-verifier`'s `ParsedInputs` reads it back out alongside `nullifier`,
+/// `app_id` and `smt_root`. `ProofCaveat.challengeNotBoundToVerifier` exists
+/// precisely because a *verifier-supplied* challenge is the better case that
+/// this app is not achieving — a caveat that would make no sense if the thing
+/// were impossible.
 ///
-/// So a challenge in this code would be a field that looked load-bearing and
-/// carried nothing. Somebody would eventually read the QR, see a nonce, and
-/// conclude the ZK path has replay protection. It does not. This type has no
-/// challenge because there is nothing here for one to do, and the screen says so
-/// in as many words.
+/// The true reasons are two, and they are narrower:
+///
+/// **1. This app proves before it knows who is asking.** Producing a proof needs
+/// the cardholder's card, a round trip to 內政部, about two gigabytes of circuit
+/// material and minutes of CPU. The ZK screen therefore proves first and hands
+/// the finished package over afterwards — so at the moment this code is scanned,
+/// the proof already exists and its challenge was minted by the holder's own
+/// device. There is no verifier challenge for it to have answered. Putting one
+/// in this QR would name a value nothing downstream could compare it to.
+///
+/// **2. Even bound, it would prove less than the card-signed path's does.**
+/// `ProofCaveat.signatureMaterialIsReplayable`: TW FidO's SIGN flow signs
+/// `base64(UTF8(app_id))`, a constant, so `(cert, signed_response)` mints a
+/// valid proof for **any** challenge, forever, with no cardholder present. A
+/// bound challenge would establish that *this proof object* was made after the
+/// checker asked — real, and worth having — but not that the cardholder was
+/// there. Those are different claims and a screen must not merge them.
+///
+/// So: no challenge here, because the flow that would supply it does not exist
+/// yet — not because the mechanism does not. If proving ever becomes cheap
+/// enough to do after engagement, this type should grow a challenge and the
+/// verifier should compare it, and that is a real improvement rather than a
+/// theoretical one. Until then the screen says the code is an address, which is
+/// what it is.
 ///
 /// What it *is* for: telling the holder's phone which Bluetooth service to look
 /// for, and telling the holder what the checker says the check is for. Both are
