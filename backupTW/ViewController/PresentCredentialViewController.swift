@@ -152,6 +152,7 @@ final class PresentCredentialViewController: UIViewController {
             startCarousel()
         case .stopShowing:
             stopCarousel()
+            stopLink()
             brightness.restore()
         }
     }
@@ -574,7 +575,7 @@ final class PresentCredentialViewController: UIViewController {
             contentStack.addArrangedSubview(linkLabel)
         }
 
-        if let serviceID = request.linkServiceID, let payload = presentationPayload {
+        if let serviceID = request.linkServiceID, let payload = presentationPayload, link == nil {
             linkLabel.numberOfLines = 0
             linkLabel.textAlignment = .center
             linkLabel.font = .preferredFont(forTextStyle: .subheadline)
@@ -896,9 +897,21 @@ final class PresentCredentialViewController: UIViewController {
     private func stopCarousel() {
         carousel?.invalidate()
         carousel = nil
-        // The radio stops with the carousel, not with the view controller. Both
-        // are 「this screen is in front of the holder」, and a peripheral that
-        // outlived that would keep this phone discoverable in a pocket.
+    }
+
+    /// Torn down when the screen goes away — **not** from `stopCarousel`.
+    ///
+    /// It was, on the reasoning that the carousel and the radio both mean 「this
+    /// screen is in front of the holder」. They do; but `startCarousel` opens by
+    /// calling `stopCarousel` as a reset, so the peripheral was destroyed a few
+    /// microseconds after it was created, before CoreBluetooth delivered its
+    /// first state callback. The screen said 「正在開啟藍牙…」 and then nothing,
+    /// ever — which is exactly what three device attempts showed.
+    ///
+    /// `CBPeripheralManager` does not retain its delegate, so releasing this
+    /// object is releasing the radio. The lifetime that was wanted is the
+    /// screen's, and that is `.stopShowing`.
+    private func stopLink() {
         link?.stop()
         link = nil
     }
