@@ -216,6 +216,16 @@
         }
       }
     },
+    "Also sending this over Bluetooth, so the checker does not have to scan every code.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同時也用藍牙傳送，這樣查驗方不必一張一張掃。"
+          }
+        }
+      }
+    },
     "Always shown": {
       "comment": "Trailing text on the field the holder cannot withhold",
       "localizations": {
@@ -283,6 +293,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "出生日期"
+          }
+        }
+      }
+    },
+    "Bluetooth is switched off.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "藍牙已關閉。"
+          }
+        }
+      }
+    },
+    "Bluetooth was offered but this document could not be prepared for it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方提供了藍牙，但這份證件無法為它準備好。"
           }
         }
       }
@@ -1820,6 +1850,16 @@
         }
       }
     },
+    "Sending over Bluetooth… %d%%": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "藍牙傳送中… %d%%"
+          }
+        }
+      }
+    },
     "Settings": {
       "localizations": {
         "zh-Hant": {
@@ -2276,6 +2316,26 @@
         }
       }
     },
+    "The checker's phone has the document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方的手機已經收到這份證件。"
+          }
+        }
+      }
+    },
+    "The connection ended before the whole document arrived.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線在整份證件送達前就結束了。"
+          }
+        }
+      }
+    },
     "The credential identifier is not usable.": {
       "localizations": {
         "zh-Hant": {
@@ -2467,6 +2527,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方裝置的時間誤差太大，無法查驗。"
+          }
+        }
+      }
+    },
+    "The other phone could not be reached.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連不上對方的手機。"
+          }
+        }
+      }
+    },
+    "The other phone is not offering a document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方的手機沒有在提供證件。"
           }
         }
       }
@@ -2748,6 +2828,16 @@
         }
       }
     },
+    "This app is not allowed to use Bluetooth. You can change that in Settings.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 App 沒有被允許使用藍牙。可以到「設定」裡更改。"
+          }
+        }
+      }
+    },
     "This build can't request a signature: it has no credentials for the digital certificate service.": {
       "localizations": {
         "zh-Hant": {
@@ -2810,6 +2900,16 @@
         }
       }
     },
+    "This checker's code did not offer Bluetooth, so the codes above are the only way across.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這位查驗方的條碼沒有提供藍牙，所以上面的條碼是唯一的傳遞方式。"
+          }
+        }
+      }
+    },
     "This code carries a one-time number. Their document has to answer this exact number, so a photograph of an earlier check cannot be reused here.": {
       "localizations": {
         "zh-Hant": {
@@ -2867,6 +2967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這支手機還沒辦法驗證這份證明：驗證金鑰尚未下載。"
+          }
+        }
+      }
+    },
+    "This device cannot use Bluetooth for this.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台裝置無法用藍牙做這件事。"
           }
         }
       }
@@ -2998,6 +3108,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這份證件的持有人不是出示的人。"
+          }
+        }
+      }
+    },
+    "This document could not be prepared for sending.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證件無法準備傳送。"
           }
         }
       }

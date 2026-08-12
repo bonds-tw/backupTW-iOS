@@ -374,6 +374,7 @@ final class PresentCredentialViewController: UIViewController {
         always.adjustsFontForContentSizeCategory = true
         always.textColor = .secondaryLabel
         always.setContentCompressionResistancePriority(.required, for: .horizontal)
+        always.setContentHuggingPriority(.required, for: .horizontal)
 
         row.addArrangedSubview(label)
         row.addArrangedSubview(always)
@@ -428,8 +429,16 @@ final class PresentCredentialViewController: UIViewController {
             attributes: [.font: UIFont.preferredFont(forTextStyle: .subheadline),
                          .foregroundColor: UIColor.secondaryLabel]))
         label.attributedText = title
+        // The text yields, the control does not. Without this the row's slack
+        // belongs to nobody: a 戶籍地址 is long enough to out-resist a
+        // `UISwitch`, and the switch gets pushed past the trailing edge — the
+        // holder sees a field they cannot turn off. Measured on device.
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         let toggle = UISwitch()
+        toggle.setContentCompressionResistancePriority(.required, for: .horizontal)
+        toggle.setContentHuggingPriority(.required, for: .horizontal)
         toggle.isOn = false
         toggle.accessibilityLabel = StoredNationalID.label(for: claim.name)
         toggle.addAction(UIAction { [weak self] action in
@@ -545,6 +554,26 @@ final class PresentCredentialViewController: UIViewController {
         // be an older build, may have Bluetooth switched off, or may simply be
         // a camera. A transport that replaced the QR would take away the one
         // that works everywhere.
+        // Always drawn, even when there is no radio to offer, because the first
+        // device attempt produced *no line at all* and that is the one outcome
+        // that cannot be diagnosed: 「the checker offered no radio」, 「the
+        // payload was missing」 and 「the code never ran」 all look identical
+        // when the screen says nothing. Saying which is a debug affordance in
+        // the honest sense — the shipping strings below are the same either way.
+        linkLabel.numberOfLines = 0
+        linkLabel.textAlignment = .center
+        linkLabel.font = .preferredFont(forTextStyle: .subheadline)
+        linkLabel.adjustsFontForContentSizeCategory = true
+        linkLabel.textColor = .secondaryLabel
+
+        if request.linkServiceID == nil {
+            linkLabel.text = NSLocalizedString("This checker's code did not offer Bluetooth, so the codes above are the only way across.", comment: "")
+            contentStack.addArrangedSubview(linkLabel)
+        } else if presentationPayload == nil {
+            linkLabel.text = NSLocalizedString("Bluetooth was offered but this document could not be prepared for it.", comment: "")
+            contentStack.addArrangedSubview(linkLabel)
+        }
+
         if let serviceID = request.linkServiceID, let payload = presentationPayload {
             linkLabel.numberOfLines = 0
             linkLabel.textAlignment = .center
