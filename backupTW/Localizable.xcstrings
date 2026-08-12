@@ -1243,6 +1243,17 @@
         }
       }
     },
+    "Listening over Bluetooth too — you can also scan their code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同時也在用藍牙接收——你也可以直接掃描對方的條碼。"
+          }
+        }
+      }
+    },
     "Local data erased": {
       "localizations": {
         "zh-Hant": {
@@ -1776,6 +1787,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "查驗者填寫的事由"
+          }
+        }
+      }
+    },
+    "Received over Bluetooth.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已透過藍牙收到。"
+          }
+        }
+      }
+    },
+    "Receiving over Bluetooth… %d%%": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "藍牙接收中… %d%%"
           }
         }
       }

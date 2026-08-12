@@ -55,10 +55,21 @@ final class VerifierViewController: UIViewController {
     /// swap happens with the camera already open.
     private let collector = FrameCollector()
 
+    /// Listens for the same presentation over the radio, under the service
+    /// identifier this screen's current request names.
+    ///
+    /// A second entrance, not a second check: whatever arrives here goes into the
+    /// same `session.check` the camera feeds, so the challenge is spent once
+    /// whichever way the bytes travelled and a presentation cannot be worth more
+    /// for having been received over Bluetooth. `bluetoothAndCameraDeliverIdentical
+    /// Bytes` pins the halves that are testable without a radio.
+    private var link: BluetoothLinkCentral?
+
     private let scrollView = UIScrollView()
     private let contentStack = UIStackView()
     private let codeImageView = UIImageView()
     private let purposeLabel = UILabel()
+    private let linkLabel = UILabel()
     private let unavailableLabel = UILabel()
     private let scanButton = UIButton(type: .system)
     private let retryButton = UIButton(type: .system)
@@ -91,9 +102,12 @@ final class VerifierViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         // Only when leaving for good. Pushing the scanner must not cancel the
-        // challenge the scanner is about to collect an answer to.
+        // challenge the scanner is about to collect an answer to — nor stop the
+        // radio, for the same reason: a holder who is already sending should not
+        // be cut off because the checker reached for the camera as well.
         if isMovingFromParent || isBeingDismissed {
             session.cancel()
+            stopLink()
         }
     }
 
@@ -160,6 +174,16 @@ final class VerifierViewController: UIViewController {
         purposeLabel.textColor = .tertiaryLabel
         contentStack.addArrangedSubview(purposeLabel)
         contentStack.setCustomSpacing(8, after: codeContainer)
+
+        // Sits under the code because that is the order the checker acts in:
+        // hold the code up, and if the radio picks the document up first, this
+        // line is what tells them so before they reach for the camera.
+        linkLabel.numberOfLines = 0
+        linkLabel.textAlignment = .center
+        linkLabel.font = .preferredFont(forTextStyle: .footnote)
+        linkLabel.adjustsFontForContentSizeCategory = true
+        linkLabel.textColor = .secondaryLabel
+        contentStack.addArrangedSubview(linkLabel)
 
         unavailableLabel.numberOfLines = 0
         unavailableLabel.textAlignment = .center
@@ -250,6 +274,11 @@ final class VerifierViewController: UIViewController {
     /// held back, and the revocation line if a snapshot is installed.
     @objc private func checkOwnCredential() {
         collector.reset()
+        // This mints its own request rather than going through `beginCheck`, so
+        // the radio would otherwise be left hunting a service identifier that is
+        // no longer the outstanding one.
+        stopLink()
+        linkLabel.text = nil
         let holder = HolderPresentation(store: (try? CredentialStore()) ?? EmptyCredentialStore())
 
         do {
@@ -425,6 +454,7 @@ final class VerifierViewController: UIViewController {
             unavailableLabel.isHidden = true
             retryButton.isHidden = true
             scanButton.isEnabled = true
+            startLink(for: request)
         } catch {
             // `PresentationRequest.generate` refuses rather than inventing a
             // challenge when the system CSPRNG fails, and this is what that
@@ -439,6 +469,102 @@ final class VerifierViewController: UIViewController {
             unavailableLabel.isHidden = false
             scanButton.isEnabled = false
             retryButton.isHidden = false
+            // No challenge means nothing this screen receives could be judged, so
+            // the radio comes down with the code.
+            stopLink()
+            linkLabel.text = nil
+        }
+    }
+
+    // MARK: - The radio
+
+    /// Starts scanning for the service identifier `request` names.
+    ///
+    /// Torn down and rebuilt on every `beginCheck`, which is correct here and is
+    /// the opposite of the holder side's rule: there, the radio outlives a
+    /// carousel restart; here, a new request *is* a new service identifier, and
+    /// a central still hunting the previous one would be looking for a device
+    /// nobody is any longer pretending to be.
+    ///
+    /// Bluetooth being unusable costs this screen nothing except this line. The
+    /// camera is the path that has always worked and it stays enabled — the one
+    /// thing that must never happen is a checker unable to check because a radio
+    /// they were not told about is switched off.
+    ///
+    /// One asymmetry worth naming rather than hiding: the request QR carries a
+    /// `linkServiceID` whether or not this device's Bluetooth turns out to be
+    /// available, because the code is drawn before CoreBluetooth reports its
+    /// state. A holder whose phone reads that code will advertise into an empty
+    /// room and their screen will sit at 「waiting for the checker」 while this one
+    /// says why. Both screens are telling the truth; they just each know half of
+    /// it.
+    private func startLink(for request: PresentationRequest) {
+        stopLink()
+        guard let serviceID = request.linkServiceID else {
+            linkLabel.text = nil
+            return
+        }
+        linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        let link = BluetoothLinkCentral(serviceID: serviceID) { [weak self] state in
+            self?.receiveOverLink(state)
+        }
+        self.link = link
+        link.start()
+    }
+
+    /// Held as long as the screen is, and released when it goes — not when a
+    /// scan starts. `CBCentralManager` does not retain its delegate, so letting
+    /// this go is switching the radio off; the holder side has a comment on
+    /// `stopLink` about the four device runs that cost.
+    private func stopLink() {
+        link?.stop()
+        link = nil
+    }
+
+    /// One line, in the same register as everything else on this screen: what is
+    /// happening, never an error code.
+    private func receiveOverLink(_ state: BluetoothLinkState) {
+        switch state {
+        case .unavailable(let reason):
+            linkLabel.text = reason
+        case .starting:
+            linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        case .waiting:
+            linkLabel.text = NSLocalizedString("Listening over Bluetooth too — you can also scan their code.", comment: "")
+        case .transferring(let fraction):
+            linkLabel.text = String(format: NSLocalizedString("Receiving over Bluetooth… %d%%", comment: ""),
+                                    Int((fraction * 100).rounded()))
+        case .failed(let reason):
+            linkLabel.text = reason
+        case .finished(let payload):
+            // Down the moment the bytes are whole, so that a camera scan finishing
+            // a heartbeat later cannot spend a challenge this one already answered
+            // and push a second result on top of the first.
+            stopLink()
+            linkLabel.text = NSLocalizedString("Received over Bluetooth.", comment: "")
+            checkReceived(payload)
+        }
+    }
+
+    /// The single funnel every reassembled payload goes through, whichever
+    /// entrance it arrived by.
+    ///
+    /// Not text is refused the same way here as on the camera path, including
+    /// spending the challenge: bytes that reassembled and matched their digest
+    /// were an answer, and leaving the challenge outstanding would let the same
+    /// ones be retried against it.
+    private func checkReceived(_ payload: Data) {
+        guard let jws = String(data: payload, encoding: .utf8) else {
+            session.cancel()
+            show(.rejected(.presentationIsNotAJWS))
+            return
+        }
+        session.check(presentationJWS: jws) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .checked(let outcome): self.show(outcome)
+            case .noPendingRequest: self.show(nil)
+            }
         }
     }
 
@@ -486,6 +612,10 @@ final class VerifierViewController: UIViewController {
         case .unreadable:
             return .keepScanning(status: NSLocalizedString("That code could not be read. Ask them to show it again from the start.", comment: ""))
         case .payload(let payload):
+            // The other entrance closes here, for the same reason it closes the
+            // camera: two paths that both reached a whole payload would spend one
+            // challenge and stack two results.
+            stopLink()
             guard let jws = String(data: payload, encoding: .utf8) else {
                 // Reassembled, digest matched, and still not text. Not a
                 // presentation from this app; report it as unreadable rather
