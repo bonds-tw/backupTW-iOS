@@ -8,14 +8,40 @@ import UniformTypeIdentifiers
 
 /// The verifier's side of a zero-knowledge proof.
 ///
-/// # Why this is a file picker and not a camera
+/// # Two ways in, and why neither is a camera
 ///
 /// `VerifierViewController` next door shows a QR code and reads the holder's
-/// answer through the camera, because a credential presentation is about 3 KB.
-/// A proof is not: `VerifierCostSpike` measured 293,916 bytes across the four
-/// artifacts, which is ~100 QR frames at version 40's ceiling. So the proof
-/// arrives as a file — AirDrop, Files, a share sheet — until the Wi-Fi Aware or
-/// BLE transport M3 still owes gets built.
+/// answer through the camera, because a credential presentation is about 8 KB.
+/// A proof is not. A package proved on a real card measured **398,181 bytes**
+/// (2026-08-11), which at `QRTransport`'s 364 bytes per frame is **824 frames —
+/// about 453 seconds of carousel**, assuming the camera catches every one of
+/// them first time. It never gets that far: `QRTransport.frames(for:)` refuses
+/// any payload over 64 KB, so the proof is not sharded slowly, it is rejected.
+///
+/// The 「約 100 張」 in the roadmap, and in this file's own history, came from
+/// dividing 294 KB by QR version 40's 2,953-byte ceiling. Both numbers were
+/// wrong: the package is larger than 294 KB and this app pins symbols at 89
+/// modules and error-correction Q, which leaves 364.
+///
+/// So a proof arrives one of two ways. As a **file** — AirDrop, Files, a share
+/// sheet — which is what this screen did first and still does. Or over
+/// **Bluetooth**, which is what `LinkTransport` was built for and what this
+/// screen now offers: the same 398 KB is 597 frames at the 512-byte MTU a
+/// phone negotiates, and moved in **8.6 seconds** at the rate measured on real
+/// hardware. That is the difference between a path that exists and one that
+/// does not.
+///
+/// # The code on this screen is an address, not a challenge
+///
+/// It looks like the QR next door and it is not the same thing.
+/// `PresentationRequest` carries a one-time number the holder's signature has to
+/// cover; `ZKLinkEngagement` carries a Bluetooth service identifier and nothing
+/// else, because **a ZK proof cannot answer a challenge** — see
+/// `ProofCaveat.signatureMaterialIsReplayable`, and `ZKLinkEngagement`'s own
+/// documentation for why inventing one here would be worse than having none.
+/// The screen says so in words, next to the code, rather than leaving a reader
+/// to infer from the resemblance that this path has a replay defence it does
+/// not have.
 ///
 /// # What this screen is careful about
 ///
@@ -35,6 +61,20 @@ final class ZKVerifyViewController: UIViewController {
     private let scroll = UIScrollView()
     private let stack = UIStackView()
 
+    private let codeImageView = UIImageView()
+    private let codeCaptionLabel = UILabel()
+    private let linkLabel = UILabel()
+
+    /// Scans for the holder's phone under the identifier this screen's code
+    /// names. Held for the life of the screen; `CBCentralManager` does not
+    /// retain its delegate, so releasing this is switching the radio off.
+    private var link: BluetoothLinkCentral?
+
+    /// What is on screen right now, kept so the code and the radio cannot drift
+    /// apart — a displayed identifier nobody is scanning for is a code that
+    /// silently does nothing.
+    private var engagement: ZKLinkEngagement?
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("Check a proof", comment: "")
@@ -42,9 +82,25 @@ final class ZKVerifyViewController: UIViewController {
         configureLayout()
         show(status: NSLocalizedString("No proof loaded yet", comment: ""),
              detail: NSLocalizedString(
-                "A zero-knowledge proof is about 290 KB — too large for a QR code, so it arrives as a file.",
+                "A zero-knowledge proof is about 400 KB — far too large for a QR code, so it arrives over Bluetooth or as a file.",
                 comment: ""),
              verdict: nil)
+    }
+
+    /// A fresh identifier every time the screen appears, including on the way
+    /// back from a result. Nothing here is a secret, so this is not a security
+    /// measure; it is what stops one counter from being recognisable across
+    /// visits by the identifier it broadcasts.
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        beginEngagement()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if isMovingFromParent || isBeingDismissed {
+            stopLink()
+        }
     }
 
     // MARK: - Layout
@@ -75,9 +131,54 @@ final class ZKVerifyViewController: UIViewController {
         chooseButton.accessibilityIdentifier = "zkverify.choose"
         chooseButton.addTarget(self, action: #selector(chooseFile), for: .touchUpInside)
 
+        codeImageView.translatesAutoresizingMaskIntoConstraints = false
+        codeImageView.contentMode = .scaleAspectFit
+        codeImageView.backgroundColor = .white
+        // Nearest-neighbour on both filters, as on the other verifier screen: a
+        // QR resampled with the default linear filter has soft module edges, and
+        // softness costs scan rate at exactly the distance where there is none
+        // to spare.
+        codeImageView.layer.magnificationFilter = .nearest
+        codeImageView.layer.minificationFilter = .nearest
+        codeImageView.isAccessibilityElement = true
+        codeImageView.accessibilityLabel = NSLocalizedString("Bluetooth pairing code", comment: "")
+        codeImageView.accessibilityIdentifier = "zkverify.code"
+
+        let codeContainer = UIView()
+        codeContainer.translatesAutoresizingMaskIntoConstraints = false
+        codeContainer.addSubview(codeImageView)
+        NSLayoutConstraint.activate([
+            codeImageView.topAnchor.constraint(equalTo: codeContainer.topAnchor),
+            codeImageView.bottomAnchor.constraint(equalTo: codeContainer.bottomAnchor),
+            codeImageView.centerXAnchor.constraint(equalTo: codeContainer.centerXAnchor),
+            codeImageView.widthAnchor.constraint(equalTo: codeImageView.heightAnchor),
+            codeImageView.heightAnchor.constraint(equalToConstant: 220),
+            codeImageView.widthAnchor.constraint(lessThanOrEqualTo: codeContainer.widthAnchor),
+        ])
+
+        // The sentence that keeps this screen honest. Body weight, not a
+        // footnote: 「this code is not a challenge」 is the one thing a reader
+        // who knows the other screen will get wrong, and a qualification set in
+        // grey 11pt under a QR is a qualification nobody reads.
+        codeCaptionLabel.numberOfLines = 0
+        codeCaptionLabel.textAlignment = .center
+        codeCaptionLabel.font = .preferredFont(forTextStyle: .subheadline)
+        codeCaptionLabel.adjustsFontForContentSizeCategory = true
+        codeCaptionLabel.textColor = .secondaryLabel
+        codeCaptionLabel.accessibilityIdentifier = "zkverify.codeCaption"
+
+        linkLabel.numberOfLines = 0
+        linkLabel.textAlignment = .center
+        linkLabel.font = .preferredFont(forTextStyle: .footnote)
+        linkLabel.adjustsFontForContentSizeCategory = true
+        linkLabel.textColor = .secondaryLabel
+        linkLabel.accessibilityIdentifier = "zkverify.link"
+
         view.addSubview(scroll)
         scroll.addSubview(stack)
-        [chooseButton, spinner, statusLabel, detailLabel].forEach(stack.addArrangedSubview)
+        [codeContainer, codeCaptionLabel, linkLabel,
+         chooseButton, spinner, statusLabel, detailLabel].forEach(stack.addArrangedSubview)
+        stack.setCustomSpacing(8, after: codeContainer)
 
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -101,6 +202,107 @@ final class ZKVerifyViewController: UIViewController {
         }
     }
 
+    // MARK: - The pairing code and the radio
+
+    /// Mints an identifier, draws it, and starts listening for it.
+    ///
+    /// The three go together on purpose. A code drawn without a scanner running
+    /// is a code that does nothing when scanned; a scanner running for an
+    /// identifier that is no longer displayed is a phone looking for a device
+    /// nobody is pretending to be. `engagement` exists so the two cannot drift.
+    private func beginEngagement() {
+        let engagement = ZKLinkEngagement(serviceID: UUID(), purpose: Self.purpose)
+        self.engagement = engagement
+
+        do {
+            let code = try QRTransport.qrCode(for: try engagement.encodedForTransport(),
+                                              fittingPixelWidth: 1024)
+            codeImageView.image = UIImage(cgImage: code.image)
+            codeImageView.isHidden = false
+            codeCaptionLabel.text = NSLocalizedString(
+                "Scanning this only tells the other phone where to send the proof. It is not a one-time number: a zero-knowledge proof cannot answer one, so nothing here stops an old proof being sent again.",
+                comment: "Caption under the ZK Bluetooth pairing code")
+            codeCaptionLabel.isHidden = false
+        } catch {
+            // The code is an address, so failing to draw it costs the Bluetooth
+            // path and nothing else. The file picker below is untouched, and
+            // saying so beats a blank square.
+            codeImageView.image = nil
+            codeImageView.isHidden = true
+            codeCaptionLabel.text = NSLocalizedString(
+                "This device could not draw a Bluetooth pairing code. You can still load a proof from a file.",
+                comment: "")
+            codeCaptionLabel.isHidden = false
+            stopLink()
+            linkLabel.text = nil
+            return
+        }
+
+        startLink(for: engagement)
+    }
+
+    private func startLink(for engagement: ZKLinkEngagement) {
+        stopLink()
+        linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        let link = BluetoothLinkCentral(serviceID: engagement.serviceID) { [weak self] state in
+            self?.receiveOverLink(state)
+        }
+        self.link = link
+        link.start()
+    }
+
+    private func stopLink() {
+        link?.stop()
+        link = nil
+    }
+
+    /// One line about the radio, never an error code.
+    ///
+    /// Bluetooth being unavailable costs this screen the fast path and nothing
+    /// else — the file picker is the route that has always worked and it stays
+    /// enabled. The one thing that must not happen is a checker unable to check
+    /// because a radio they were never told about is switched off.
+    private func receiveOverLink(_ state: BluetoothLinkState) {
+        switch state {
+        case .unavailable(let reason):
+            linkLabel.text = reason
+        case .starting:
+            linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        case .waiting:
+            linkLabel.text = NSLocalizedString("Listening over Bluetooth — ask them to scan the code above.", comment: "")
+        case .transferring(let fraction):
+            // Worth a percentage here in a way it is not on the credential
+            // screen: 400 KB takes several seconds, and a progress line is the
+            // difference between waiting and wondering whether it broke.
+            linkLabel.text = String(format: NSLocalizedString("Receiving the proof over Bluetooth… %d%%", comment: ""),
+                                    Int((fraction * 100).rounded()))
+        case .failed(let reason):
+            linkLabel.text = reason
+        case .finished(let payload):
+            // Down at once: the proof is here, and a second transfer arriving
+            // mid-verification would stack a second result on the first.
+            stopLink()
+            linkLabel.text = String(format: NSLocalizedString("Received %@ over Bluetooth.", comment: ""),
+                                    ZKStagePresentation.byteString(Int64(payload.count)))
+            do {
+                verify(package: try ZKProofPackage.decoded(from: payload))
+            } catch {
+                // Reassembled and digest-matched, and still not a package. Not a
+                // failed check — we never got far enough to judge anything —
+                // so this reports as unreadable rather than as a refusal.
+                show(status: NSLocalizedString("What arrived was not a proof this app can read.", comment: ""),
+                     detail: String(describing: error),
+                     verdict: nil)
+            }
+        }
+    }
+
+    /// What the checker says the check is for. Shown to the holder before they
+    /// send, and compared to nothing afterwards — see `ZKLinkEngagement.purpose`.
+    private static var purpose: String {
+        NSLocalizedString("Identity check", comment: "Default reason a verifier gives for a check")
+    }
+
     // MARK: - Loading
 
     @objc private func chooseFile() {
@@ -120,16 +322,21 @@ final class ZKVerifyViewController: UIViewController {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
-        let package: ZKProofPackage
         do {
-            package = try ZKProofPackage.decoded(from: try Data(contentsOf: url))
+            verify(package: try ZKProofPackage.decoded(from: try Data(contentsOf: url)))
         } catch {
             show(status: NSLocalizedString("This proof file could not be read.", comment: ""),
                  detail: String(describing: error),
                  verdict: nil)
-            return
         }
+    }
 
+    /// The single place a decoded package is checked, whichever way it arrived.
+    ///
+    /// A proof received over Bluetooth is checked by exactly this code, with
+    /// exactly these caveats. The transport is a courier; nothing about how the
+    /// bytes travelled may make a verdict kinder.
+    private func verify(package: ZKProofPackage) {
         spinner.startAnimating()
         chooseButton.isEnabled = false
         show(status: NSLocalizedString("Checking…", comment: ""),

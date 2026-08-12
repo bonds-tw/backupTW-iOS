@@ -111,19 +111,44 @@ enum LinkTransport {
 
     /// The largest payload this build will reassemble.
     ///
-    /// 512 KB rather than `QRTransport`'s 64 KB: the ZK package this exists to
-    /// carry is 294 KB, and a ceiling below the thing it was built for would be
+    /// Far above `QRTransport`'s 64 KB: the ZK package this exists to carry does
+    /// not fit in that, and a ceiling below the thing it was built for would be
     /// a ceiling nobody could use. Still a ceiling, and for the same reason the
     /// other one has one — the bytes arrive from a stranger's radio, the
     /// declared total is theirs to choose, and a reassembler that trusts it
-    /// allocates whatever it is told to.
-    static let maximumPayloadBytes = 512 * 1024
+    /// allocates whatever it is told to. This value is also the bound
+    /// `QRTransport.inflate` is given, so it is what stops a small deflated
+    /// stream from expanding without limit.
+    ///
+    /// **It was 512 KB, sized against 294 KB — and 294 KB is not what a card
+    /// produces.** That figure came from `VerifierCostSpike`, which ran on
+    /// upstream's own circuit inputs. A package proved on a real 自然人憑證
+    /// measured **398,181 bytes** (2026-08-11, iPhone 14): 76% of the old
+    /// ceiling, for the ordinary case, before anyone's certificate chain is a
+    /// byte longer than this cardholder's. A ceiling that the expected payload
+    /// already fills three-quarters of is a ceiling that will be hit in the
+    /// field and not in a test.
+    ///
+    /// So 1 MB, and the doubling costs less than it looks: the wire is bounded
+    /// independently by `maximumChunkCount`, and the inflate bound is what
+    /// changes — from half a megabyte to one. Both are small, and neither is
+    /// what an attacker would reach for.
+    static let maximumPayloadBytes = 1024 * 1024
 
     /// The largest number of chunks a transfer may declare.
     ///
-    /// `UInt16` could say 65,535; this says what the ceiling above actually
-    /// implies at the smallest MTU worth supporting, so a hostile sender cannot
-    /// make a receiver hold 65,000 sparse entries by sending chunk 64,999 first.
+    /// `UInt16` could say 65,535; this is far below it, so a hostile sender
+    /// cannot make a receiver hold 65,000 sparse entries by sending chunk
+    /// 64,999 first.
+    ///
+    /// What it implies, since the ceiling above no longer implies it directly:
+    /// 4,096 frames is ~2 MB of wire at the 512-byte MTU iOS negotiates in
+    /// practice, and ~700 KB at the 185 bytes it settles for on older links.
+    /// The measured ZK package deflates to about 300 KB — 597 frames at 512,
+    /// 1,713 at 185 — so both leave room. A payload near the 1 MB ceiling that
+    /// also deflates badly *would* exceed this at 185 bytes, and `frames(for:)`
+    /// refuses it up front with `payloadTooLarge` rather than sending a
+    /// transfer that cannot be described.
     static let maximumChunkCount = 4096
 
     /// Splits a payload into frames sized for a negotiated MTU.
