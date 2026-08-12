@@ -224,8 +224,11 @@ final class ZKVerifyViewController: UIViewController {
         self.engagement = engagement
 
         do {
-            let code = try QRTransport.qrCode(for: try engagement.encodedForTransport(),
-                                              fittingPixelWidth: 1024)
+            let text = try engagement.encodedForTransport()
+            #if DEBUG
+            EngagementExport.write(text, kind: .zeroKnowledge)
+            #endif
+            let code = try QRTransport.qrCode(for: text, fittingPixelWidth: 1024)
             codeImageView.image = UIImage(cgImage: code.image)
             codeImageView.isHidden = false
             codeCaptionLabel.text = NSLocalizedString(

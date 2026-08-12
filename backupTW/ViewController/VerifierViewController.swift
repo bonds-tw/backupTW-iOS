@@ -445,6 +445,9 @@ final class VerifierViewController: UIViewController {
             // floors the module size to a whole number and may return something
             // a little smaller, which is why the image view centres rather than
             // stretches.
+            #if DEBUG
+            EngagementExport.write(text, kind: .credential)
+            #endif
             let code = try QRTransport.qrCode(for: text, fittingPixelWidth: 1024)
             codeImageView.image = UIImage(cgImage: code.image)
             codeImageView.isHidden = false
