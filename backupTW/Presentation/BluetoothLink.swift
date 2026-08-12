@@ -116,6 +116,10 @@ final class BluetoothLinkPeripheral: NSObject {
         // The manager is created here rather than in `init` so that nothing is
         // powered on — and no permission prompt appears — until the holder has
         // actually chosen to present.
+        // Reported before CoreBluetooth has said anything: if this line never
+        // runs, every sentence below is unreachable and the screen keeping its
+        // opening text is the only symptom.
+        onState(.starting)
         manager = CBPeripheralManager(delegate: self, queue: .main)
     }
 
@@ -178,8 +182,12 @@ extension BluetoothLinkPeripheral: CBPeripheralManagerDelegate {
             onState(.unavailable(reason: NSLocalizedString("This app is not allowed to use Bluetooth. You can change that in Settings.", comment: "")))
         case .unsupported:
             onState(.unavailable(reason: NSLocalizedString("This device cannot use Bluetooth for this.", comment: "")))
-        default:
-            break
+        case .unknown, .resetting:
+            onState(.unavailable(reason: String(format: NSLocalizedString("Bluetooth is not ready (state %d).", comment: ""),
+                                                peripheral.state.rawValue)))
+        @unknown default:
+            onState(.unavailable(reason: String(format: NSLocalizedString("Bluetooth is not ready (state %d).", comment: ""),
+                                                peripheral.state.rawValue)))
         }
     }
 
@@ -291,8 +299,12 @@ extension BluetoothLinkCentral: CBCentralManagerDelegate {
             onState(.unavailable(reason: NSLocalizedString("This app is not allowed to use Bluetooth. You can change that in Settings.", comment: "")))
         case .unsupported:
             onState(.unavailable(reason: NSLocalizedString("This device cannot use Bluetooth for this.", comment: "")))
-        default:
-            break
+        case .unknown, .resetting:
+            onState(.unavailable(reason: String(format: NSLocalizedString("Bluetooth is not ready (state %d).", comment: ""),
+                                                central.state.rawValue)))
+        @unknown default:
+            onState(.unavailable(reason: String(format: NSLocalizedString("Bluetooth is not ready (state %d).", comment: ""),
+                                                central.state.rawValue)))
         }
     }
 

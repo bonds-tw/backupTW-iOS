@@ -307,6 +307,16 @@
         }
       }
     },
+    "Bluetooth is not ready (state %d).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "藍牙尚未就緒（狀態 %d）。"
+          }
+        }
+      }
+    },
     "Bluetooth is switched off.": {
       "localizations": {
         "zh-Hant": {
