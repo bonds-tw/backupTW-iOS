@@ -1,7 +1,7 @@
 {
   "images": [
     {
-      "filename": "bonds-sealed-jar-light.png",
+      "filename": "bonds-square-knot-light.png",
       "idiom": "universal",
       "platform": "ios",
       "size": "1024x1024"
@@ -13,7 +13,7 @@
           "value": "dark"
         }
       ],
-      "filename": "bonds-sealed-jar-dark.png",
+      "filename": "bonds-square-knot-dark.png",
       "idiom": "universal",
       "platform": "ios",
       "size": "1024x1024"
@@ -25,7 +25,7 @@
           "value": "tinted"
         }
       ],
-      "filename": "bonds-sealed-jar-tinted.png",
+      "filename": "bonds-square-knot-tinted.png",
       "idiom": "universal",
       "platform": "ios",
       "size": "1024x1024"
