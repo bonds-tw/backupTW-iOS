@@ -297,6 +297,16 @@
         }
       }
     },
+    "Bluetooth could not be set up on this phone (%@).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機無法設定藍牙（%@）。"
+          }
+        }
+      }
+    },
     "Bluetooth is switched off.": {
       "localizations": {
         "zh-Hant": {
@@ -746,6 +756,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "診斷"
+          }
+        }
+      }
+    },
+    "Discoverable over Bluetooth — waiting for the checker to connect.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已可透過藍牙被找到——等待查驗方連線。"
           }
         }
       }
@@ -3404,6 +3424,16 @@
         }
       }
     },
+    "This phone could not make itself discoverable (%@).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機無法讓自己被找到（%@）。"
+          }
+        }
+      }
+    },
     "This phone — nobody else vouches for these values.": {
       "localizations": {
         "zh-Hant": {
@@ -3609,6 +3639,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "再試一次"
+          }
+        }
+      }
+    },
+    "Turning on Bluetooth…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在開啟藍牙…"
           }
         }
       }

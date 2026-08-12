@@ -876,8 +876,13 @@ final class PresentCredentialViewController: UIViewController {
         switch state {
         case .unavailable(let reason):
             linkLabel.text = reason
+        case .starting:
+            linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
         case .waiting:
-            linkLabel.text = NSLocalizedString("Also sending this over Bluetooth, so the checker does not have to scan every code.", comment: "")
+            // Deliberately *not* the same sentence the label starts with. It was,
+            // and that made 「advertising, waiting for the checker」 and 「nothing
+            // ever happened」 the same pixels.
+            linkLabel.text = NSLocalizedString("Discoverable over Bluetooth — waiting for the checker to connect.", comment: "")
         case .transferring(let fraction):
             linkLabel.text = String(format: NSLocalizedString("Sending over Bluetooth… %d%%", comment: ""),
                                     Int((fraction * 100).rounded()))

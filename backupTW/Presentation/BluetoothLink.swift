@@ -73,6 +73,8 @@ enum BluetoothLinkCharacteristic {
 enum BluetoothLinkState: Equatable {
     /// Bluetooth is off, unauthorised, or unsupported. `reason` is for a human.
     case unavailable(reason: String)
+    /// Powering on and publishing the service — not yet on the air.
+    case starting
     /// Advertising (holder) or scanning (verifier), nobody connected yet.
     case waiting
     /// Connected; `fraction` is 0...1 of the payload moved.
@@ -162,9 +164,14 @@ extension BluetoothLinkPeripheral: CBPeripheralManagerDelegate {
             let service = CBMutableService(type: serviceID, primary: true)
             service.characteristics = [frames, state]
             self.characteristic = frames
+            // Advertising starts in `didAdd`, not here. Publishing a service is
+            // asynchronous, and advertising a service the stack has not finished
+            // registering is how the first device attempt failed: the phone said
+            // 「waiting」 and no scanner ever saw it, because there was nothing on
+            // the air. Measured 2026-08-12 — the Mac peer scanned for fifteen
+            // minutes and never discovered a peripheral.
             peripheral.add(service)
-            peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [serviceID]])
-            onState(.waiting)
+            onState(.starting)
         case .poweredOff:
             onState(.unavailable(reason: NSLocalizedString("Bluetooth is switched off.", comment: "")))
         case .unauthorized:
@@ -174,6 +181,30 @@ extension BluetoothLinkPeripheral: CBPeripheralManagerDelegate {
         default:
             break
         }
+    }
+
+    /// Both of these were missing, and their absence is the whole reason the
+    /// first attempt could not be diagnosed: a service that fails to publish and
+    /// an advertisement that fails to start are both *silent*, and the screen
+    /// went on saying the same reassuring sentence either way.
+    func peripheralManager(_ peripheral: CBPeripheralManager,
+                           didAdd service: CBService,
+                           error: Error?) {
+        if let error {
+            onState(.failed(reason: String(format: NSLocalizedString("Bluetooth could not be set up on this phone (%@).", comment: ""),
+                                           error.localizedDescription)))
+            return
+        }
+        peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [serviceID]])
+    }
+
+    func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+        if let error {
+            onState(.failed(reason: String(format: NSLocalizedString("This phone could not make itself discoverable (%@).", comment: ""),
+                                           error.localizedDescription)))
+            return
+        }
+        onState(.waiting)
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager,
