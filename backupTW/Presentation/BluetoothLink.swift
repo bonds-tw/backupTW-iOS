@@ -263,6 +263,16 @@ final class BluetoothLinkCentral: NSObject {
     private var peripheral: CBPeripheral?
     private var stateCharacteristic: CBCharacteristic?
 
+    /// Held between reassembly and the acknowledgement resolving. Non-nil means
+    /// 「complete, not yet reported」; clearing it is what makes delivery
+    /// happen exactly once whichever of the two paths gets there first.
+    private var pendingPayload: Data?
+
+    /// How long to wait for the acknowledgement write before reporting anyway.
+    /// Short, because the alternative to waiting is a verifier holding a
+    /// finished document and saying nothing.
+    private static let acknowledgementTimeout: TimeInterval = 1.5
+
     init(serviceID: UUID, onState: @escaping (BluetoothLinkState) -> Void) {
         self.serviceID = CBUUID(nsuuid: serviceID)
         self.onState = onState
@@ -346,6 +356,34 @@ extension BluetoothLinkCentral: CBCentralManagerDelegate {
 
 extension BluetoothLinkCentral: CBPeripheralDelegate {
 
+    /// Reports the finished payload at most once.
+    ///
+    /// Three things can reach here — the acknowledgement's write callback, its
+    /// timeout, and the no-acknowledgement path — and a caller that tears down
+    /// on `.finished` must not be handed a second one. `pendingPayload` is both
+    /// the value and the flag: clearing it is what closes the door.
+    ///
+    /// The first version of this was a single guard trying to serve both
+    /// `.finished` and every other state, and it got the no-acknowledgement path
+    /// backwards — that call set no `pendingPayload`, so the guard swallowed it
+    /// and a peripheral offering no state characteristic would have delivered
+    /// its bytes and then said nothing at all. Two lines and one job instead.
+    fileprivate func deliverFinished() {
+        guard let payload = pendingPayload else { return }
+        pendingPayload = nil
+        onState(.finished(payload: payload))
+    }
+
+    /// The other end has been told — or telling it failed, which is reported the
+    /// same way because the document is here either way and the checker is
+    /// waiting on a verdict, not on a receipt.
+    func peripheral(_ peripheral: CBPeripheral,
+                    didWriteValueFor characteristic: CBCharacteristic,
+                    error: Error?) {
+        guard characteristic.uuid == BluetoothLinkCharacteristic.state else { return }
+        deliverFinished()
+    }
+
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let service = peripheral.services?.first(where: { $0.uuid == serviceID }) else {
             onState(.failed(reason: NSLocalizedString("The other phone is not offering a document.", comment: "")))
@@ -377,12 +415,38 @@ extension BluetoothLinkCentral: CBPeripheralDelegate {
             case .accepted(let progress), .duplicate(let progress):
                 onState(.transferring(fraction: progress.fraction))
             case .completed(let payload):
-                if let stateCharacteristic {
-                    peripheral.writeValue(Data([BluetoothLinkCharacteristic.received]),
-                                          for: stateCharacteristic,
-                                          type: .withResponse)
+                // The acknowledgement is written **and waited for** before
+                // `.finished` is reported, and that ordering is a bug fix with
+                // a device run behind it.
+                //
+                // It used to write and report in the same breath. Every caller
+                // tears the link down on `.finished` — correctly, so that a
+                // second transfer cannot stack a second result — and tearing it
+                // down cancels the connection the write was still travelling
+                // on. Measured 2026-08-13, Mac↔iPhone: the phone reassembled all
+                // twelve frames and rendered a verdict, and the sender's log
+                // never printed its acknowledgement line. On a real holder's
+                // phone that is a screen stuck at 「傳送中… 100%」 for a document
+                // that arrived.
+                //
+                // So the contract is now: when a caller sees `.finished`, the
+                // other end has been told, or telling it has definitively
+                // failed. Either way the caller may tear down.
+                pendingPayload = payload
+                guard let stateCharacteristic else {
+                    // Nothing to acknowledge to, so nothing to wait for.
+                    deliverFinished()
+                    return
                 }
-                onState(.finished(payload: payload))
+                peripheral.writeValue(Data([BluetoothLinkCharacteristic.received]),
+                                      for: stateCharacteristic,
+                                      type: .withResponse)
+                // A write that is never answered must not hold the result
+                // hostage: the payload is complete and checkable regardless of
+                // whether the sender ever learns so.
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.acknowledgementTimeout) { [weak self] in
+                    self?.deliverFinished()
+                }
             }
         } catch {
             // One bad frame is not a dead transfer: `LinkCollector` leaves

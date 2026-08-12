@@ -87,7 +87,36 @@ struct TrustList: Equatable, Sendable {
         case commitmentMismatch(expected: String, actual: String)
         case duplicateIssuer(String)
         case empty
+        /// A field contained one of the two characters the canonical form uses
+        /// to separate things.
+        ///
+        /// **This is the fix for a collision that worked.** The canonical form
+        /// joins fields with tab and rows with newline, and nothing used to
+        /// forbid either inside a field — so a `note`, which exists to be
+        /// written by a human and is therefore the field most likely to arrive
+        /// through a pull request, could carry `"\n" + a whole forged row`:
+        ///
+        ///     A: one entry,  note = "MOICA G3\ndid:key:zZEvil\tmirror\t…\t…"
+        ///     B: two entries, the second being did:key:zZEvil as a mirror
+        ///
+        /// Byte-identical canonical forms, one commitment
+        /// (`114cfd428ce4…`, reproduced 2026-08-13), and `A.trusts("did:key:zZEvil")`
+        /// is false while `B.trusts(…)` is true. Both pass
+        /// `validate(expectedCommitment:)`. Publishing a commitment for A would
+        /// have been publishing an attestation whose human reading and machine
+        /// reading differ — the worst possible thing to put in a newspaper.
+        ///
+        /// Refusing the two delimiters is what makes the encoding injective,
+        /// and refusing is chosen over escaping because the format's other job
+        /// is to be reproducible by hand on a machine with no tooling.
+        case fieldContainsDelimiter(field: String)
     }
+
+    /// The characters that structure the canonical form, and may therefore
+    /// never appear inside a value. `\r` is included because a file that made
+    /// a round trip through a Windows editor would otherwise change its own
+    /// digest, which is a different bug with the same cause.
+    private static let delimiters = CharacterSet(charactersIn: "\t\n\r")
 
     // MARK: - Commitment
 
@@ -110,7 +139,12 @@ struct TrustList: Equatable, Sendable {
     /// — is a format that can be checked when it matters. Entries are sorted by
     /// `id` so that publication order cannot change the digest.
     var canonicalForm: String {
-        var lines = ["bonds.tw/trust-list/v\(version)", publishedAt]
+        // The entry count is in the header, so a row cannot be smuggled in or
+        // out without the digest moving even if some future field escapes the
+        // delimiter check. Belt as well as braces: the check below is what makes
+        // the encoding injective, and this is what makes a failure of that check
+        // visible rather than silent.
+        var lines = ["bonds.tw/trust-list/v\(version)/\(entries.count)", publishedAt]
         for entry in entries.sorted(by: { $0.id < $1.id }) {
             // Tab-separated, and the fields that feed the digest are only the
             // ones that carry meaning for a trust decision. `displayName` and
@@ -138,6 +172,25 @@ struct TrustList: Equatable, Sendable {
             throw TrustListError.unsupportedVersion(version)
         }
         guard !entries.isEmpty else { throw TrustListError.empty }
+
+        // Checked before anything else that reads a field, and checked on every
+        // field including the ones that look like metadata: `publishedAt` is a
+        // string somebody types, and nobody audits it as though it carried
+        // trust.
+        for (name, value) in [("publishedAt", publishedAt)] {
+            guard value.rangeOfCharacter(from: Self.delimiters) == nil else {
+                throw TrustListError.fieldContainsDelimiter(field: name)
+            }
+        }
+        for entry in entries {
+            for (name, value) in [("id", entry.id),
+                                  ("displayName", entry.displayName),
+                                  ("note", entry.note)] {
+                guard value.rangeOfCharacter(from: Self.delimiters) == nil else {
+                    throw TrustListError.fieldContainsDelimiter(field: "\(name) of \(entry.id)")
+                }
+            }
+        }
 
         var seen = Set<String>()
         for entry in entries {

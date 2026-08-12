@@ -134,7 +134,14 @@ struct TrustListTests {
     @Test("正規形式是人看得懂、手抄得出來的")
     func canonicalFormIsLegible() {
         let text = Self.list().canonicalForm
-        #expect(text.hasPrefix("bonds.tw/trust-list/v1\n2026-08-09T00:00:00Z\n"))
+        // The header carries the entry count as well as the version, and this
+        // assertion moved when it was added. See `TrustListCollisionTests`: a
+        // row used to be smuggleable through a `note`, and the count is the
+        // half of the fix that makes such a thing visible in the digest even if
+        // the delimiter check is ever weakened. Legible by hand is unaffected —
+        // a person copying this out counts the rows, which they were going to
+        // read anyway.
+        #expect(text.hasPrefix("bonds.tw/trust-list/v1/2\n2026-08-09T00:00:00Z\n"))
         #expect(text.contains("did:key:zMirror\tmirror\t境外鏡像簽發者\t緊急期備援"))
         #expect(text.hasSuffix("\n"))
     }
