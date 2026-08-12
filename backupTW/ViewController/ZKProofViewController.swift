@@ -388,7 +388,7 @@ final class ZKProofViewController: UICollectionViewController {
         guard let report = snapshot?.report else { return nil }
         let size = ZKStagePresentation.byteString(Int64(report.bundle.totalProofByteCount))
         // Bluetooth first, file second. Not a stylistic ordering: over the radio
-        // this is about nine seconds directly onto the checker's phone, while
+        // this is about twenty seconds directly onto the checker's phone, while
         // the file route needs AirDrop or a share sheet and leaves a copy of
         // somebody's identity proof wherever it lands. The file stays because
         // the radio is not always available and because AirDrop across the
@@ -398,7 +398,7 @@ final class ZKProofViewController: UICollectionViewController {
                 kind: .send,
                 title: NSLocalizedString("Send this proof over Bluetooth", comment: ""),
                 detail: String(format: NSLocalizedString(
-                    "Scan the checker's code and %@ goes straight to their phone — about nine seconds. Nothing is stored anywhere else.",
+                    "Scan the checker's code and %@ goes straight to their phone — about twenty seconds. Nothing is stored anywhere else.",
                     comment: "proof package size"), size),
                 isBusy: false,
                 isEnabled: true),
@@ -871,7 +871,10 @@ final class ZKProofViewController: UICollectionViewController {
     /// depends on AirDrop is thin. The numbers say the rest: the package proved
     /// on a real card is 398,181 bytes, which is **824 QR frames** and about
     /// **453 seconds** of carousel, and `QRTransport` refuses it outright above
-    /// 64 KB. Over the radio the same bytes are 597 frames and **8.6 seconds**.
+    /// 64 KB. Over the radio the same bytes are 597 frames and **21.7 seconds**,
+    /// measured 2026-08-13 — see `ZKVerifyViewController` for why the 8.6 this
+    /// used to say was an extrapolation from a transfer too small to meet
+    /// back-pressure.
     ///
     /// # What the holder is agreeing to
     ///

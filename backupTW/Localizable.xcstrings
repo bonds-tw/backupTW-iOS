@@ -2060,13 +2060,13 @@
       },
       "extractionState": "manual"
     },
-    "Scan the checker's code and %@ goes straight to their phone — about nine seconds. Nothing is stored anywhere else.": {
+    "Scan the checker's code and %@ goes straight to their phone — about twenty seconds. Nothing is stored anywhere else.": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "掃描查驗方的碼，%@ 直接送到對方手機——大約九秒。不會留在任何其他地方。"
+            "value": "掃描查驗方的碼，%@ 直接送到對方手機——大約二十秒。不會留在任何其他地方。"
           }
         }
       }

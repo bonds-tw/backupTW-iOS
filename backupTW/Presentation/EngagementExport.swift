@@ -39,8 +39,20 @@ enum EngagementExport {
         case zeroKnowledge = "engagement-zk.json"
     }
 
+    /// Caches, **not Documents**, and the app's own self-check is why.
+    ///
+    /// The first version wrote to Documents and `DiagnosticsUITests` went red
+    /// immediately: 「Documents 裡的檔案: 1」. That check exists because
+    /// `UISupportsDocumentBrowser` makes Documents visible in the Files app and
+    /// includes it in iCloud backup — the finding recorded as 「明文活得比憑證久」,
+    /// where MyData's zip and PDF outlived the credential they produced.
+    ///
+    /// So scaffolding built to observe the app broke one of the app's own
+    /// guarantees, and the guarantee's own test caught it within one run. A live
+    /// verification request in a world-readable, backed-up directory is exactly
+    /// what that check is for. Caches is neither browsable nor backed up.
     static func write(_ text: String, kind: Kind) {
-        guard let directory = try? FileManager.default.url(for: .documentDirectory,
+        guard let directory = try? FileManager.default.url(for: .cachesDirectory,
                                                            in: .userDomainMask,
                                                            appropriateFor: nil,
                                                            create: true) else { return }

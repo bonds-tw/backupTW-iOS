@@ -13,9 +13,14 @@ import UIKit
 ///
 /// Because it takes long enough to need one. A card-signed presentation is 8 KB
 /// and lands before a progress bar could animate; a ZK package is 398,181 bytes
-/// measured on a real card, which is about nine seconds at the rate the radio
-/// managed against a Mac. Nine seconds of an unexplained pause is where a person
-/// puts their phone down.
+/// measured on a real card, which is **21.7 seconds** on a real radio
+/// (2026-08-13). Not the nine this used to claim: that came from extrapolating a
+/// twelve-frame transfer's 35 kB/s, and twelve frames never touch back-pressure.
+/// At 597 frames the steady state is 13.8 kB/s.
+///
+/// Twenty-two seconds of unexplained pause is well past where a person puts
+/// their phone down, which makes the progress bar below load-bearing rather than
+/// decorative.
 ///
 /// It also gives the holder somewhere to stop. The radio lives exactly as long as
 /// this screen does: dismissing it releases `BluetoothLinkPeripheral`, and

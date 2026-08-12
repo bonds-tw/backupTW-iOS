@@ -26,10 +26,22 @@ import UniformTypeIdentifiers
 /// So a proof arrives one of two ways. As a **file** — AirDrop, Files, a share
 /// sheet — which is what this screen did first and still does. Or over
 /// **Bluetooth**, which is what `LinkTransport` was built for and what this
-/// screen now offers: the same 398 KB is 597 frames at the 512-byte MTU a
-/// phone negotiates, and moved in **8.6 seconds** at the rate measured on real
-/// hardware. That is the difference between a path that exists and one that
-/// does not.
+/// screen now offers: the same 398 KB is 597 frames at the 512-byte MTU a phone
+/// negotiates, and **21.7 seconds** measured end to end on a real radio
+/// (2026-08-13, Mac→iPhone 14).
+///
+/// That number is a correction. It was written here as 8.6 seconds, extrapolated
+/// from the 35 kB/s a *twelve-frame* transfer managed — and twelve frames all
+/// fit in CoreBluetooth's queue at once, so that figure was a warm-up rate, not
+/// a throughput. At 597 frames `updateValue` starts returning false and the
+/// sender waits on `peripheralManagerIsReady`, which is paced by the connection
+/// interval; the steady state is **13.8 kB/s**, two and a half times slower.
+/// Measuring the small case and multiplying is exactly the mistake that produced
+/// the roadmap's 「約 100 張 QR」, one layer down.
+///
+/// 22 seconds is still the difference between a path that exists and one that
+/// does not: the same proof over QR is 824 frames and about 453 seconds, and
+/// `QRTransport` refuses it outright.
 ///
 /// # The code on this screen is an address, not a challenge
 ///
