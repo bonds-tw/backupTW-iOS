@@ -269,6 +269,28 @@
         }
       }
     },
+    "Answered with a zero-knowledge proof, sent over Bluetooth. The checker never sees your certificate — but every checker sees the same duplicate-detection number, so they can still tell it is the same person.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用零知識證明回答，走藍牙傳送。查驗方看不到你的憑證——但每一個查驗方看到的去重編號都是同一個，所以他們仍然分辨得出這是同一個人。"
+          }
+        }
+      }
+    },
+    "Answered with your signed document, shown as QR codes or over Bluetooth. The checker sees your name either way — your certificate has to travel with it, and your name is inside the certificate.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用你已簽章的證件回答，以 QR code 或藍牙出示。無論走哪一種，查驗方都會看到你的姓名——憑證必須一起送出，而姓名就在憑證裡。"
+          }
+        }
+      }
+    },
     "Ask the other person to scan this": {
       "localizations": {
         "zh-Hant": {
@@ -913,6 +935,17 @@
         }
       }
     },
+    "During an emergency": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "緊急時期"
+          }
+        }
+      }
+    },
     "Erase": {
       "localizations": {
         "zh-Hant": {
@@ -969,6 +1002,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "證件裡的每一個欄位：姓名、統一編號、出生日期、戶籍地址與國籍。這個版本無法只出示其中一部分。"
+          }
+        }
+      }
+    },
+    "Everyday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "平時"
           }
         }
       }
@@ -1542,6 +1586,17 @@
         }
       }
     },
+    "No, not on any path this app has": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不行，這個 App 現有的路徑都做不到"
+          }
+        }
+      }
+    },
     "None reported": {
       "localizations": {
         "zh-Hant": {
@@ -1649,6 +1704,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "離線出示與查驗"
+          }
+        }
+      }
+    },
+    "Only half of that": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只做得到一半"
           }
         }
       }
@@ -2313,6 +2379,17 @@
         }
       }
     },
+    "Still true even when this passes:": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就算通過了，以下仍然成立："
+          }
+        }
+      }
+    },
     "Still unproven": {
       "localizations": {
         "zh-Hant": {
@@ -2918,6 +2995,17 @@
         }
       }
     },
+    "The three things people ask this app to prove, and which of them it only half answers.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "人們會要求這個 App 證明的三件事，以及其中哪些它只答得出一半。"
+          }
+        }
+      }
+    },
     "The valid document has been created": {
       "localizations": {
         "zh-Hant": {
@@ -2974,6 +3062,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "可用空間不足，無法準備驗證檔案。"
+          }
+        }
+      }
+    },
+    "These answers come from the same table the rest of the app reads, so a screen cannot say more here than the code will do elsewhere.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些答案來自 App 其他地方讀的同一張表，所以這個畫面說不出比程式碼實際做得到的更多。"
           }
         }
       }
@@ -3877,6 +3976,17 @@
         }
       }
     },
+    "Three things someone might ask this app to prove, and what it can honestly answer today. Two of the three are only half answered, and this page says which half.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有人可能會要求這個 App 證明的三件事，以及它今天誠實答得出什麼。三件裡有兩件只答得出一半，這一頁說明是哪一半。"
+          }
+        }
+      }
+    },
     "Time to create the proof": {
       "localizations": {
         "zh-Hant": {
@@ -4060,6 +4170,17 @@
         }
       }
     },
+    "What it actually shows": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它實際上證明了什麼"
+          }
+        }
+      }
+    },
     "What it cannot show": {
       "localizations": {
         "zh-Hant": {
@@ -4076,6 +4197,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方揭露了什麼"
+          }
+        }
+      }
+    },
+    "What this app can prove": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 App 能證明什麼"
           }
         }
       }
@@ -4116,6 +4248,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "這代表什麼"
+          }
+        }
+      }
+    },
+    "What would have to change": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要改變什麼才做得到"
           }
         }
       }
@@ -4167,6 +4310,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "有"
+          }
+        }
+      }
+    },
+    "Yes, this app can show that": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "是，這個 App 做得到"
           }
         }
       }
