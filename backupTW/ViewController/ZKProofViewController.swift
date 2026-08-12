@@ -132,6 +132,8 @@ final class ZKProofViewController: UICollectionViewController {
             case action
             /// Hands the finished proof to somebody who can check it.
             case export
+            /// Sends the finished proof straight to the checker's phone.
+            case send
             case verdict
             case caveat
             /// The pasteable benchmark text.
@@ -385,12 +387,26 @@ final class ZKProofViewController: UICollectionViewController {
     private func exportGroup() -> Group? {
         guard let report = snapshot?.report else { return nil }
         let size = ZKStagePresentation.byteString(Int64(report.bundle.totalProofByteCount))
+        // Bluetooth first, file second. Not a stylistic ordering: over the radio
+        // this is about nine seconds directly onto the checker's phone, while
+        // the file route needs AirDrop or a share sheet and leaves a copy of
+        // somebody's identity proof wherever it lands. The file stays because
+        // the radio is not always available and because AirDrop across the
+        // counter is a real thing people do.
         return Group(id: "export", title: "", rows: [
+            Row(id: "export.link",
+                kind: .send,
+                title: NSLocalizedString("Send this proof over Bluetooth", comment: ""),
+                detail: String(format: NSLocalizedString(
+                    "Scan the checker's code and %@ goes straight to their phone — about nine seconds. Nothing is stored anywhere else.",
+                    comment: "proof package size"), size),
+                isBusy: false,
+                isEnabled: true),
             Row(id: "export.package",
                 kind: .export,
-                title: NSLocalizedString("Hand this proof to a verifier", comment: ""),
+                title: NSLocalizedString("Save this proof as a file", comment: ""),
                 detail: String(format: NSLocalizedString(
-                    "Saves a %@ file. Too large for a QR code — send it as a file.",
+                    "Saves a %@ file to send by AirDrop or Files. Far too large for a QR code — it would be 824 codes.",
                     comment: "proof package size"), size),
                 isBusy: false,
                 isEnabled: true)
@@ -752,7 +768,7 @@ final class ZKProofViewController: UICollectionViewController {
             content.secondaryTextProperties.color = .secondaryLabel
 
             switch row.kind {
-            case .action, .export:
+            case .action, .export, .send:
                 content.text = row.title
                 content.textProperties.color = row.isEnabled ? .tintColor : .tertiaryLabel
                 content.textProperties.font = .preferredFont(forTextStyle: .headline)
@@ -837,11 +853,100 @@ final class ZKProofViewController: UICollectionViewController {
             handleAction()
         case .export:
             exportProofPackage()
+        case .send:
+            sendProofOverLink()
         case .report:
             copyReport()
         default:
             break
         }
+    }
+
+    /// Scans the checker's code and sends the proof straight to their phone.
+    ///
+    /// # Why this exists at all
+    ///
+    /// Because the file route was the *only* route, and for the situation this
+    /// app is built for — no network, two strangers at a counter — a route that
+    /// depends on AirDrop is thin. The numbers say the rest: the package proved
+    /// on a real card is 398,181 bytes, which is **824 QR frames** and about
+    /// **453 seconds** of carousel, and `QRTransport` refuses it outright above
+    /// 64 KB. Over the radio the same bytes are 597 frames and **8.6 seconds**.
+    ///
+    /// # What the holder is agreeing to
+    ///
+    /// The scan is the consent. Nothing advertises before a code has been read,
+    /// so the proof is discoverable only after the holder pointed their camera
+    /// at a specific checker's screen, and only under the identifier that
+    /// checker minted. Leaving this screen takes the radio down with it.
+    ///
+    /// The proof itself is in the clear on the air, as `BluetoothLink` documents
+    /// — but a proof is not a secret. It is a statement about a certificate that
+    /// reveals no certificate, and an eavesdropper with a radio learns exactly
+    /// what one with a camera would have.
+    private func sendProofOverLink() {
+        guard let report = snapshot?.report else { return }
+
+        let package: Data
+        do {
+            package = try ZKProofPackage(readingFrom: report.bundle).encoded()
+        } catch {
+            presentSendFailure(error.localizedDescription)
+            return
+        }
+        // Refused here rather than on the air, where it would look like a
+        // dropped connection. `LinkTransport.frames(for:)` would throw anyway;
+        // this turns that into a sentence naming both numbers.
+        guard package.count <= LinkTransport.maximumPayloadBytes else {
+            presentSendFailure(String(
+                format: NSLocalizedString(
+                    "This proof is %1$@, which is more than the %2$@ this app will send over Bluetooth. Save it as a file instead.",
+                    comment: ""),
+                ZKStagePresentation.byteString(Int64(package.count)),
+                ZKStagePresentation.byteString(Int64(LinkTransport.maximumPayloadBytes))))
+            return
+        }
+
+        let scanner = QRScanningViewController(
+            title: NSLocalizedString("Scan the checker's code", comment: ""),
+            prompt: NSLocalizedString("Point the camera at the checker's phone.", comment: "")
+        ) { [weak self] scanned in
+            guard let self else { return .stop }
+            guard let engagement = try? ZKLinkEngagement.decode(from: scanned) else {
+                // Fires once per video frame for every other QR in the room.
+                // Silence is the only usable behaviour.
+                return .keepScanning(status: nil)
+            }
+            guard engagement.isCurrent() else {
+                return .keepScanning(status: NSLocalizedString(
+                    "That code has expired. Ask them to show a fresh one.", comment: ""))
+            }
+            self.beginSending(package, to: engagement)
+            return .stop
+        }
+        navigationController?.pushViewController(scanner, animated: true)
+    }
+
+    /// Advertises the proof under the identifier the checker asked for.
+    private func beginSending(_ package: Data, to engagement: ZKLinkEngagement) {
+        navigationController?.popToViewController(self, animated: true)
+
+        let progress = ZKLinkSendViewController(payload: package, engagement: engagement)
+        // A sheet rather than a push: it owns the radio for as long as it is up,
+        // and dismissing it is the holder's way of saying stop. A pushed screen
+        // can be left by swiping without the gesture meaning anything.
+        progress.isModalInPresentation = false
+        present(UINavigationController(rootViewController: progress), animated: true)
+    }
+
+    private func presentSendFailure(_ message: String) {
+        let alert = UIAlertController(
+            title: NSLocalizedString("This proof could not be sent", comment: ""),
+            message: message,
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""),
+                                      style: .default))
+        present(alert, animated: true)
     }
 
     /// Writes the proof package to a temporary file and offers it onward.
@@ -896,7 +1001,7 @@ final class ZKProofViewController: UICollectionViewController {
         switch row.kind {
         case .action:
             return row.isEnabled
-        case .export, .report:
+        case .export, .send, .report:
             return true
         default:
             return false
