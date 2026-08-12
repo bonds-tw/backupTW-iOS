@@ -31,6 +31,7 @@ class SettingsViewController: UICollectionViewController {
         static let diagnostics = NSLocalizedString("Diagnostics", comment: "")
         static let eraseEverything = NSLocalizedString("Erase all local data", comment: "")
         static let minimalDisclosure = NSLocalizedString("Minimal disclosure", comment: "ZK proof screen title")
+        static let capabilities = NSLocalizedString("What this app can prove", comment: "")
     }
 
     private let sections = [
@@ -38,6 +39,13 @@ class SettingsViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "info.circle.fill")?.withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
                  title: NSLocalizedString("About Bond", comment: ""),
                  secondaryText: versionString),
+            // `PresentationScenario` documents itself as the table 「the screen
+            // renders」 — and had no screen. Same defect as `LocalDataEraser`
+            // below: implemented, unreachable, and therefore a promise the
+            // source keeps and the product does not. This is the entrance.
+            Item(image: UIImage(systemName: "checklist")?.withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
+                 title: Row.capabilities,
+                 secondaryText: NSLocalizedString("The three things people ask this app to prove, and which of them it only half answers.", comment: "")),
             Item(image: UIImage(systemName: "doc.text"),
                  title: Row.license,
                  secondaryText: NSLocalizedString("Third Party Software License", comment: ""))
@@ -140,6 +148,8 @@ extension SettingsViewController {
         switch item.title {
         case Row.license:
             navigationController?.pushViewController(LicenseViewController(), animated: true)
+        case Row.capabilities:
+            navigationController?.pushViewController(CapabilityViewController(), animated: true)
         case Row.diagnostics:
             navigationController?.pushViewController(DiagnosticsViewController(), animated: true)
         case Row.eraseEverything:
