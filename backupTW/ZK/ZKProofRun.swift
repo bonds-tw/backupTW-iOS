@@ -198,21 +198,60 @@ struct OpenACProofVerifier: ZKProofVerifying {
         }
     }
 
+    /// Runs the checks, and runs the cheap path first.
+    ///
+    /// # `linkVerify` already does the other two, so calling all three did the
+    /// work twice
+    ///
+    /// Read `zk_link_verify` in `go-zkid-verifier/rust/src/lib.rs`: it calls
+    /// `verify_circuit` on the cert-chain proof, calls it again on the user-sig
+    /// proof, and only then compares the two `pk_commit` values. So the
+    /// sequence this used to run — chain, signature, link — verified both
+    /// circuits, and then verified both circuits again.
+    ///
+    /// That is what `VerifierCostSpike` was written to ask, and the numbers say
+    /// the same thing: the two separate calls measured 6.44 s + 2.19 s = 8.63 s,
+    /// while the whole `verify` measured **14.47 s cold, 12.21 s warm**. Double
+    /// the work, minus what the page cache gives back on the second pass.
+    ///
+    /// # Why not simply drop the two
+    ///
+    /// Because `linkVerify` returns one `Bool`. A screen that only called it
+    /// could say 「沒通過」 and nothing else, and this app's rule is that a
+    /// refusal names which check failed — 「憑證鏈沒過」 and 「簽章沒過」 send a
+    /// person to different places, and 「連結沒過」 means the two proofs are
+    /// about different people, which is a third thing again.
+    ///
+    /// So: **link first, and fall back to the individual checks only when it
+    /// fails.** The common case — a good proof — pays for one pass instead of
+    /// two. A failing proof pays for the diagnosis, which is the one time it is
+    /// worth paying for.
     func verify(documentsPath: String) throws -> ZKVerificationOutcome {
-        // Each call is timed separately: the three are not interchangeable and a
-        // single combined figure would hide which one is slow.
+        let (linked, linkMs) = try Self.timed {
+            try Self.linkVerify(documentsPath: documentsPath)
+        }
+        guard !linked else {
+            // `linkVerify` returning true means both circuits verified inside
+            // it. Reporting them as valid here is not an assumption; it is what
+            // that function had to establish to return true at all.
+            return ZKVerificationOutcome(certificateChainValid: true,
+                                         userSignatureValid: true,
+                                         linked: true,
+                                         certificateChainMilliseconds: 0,
+                                         userSignatureMilliseconds: 0,
+                                         linkMilliseconds: linkMs)
+        }
+
+        // It failed. Now find out which part, and pay for it.
         let (certificateChain, certificateChainMs) = try Self.timed {
             try Self.verifyCertificateChain(documentsPath: documentsPath)
         }
         let (userSignature, userSignatureMs) = try Self.timed {
             try Self.verifyUserSignature(documentsPath: documentsPath)
         }
-        let (linked, linkMs) = try Self.timed {
-            try Self.linkVerify(documentsPath: documentsPath)
-        }
         return ZKVerificationOutcome(certificateChainValid: certificateChain,
                                      userSignatureValid: userSignature,
-                                     linked: linked,
+                                     linked: false,
                                      certificateChainMilliseconds: certificateChainMs,
                                      userSignatureMilliseconds: userSignatureMs,
                                      linkMilliseconds: linkMs)
