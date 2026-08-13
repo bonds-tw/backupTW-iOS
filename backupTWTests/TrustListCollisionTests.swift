@@ -344,3 +344,70 @@ struct TrustListAdversarialTests {
         }
     }
 }
+
+/// The medium and low findings from the same adversarial pass, closed.
+@Suite("對抗式審查的其餘發現")
+struct TrustListRemainingFindingsTests {
+
+    private static func list(_ entries: [TrustList.Entry]) -> TrustList {
+        TrustList(version: TrustList.currentVersion, publishedAt: "2026-08-09", entries: entries)
+    }
+
+    /// `trusts` compares bytes, not Swift strings.
+    ///
+    /// Swift's `==` is Unicode canonical equivalence, so a decomposed spelling
+    /// of a listed identifier used to answer yes while hashing to different
+    /// bytes. Identifiers are now printable ASCII so the case cannot be
+    /// constructed through `validate()` — this asks the question directly, of a
+    /// list that was never validated, because nothing stops a caller doing that.
+    @Test func membershipIsAnsweredOnBytes() {
+        let list = Self.list([TrustList.Entry(id: "did:key:zé", displayName: "x",
+                                              note: "", isMirror: false)])
+        // Precomposed on the list, decomposed in the question. Swift says these
+        // two strings are equal; their bytes are not.
+        #expect("did:key:z\u{00E9}" == "did:key:ze\u{0301}")
+        #expect(list.trusts("did:key:z\u{00E9}"))
+        #expect(!list.trusts("did:key:ze\u{0301}"),
+                "membership answered on canonical equivalence rather than bytes")
+    }
+
+    /// `version` in the JSON can be spelled in ways that decode to the same
+    /// integer — `1.0`, `1e0` — and the canonical form's header would then be
+    /// reproducible from the parse but not from the file.
+    ///
+    /// Closed by the round-trip rule rather than by a spelling check: re-encoding
+    /// the parse emits `1`, which is not the bytes that arrived.
+    @Test func aNonIntegralVersionSpellingIsRefused() throws {
+        let honest = Self.list([TrustList.Entry(id: "did:key:zA", displayName: "x",
+                                                note: "", isMirror: false)])
+        let text = try #require(String(data: try honest.encoded(), encoding: .utf8))
+        let respelled = text.replacingOccurrences(of: "\"version\" : 1", with: "\"version\" : 1.0")
+        #expect(respelled != text)
+        #expect(throws: (any Error).self) {
+            try TrustList.decoded(from: Data(respelled.utf8))
+        }
+    }
+
+    /// The forbidden set really does cover the format characters the comment now
+    /// claims it covers. Asserted rather than described, because the previous
+    /// version of that comment was wrong about its own set.
+    @Test func formatCharactersAreRefused() {
+        for scalar in ["\u{200B}", "\u{2060}", "\u{FEFF}", "\u{00AD}", "\u{061C}"] {
+            #expect(throws: TrustList.TrustListError.self) {
+                try Self.list([TrustList.Entry(id: "did:key:zA", displayName: "內政部\(scalar)",
+                                               note: "", isMirror: false)]).validate()
+            }
+        }
+    }
+
+    /// A forbidden scalar inside a grapheme cluster is caught, because
+    /// `rangeOfCharacter(from:)` matches scalars rather than Characters.
+    @Test func aForbiddenScalarCannotHideInsideAGraphemeCluster() {
+        // CRLF is one Character and two scalars.
+        #expect("\r\n".count == 1)
+        #expect(throws: TrustList.TrustListError.self) {
+            try Self.list([TrustList.Entry(id: "did:key:zA", displayName: "x\r\ny",
+                                           note: "", isMirror: false)]).validate()
+        }
+    }
+}

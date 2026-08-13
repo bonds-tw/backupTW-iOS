@@ -131,10 +131,24 @@ struct TrustList: Equatable, Sendable {
     /// from the one the machine hashed, and this format's whole job is that
     /// those two readings agree.
     private static let forbidden: CharacterSet = {
-        // `.controlCharacters` is Cc ∪ Cf — 235 scalars, and it does cover every
-        // invisible formatting character worth worrying about (ZWSP, the word
-        // joiners, U+FEFF, the tag block). What it does **not** cover is the two
-        // that matter most here.
+        // **What this set actually is, measured rather than described.**
+        //
+        // An adversarial pass swept all 0x110000 scalars against it and reported
+        // two things worth writing down. First, `CharacterSet.controlCharacters`
+        // on this platform is **Cc ∪ Cf — 235 scalars, not the 74 of C0 and C1**,
+        // which an earlier version of this comment claimed. The extra 161 are
+        // the format characters, and they are the ones that matter: ZWSP, the
+        // word joiners, U+00AD, U+061C, U+FEFF and the whole U+E0000 tag block
+        // are all in Cf and all already refused. The comment was underselling
+        // the code, which is the safer direction to be wrong in and still wrong.
+        //
+        // Second, `rangeOfCharacter(from:)` matches on **scalars, not
+        // Characters** — verified against CRLF as a single Character, a ZWJ
+        // family emoji, and an astral tag sequence, all caught. So a forbidden
+        // scalar cannot hide inside a grapheme cluster.
+        //
+        // What the set does **not** cover on its own is the two that matter most
+        // here.
         //
         // **U+2028 LINE SEPARATOR is category Zl and U+2029 is Zp.** Neither is a
         // control character, so both passed — and every line-splitter on the
@@ -303,8 +317,21 @@ struct TrustList: Equatable, Sendable {
         entries.first { $0.id == issuer }
     }
 
+    /// Whether this list names `issuer`.
+    ///
+    /// Compared by UTF-8 bytes rather than by Swift string equality, which is
+    /// Unicode canonical equivalence — so `entry(for:)` would answer yes to an
+    /// identifier that is *equivalent to* a listed one without being the same
+    /// bytes, while `canonicalForm` hashed only the bytes. Equality and
+    /// serialisation disagreeing is precisely what this format exists to
+    /// prevent, and `allowedInIdentifier` already makes the case unreachable by
+    /// restricting identifiers to printable ASCII.
+    ///
+    /// Belt and braces on purpose: the restriction is enforced in `validate()`,
+    /// and an unvalidated list can still be asked this question.
     func trusts(_ issuer: String) -> Bool {
-        entry(for: issuer) != nil
+        let wanted = Array(issuer.utf8)
+        return entries.contains { Array($0.id.utf8) == wanted }
     }
 
     // MARK: - Wire form
