@@ -112,7 +112,7 @@ struct TrustListTests {
     func roundTripsAndValidatesOnDecode() throws {
         let list = Self.list()
         let decoded = try TrustList.decoded(from: try list.encoded(),
-                                            expectedCommitment: list.commitment)
+                                            expectedCommitment: list.commitment).list
         #expect(decoded == list)
         #expect(decoded.trusts("did:key:zMirror"))
         #expect(!decoded.trusts("did:key:zNobody"))
@@ -125,7 +125,7 @@ struct TrustListTests {
     func decodingRefusesAMismatchedCommitment() throws {
         let data = try Self.list().encoded()
         #expect(throws: (any Error).self) {
-            _ = try TrustList.decoded(from: data, expectedCommitment: "00")
+            _ = try TrustList.decoded(from: data, expectedCommitment: "00").list
         }
     }
 

@@ -253,7 +253,42 @@ struct TrustList: Equatable, Sendable {
     /// to render that as the weaker statement it is. Making it non-optional
     /// would have been stricter but would have made the type unusable in the
     /// state every device starts in.
-    func validate(expectedCommitment: String? = nil) throws {
+    /// Where a validated list's authority came from.
+    ///
+    /// # Why this is a return value and not a comment
+    ///
+    /// `validate(expectedCommitment:)` used to return `Void`, and its
+    /// documentation said that a missing expectation 「is **not** a pass: it
+    /// means 'nobody told this device which list to expect'」. That sentence was
+    /// correct and it was enforced by nothing. A caller could write
+    /// `try list.validate()` and carry on as though the list had been confirmed,
+    /// and the compiler would agree with them.
+    ///
+    /// This project's own rule is that a guarantee enforced by one caller is not
+    /// a guarantee. So the distinction moves into the type: every caller now has
+    /// to look at what came back, and a screen that says 「已確認」 has to have a
+    /// value in its hand that says so.
+    ///
+    /// # Only cases that can actually be produced
+    ///
+    /// Two, deliberately. There is no `pinnedInBinary` yet because there is no
+    /// pinned commitment yet, and no `walkedFromPinned` because there is no
+    /// chain to walk. A case with no producing path is an invitation to somebody
+    /// to add one later without the review that should come with it — and when
+    /// those paths do land, adding the case will break every `switch` that
+    /// consumes this, which is exactly the audit worth being forced into.
+    enum Provenance: Equatable {
+        /// The list matched a commitment the caller supplied. Where the caller
+        /// got that value is the caller's business and is *not* established
+        /// here — matching a value somebody typed in proves the list is the one
+        /// they meant, and nothing about whether they meant the right one.
+        case matchedSuppliedExpectation(commitment: String)
+        /// Well formed, and nobody said which list to expect. **Not a pass.**
+        case unconfirmed
+    }
+
+    @discardableResult
+    func validate(expectedCommitment: String? = nil) throws -> Provenance {
         guard version == Self.currentVersion else {
             throw TrustListError.unsupportedVersion(version)
         }
@@ -308,7 +343,9 @@ struct TrustList: Equatable, Sendable {
                 throw TrustListError.commitmentMismatch(expected: expectedCommitment,
                                                         actual: actual)
             }
+            return .matchedSuppliedExpectation(commitment: actual)
         }
+        return .unconfirmed
     }
 
     // MARK: - Asking
@@ -376,15 +413,20 @@ struct TrustList: Equatable, Sendable {
     /// cost is that a published list has to be exactly what `encoded()` emits —
     /// sorted keys, pretty-printed — which for a commitment-pinned document is a
     /// property rather than a restriction.
-    static func decoded(from data: Data, expectedCommitment: String? = nil) throws -> TrustList {
+    static func decoded(from data: Data,
+                        expectedCommitment: String? = nil) throws -> (list: TrustList,
+                                                                      provenance: Provenance) {
         let wire = try JSONDecoder().decode(Wire.self, from: data)
         let list = TrustList(version: wire.version,
                              publishedAt: wire.publishedAt,
                              entries: wire.entries)
-        try list.validate(expectedCommitment: expectedCommitment)
+        let provenance = try list.validate(expectedCommitment: expectedCommitment)
         guard try list.encoded() == data else {
             throw TrustListError.notCanonicalJSON
         }
-        return list
+        // Returned as a pair rather than stashed on the list, so that a caller
+        // cannot hold a `TrustList` and forget how it was confirmed. The value
+        // travels with the thing it is a fact about.
+        return (list, provenance)
     }
 }

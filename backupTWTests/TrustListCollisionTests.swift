@@ -331,7 +331,7 @@ struct TrustListAdversarialTests {
         let honest = Self.list([TrustList.Entry(id: "did:key:zA", displayName: "內政部憑證管理中心",
                                                 note: "G3", isMirror: false)])
         let decoded = try TrustList.decoded(from: try honest.encoded(),
-                                            expectedCommitment: honest.commitment)
+                                            expectedCommitment: honest.commitment).list
         #expect(decoded == honest)
     }
 
@@ -409,5 +409,52 @@ struct TrustListRemainingFindingsTests {
             try Self.list([TrustList.Entry(id: "did:key:zA", displayName: "x\r\ny",
                                            note: "", isMirror: false)]).validate()
         }
+    }
+}
+
+/// `Provenance` — 「沒有預期值不算通過」從註解變成型別
+@Suite("來源")
+struct TrustListProvenanceTests {
+
+    private static func list() -> TrustList {
+        TrustList(version: TrustList.currentVersion,
+                  publishedAt: "2026-08-09",
+                  entries: [TrustList.Entry(id: "did:key:zA", displayName: "內政部憑證管理中心",
+                                            note: "G3", isMirror: false)])
+    }
+
+    /// **The point of the type.** Validating without an expectation is well
+    /// formed and unconfirmed, and now a caller has to look at that rather than
+    /// read a comment about it.
+    @Test func validatingWithoutAnExpectationIsUnconfirmed() throws {
+        #expect(try Self.list().validate() == .unconfirmed)
+    }
+
+    @Test func matchingASuppliedExpectationSaysSo() throws {
+        let list = Self.list()
+        #expect(try list.validate(expectedCommitment: list.commitment)
+                == .matchedSuppliedExpectation(commitment: list.commitment))
+    }
+
+    /// The provenance travels out of `decoded` with the list, so a caller cannot
+    /// end up holding one without the other.
+    @Test func decodingCarriesTheProvenance() throws {
+        let list = Self.list()
+        let bytes = try list.encoded()
+
+        let unconfirmed = try TrustList.decoded(from: bytes)
+        #expect(unconfirmed.provenance == .unconfirmed)
+
+        let confirmed = try TrustList.decoded(from: bytes, expectedCommitment: list.commitment)
+        #expect(confirmed.provenance == .matchedSuppliedExpectation(commitment: list.commitment))
+    }
+
+    /// Matching a value somebody typed proves the list is the one they meant,
+    /// and nothing about whether they meant the right one. Asserted so that the
+    /// case name is never quietly upgraded to something like `.trusted`.
+    @Test func theConfirmedCaseIsNamedAfterWhatItActuallyEstablishes() {
+        let provenance = TrustList.Provenance.matchedSuppliedExpectation(commitment: "abc")
+        #expect(String(describing: provenance).contains("Supplied"),
+                "the case was renamed to something that claims more than it establishes")
     }
 }
