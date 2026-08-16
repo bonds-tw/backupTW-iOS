@@ -885,3 +885,42 @@ token-backed item 的 attribute 集合與一般 item 不同是已知的坑，
 已於 2026-08-16 修掉（`StoredCardSource`，1,073 測試通過），
 連帶修掉 `DiagnosticsViewController` 那個存在很久的自相矛盾：
 函式上方註解寫「觀測；絕不建立」，函式裡呼叫的是 `loadOrCreate()`。
+
+---
+
+# 十二、實機量測：一卡一金鑰的紅線清掉了（2026-08-16）
+
+§十一.C 把整個 `HolderKeyring` 擋在一條沒量過的假設前面。量完了，
+iPhone 14（實體，非模擬器）：
+
+```
+環境：實機
+SecItemCopyMatching(kSecMatchLimitAll) → OSStatus 0，共 3 個 item
+  · tag=…measurement.software  backing=keychain        cdat=2026-08-16 08:07:49  tokenID=nil
+  · tag=…measurement.enclave   backing=SecureEnclave   cdat=2026-08-16 08:07:49  tokenID=com.apple.setoken
+
+一、列舉看得到 software 金鑰嗎？          → 看得到
+二、列舉看得到 Secure Enclave 金鑰嗎？    → 看得到
+三、attributes 帶得回 tag 嗎？             → 全部帶得回
+四、attributes 帶得回 kSecAttrCreationDate？→ 全部帶得回
+五、用 kSecValueRef 刪得掉嗎？             → 刪掉 2 把，掃完剩 0 把
+```
+
+五題全部是好消息，所以 §十一.B 那四個設計決定全部成立：
+
+- **列舉可以當真相來源**，不必維護一份會漂移的清單。
+- **`kSecAttrCreationDate` 回得來**，所以 `reapUnclaimed` 用建立時間當護欄
+  （避免刪掉領卡流程中途正在用的那把）是可行的，不必處理「拿不到日期怎麼辦」
+  那個兩邊都很難看的分支。
+- **`kSecValueRef` 刪得掉 Secure Enclave 金鑰**，不必退回 tag 等值比對。
+
+⚠️ **模擬器不能拿來回答這一題。** 同一支測試在模擬器上跑，五題也全部「通過」
+——包括第二題，因為模擬器會回報 `com.apple.setoken` 而那裡根本沒有 SEP。
+測試裡因此有一支 `aSimulatorRunDoesNotAnswerTheSecureEnclaveQuestion`，
+在模擬器上印出警告，免得一次綠燈被當成答案。
+
+順帶一個對照：實機上這個 App 總共只有 **3 把** EC 金鑰（其中 2 把是這次量測建的），
+模擬器上是 6 把。實機那多出來的一把就是既有的裝置金鑰——數字對得上。
+
+**還沒解決的仍然是 §十一.C 的第二與第三條**（裝置鎖定時的半殘狀態、
+殘留定義會把自家探針算成殘留）。那兩條不是量測問題，是設計問題。
