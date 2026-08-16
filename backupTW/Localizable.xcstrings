@@ -125,6 +125,16 @@
         }
       }
     },
+    "A real cardholder — but not that this is their first time. Offline there is no shared record of what has already been used, so two checkers who never speak cannot both refuse the same person.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明得了「是真的持卡人」，證明不了「這是他第一次」。離線的時候沒有一份共用的紀錄可以查誰用過，所以兩個彼此不通訊的查驗者，沒辦法一起擋下同一個人。"
+          }
+        }
+      }
+    },
     "A refusal is not proof of a forgery. A wrong clock, a partial scan, or an out-of-date app produce the same answer.": {
       "localizations": {
         "zh-Hant": {
@@ -1850,6 +1860,26 @@
         }
       }
     },
+    "Prove you are a real person, counted once": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明你是真人，而且只被算過一次"
+          }
+        }
+      }
+    },
+    "Prove you are over 18": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明你已滿 18 歲"
+          }
+        }
+      }
+    },
     "Prove you hold a valid certificate": {
       "localizations": {
         "zh-Hant": {
@@ -1866,6 +1896,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "證明你持有有效的自然人憑證，但不出示憑證內容。需要一次性的大量下載。"
+          }
+        }
+      }
+    },
+    "Prove you once held a Taiwanese national ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明你曾經持有中華民國國民身分證"
           }
         }
       }
@@ -2690,6 +2730,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法讀取此裝置的簽署金鑰。"
+          }
+        }
+      }
+    },
+    "The digital certificate service could not be reached.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連不上自然人憑證服務。"
           }
         }
       }

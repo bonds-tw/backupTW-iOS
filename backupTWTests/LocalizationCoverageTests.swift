@@ -79,6 +79,59 @@ struct LocalizationCoverageTests {
                 "untranslated proof caveat: \(caveat)")
     }
 
+    /// The capability screen, which this suite did not cover — b-1 of the
+    /// 2026-08-13 audit.
+    ///
+    /// Four strings shipped in English while every line around them was in
+    /// Chinese, and this file was green the whole time: it covered
+    /// `VerificationCaveat`, `VerificationFailure` and `ProofCaveat`, and
+    /// `PresentationScenario` was **the one type over**. Exactly the omission the
+    /// header of this file describes, repeated one enum later.
+    ///
+    /// It matters more here than almost anywhere. That screen's only reason to
+    /// exist is stopping `.partial` from being read as `.supported`, and
+    /// `.partial` carries its whole argument in the `actually` sentence — the one
+    /// that was in English.
+    @Test(arguments: PresentationScenario.all)
+    func everyScenarioReachesAChineseReader(_ scenario: PresentationScenario) {
+        #expect(Self.readableInChinese(scenario.request),
+                "untranslated scenario request: \(scenario.id)")
+        switch scenario.support {
+        case .supported:
+            break
+        case .partial(let actually):
+            #expect(Self.readableInChinese(actually),
+                    "untranslated 'what it actually shows': \(scenario.id)")
+        case .unsupported(let blockedBy):
+            #expect(Self.readableInChinese(blockedBy),
+                    "untranslated 'what would have to change': \(scenario.id)")
+        }
+    }
+
+    /// The verdict words themselves.
+    ///
+    /// `headline(for:)` is the sentence that decides whether a reader rounds
+    /// `.partial` up, and it is deliberately not 「部分通過」 — 「做得到一半」 is a
+    /// different answer rather than a qualified version of the same one. That
+    /// distinction only survives if the Chinese exists.
+    @Test func everyVerdictHeadlineReachesAChineseReader() {
+        for support: ScenarioSupport in [.supported,
+                                         .partial(actually: ""),
+                                         .unsupported(blockedBy: "")] {
+            let headline = CapabilityViewController.headline(for: support)
+            #expect(Self.readableInChinese(headline), "untranslated headline: \(headline)")
+        }
+    }
+
+    /// And the two path descriptions, which are where a reader learns that the
+    /// credential path shows their name and the zero-knowledge path shows the
+    /// same duplicate-detection number to everybody.
+    @Test(arguments: [PresentationPath.credential, PresentationPath.zeroKnowledge])
+    func everyPathDescriptionReachesAChineseReader(_ path: PresentationPath) {
+        #expect(Self.readableInChinese(CapabilityViewController.pathDescription(path)),
+                "untranslated path description: \(path)")
+    }
+
     /// Same construction as `OfflineVerifierTests.everyFailure`, and for the same
     /// reason: `VerificationFailure` has associated values so it cannot be
     /// `CaseIterable`, and a hand-written list silently stops covering the case
