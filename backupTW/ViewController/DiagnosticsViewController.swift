@@ -239,7 +239,12 @@ final class DiagnosticsViewController: UICollectionViewController {
             return Group(title: NSLocalizedString("Signing", comment: ""), rows: rows)
         }
 
-        if let key = try? DeviceKey.loadOrCreate(),
+        // `load`, not `loadOrCreate` — the comment above this function has said
+        // so since the first version, and this line went on calling
+        // `loadOrCreate` anyway. Opening a diagnostics screen after an erase
+        // minted a fresh identity, and the row above would report "not created
+        // yet" while this one printed the DID of the key it had just made.
+        if let key = try? DeviceKey.load(),
            let did = try? DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963) {
             rows.append(Row(title: NSLocalizedString("Identifier", comment: ""), value: did, passed: nil))
         }

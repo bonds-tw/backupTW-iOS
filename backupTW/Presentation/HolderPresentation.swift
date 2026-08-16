@@ -69,12 +69,32 @@ struct HolderPresentation {
 
     /// The credential this device would present, or `nil` if it holds none.
     ///
-    /// One credential is all this app issues, so there is no chooser and this
-    /// takes the first identifier in `allIDs()`'s sorted order. When a second
-    /// credential type arrives, the honest change is a picker — not a different
-    /// rule here for which one is silently the important one.
+    /// # Selected by kind, not by sort order
+    ///
+    /// This used to be `store.allIDs().first`, with a note saying a picker was
+    /// the honest change once a second credential type arrived. The second type
+    /// is arriving, and taking the first identifier turns out not to be a
+    /// neutral placeholder but a **wrong** answer waiting to be triggered: the
+    /// self-issued document's id is `national-id`, a TWDIW identifier derived
+    /// from its credential configuration starts with a digit, and digits sort
+    /// before letters. The first TWDIW card to land would silently become the
+    /// document this device presents.
+    ///
+    /// And it would not fail cleanly. This path builds a
+    /// `VerifiablePresentation` over this app's own format; handed an SD-JWT it
+    /// produces a refusal about a document the holder never chose to show.
+    ///
+    /// So the rule is now what it always meant: **this path presents the
+    /// self-issued document.** TWDIW cards are presented over OID4VP, which is a
+    /// different flow and not this function's business. A picker is still the
+    /// right answer for two self-issued documents; that is a smaller and much
+    /// later problem than the one this fixes.
     func storedCredentialID() throws -> String? {
-        try store.allIDs().first
+        for id in try store.allIDs() {
+            guard let serialized = try store.load(id: id) else { continue }
+            if StoredCardSource.source(of: serialized) == .selfIssued { return id }
+        }
+        return nil
     }
 
     /// Builds the answer to `request` and shards it for display.
