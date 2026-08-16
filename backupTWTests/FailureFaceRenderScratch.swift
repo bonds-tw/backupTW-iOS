@@ -138,7 +138,20 @@ struct WrongCodeScratch {
         screen.loadViewIfNeeded()
         let decision = screen.acceptScannedRequest(text)
         print("PresentCredentialViewController.acceptScannedRequest -> \(decision)")
-        #expect(decision == .keepScanning(status: nil))
+
+        // This used to assert `status: nil` — the silence itself, pinned as
+        // though it were the specification. It was not: it was the defect this
+        // scratch file was written to demonstrate, and writing it down as an
+        // expectation is how a documented bug becomes a protected one.
+        //
+        // The requirement is that our *own* code, meant for the other screen,
+        // is named. Anything else in the viewfinder stays silent.
+        guard case .keepScanning(let status) = decision else {
+            Issue.record("the wrong code stopped the scanner: \(decision)")
+            return
+        }
+        let named = try #require(status, "our own code, for the other screen, said nothing")
+        #expect(!named.isEmpty)
     }
 
     /// And the mirror: the holder is on 最小揭露 and points the camera at the
@@ -153,9 +166,21 @@ struct WrongCodeScratch {
         } catch {
             print("ZKLinkEngagement.decode threw: \(String(describing: error))")
         }
-        // The call site: ZKProofViewController.sendProofOverLink uses `try?`.
-        let swallowed = try? ZKLinkEngagement.decode(from: text)
-        print("`try?` at the call site yields: \(String(describing: swallowed))")
-        #expect(swallowed == nil)
+        // The decoder is expected to refuse it — that half was never in doubt.
+        #expect((try? ZKLinkEngagement.decode(from: text)) == nil)
+
+        // What changed is the call site. It used `try?` and dropped the reason
+        // on the floor, so `isACardSignedRequest` — a case that exists purely so
+        // this situation can be named — never reached a screen. The decoder
+        // raising a distinguishable error and the UI discarding it is the exact
+        // shape of "the test passes and the person sees nothing".
+        var reason: ZKLinkEngagement.DecodingFailure?
+        do {
+            _ = try ZKLinkEngagement.decode(from: text)
+        } catch let failure as ZKLinkEngagement.DecodingFailure {
+            reason = failure
+        } catch {}
+        #expect(reason == .isACardSignedRequest,
+                "the one failure the ZK scanner can explain is no longer distinguishable")
     }
 }

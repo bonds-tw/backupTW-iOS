@@ -798,6 +798,17 @@ final class PresentCredentialViewController: UIViewController {
     @discardableResult
     func acceptScannedRequest(_ scanned: String, now: Date = Date()) -> QRScanningViewController.Decision {
         guard let request = try? PresentationRequest.decode(scanned) else {
+            // The mirror of the ZK screen's case: our own code, for the other
+            // screen. Recognised here by shape rather than by a thrown case,
+            // because `PresentationRequest` has no reason to know about the
+            // other format — and a decoder that started refusing things by
+            // naming a sibling format would be the wrong place for that
+            // knowledge.
+            if (try? ZKLinkEngagement.decode(from: scanned)) != nil {
+                return .keepScanning(status: NSLocalizedString(
+                    "That is the code for sending a zero-knowledge proof, not for showing a document.",
+                    comment: "Scanned the other kind of code"))
+            }
             // Any other QR code in the viewfinder, and there will be many.
             // Silence rather than an error per video frame.
             return .keepScanning(status: nil)

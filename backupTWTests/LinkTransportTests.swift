@@ -52,6 +52,47 @@ struct LinkTransportTests {
         #expect(try #require(received) == payload)
     }
 
+    /// A transfer that fails to reassemble has to be retryable.
+    ///
+    /// The last frame is stored before the digest is checked, so on failure the
+    /// collector held a complete set — and every frame of a retry was then
+    /// reported `.duplicate` and dropped. The transfer could never succeed
+    /// again, and the screen sat on 「接收中… 100%」 for ever because that is
+    /// exactly what the collector believed.
+    ///
+    /// This matters most on the ZK path: 398 KB, 597 frames, and no camera to
+    /// fall back to.
+    @Test func aFailedReassemblyLetsTheSenderTryAgain() throws {
+        let payload = Self.incompressible(4096)
+        let frames = try LinkTransport.frames(for: payload, maximumFrameBytes: 185)
+        #expect(frames.count > 4)
+
+        let collector = LinkCollector()
+
+        // Corrupt the body of the first frame so every frame is individually
+        // well-formed and only the whole is wrong — which is the case the
+        // digest exists for, and the case that used to wedge the collector.
+        var damaged = frames[0]
+        damaged[damaged.count - 1] ^= 0xFF
+
+        var threw = false
+        do {
+            _ = try collector.accept(damaged)
+            for frame in frames.dropFirst() { _ = try collector.accept(frame) }
+        } catch {
+            threw = true
+        }
+        #expect(threw, "a corrupted payload reassembled without complaint")
+
+        // The retry. Same collector, same frames, undamaged this time.
+        var received: Data?
+        for frame in frames {
+            if case .completed(let data) = try collector.accept(frame) { received = data }
+        }
+        #expect(try #require(received) == payload,
+                "the collector never let go of the failed transfer")
+    }
+
     /// A radio delivers what it delivers. Nothing about GATT promises order, and
     /// a reassembler that quietly depended on it would work on a bench and fail
     /// in a room with interference.

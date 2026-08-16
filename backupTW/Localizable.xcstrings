@@ -2801,6 +2801,36 @@
         }
       }
     },
+    "That code was made by a newer version of the app. Update this app first.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "那個碼是較新版本的 App 產生的，請先更新這個 App。"
+          }
+        }
+      }
+    },
+    "That is the code for checking a document, not a proof. Use 「出示我的證件」 instead.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "那是查驗證件用的碼，不是查驗證明的。請改用「出示我的證件」。"
+          }
+        }
+      }
+    },
+    "That is the code for sending a zero-knowledge proof, not for showing a document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "那是傳送零知識證明用的碼，不是出示證件用的。"
+          }
+        }
+      }
+    },
     "That list was made on %@.": {
       "comment": "Date of the revocation snapshot used",
       "localizations": {
@@ -3189,6 +3219,16 @@
         }
       }
     },
+    "The other phone disconnected before the whole proof had been sent. Ask them to scan the code again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方的手機在證明送完之前就斷線了。請他重新掃描一次條碼。"
+          }
+        }
+      }
+    },
     "The other phone is not offering a document.": {
       "localizations": {
         "zh-Hant": {
@@ -3205,6 +3245,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "持有這台裝置的人簽署了本次查驗"
+          }
+        }
+      }
+    },
+    "The proof arrived damaged. Ask them to send it again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收到的證明有損毀，請對方重送一次。"
           }
         }
       }
@@ -3545,6 +3595,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這個 App 沒有被允許使用藍牙。可以到「設定」裡更改。"
+          }
+        }
+      }
+    },
+    "This app is too old to read this proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 App 版本太舊，讀不了這份證明。"
           }
         }
       }
@@ -4274,6 +4334,16 @@
         }
       }
     },
+    "This proof file is larger than a real proof ever is, so it was not opened.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個證明檔比真正的證明大得多，因此沒有開啟。"
+          }
+        }
+      }
+    },
     "This proof is %1$@, which is more than the %2$@ this app will send over Bluetooth. Save it as a file instead.": {
       "extractionState": "manual",
       "localizations": {
@@ -4281,6 +4351,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "這份證明是 %1$@，超過這個 App 願意用藍牙傳送的 %2$@。請改存成檔案。"
+          }
+        }
+      }
+    },
+    "This proof is incomplete on this phone. Make it again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明在這支手機上不完整，請重新產生一次。"
+          }
+        }
+      }
+    },
+    "This proof was made by a newer version of the app. Update this app, then check it again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明是較新版本的 App 產生的。請先更新這個 App，再查驗一次。"
           }
         }
       }

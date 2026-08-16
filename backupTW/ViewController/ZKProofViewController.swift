@@ -925,9 +925,28 @@ final class ZKProofViewController: UICollectionViewController {
             prompt: NSLocalizedString("Point the camera at the checker's phone.", comment: "")
         ) { [weak self] scanned in
             guard let self else { return .stop }
-            guard let engagement = try? ZKLinkEngagement.decode(from: scanned) else {
-                // Fires once per video frame for every other QR in the room.
-                // Silence is the only usable behaviour.
+            let engagement: ZKLinkEngagement
+            do {
+                engagement = try ZKLinkEngagement.decode(from: scanned)
+            } catch ZKLinkEngagement.DecodingFailure.isACardSignedRequest {
+                // The one failure that is not noise, and the one this app is
+                // uniquely able to explain: that code is real, it is ours, and
+                // it belongs to the other check. `ZKLinkEngagement` checks for
+                // it before anything else precisely so it can be named here —
+                // and then the `try?` at this call site threw the name away, so
+                // the holder pointed a camera at a valid code and the app did
+                // nothing at all. Both sides then have no clue, and the
+                // conclusion available to them is that the app is broken.
+                return .keepScanning(status: NSLocalizedString(
+                    "That is the code for checking a document, not a proof. Use 「出示我的證件」 instead.",
+                    comment: "Scanned the other kind of code"))
+            } catch ZKLinkEngagement.DecodingFailure.unsupportedVersion {
+                return .keepScanning(status: NSLocalizedString(
+                    "That code was made by a newer version of the app. Update this app first.",
+                    comment: "Scanned a newer code"))
+            } catch {
+                // Everything else fires once per video frame for every other QR
+                // in the room. Silence is the only usable behaviour.
                 return .keepScanning(status: nil)
             }
             guard engagement.isCurrent() else {

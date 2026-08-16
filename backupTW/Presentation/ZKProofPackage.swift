@@ -103,10 +103,43 @@ struct ZKProofPackage: Codable, Equatable {
     /// verification fails here.
     let producerSelfCheckPassed: Bool
 
-    enum PackagingError: Error, Equatable {
+    /// # Why this conforms to `LocalizedError`
+    ///
+    /// It has four UI exits and had no `errorDescription`, so what a person
+    /// actually read — measured, in zh-Hant — was
+    /// 「無法完成作業。（backupTW.ZKProofPackage.PackagingError錯誤1 。）」,
+    /// and where a caller reached for `String(describing:)` instead, the literal
+    /// text `unsupportedVersion(3)` under a Chinese sentence.
+    ///
+    /// The sentences differ from each other in **who has to do something**,
+    /// which is the part the old wording got backwards: a package this app
+    /// cannot read because it is *newer* was reported as the other person's file
+    /// being broken. That sends the one person who can fix it — by updating —
+    /// to go and blame somebody whose proof is fine.
+    enum PackagingError: Error, Equatable, LocalizedError {
         case missingArtifact(String)
         case unsupportedVersion(Int)
         case artifactTooLarge(name: String, bytes: Int)
+
+        var errorDescription: String? {
+            switch self {
+            case .missingArtifact:
+                // Deliberately does not name the file. It is this device's own
+                // proof directory, the name means nothing to the holder, and
+                // the only useful instruction is to make the proof again.
+                return NSLocalizedString(
+                    "This proof is incomplete on this phone. Make it again.",
+                    comment: "ZK package error")
+            case .unsupportedVersion:
+                return NSLocalizedString(
+                    "This proof was made by a newer version of the app. Update this app, then check it again.",
+                    comment: "ZK package error")
+            case .artifactTooLarge:
+                return NSLocalizedString(
+                    "This proof file is larger than a real proof ever is, so it was not opened.",
+                    comment: "ZK package error")
+            }
+        }
     }
 
     /// A ceiling on any single artifact, so a malicious package cannot ask this

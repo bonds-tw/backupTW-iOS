@@ -388,9 +388,8 @@ final class ZKVerifyViewController: UIViewController {
                 // Reassembled and digest-matched, and still not a package. Not a
                 // failed check — we never got far enough to judge anything —
                 // so this reports as unreadable rather than as a refusal.
-                show(status: NSLocalizedString("What arrived was not a proof this app can read.", comment: ""),
-                     detail: String(describing: error),
-                     verdict: nil)
+                let outcome = Self.unreadable(error)
+                show(status: outcome.status, detail: outcome.detail, verdict: nil)
             }
         }
     }
@@ -423,10 +422,34 @@ final class ZKVerifyViewController: UIViewController {
         do {
             verify(package: try ZKProofPackage.decoded(from: try Data(contentsOf: url)))
         } catch {
-            show(status: NSLocalizedString("This proof file could not be read.", comment: ""),
-                 detail: String(describing: error),
-                 verdict: nil)
+            let outcome = Self.unreadable(error)
+            show(status: outcome.status, detail: outcome.detail, verdict: nil)
         }
+    }
+
+    /// Turns a decoding failure into a sentence and, where it can, the right
+    /// heading.
+    ///
+    /// # The heading was the actual defect
+    ///
+    /// Both call sites used to say "this file could not be read" and print
+    /// `String(describing: error)` underneath — so `unsupportedVersion(3)`
+    /// appeared verbatim beneath a Chinese sentence, and the sentence blamed the
+    /// wrong party. A proof this app cannot read *because it is newer* is not a
+    /// broken file: the person holding this phone needs to update, and the
+    /// person who made the proof did nothing wrong. Telling a checker the other
+    /// person's document is unreadable, when the fix is on the checker's side,
+    /// is the same class of mistake as `a-6`'s clock accusation.
+    private static func unreadable(_ error: Error) -> (status: String, detail: String) {
+        if case ZKProofPackage.PackagingError.unsupportedVersion = error {
+            return (NSLocalizedString("This app is too old to read this proof.", comment: ""),
+                    error.localizedDescription)
+        }
+        return (NSLocalizedString("This proof file could not be read.", comment: ""),
+                // `localizedDescription`, which `PackagingError` now provides.
+                // Anything else that lands here at least gets its own
+                // `LocalizedError` rather than its Swift type name.
+                error.localizedDescription)
     }
 
     /// The single place a decoded package is checked, whichever way it arrived.

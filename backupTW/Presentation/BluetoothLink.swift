@@ -234,6 +234,32 @@ extension BluetoothLinkPeripheral: CBPeripheralManagerDelegate {
         }
     }
 
+    /// The checker went away.
+    ///
+    /// Without this method, a disconnect mid-transfer meant `pump()` was simply
+    /// never called again — the holder's screen kept 「傳送… 47%」 for as long as
+    /// they were willing to hold the phone up, and nothing on either device said
+    /// otherwise. It is the plainest example of the failure the audit went
+    /// looking for: a state with no screen at all.
+    ///
+    /// Clearing `subscriber` is the other half. `didSubscribeTo` guards on
+    /// `subscriber == nil`, so a stale one meant the checker could not reconnect
+    /// and try again either — the transfer was over, permanently, and the app
+    /// still looked busy.
+    func peripheralManager(_ peripheral: CBPeripheralManager,
+                           central: CBCentral,
+                           didUnsubscribeFrom characteristic: CBCharacteristic) {
+        guard central.identifier == subscriber?.identifier else { return }
+        let wasIncomplete = nextFrame < frames.count
+        subscriber = nil
+        nextFrame = 0
+        if wasIncomplete {
+            onState(.failed(reason: NSLocalizedString(
+                "The other phone disconnected before the whole proof had been sent. Ask them to scan the code again.",
+                comment: "Bluetooth send failure")))
+        }
+    }
+
     func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
         pump()
     }
@@ -348,7 +374,13 @@ extension BluetoothLinkCentral: CBCentralManagerDelegate {
                         error: Error?) {
         // Only a failure if the payload had not arrived. A holder whose screen
         // moves on the moment the transfer finishes disconnects normally.
-        if collector.progress != nil, error != nil {
+        //
+        // `error != nil` used to be part of this condition, and it meant a
+        // *clean* disconnect halfway through said nothing at all — which is the
+        // common case, because the holder pressing Done is a clean disconnect.
+        // Whether the other end hung up politely is not a fact the checker
+        // needs; whether the proof arrived is.
+        if collector.progress != nil {
             onState(.failed(reason: NSLocalizedString("The connection ended before the whole document arrived.", comment: "")))
         }
     }
@@ -448,10 +480,27 @@ extension BluetoothLinkCentral: CBPeripheralDelegate {
                     self?.deliverFinished()
                 }
             }
+        } catch let error as LinkTransportError {
+            // Two layers, because they mean opposite things.
+            //
+            // A frame that will not parse is noise — a stray packet from
+            // another phone in the room is the expected reason to be here, and
+            // reporting it would make a working transfer look broken.
+            //
+            // A failure at *reassembly* is not noise. Every frame arrived, the
+            // collector emptied itself (see `LinkCollector`), and there is now
+            // nothing on screen to say so: without this the checker watches
+            // 「接收中… 100%」 for ever. It matters most on the ZK path, which is
+            // 597 frames and has no camera to fall back to.
+            switch error {
+            case .reassemblyDigestMismatch, .payloadTooLarge:
+                onState(.failed(reason: NSLocalizedString(
+                    "The proof arrived damaged. Ask them to send it again.",
+                    comment: "Bluetooth reassembly failure")))
+            default:
+                return
+            }
         } catch {
-            // One bad frame is not a dead transfer: `LinkCollector` leaves
-            // itself untouched when it throws, and a stray frame from another
-            // phone in the room is the expected reason to be here.
             return
         }
     }

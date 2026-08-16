@@ -326,18 +326,40 @@ final class LinkCollector {
             return .accepted(Progress(received: chunks.count, total: header.total))
         }
 
-        let assembled = (0..<header.total).reduce(into: Data()) { $0.append(chunks[$1] ?? Data()) }
-        let payload = isDeflated
-            ? try QRTransport.inflate(assembled, limit: LinkTransport.maximumPayloadBytes)
-            : assembled
+        // # Everything below is the assembly stage, and it must not throw past
+        // a collector that is still full
+        //
+        // The last frame is stored before any of this runs, so on a failure
+        // `chunks` holds a complete set — and every subsequent frame of a
+        // *retry* is then reported `.duplicate` and dropped. The transfer can
+        // never succeed again, and the screen sits on 「接收中… 100%」 for ever
+        // because that is literally what the collector believes.
+        //
+        // `FrameCollector` on the QR path resets in exactly this position;
+        // this one did not, and `QRTransport`'s comment about the consequence
+        // described a behaviour this file did not have.
+        //
+        // Resetting on failure is safe here in the way it is not for a
+        // *duplicate*: a digest mismatch means the bytes held are not a payload
+        // anybody can use, so there is nothing to preserve.
+        do {
+            let assembled = (0..<header.total).reduce(into: Data()) { $0.append(chunks[$1] ?? Data()) }
+            let payload = isDeflated
+                ? try QRTransport.inflate(assembled, limit: LinkTransport.maximumPayloadBytes)
+                : assembled
 
-        // The last thing checked, and the only one that catches a transfer that
-        // was individually plausible frame by frame: a spliced chunk from a
-        // transfer whose first four identifier bytes happened to collide, a
-        // sender that compressed but cleared the flag, a truncated final chunk.
-        guard LinkTransport.identifier(for: payload) == identifier else {
-            throw LinkTransportError.reassemblyDigestMismatch
+            // The last thing checked, and the only one that catches a transfer
+            // that was individually plausible frame by frame: a spliced chunk
+            // from a transfer whose first four identifier bytes happened to
+            // collide, a sender that compressed but cleared the flag, a
+            // truncated final chunk.
+            guard LinkTransport.identifier(for: payload) == identifier else {
+                throw LinkTransportError.reassemblyDigestMismatch
+            }
+            return .completed(payload)
+        } catch {
+            reset()
+            throw error
         }
-        return .completed(payload)
     }
 }
