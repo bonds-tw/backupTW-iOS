@@ -86,26 +86,51 @@ final class VerifierViewController: UIViewController {
         #endif
     }
 
-    /// A fresh challenge every time this screen comes into view, including on the
-    /// way back from a result.
+    /// A fresh challenge when there is not already a live one — which includes
+    /// the way back from a result, because answering spends the challenge.
     ///
-    /// The challenge that produced that result was spent by being answered, so
-    /// the code on screen has to change — leaving the old image up would show a
-    /// challenge that is guaranteed to be refused, and the holder would be told
-    /// their presentation answered a different check.
+    /// The old image must not stay up once its challenge is spent: it would show
+    /// a code guaranteed to be refused, and the holder would be told their
+    /// presentation answered a different check.
+    ///
+    /// **The guard is what makes this screen's two halves agree.**
+    /// `viewWillDisappear` deliberately does *not* cancel when the scanner is
+    /// pushed, on the grounds that the scanner is about to collect an answer to
+    /// the challenge on screen. Minting unconditionally here undid that on the
+    /// way back: press the scanner's back button, deny the camera, or take any
+    /// other round trip, and the live challenge was replaced by a new one. The
+    /// holder's honest presentation then answered a challenge that no longer
+    /// existed, and `challengeMismatch` reaches the screen as 「可能是先前出示的
+    /// 複本」 — a replay accusation aimed at somebody who did nothing wrong.
+    /// Refusing a valid presentation is the expensive direction of this screen's
+    /// two possible mistakes, and the accusation is how the person pays for it.
+    ///
+    /// The single-use rule is unchanged. Leaving for good still cancels, so
+    /// going away to present on this same device and coming back does mint a
+    /// fresh challenge (see the note by the paste button, which relies on that).
+    /// What changed is that a round trip through the camera is no longer counted
+    /// as leaving.
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        collector.reset()
-        beginCheck()
+        switch VerifierScreenLifecycle.arriving(hasLiveRequest: session.pendingRequest() != nil) {
+        case .keepWaiting:
+            return
+        case .beginNewCheck:
+            // Both statements together, not just `beginCheck`: resetting the
+            // collector throws away frames, and the arrival that keeps the
+            // challenge is exactly the arrival where frames may have arrived
+            // over the radio while the scanner was up.
+            collector.reset()
+            beginCheck()
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        // Only when leaving for good. Pushing the scanner must not cancel the
-        // challenge the scanner is about to collect an answer to — nor stop the
-        // radio, for the same reason: a holder who is already sending should not
-        // be cut off because the checker reached for the camera as well.
-        if isMovingFromParent || isBeingDismissed {
+        switch VerifierScreenLifecycle.leaving(forGood: isMovingFromParent || isBeingDismissed) {
+        case .stayLive:
+            return
+        case .endCheck:
             session.cancel()
             stopLink()
         }
@@ -828,13 +853,26 @@ final class VerificationResultViewController: UIViewController {
             stack.addArrangedSubview(PresentationUI.verdict("⛔️",
                 NSLocalizedString("Not accepted", comment: ""), .systemRed))
             stack.addArrangedSubview(PresentationUI.card(body: failure.message))
-            stack.addArrangedSubview(PresentationUI.footnote(
+            stack.addArrangedSubview(PresentationUI.mitigation(
                 NSLocalizedString("A refusal is not proof of a forgery. A wrong clock, a partial scan, or an out-of-date app produce the same answer.", comment: "")))
         case .none:
-            stack.addArrangedSubview(PresentationUI.verdict("⛔️",
-                NSLocalizedString("Not accepted", comment: ""), .systemRed))
+            // Not the red verdict, and not the same word.
+            //
+            // Nothing was examined here: this device had no outstanding request
+            // to examine anything against, so the branch says nothing whatever
+            // about what the other person presented. Wearing 「查驗未通過」 in
+            // red made this device's own housekeeping look like a judgement on
+            // them — and it was the one branch that did not carry the sentence
+            // below, so the reader got the accusation without the qualification.
+            //
+            // Same rule as `.partial` on the capability screen: a state that is
+            // not the bad one must not be drawn as the bad one.
+            stack.addArrangedSubview(PresentationUI.verdict("⚠️",
+                NSLocalizedString("Nothing was checked", comment: ""), .systemOrange))
             stack.addArrangedSubview(PresentationUI.card(body: NSLocalizedString(
                 "This checker had no request outstanding. Each request can be answered once; start a new check and ask them to scan it again.", comment: "")))
+            stack.addArrangedSubview(PresentationUI.mitigation(
+                NSLocalizedString("This is about this phone, not about the person presenting. What they showed was never examined, so nothing here counts against them.", comment: "")))
         }
     }
 
@@ -1036,6 +1074,59 @@ final class VerificationResultViewController: UIViewController {
 /// truncated. Everything here is Dynamic Type aware and multi-line by default,
 /// because the two things this app cannot afford on these screens are text that
 /// is cut off and text that does not grow.
+/// The two halves of the checker screen's lifecycle, in one place so they can be
+/// read against each other.
+///
+/// A type rather than an `if` in each callback, for the same reason as
+/// `PresentationScreenLifecycle` on the holder's side: the defect this prevents
+/// is a **wrong answer** rather than a crash, and it lived in the gap between two
+/// callbacks that were correct on their own.
+///
+/// What went wrong. `viewWillDisappear` deliberately did *not* cancel when the
+/// scanner was pushed — the scanner is about to collect the answer to the
+/// challenge on screen, and cutting a holder off mid-send would be gratuitous.
+/// `viewWillAppear` then minted a fresh challenge unconditionally. So the screen
+/// **kept the challenge on the way out and replaced it on the way back**: press
+/// the scanner's back button, deny the camera, come back from anywhere at all,
+/// and the holder's honest presentation now answered a challenge that no longer
+/// existed. `challengeMismatch` reaches the result screen as 「可能是先前出示的
+/// 複本」 — a replay accusation, aimed at somebody who did nothing wrong.
+///
+/// Refusing a valid presentation is the expensive direction of this screen's two
+/// possible mistakes, and that sentence is how the person pays for it.
+///
+/// The single-use rule is untouched: leaving for good still cancels, so going
+/// away to present on this same device and coming back does mint a fresh
+/// challenge (the note by the paste button depends on that). What changed is
+/// that a round trip through the camera is no longer counted as leaving.
+enum VerifierScreenLifecycle {
+
+    enum Arrival: Equatable {
+        /// Mint a fresh challenge and clear whatever the collector holds.
+        case beginNewCheck
+        /// Leave the live challenge — and the frames already collected — alone.
+        case keepWaiting
+    }
+
+    enum Departure: Equatable {
+        /// Cancel the challenge and stop the radio.
+        case endCheck
+        /// Going somewhere that is still part of this check.
+        case stayLive
+    }
+
+    /// A spent challenge leaves none behind, so `hasLiveRequest` is `false` after
+    /// a result and the code on screen is correctly replaced. It is also `false`
+    /// once the outstanding request has aged out, which is the same news.
+    static func arriving(hasLiveRequest: Bool) -> Arrival {
+        hasLiveRequest ? .keepWaiting : .beginNewCheck
+    }
+
+    static func leaving(forGood: Bool) -> Departure {
+        forGood ? .endCheck : .stayLive
+    }
+}
+
 enum PresentationUI {
 
     static func title(_ text: String) -> UILabel {
@@ -1066,13 +1157,45 @@ enum PresentationUI {
         return label
     }
 
+    /// Secondary, not tertiary.
+    ///
+    /// `.tertiaryLabel` is 26% ink: about 1.7:1 against either grouped
+    /// background, which fails WCAG AA at every text size the app can be set to.
+    /// `.secondaryLabel` is 60% and clears it. Nothing on this screen is
+    /// decorative enough to be worth a contrast ratio a reader cannot resolve —
+    /// and a footnote is where this app habitually puts the sentence that limits
+    /// what the headline above it means, which is the worst possible place for
+    /// unreadable ink.
     static func footnote(_ text: String) -> UILabel {
         let label = UILabel()
         label.text = text
         label.numberOfLines = 0
         label.font = .preferredFont(forTextStyle: .footnote)
         label.adjustsFontForContentSizeCategory = true
-        label.textColor = .tertiaryLabel
+        label.textColor = .secondaryLabel
+        return label
+    }
+
+    /// The sentence that stops a refusal from being read as an accusation.
+    ///
+    /// Body weight and full label colour, drawn directly under the verdict —
+    /// deliberately not a footnote, because the reader it is written for is a
+    /// person who has just been shown a red screen in front of somebody else and
+    /// has seconds to say something. It was in `.footnote` at `.tertiaryLabel`:
+    /// **the one line on the screen protecting an honest person was the faintest
+    /// text on it.** Same reasoning as the cycle-time sentence on the holder's
+    /// side, which was moved out of the footnote style for the same reason.
+    ///
+    /// Kept as its own constructor rather than a `body` call so that the role is
+    /// named. A style that exists only as an argument at one call site is one the
+    /// next edit quietly demotes.
+    static func mitigation(_ text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.numberOfLines = 0
+        label.font = .preferredFont(forTextStyle: .subheadline)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = .label
         return label
     }
 

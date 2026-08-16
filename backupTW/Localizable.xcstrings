@@ -1698,6 +1698,16 @@
         }
       }
     },
+    "Nothing was checked": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有東西被查驗"
+          }
+        }
+      }
+    },
     "Offline check": {
       "localizations": {
         "zh-Hant": {
@@ -3762,6 +3772,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這是已儲存的證件本身，不是為本次查驗簽出的出示檔。"
+          }
+        }
+      }
+    },
+    "This is about this phone, not about the person presenting. What they showed was never examined, so nothing here counts against them.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是這台手機的狀態，不是對出示者的判斷。他們出示的內容根本沒有被檢查，所以這裡沒有任何一項對他們不利。"
           }
         }
       }
