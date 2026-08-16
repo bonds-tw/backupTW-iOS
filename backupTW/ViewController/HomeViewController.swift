@@ -24,8 +24,16 @@ class HomeViewController: UICollectionViewController {
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
-        static let myDocument = NSLocalizedString("My identity document", comment: "")
+        static let compare = NSLocalizedString("What each of these cards is worth", comment: "")
     }
+
+    /// Card rows, keyed by the identifier the `Item` carries.
+    ///
+    /// `Row` above works because each of those titles appears once. Cards break
+    /// that assumption by design — two government cards are both titled
+    /// 「政府皮夾卡片」 — so a title match would open whichever one the switch
+    /// reached first. The store identifier is the only value unique per card.
+    private var cardRows: [String: CardInventoryRow] = [:]
 
     /// Recomputed on every appearance rather than stored once at init.
     ///
@@ -34,35 +42,89 @@ class HomeViewController: UICollectionViewController {
     /// screen never read the store, and the app looked untouched. A person who
     /// has just handed over their household record and sees no sign of it has
     /// every reason to think it failed — and to do it again.
-    private var sections: [Section] {
-        [validDocumentSection, offlineSection]
+    ///
+    /// A function rather than a computed property since the cards arrived: it
+    /// reads the store and records what it found in `cardRows`, and a getter
+    /// with a side effect is a getter somebody will call twice.
+    private func makeSections() -> [Section] {
+        let rows = (try? CredentialStore()).map { CardInventory.rows(from: $0) } ?? []
+        cardRows = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return [validDocumentSection(cards: rows), offlineSection]
     }
 
-    private var validDocumentSection: Section {
-        let title = "🔐 " + NSLocalizedString("Valid Document", comment: "")
-        guard let stored = StoredNationalID.load() else {
-            return Section(title: title, items: [
-                Item(title: Row.backUp,
-                     secondaryText: NSLocalizedString("with Taiwan's official MyData service", comment: ""))
-            ])
+    /// Every card this phone holds, not only the one this app issues.
+    ///
+    /// The section used to be a single row for the self-issued document, which
+    /// was the whole truth while that was the only thing the store could hold.
+    /// A card collected from 數位憑證皮夾 would have been saved successfully and
+    /// then been invisible — the same class of defect as the one the comment on
+    /// `makeSections` describes, and with the same consequence: a person with no
+    /// evidence their card arrived goes and collects it again.
+    ///
+    /// Named fields are still not summarised here. The home screen is the most
+    /// over-the-shoulder-readable surface in the app, so rows carry the card's
+    /// *kind* and its dates and nothing out of its claims. That rule is enforced
+    /// in `CardInventory`, where it can be tested, not here.
+    private func validDocumentSection(cards rows: [CardInventoryRow]) -> Section {
+        // Not 「正式證件」 any more. That header is the onboarding screen's, where
+        // it names the document about to be created; over a list that can now
+        // contain an expired card and a card this build cannot read, it would be
+        // the section itself making a claim the rows underneath contradict.
+        let title = "🔐 " + NSLocalizedString("My cards", comment: "home section")
+
+        // Keyed to *our own* document, not to whether any card exists.
+        //
+        // Found by rendering the screen with a government card and no
+        // self-issued one: the row read 「重新抓一次，取代目前存的這份」 while
+        // there was nothing of ours stored to replace. This row only ever
+        // creates or replaces the MyData-backed document, so a card of some
+        // other kind must not change what it says.
+        let hasOwnDocument = rows.contains { $0.source == .selfIssued }
+        let refresh = Item(image: UIImage(systemName: "arrow.clockwise")?
+                            .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
+                           title: Row.backUp,
+                           secondaryText: hasOwnDocument
+                            ? NSLocalizedString("Fetch it again and replace what's stored.", comment: "")
+                            : NSLocalizedString("with Taiwan's official MyData service", comment: ""))
+
+        guard !rows.isEmpty else {
+            return Section(title: title, items: [refresh])
         }
-        // Named fields are *not* summarised here. A home screen is the most
-        // over-the-shoulder-readable surface in the app, and this document
-        // carries a national ID number and a home address; the count and the
-        // date say it worked without putting either on a screen that gets
-        // glanced at in public.
-        return Section(title: title, items: [
-            Item(image: UIImage(systemName: "checkmark.seal.fill")?
-                    .withTintColor(.systemGreen, renderingMode: .alwaysOriginal),
-                 title: Row.myDocument,
-                 secondaryText: String(format: NSLocalizedString(
-                    "%d fields · created %@", comment: "credential summary"),
-                    stored.claims.count, stored.createdDescription())),
-            Item(image: UIImage(systemName: "arrow.clockwise")?
-                    .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
-                 title: Row.backUp,
-                 secondaryText: NSLocalizedString("Fetch it again and replace what's stored.", comment: ""))
-        ])
+
+        // The row that carries the milestone's argument onto the screen people
+        // actually open. Last, not first: the comparison only means anything to
+        // somebody who has just seen that they hold more than one kind of thing.
+        let compare = Item(image: UIImage(systemName: "list.bullet.rectangle")?
+                            .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+                           title: Row.compare,
+                           secondaryText: NSLocalizedString(
+                            "What a checker can rely on, and what none of them can establish.", comment: ""))
+
+        return Section(title: title, items: rows.map(item(for:)) + [refresh, compare])
+    }
+
+    private func item(for row: CardInventoryRow) -> Item {
+        let symbol: String
+        let tint: UIColor
+        switch row.state {
+        case .usable:
+            symbol = row.source == .selfIssued ? "checkmark.seal.fill" : "creditcard.fill"
+            tint = row.source == .selfIssued ? .systemGreen : .systemBlue
+        case .expired:
+            // Orange, not red, and not a warning triangle: an expired card is a
+            // fact about a date, not a fault by anyone, and it may still be the
+            // right thing to show a checker who only needs to see it existed.
+            symbol = "clock.badge.exclamationmark"
+            tint = .systemOrange
+        case .unreadable:
+            symbol = "questionmark.square.dashed"
+            tint = .systemGray
+        }
+        return Item(image: UIImage(systemName: symbol)?
+                        .withTintColor(tint, renderingMode: .alwaysOriginal),
+                    title: row.title,
+                    secondaryText: row.detail,
+                    identifier: row.id)
     }
 
     private var offlineSection: Section {
@@ -181,10 +243,10 @@ class HomeViewController: UICollectionViewController {
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] headerView, elementKind, indexPath in
             // From the snapshot the data source is showing, not from
-            // `self.sections` — the computed property re-reads the credential
-            // store (a Keychain round trip) on every header dequeue, and its
-            // answer could disagree with what the rows on screen were built
-            // from. The strong `self` capture was also a retain cycle.
+            // `makeSections()` — it re-reads the credential store on every
+            // header dequeue, and its answer could disagree with what the rows
+            // on screen were built from. The strong `self` capture was also a
+            // retain cycle.
             guard let dataSource = self?.dataSource else { return }
             let sections = dataSource.snapshot().sectionIdentifiers
             guard indexPath.section < sections.count else { return }
@@ -200,7 +262,7 @@ class HomeViewController: UICollectionViewController {
 
     private func applySnapshot() {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        for section in sections {
+        for section in makeSections() {
             snapshot.appendSections([section])
             snapshot.appendItems(section.items)
         }
@@ -215,7 +277,18 @@ extension HomeViewController {
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+
+        // Cards are answered by identifier before the title switch runs. Two
+        // government cards share a title, so reaching them through `Row` would
+        // open the wrong one — and would do it silently.
+        if let identifier = item.identifier, let card = cardRows[identifier] {
+            open(card)
+            return
+        }
+
         switch item.title {
+        case Row.compare:
+            navigationController?.pushViewController(CapabilityViewController(), animated: true)
         case Row.backUp:
             let vc = MyDataOnboardViewController()
             let nav = UINavigationController(rootViewController: vc)
@@ -227,11 +300,45 @@ extension HomeViewController {
             navigationController?.pushViewController(VerifierViewController(), animated: true)
         case Row.verifyProof:
             navigationController?.pushViewController(ZKVerifyViewController(), animated: true)
-        case Row.myDocument:
-            navigationController?.pushViewController(StoredCredentialViewController(), animated: true)
         default:
             break
         }
+    }
+
+    /// What tapping a card does — including when the answer is "nothing yet".
+    ///
+    /// Only the self-issued document has a detail screen.
+    /// `StoredCredentialViewController` reads `StoredNationalID.load()`, which is
+    /// keyed to one fixed identifier, so pushing it for a government card would
+    /// show the holder **a different card's contents under the row they
+    /// tapped** — the worst available outcome, and the one that happens by
+    /// default if this method does not exist.
+    ///
+    /// So the government card says plainly that this build lists it but cannot
+    /// open it, and offers the one thing it genuinely can answer. A row that
+    /// silently did nothing would read as a bug, and a row that pretended would
+    /// be one.
+    private func open(_ card: CardInventoryRow) {
+        if card.source == .selfIssued, card.state == .usable {
+            navigationController?.pushViewController(StoredCredentialViewController(), animated: true)
+            return
+        }
+
+        let alert = UIAlertController(
+            title: NSLocalizedString("This version cannot open this card", comment: ""),
+            message: card.state == .unreadable
+                ? NSLocalizedString("It is stored on this phone, and this build cannot read it. It is listed here so you know it was not lost.", comment: "")
+                : NSLocalizedString("It is stored on this phone and was read correctly. There is no screen for its contents yet.", comment: ""),
+            preferredStyle: .alert)
+        if card.capability != nil {
+            alert.addAction(UIAlertAction(
+                title: NSLocalizedString("What this kind of card proves", comment: ""),
+                style: .default) { [weak self] _ in
+                    self?.navigationController?.pushViewController(CapabilityViewController(), animated: true)
+                })
+        }
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .cancel))
+        present(alert, animated: true)
     }
 }
 

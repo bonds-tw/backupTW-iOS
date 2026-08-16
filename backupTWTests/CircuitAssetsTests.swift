@@ -324,9 +324,8 @@ final class CircuitAssetsTests: Sendable {
         // stub — so without this it outlives the test still running. Its
         // `startLoading` then lands during a *later* test in this serialized
         // suite and is counted against that test's request tally: observed as
-        // `aFailedDownloadDoesNotLockTheAssetOut` intermittently seeing
-        // `requestCount == 3` instead of 2, but only under the load of a full
-        // unit+UI run. The assertion there is correct and stays as it is; the
+        // `aFailedDownloadDoesNotLockTheAssetOut` seeing `requestCount == 3`
+        // instead of 2. The assertion there is correct and stays as it is; the
         // leak is the bug.
         defer {
             task.cancel()
@@ -334,12 +333,29 @@ final class CircuitAssetsTests: Sendable {
         }
         let running = Task { try await coordinator.run { task } }
 
-        // The signal only means anything once the transfer is under way.
+        // Wait for the *stub* to have been entered, not for the task to be
+        // `.running`.
+        //
+        // This is the whole fix. `.running` is set by `resume()`, which returns
+        // before URLSession has handed the request to the protocol — so the
+        // wait was satisfied while `startLoading` was still queued, the test
+        // finished, `defer` cancelled a task that had not started, and
+        // `startLoading` then ran during the next test and incremented a
+        // counter that test was about to assert on. `requests` is incremented
+        // at the top of `startLoading`, above the `hangs` guard, so a non-zero
+        // count is exactly the signal that the protocol has been entered and
+        // no later entry is coming.
         var spins = 0
-        while task.state != .running, spins < 500 {
+        while CircuitAssetStub.requestCount == 0, spins < 500 {
             try await Task.sleep(nanoseconds: 2_000_000)
             spins += 1
         }
+        // Not a silent fall-through. Carrying on from here is what leaked into
+        // the next test, so if the request never arrived the failure belongs to
+        // this test rather than to whichever one runs after it.
+        #expect(CircuitAssetStub.requestCount > 0,
+                "the stub was never entered, so this test would leak into the next one")
+
         coordinator.urlSession(session, taskIsWaitingForConnectivity: task)
 
         do {

@@ -285,6 +285,11 @@ struct TWDIWFixture {
     }
 
     func withHeaderAlgorithm(_ alg: String) -> String { build(algorithm: alg) }
+
+    /// A credential with no `exp` claim at all — which the reader substitutes
+    /// `.distantFuture` for, and which anything displaying a date has to notice.
+    func withoutExpiry() -> String { build(omittingExpiry: true) }
+
     func withDigestAlgorithm(_ alg: String) -> String { build(digestAlgorithm: alg) }
     func withP256PubIssuerDID() -> String {
         build(issuerDIDOverride:
@@ -313,7 +318,8 @@ struct TWDIWFixture {
                        jku: String = TWDIWFixture.jku,
                        algorithm: String = "ES256",
                        digestAlgorithm: String = "sha-256",
-                       issuerDIDOverride: String? = nil) -> String {
+                       issuerDIDOverride: String? = nil,
+                       omittingExpiry: Bool = false) -> String {
         let header: [String: Any] = [
             "jku": jku, "kid": "key-1", "typ": "vc+sd-jwt", "alg": algorithm,
         ]
@@ -345,8 +351,11 @@ struct TWDIWFixture {
             ],
         ]
 
+        var finalPayload = payload
+        if omittingExpiry { finalPayload.removeValue(forKey: "exp") }
+
         let encodedHeader = json(header).base64URLEncodedString()
-        let encodedPayload = json(payload).base64URLEncodedString()
+        let encodedPayload = json(finalPayload).base64URLEncodedString()
         let signingInput = Data("\(encodedHeader).\(encodedPayload)".utf8)
         let key = signedBy ?? issuerPrivateKey
         let signature = (try? key.signature(for: signingInput))?.rawRepresentation ?? Data()
