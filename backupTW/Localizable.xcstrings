@@ -145,6 +145,16 @@
         }
       }
     },
+    "A proof is about %1$@, so sending it usually takes about %2$d seconds. Keep this screen open.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一份證明大約 %1$@，傳送通常需要 %2$d 秒左右。請保持這個畫面開著。"
+          }
+        }
+      }
+    },
     "A proof was created but nothing checked it": {
       "localizations": {
         "zh-Hant": {
@@ -1239,6 +1249,16 @@
         }
       }
     },
+    "Hold this code still": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停在這一張"
+          }
+        }
+      }
+    },
     "Hold this up to the checker": {
       "localizations": {
         "zh-Hant": {
@@ -2273,6 +2293,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "結果"
+          }
+        }
+      }
+    },
+    "Resume the codes": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "繼續輪播"
           }
         }
       }

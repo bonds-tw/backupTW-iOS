@@ -91,6 +91,27 @@ final class PresentCredentialViewController: UIViewController {
     /// timer below must never quote two different speeds.
     private static let frameInterval: TimeInterval = 0.55
 
+    /// The pace, given the reader's own setting.
+    ///
+    /// A function rather than a second constant so that everything which quotes
+    /// a duration — the 「約 N 秒」 sentence included — asks the same question
+    /// and cannot answer it differently.
+    static func frameInterval(reduceMotion: Bool) -> TimeInterval {
+        reduceMotion ? frameInterval * 2 : frameInterval
+    }
+
+    /// The pause control. Built once; its title tracks the state.
+    private let pauseButton = UIButton(type: .system)
+
+    /// Which codes have been on screen at least once this showing. See
+    /// `showFrame`.
+    private var shownFrames: Set<Int> = []
+
+    /// Set by the pause control. The timer keeps running and does nothing, so
+    /// resuming does not have to rebuild it — and a paused carousel still holds
+    /// the last code up, which is the one a scanner might still catch.
+    private var isCarouselPaused = false
+
     /// Restored on the way out. Raised on the way in because a dim OLED panel at
     /// an angle is the single most common reason a screen-to-screen scan fails.
     /// Shared, so that a screen leaving cannot switch Auto-Lock back on
@@ -582,12 +603,27 @@ final class PresentCredentialViewController: UIViewController {
             contentStack.addArrangedSubview(frameProgress)
             contentStack.setCustomSpacing(12, after: frameProgress)
 
+            // Offered whatever the accessibility settings say.
+            //
+            // WCAG 2.2.2's exemption for essential motion excuses not being able
+            // to *stop*; it does not excuse having no control. And the practical
+            // case has nothing to do with settings: a holder whose code will not
+            // scan wants to hold one still so the checker can point at it, and
+            // there was no way to do that except walk away.
+            isCarouselPaused = false
+            updatePauseButton()
+            pauseButton.addTarget(self, action: #selector(togglePause), for: .touchUpInside)
+            contentStack.addArrangedSubview(pauseButton)
+            contentStack.setCustomSpacing(12, after: pauseButton)
+
             // The count is stated rather than left to be inferred from a
             // flickering image — and so is the time. Measured on device: a real
             // card's presentation is fifteen frames, which at the carousel's
             // pace is a little over eight seconds a cycle. A holder who expects
             // two seconds moves the phone away at four and restarts the scan.
-            let cycleSeconds = Int((Double(frames.count) * Self.frameInterval).rounded())
+            let cycleSeconds = Int((Double(frames.count)
+                                    * Self.frameInterval(reduceMotion: UIAccessibility.isReduceMotionEnabled))
+                                       .rounded())
             contentStack.addArrangedSubview(PresentationUI.body(String(
                 format: NSLocalizedString("This document does not fit in one code, so it cycles through %1$d — one full cycle takes about %2$d seconds. Keep the screen still until the checker's phone says it has them all; the order does not matter.", comment: ""),
                 frames.count, cycleSeconds)))
@@ -891,6 +927,7 @@ final class PresentCredentialViewController: UIViewController {
     private func startCarousel() {
         stopCarousel()
         frameIndex = 0
+        shownFrames.removeAll()
         guard !renderedFrames.isEmpty else { return }
 
         showFrame(0)
@@ -906,19 +943,67 @@ final class PresentCredentialViewController: UIViewController {
         //
         // `.common` mode so the carousel keeps running while the user scrolls this
         // screen — a carousel that stops mid-scan looks like a crash.
-        let timer = Timer(timeInterval: Self.frameInterval, repeats: true) { [weak self] _ in
-            guard let self else { return }
+        // # Reduce Motion slows it; it does not stop it
+        //
+        // 1.8 Hz at full brightness, held up in front of a stranger, for as many
+        // cycles as it takes. This is **not** a claim that it is a seizure risk
+        // — it is below WCAG 2.3.1's three-flash threshold — but 2.2.2's
+        // exemption for essential motion excuses not *stopping*, not withholding
+        // control.
+        //
+        // Halving the rate is safe for the scanner: the pacing argument is that
+        // a camera at 30 fps gets a dozen clean looks at each code, and slower
+        // gives it more. It costs a longer cycle, which is why the sentence
+        // above recomputes from the same constant rather than restating it.
+        let timer = Timer(timeInterval: Self.frameInterval(reduceMotion: UIAccessibility.isReduceMotionEnabled),
+                          repeats: true) { [weak self] _ in
+            guard let self, !self.isCarouselPaused else { return }
             self.showFrame((self.frameIndex + 1) % self.renderedFrames.count)
         }
         RunLoop.main.add(timer, forMode: .common)
         carousel = timer
     }
 
+    @objc private func togglePause() {
+        isCarouselPaused.toggle()
+        updatePauseButton()
+    }
+
+    private func updatePauseButton() {
+        var configuration = UIButton.Configuration.gray()
+        configuration.title = isCarouselPaused
+            ? NSLocalizedString("Resume the codes", comment: "Carousel control")
+            : NSLocalizedString("Hold this code still", comment: "Carousel control")
+        // Says what tapping does, not what state it is in — the same rule as the
+        // consent button that now reads 「把號碼送給內政部」 rather than 「繼續」.
+        pauseButton.configuration = configuration
+        pauseButton.accessibilityIdentifier = "present.pause"
+    }
+
     private func showFrame(_ index: Int) {
         frameIndex = index
         frameImageView.image = renderedFrames[index]
-        frameProgress.setProgress(Float(index + 1) / Float(max(renderedFrames.count, 1)),
-                                  animated: false)
+
+        // # The bar counts codes *shown at least once*, and never goes back
+        //
+        // It used to be `(index + 1) / count`, so it filled over about six
+        // seconds and then snapped to 0.08 and did it again, for as long as the
+        // holder stood there. The holder is the one person who cannot read the
+        // words beside it — the screen is pointed away from them — so that bar
+        // is the only thing on this screen they can take in at a glance, and
+        // what it was telling them was a loop.
+        //
+        // Worse, it implied progress towards something. It measured position in
+        // a cycle, which is not progress towards anything at all.
+        //
+        // What this phone genuinely knows is how much of the document has been
+        // put on screen at least once. That is a real quantity, it only ever
+        // goes up, and when it reaches the end it stays there — which is the
+        // honest shape, because after one full pass every code has had its
+        // chance and the rest is repetition for a camera that missed one.
+        shownFrames.insert(index)
+        frameProgress.setProgress(Float(shownFrames.count) / Float(max(renderedFrames.count, 1)),
+                                  animated: true)
         frameCountLabel.text = renderedFrames.count > 1
             ? String(format: NSLocalizedString("Code %1$d of %2$d", comment: "Carousel position"),
                      index + 1, renderedFrames.count)
@@ -945,6 +1030,20 @@ final class PresentCredentialViewController: UIViewController {
                                     Int((fraction * 100).rounded()))
         case .finished:
             linkLabel.text = NSLocalizedString("The checker's phone has the document.", comment: "")
+            // The only non-visual signal in the app, at the only moment there is
+            // evidence for one.
+            //
+            // Everything on this screen faces the checker: the instruction says
+            // 「keep the screen still until the checker's phone says it has them
+            // all」 while both screens point away from the person being asked to
+            // read it. A buzz is the one channel that reaches the holder.
+            //
+            // Only on `.finished`, and only on the radio path — that is the
+            // single state where the other device has actually acknowledged
+            // receipt. A haptic on 「the carousel completed a pass」 would be a
+            // buzz meaning "it has been shown", which a holder would reasonably
+            // hear as "it worked".
+            PresentationHaptics.delivered()
         case .failed(let reason):
             linkLabel.text = reason
         }
@@ -1116,5 +1215,30 @@ extension UISwitch {
     @objc func toggleFromHitTarget() {
         setOn(!isOn, animated: true)
         sendActions(for: .valueChanged)
+    }
+}
+
+// MARK: - The one buzz
+
+/// A single success haptic, for the single moment that has evidence behind it.
+///
+/// # Why a type rather than two call sites
+///
+/// The rule is what needs protecting, not the API call. There is exactly one
+/// state in this app where the other device has *acknowledged* receipt —
+/// `BluetoothLinkState.finished` — and a buzz anywhere else would be a signal
+/// the holder cannot help hearing as "it worked". The obvious next request is
+/// "buzz when the carousel finishes a pass", which is a buzz meaning "shown",
+/// and shown is not received.
+///
+/// Keeping it here means the next person who wants a haptic finds the argument
+/// before they find the generator.
+enum PresentationHaptics {
+
+    @MainActor
+    static func delivered() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.success)
     }
 }

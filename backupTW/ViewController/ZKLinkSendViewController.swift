@@ -137,6 +137,19 @@ final class ZKLinkSendViewController: UIViewController {
 
     private func startLink() {
         statusLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        // An estimate, said as one.
+        //
+        // This file's own header measures the transfer at 398,181 bytes over a
+        // 13.8 kB/s steady state — 21.7 seconds — and none of that reached the
+        // screen. The credential screen goes to the trouble of computing 「約 N
+        // 秒」 for a cycle three times shorter, and this is a modal sheet a
+        // casual downward swipe dismisses, taking the radio with it. Somebody
+        // with no expectation of how long it takes is exactly the person who
+        // swipes.
+        detailLabel.text = String(
+            format: NSLocalizedString("A proof is about %1$@, so sending it usually takes about %2$d seconds. Keep this screen open.", comment: "ZK send estimate"),
+            ZKStagePresentation.byteString(Int64(payload.count)),
+            max(1, Int((Double(payload.count) / 13_800).rounded())))
         let link = BluetoothLinkPeripheral(payload: payload, serviceID: engagement.serviceID) { [weak self] state in
             self?.show(state)
         }
@@ -151,6 +164,19 @@ final class ZKLinkSendViewController: UIViewController {
             statusLabel.text = reason
         case .starting:
             statusLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        // An estimate, said as one.
+        //
+        // This file's own header measures the transfer at 398,181 bytes over a
+        // 13.8 kB/s steady state — 21.7 seconds — and none of that reached the
+        // screen. The credential screen goes to the trouble of computing 「約 N
+        // 秒」 for a cycle three times shorter, and this is a modal sheet a
+        // casual downward swipe dismisses, taking the radio with it. Somebody
+        // with no expectation of how long it takes is exactly the person who
+        // swipes.
+        detailLabel.text = String(
+            format: NSLocalizedString("A proof is about %1$@, so sending it usually takes about %2$d seconds. Keep this screen open.", comment: "ZK send estimate"),
+            ZKStagePresentation.byteString(Int64(payload.count)),
+            max(1, Int((Double(payload.count) / 13_800).rounded())))
         case .waiting:
             // Deliberately not the same sentence as `.starting`. When those two
             // matched on the credential screen, "advertising and waiting" and
