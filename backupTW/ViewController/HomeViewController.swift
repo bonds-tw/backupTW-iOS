@@ -49,7 +49,7 @@ class HomeViewController: UICollectionViewController {
     private func makeSections() -> [Section] {
         let rows = (try? CredentialStore()).map { CardInventory.rows(from: $0) } ?? []
         cardRows = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return [validDocumentSection(cards: rows), offlineSection]
+        return [validDocumentSection(cards: rows), offlineSection(hasDocument: rows.contains { $0.source == .selfIssued })]
     }
 
     /// Every card this phone holds, not only the one this app issues.
@@ -127,7 +127,18 @@ class HomeViewController: UICollectionViewController {
                     identifier: row.id)
     }
 
-    private var offlineSection: Section {
+    /// # Why this takes the document state
+    ///
+    /// It used to be a constant, so 「出示我的證件」 promised 「掃描查驗者的條碼
+    /// 並回應」 on a phone with nothing stored — and the screen it opens is 600pt
+    /// of empty with no button on it. That is the most expensive empty state in
+    /// the app, because the place it is discovered is in front of a checker.
+    ///
+    /// The row is not hidden. Hiding it would make the app look like it cannot
+    /// do the thing it is for, and this screen's job is to say what this phone
+    /// can do *right now* — which is what the neighbouring `proofRowSubtitle()`
+    /// already does for the checking files.
+    private func offlineSection(hasDocument: Bool) -> Section {
         // Both halves live on the home screen rather than one of them being
         // buried in Settings. The whitepaper's §5.3 scenarios are a 里長, a
         // volunteer, a border desk — people who are checking documents as their
@@ -137,7 +148,9 @@ class HomeViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "qrcode")?
                     .withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
                  title: Row.present,
-                 secondaryText: NSLocalizedString("Answer a checker's code. Works with no network on either phone.", comment: "")),
+                 secondaryText: hasDocument
+                    ? NSLocalizedString("Answer a checker's code. Works with no network on either phone.", comment: "")
+                    : NSLocalizedString("There is nothing on this phone to show yet — back up your ID first.", comment: "")),
             Item(image: UIImage(systemName: "checkmark.shield")?
                     .withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
                  title: Row.verify,
@@ -359,9 +372,18 @@ private class CustomHeaderView: UICollectionReusableView {
 
     private func setupView() {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        // Three things that were all missing, which is why at AX5 the header
+        // rendered as 「離線出示與查」 — cut mid-character, with no ellipsis, so
+        // it read as though the section were simply called that. It names the
+        // entry point most used in the scenarios this app is for.
+        titleLabel.numberOfLines = 0
+        titleLabel.adjustsFontForContentSizeCategory = true
         addSubview(titleLabel)
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
+            // The one that actually did the clipping: with no trailing
+            // constraint the label was free to lay itself out past the screen.
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: 0),
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 0),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
             titleLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10)

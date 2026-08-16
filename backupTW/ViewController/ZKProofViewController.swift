@@ -844,15 +844,14 @@ final class ZKProofViewController: UICollectionViewController {
         }
     }
 
+    /// Delegates to `VerdictSymbol`, which carries the spoken label too.
+    ///
+    /// This used to set `isAccessibilityElement` and an identifier and
+    /// stop there — so VoiceOver halted on the verdict and read nothing,
+    /// under a comment saying the verdict must be readable as something
+    /// other than the colour of a glyph.
     private static func symbol(_ name: String, _ colour: UIColor) -> UIImageView {
-        let view = UIImageView(image: UIImage(systemName: name))
-        view.tintColor = colour
-        // Named so a UI test can tell a passing screen from a failing one; an SF
-        // Symbol carries no identifier of its own. Same reasoning as
-        // `DiagnosticsViewController`.
-        view.isAccessibilityElement = true
-        view.accessibilityIdentifier = name
-        return view
+        VerdictSymbol.view(name, colour)
     }
 
     override func collectionView(_ collectionView: UICollectionView,

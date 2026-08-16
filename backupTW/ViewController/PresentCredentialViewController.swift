@@ -93,6 +93,10 @@ final class PresentCredentialViewController: UIViewController {
 
     /// Restored on the way out. Raised on the way in because a dim OLED panel at
     /// an angle is the single most common reason a screen-to-screen scan fails.
+    /// Shared, so that a screen leaving cannot switch Auto-Lock back on
+    /// underneath a screen arriving. See `ScreenWakeLock`.
+    private let wakeLock = AppScreenWakeLock.shared
+
     private let brightness = ScreenBrightnessBoost(read: { UIScreen.main.brightness },
                                                    write: { UIScreen.main.brightness = $0 })
 
@@ -149,11 +153,19 @@ final class PresentCredentialViewController: UIViewController {
             break
         case .startShowing:
             brightness.raise()
+            // Next to the brightness boost because it is the other half of the
+            // same problem: this screen raises the brightness so a checker can
+            // scan it, and then the system dims and locks the phone because
+            // nobody has touched it. Low Power Mode forces Auto-Lock to 30
+            // seconds and does not let the owner change it, so this is not a
+            // preference the holder could have set differently.
+            wakeLock.hold()
             startCarousel()
         case .stopShowing:
             stopCarousel()
             stopLink()
             brightness.restore()
+            wakeLock.release()
         }
     }
 
@@ -451,6 +463,39 @@ final class PresentCredentialViewController: UIViewController {
 
         row.addArrangedSubview(label)
         row.addArrangedSubview(toggle)
+
+        // A 44×44 target over the switch.
+        //
+        // A `UISwitch` is 51×31 and this row has no gesture recognizer of any
+        // kind, so at AX5 the row is 237pt tall and the only part of it that
+        // changes anything is a 63×28 patch at the trailing edge. What that
+        // switch decides is whether a 身分證統一編號 leaves the phone, and the
+        // people most likely to miss a small target — unsteady hands, low
+        // vision, gloves at a disaster site — are the people this app is for.
+        //
+        // The overlay rather than resizing the switch: the control keeps the
+        // system's own metrics and appearance, and only the area that forwards
+        // a tap to it grows. Tapping the label is deliberately *not* wired —
+        // the row is long, and a stray touch anywhere in 237pt of text
+        // toggling a disclosure is the opposite of the fix.
+        let target = UIView()
+        target.translatesAutoresizingMaskIntoConstraints = false
+        target.backgroundColor = .clear
+        // Not an accessibility element: the switch already is one, and a second
+        // stop that says nothing is what `VerdictSymbol` exists to correct
+        // elsewhere.
+        target.isAccessibilityElement = false
+        target.addGestureRecognizer(UITapGestureRecognizer(target: toggle,
+                                                           action: #selector(UISwitch.toggleFromHitTarget)))
+        row.addSubview(target)
+        NSLayoutConstraint.activate([
+            target.centerXAnchor.constraint(equalTo: toggle.centerXAnchor),
+            target.centerYAnchor.constraint(equalTo: toggle.centerYAnchor),
+            target.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            target.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            target.widthAnchor.constraint(greaterThanOrEqualTo: toggle.widthAnchor),
+            target.heightAnchor.constraint(greaterThanOrEqualTo: toggle.heightAnchor)
+        ])
         return row
     }
 
@@ -1046,4 +1091,19 @@ struct EmptyCredentialStore: CredentialStoring {
     func load(id: String) throws -> String? { nil }
     func allIDs() throws -> [String] { [] }
     func deleteAll() throws {}
+}
+
+extension UISwitch {
+
+    /// Flips the switch from an enlarged hit target and reports it.
+    ///
+    /// `setOn(_:animated:)` alone does **not** send `.valueChanged`, so a switch
+    /// driven this way would move on screen while `chosenClaims` stayed as it
+    /// was — the holder would see a field ticked and the presentation would go
+    /// out without it. That divergence is silent in exactly the direction that
+    /// matters: the screen over-promises what is being disclosed.
+    @objc func toggleFromHitTarget() {
+        setOn(!isOn, animated: true)
+        sendActions(for: .valueChanged)
+    }
 }

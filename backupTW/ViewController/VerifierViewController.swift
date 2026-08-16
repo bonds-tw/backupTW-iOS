@@ -110,6 +110,15 @@ final class VerifierViewController: UIViewController {
     /// fresh challenge (see the note by the paste button, which relies on that).
     /// What changed is that a round trip through the camera is no longer counted
     /// as leaving.
+    /// Raised while this screen's QR is on display. The checker's phone is the
+    /// one being photographed here, so it carries the same obligation the
+    /// holder's screen already did.
+    private let brightness = ScreenBrightnessBoost(read: { UIScreen.main.brightness },
+                                                   write: { UIScreen.main.brightness = $0 })
+
+    /// Shared; see `ScreenWakeLock`.
+    private let wakeLock = AppScreenWakeLock.shared
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         switch VerifierScreenLifecycle.arriving(hasLiveRequest: session.pendingRequest() != nil) {
@@ -123,6 +132,7 @@ final class VerifierViewController: UIViewController {
             collector.reset()
             beginCheck()
         }
+        raiseTheScreen()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -133,7 +143,40 @@ final class VerifierViewController: UIViewController {
         case .endCheck:
             session.cancel()
             stopLink()
+            lowerTheScreen()
         }
+    }
+
+    /// Brightness and Auto-Lock, for the one screen-to-screen step.
+    ///
+    /// This QR is the *first* thing that happens and the only step with no
+    /// Bluetooth fallback — `linkServiceID` exists nowhere except inside this
+    /// image — so a code that will not scan means the exchange never starts,
+    /// and neither person can see why. `PresentCredentialViewController` has
+    /// raised its brightness for this reason since it was written; this screen,
+    /// which is the half being *photographed*, never did.
+    ///
+    /// Idempotent on both sides (`ScreenBrightnessBoost` ignores a second
+    /// `raise`, `ScreenWakeLock` counts), which matters because `viewWillAppear`
+    /// runs again on every return from the scanner.
+    private func raiseTheScreen() {
+        guard !brightness.isRaised else { return }
+        brightness.raise()
+        wakeLock.hold()
+    }
+
+    /// Only from the `.endCheck` branch — that is the whole subtlety.
+    ///
+    /// Restoring in `viewWillDisappear` unconditionally would give the
+    /// brightness back the instant the scanner is presented, which is the
+    /// moment this screen's own code is about to be looked at again on return.
+    /// Tied to `VerifierScreenLifecycle.leaving(forGood:)` so it follows the
+    /// same judgement as `session.cancel()`: the screen is either really gone
+    /// or it is not.
+    private func lowerTheScreen() {
+        guard brightness.isRaised else { return }
+        brightness.restore()
+        wakeLock.release()
     }
 
     // MARK: - Interface

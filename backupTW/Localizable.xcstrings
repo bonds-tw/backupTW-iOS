@@ -810,7 +810,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先從首頁建立有效證件。這台裝置還沒有證件之前，沒有東西可以出示。"
+            "value": "請先回首頁，點「備份我的身分證件」建立一張證件。這台裝置還沒有證件之前，沒有東西可以出示。"
           }
         }
       }
@@ -1625,6 +1625,16 @@
         }
       }
     },
+    "Needs attention": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要處理"
+          }
+        }
+      }
+    },
     "No": {
       "comment": "Holder-facing value of the over-18 claim",
       "localizations": {
@@ -1955,6 +1965,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "已過期 · 需重新下載 %@"
+          }
+        }
+      }
+    },
+    "Passed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通過"
           }
         }
       }
@@ -3366,6 +3386,16 @@
         }
       }
     },
+    "There is nothing on this phone to show yet — back up your ID first.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機還沒有東西可以出示，請先備份你的身分證件。"
+          }
+        }
+      }
+    },
     "There isn't enough free space to prepare the verification files.": {
       "localizations": {
         "zh-Hant": {
@@ -3586,7 +3616,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "本查驗端目前沒有等待回應的請求。每個請求只能回應一次，請重新開始查驗，再請對方掃描一次。"
+            "value": "你這邊現在沒有在等任何人回應。每個請求只能回應一次，請重新開始查驗，再請對方掃描一次。"
           }
         }
       }
@@ -4142,7 +4172,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這次出示回應的不是本次查驗，可能是先前出示的複本。"
+            "value": "對方回的不是你這一次的查驗，可能是他上一次出示留下來的複本。"
           }
         }
       }

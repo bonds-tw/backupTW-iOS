@@ -57,6 +57,9 @@ final class ZKLinkSendViewController: UIViewController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    /// Shared; see `ScreenWakeLock`.
+    private let wakeLock = AppScreenWakeLock.shared
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("Sending the proof", comment: "")
@@ -65,12 +68,22 @@ final class ZKLinkSendViewController: UIViewController {
             barButtonSystemItem: .done, target: self, action: #selector(finish))
         buildInterface()
         startLink()
+        // 21.7 seconds measured end to end, during which the holder touches
+        // nothing. Auto-Lock is 30 seconds in Low Power Mode and cannot be
+        // changed there, so this is the screen where the default is closest to
+        // cutting the transfer in half.
+        wakeLock.hold()
     }
 
     /// The radio is the screen's, and it goes when the screen goes — including
     /// when the holder swipes the sheet away rather than tapping Done.
     deinit {
         link?.stop()
+        // Paired with `viewDidLoad`, not with a lifecycle method, because the
+        // radio is paired that way too — and the failure this guards against is
+        // the sheet being swiped away rather than dismissed through Done, which
+        // is the same reason `link?.stop()` is here.
+        MainActor.assumeIsolated { wakeLock.release() }
     }
 
     // MARK: - Interface

@@ -63,7 +63,13 @@ final class DiagnosticsViewController: UICollectionViewController {
             content.secondaryTextProperties.color = .secondaryLabel
             // Values are identifiers, paths and byte counts; proportional digits
             // make them hard to compare across launches.
-            content.secondaryTextProperties.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            content.secondaryTextProperties.font = UIFontMetrics(forTextStyle: .body)
+                    // This screen exists so somebody can compare a 身分證統一編號
+                    // and a 戶籍地址 character by character, and at AX5 the field
+                    // *names* were 53pt while the values they label stayed at 12pt.
+                    // Monospacing is kept — the digits still need to line up — it
+                    // just scales now.
+                    .scaledFont(for: .monospacedSystemFont(ofSize: 12, weight: .regular))
             content.secondaryTextProperties.numberOfLines = 0
             cell.contentConfiguration = content
             // Spelled `.some(true)` rather than `true`: matching an Optional<Bool>
@@ -98,17 +104,14 @@ final class DiagnosticsViewController: UICollectionViewController {
         }
     }
 
+    /// Delegates to `VerdictSymbol`, which carries the spoken label too.
+    ///
+    /// This used to set `isAccessibilityElement` and an identifier and
+    /// stop there — so VoiceOver halted on the verdict and read nothing,
+    /// under a comment saying the verdict must be readable as something
+    /// other than the colour of a glyph.
     private static func symbol(_ name: String, _ colour: UIColor) -> UIImageView {
-        let view = UIImageView(image: UIImage(systemName: name))
-        view.tintColor = colour
-        // Named so a UI test can tell a passing screen from a failing one. An
-        // SF Symbol carries no identifier of its own, and a test that looked for
-        // one anyway matched nothing and passed while a check was failing —
-        // twice, in two different spellings. The verdict has to be readable as
-        // something other than the colour of a glyph.
-        view.isAccessibilityElement = true
-        view.accessibilityIdentifier = name
-        return view
+        VerdictSymbol.view(name, colour)
     }
 
     private func reload() {

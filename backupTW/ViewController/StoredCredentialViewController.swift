@@ -202,7 +202,13 @@ final class StoredCredentialViewController: UICollectionViewController {
             } else if row.isSensitive {
                 // Monospaced so an ID number can be read off a digit at a time
                 // and compared against a card without miscounting.
-                content.secondaryTextProperties.font = .monospacedSystemFont(ofSize: 15, weight: .regular)
+                content.secondaryTextProperties.font = UIFontMetrics(forTextStyle: .body)
+                    // This screen exists so somebody can compare a 身分證統一編號
+                    // and a 戶籍地址 character by character, and at AX5 the field
+                    // *names* were 53pt while the values they label stayed at 15pt.
+                    // Monospacing is kept — the digits still need to line up — it
+                    // just scales now.
+                    .scaledFont(for: .monospacedSystemFont(ofSize: 15, weight: .regular))
                 content.secondaryTextProperties.color = .label
             } else {
                 content.secondaryTextProperties.color = .secondaryLabel
