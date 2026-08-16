@@ -616,7 +616,18 @@ final class ZKProofViewController: UICollectionViewController {
             field.keyboardType = .asciiCapable
             field.accessibilityIdentifier = "idNumberField"
         }
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Continue", comment: ""),
+        // The button names the act, not the direction of travel.
+        //
+        // The message above says plainly that the number goes to 內政部 and
+        // that 內政部 keeps a record. It said all that while the button said
+        // 「繼續」 — so every gram of the disclosure sat in the paragraph people
+        // skip, and none of it in the control that actually consents. This app's
+        // other consent moment already gets this right: it says 「出示 3 個欄位
+        // （含姓名）」, not 「繼續」.
+        //
+        // Not one word of the message changes. Only the button now carries its
+        // share.
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Send the number to 內政部", comment: ""),
                                       style: .default) { [weak alert] _ in
             // Alive when this runs — UIKit invokes the handler from the alert
             // itself. Weak only so that the reference does not outlive it.

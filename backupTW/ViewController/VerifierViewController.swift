@@ -911,7 +911,15 @@ final class VerificationResultViewController: UIViewController {
             switch section {
             case .verdict:
                 let verdict = PresentationUI.verdict("✅",
-                    NSLocalizedString("The person holding this device signed this check", comment: ""), .systemGreen)
+                    // "this device" used to be here, and it is the one word on
+                    // the page that points at the wrong phone. The checker is
+                    // holding *a* device while they read it, and the last line
+                    // of this same screen calls the other one 「對方手機」. So
+                    // the single largest, greenest, most-likely-to-be-read-and-
+                    // stopped-at line was the only one using a demonstrative
+                    // that resolves to the reader. The claim is unchanged; only
+                    // the pronoun now agrees with the rest of the page.
+                    NSLocalizedString("They signed this check with the key in their phone", comment: ""), .systemGreen)
                 stack.addArrangedSubview(verdict)
                 // What the check *gained*, said as this app's own sentence
                 // rather than filed among the costs. It reads directly under
@@ -1257,7 +1265,19 @@ enum PresentationUI {
             label.numberOfLines = 0
             label.font = .preferredFont(forTextStyle: .callout)
             label.adjustsFontForContentSizeCategory = true
-            label.textColor = .secondaryLabel
+            // `.label`, not `.secondaryLabel` — measured at 3.44:1 in light
+            // mode, which does not pass AA for body text.
+            //
+            // The ordering was backwards, which is the part that matters: the
+            // block headed 「這次查驗沒有確認的事」 was entirely grey, while the
+            // standalone caveat pill next to it (`.label`, 21:1) carried
+            // 「對方另外保留了 2 個欄位」. Bookkeeping in black, the limits of
+            // the verdict in grey. And it only failed in light mode, which is
+            // what a counter is in during the day.
+            //
+            // The subtitle above stays `.secondaryLabel`: it is a category
+            // name, not a caveat.
+            label.textColor = .label
             stack.addArrangedSubview(label)
         }
         return stack

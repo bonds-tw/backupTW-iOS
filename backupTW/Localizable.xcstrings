@@ -1898,6 +1898,16 @@
         }
       }
     },
+    "One of the two devices has the wrong time. Check that both have date and time set automatically, then show it again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "兩支裝置其中一支的時間不準。請兩邊都確認「日期與時間」設為自動，再出示一次。"
+          }
+        }
+      }
+    },
     "Only half of that": {
       "extractionState": "manual",
       "localizations": {
@@ -2348,6 +2358,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "自我檢查"
+          }
+        }
+      }
+    },
+    "Send the number to 內政部": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把號碼送給內政部"
           }
         }
       }
@@ -3286,6 +3306,16 @@
         }
       }
     },
+    "The two proofs are tied together": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "兩段證明互相扣住"
+          }
+        }
+      }
+    },
     "The valid document has been created": {
       "localizations": {
         "zh-Hant": {
@@ -3414,6 +3444,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方說這次查驗是為了：%@"
+          }
+        }
+      }
+    },
+    "They signed this check with the key in their phone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對方用他手機裡的金鑰簽了這次查驗"
           }
         }
       }

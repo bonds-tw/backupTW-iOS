@@ -139,9 +139,34 @@ struct ZKProofScreenLifecycleTests {
         let prompt = ZKProofViewController.makeIDNumberPrompt { _ in }
 
         #expect(prompt.actions.count == 2)
-        #expect(prompt.actions.first?.title == NSLocalizedString("Continue", comment: ""))
+        #expect(prompt.actions.first?.title
+                == NSLocalizedString("Send the number to 內政部", comment: ""))
         #expect(prompt.actions.first?.style == .default)
         #expect(prompt.actions.last?.style == .cancel)
+    }
+
+    /// The consenting button has to name the act, not the direction of travel.
+    ///
+    /// It said 「繼續」 while the message above it explained that the number goes
+    /// to 內政部 and that 內政部 keeps a record — so the entire weight of the
+    /// disclosure sat in the paragraph people skip, and none of it in the
+    /// control that performs it. This app's other consent moment already gets
+    /// this right (「出示 3 個欄位（含姓名）」).
+    ///
+    /// Asserted as a property rather than by pinning a string, so that rewording
+    /// stays possible and reverting to a contentless verb does not.
+    @Test func theConsentingButtonNamesWhatItDoes() throws {
+        let title = try #require(ZKProofViewController.makeIDNumberPrompt { _ in }.actions.first?.title)
+
+        // Every contentless label this could regress to, in both languages the
+        // app ships. `NSLocalizedString` is deliberately *not* used: these are
+        // the words the button must never say, whatever the current locale
+        // resolves them to.
+        for empty in ["Continue", "繼續", "OK", "好", "Next", "下一步", "Done", "完成"] {
+            #expect(title != empty, "the consent button says nothing about what it does: \(title)")
+        }
+        // And it must name the recipient, which is the fact being consented to.
+        #expect(title.contains("內政部"))
     }
 
     // MARK: - Fixtures

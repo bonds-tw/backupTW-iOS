@@ -166,6 +166,35 @@ struct UntrustedTextTests {
         #expect(isKnown(ClaimLabel.label(for: term)))
     }
 
+    /// A field this app issues and signs must never be drawn as a stranger's.
+    ///
+    /// `over18AtIssuance` used to fall through to `.declaredByTheDocument`, so
+    /// the app's own signed predicate appeared in the quotation style built to
+    /// flag terms like `zzz_official`. The cost is not cosmetic: that style
+    /// works because it is rare, and a checker who sees the app apply it to the
+    /// app's own fields stops reading it as a warning.
+    ///
+    /// Referenced through `AgePredicate.claimName` rather than the literal, so
+    /// that renaming the claim cannot leave this passing against a key nothing
+    /// emits.
+    @Test func theAppsOwnAgePredicateIsNotDressedAsAStrangersField() {
+        #expect(isKnown(ClaimLabel.label(for: AgePredicate.claimName)))
+    }
+
+    /// The two sides of the app must call it the same thing.
+    ///
+    /// The holder sees this field through `StoredNationalID.displayKey` and the
+    /// checker through `ClaimLabel`. Two independent tables naming one claim is
+    /// how they drift — and the drift would show up as the holder and the
+    /// checker reading different words off the same signed byte.
+    @Test func theHolderAndTheCheckerNameTheAgePredicateIdentically() throws {
+        guard case .known(let checkerWord) = ClaimLabel.label(for: AgePredicate.claimName) else {
+            Issue.record("the age predicate is not a known term")
+            return
+        }
+        #expect(checkerWord == StoredNationalID.label(for: AgePredicate.claimName))
+    }
+
     /// A field *name* is untrusted text too, and it is drawn inside a heading —
     /// the one place on the screen a checker reads as authoritative. It gets the
     /// same treatment as a value, on a tighter budget.

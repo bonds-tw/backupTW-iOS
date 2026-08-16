@@ -96,6 +96,10 @@ final class ZKVerifyViewController: UIViewController {
     /// silently does nothing.
     private var engagement: ZKLinkEngagement?
 
+    /// Holds the caveat group. Empty and hidden until there is a verdict, so
+    /// the waiting screen does not carry a heading with nothing under it.
+    private let caveatContainer = UIStackView()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("Check a proof", comment: "")
@@ -195,10 +199,15 @@ final class ZKVerifyViewController: UIViewController {
         linkLabel.textColor = .secondaryLabel
         linkLabel.accessibilityIdentifier = "zkverify.link"
 
+        caveatContainer.axis = .vertical
+        caveatContainer.spacing = 12
+        caveatContainer.isHidden = true
+        caveatContainer.accessibilityIdentifier = "zkverify.caveats"
+
         view.addSubview(scroll)
         scroll.addSubview(stack)
         [codeContainer, codeCaptionLabel, linkLabel,
-         chooseButton, spinner, statusLabel, detailLabel].forEach(stack.addArrangedSubview)
+         chooseButton, spinner, statusLabel, detailLabel, caveatContainer].forEach(stack.addArrangedSubview)
         stack.setCustomSpacing(8, after: codeContainer)
 
         NSLayoutConstraint.activate([
@@ -213,13 +222,78 @@ final class ZKVerifyViewController: UIViewController {
         ])
     }
 
-    private func show(status: String, detail: String, verdict: Bool?) {
+    /// Draws an outcome.
+    ///
+    /// `caveats` is separate from `detail` on purpose — see
+    /// `renderCaveats(_:)`. Passing them joined into `detail` is exactly what
+    /// this screen used to do.
+    /// `show` under a name a test may call.
+    ///
+    /// Reaching a verdict for real needs a proof file, the verifying keys and
+    /// several seconds of CPU, none of which belong in a layout check. The
+    /// alternative was `@testable` access to a private method, which reads as
+    /// though the test is exercising the flow when it is exercising the layout.
+    func showForReview(status: String, detail: String, caveats: [String], verdict: Bool?) {
+        show(status: status, detail: detail, caveats: caveats, verdict: verdict)
+    }
+
+    private func show(status: String, detail: String, caveats: [String] = [], verdict: Bool?) {
         statusLabel.text = status
         detailLabel.text = detail
         switch verdict {
         case .some(true): statusLabel.textColor = .systemGreen
         case .some(false): statusLabel.textColor = .systemOrange
         case .none: statusLabel.textColor = .label
+        }
+        renderCaveats(caveats)
+        if verdict != nil { liftTheVerdictAboveTheFold() }
+    }
+
+    /// One label per caveat, through the same helper the credential path uses.
+    ///
+    /// These six sentences used to be `lines.joined(separator: "\n")` inside a
+    /// single `UILabel` — 363 characters of it. The credential path has never
+    /// done that; `PresentationUI.caveatGroup` gives each one its own label, and
+    /// the reason is VoiceOver: one label is **one swipe**, so a checker
+    /// navigating by element skipped all six at once and had no way to hear any
+    /// one of them again. `signatureMaterialIsReplayable` and
+    /// `nullifierSharedAcrossVerifiers` are among the six, and they are the two
+    /// least suited to being skimmed past in a block.
+    private func renderCaveats(_ messages: [String]) {
+        caveatContainer.arrangedSubviews.forEach {
+            caveatContainer.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+        guard !messages.isEmpty else {
+            caveatContainer.isHidden = true
+            return
+        }
+        caveatContainer.isHidden = false
+        caveatContainer.addArrangedSubview(PresentationUI.caveatGroup(
+            subtitle: NSLocalizedString("What this does not establish:", comment: ""),
+            messages: messages))
+    }
+
+    /// Once there is a verdict, the verdict goes first.
+    ///
+    /// The stack's order is fixed for the waiting state, and that order is
+    /// right while somebody is being asked to show the pairing code. It is
+    /// wrong the moment there is an answer: measured at AX5, `statusLabel`'s
+    /// top sat at y=1165 — 322pt below the visible area — and even at the
+    /// default text size several caveats fell below the fold, pushed there by
+    /// a QR code that `stopLink()` has already made useless.
+    ///
+    /// This is the same failure `VerifiedResultSection.order` exists to prevent
+    /// on the credential screen. The difference is only in who does the
+    /// pushing: there it is a stranger's bytes, here it is our own layout.
+    ///
+    /// Reordering rather than hiding the code: hiding it would make the screen
+    /// unable to accept a second proof without a round trip, and a checker at a
+    /// counter checks more than one person.
+    private func liftTheVerdictAboveTheFold() {
+        for (index, view) in [statusLabel, detailLabel, caveatContainer].enumerated()
+        where stack.arrangedSubviews.contains(view) {
+            stack.insertArrangedSubview(view, at: index)
         }
     }
 
@@ -407,7 +481,18 @@ final class ZKVerifyViewController: UIViewController {
                 }
                 lines.append(stated(NSLocalizedString("Certificate chain", comment: ""), outcome.certificateChainValid))
                 lines.append(stated(NSLocalizedString("Signature", comment: ""), outcome.userSignatureValid))
-                lines.append(stated(NSLocalizedString("Linked", comment: ""), outcome.linked))
+                // Not 「同一人」, which is what this row used to say.
+                //
+                // `outcome.linked` means the two proofs are tied to the same
+                // public inputs. It says nothing about whether the person in
+                // front of you is who they claim to be — but 「同一人：通過」
+                // in the most technical position on the screen reads exactly
+                // like an identity verdict, and it is the row a checker is
+                // least equipped to second-guess. Named for the mechanism, so
+                // that all three rows read as "this proof's three self-checks"
+                // rather than "this app's three conclusions about this person".
+                lines.append(stated(NSLocalizedString("The two proofs are tied together", comment: ""),
+                                    outcome.linked))
             }
             lines.append(String(format: NSLocalizedString("Took %.1f seconds · %@", comment: ""),
                                 verdict.seconds,
@@ -415,14 +500,15 @@ final class ZKVerifyViewController: UIViewController {
             // Always shown, never behind a disclosure arrow. A proof this app
             // can produce establishes materially less than an unqualified tick
             // implies, and the caveats are the difference.
-            lines.append("")
-            lines.append(NSLocalizedString("What this does not establish:", comment: ""))
-            lines.append(contentsOf: verdict.caveats.map { "• " + $0.localizedDescription })
-
+            //
+            // They travel as a list, not appended to `lines`: the heading and
+            // the bullets are drawn by `PresentationUI.caveatGroup`, one label
+            // each, so that each one is its own VoiceOver stop.
             show(status: verdict.accepted
                     ? NSLocalizedString("Checked on this phone, and it passed", comment: "")
                     : NSLocalizedString("This phone checked the proof and refused it", comment: ""),
                  detail: lines.joined(separator: "\n"),
+                 caveats: verdict.caveats.map(\.localizedDescription),
                  verdict: verdict.accepted)
 
         case .failure(let error):

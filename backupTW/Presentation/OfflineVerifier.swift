@@ -492,8 +492,20 @@ extension VerificationFailure {
             return NSLocalizedString("This presentation has expired. Ask for it to be shown again.",
                                      comment: "Offline verification failure")
         case .presentationDatedInTheFuture:
-            return NSLocalizedString("The other device's clock is too far off for this to be checked.",
-                                     comment: "Offline verification failure")
+            // Symmetric, because the test is. The comparison is between two
+            // clock readings and nothing distinguishes them: a checker whose own
+            // phone is three minutes slow produces this outcome from a perfectly
+            // honest presentation, and the old wording — 「對方裝置的時間誤差太
+            // 大」 — told them it was the other person's fault.
+            //
+            // That avoids accusing anybody of forgery and then accuses them of
+            // something else with just as little basis, and the accused cannot
+            // argue: they cannot see this screen. This app's own mirror of this
+            // situation (`PresentCredentialViewController`) already says 「兩支
+            // 裝置其中一支的時間不準」. Two places, one test, one sentence.
+            return NSLocalizedString(
+                "One of the two devices has the wrong time. Check that both have date and time set automatically, then show it again.",
+                comment: "Offline verification failure")
         case .credentialValidityUnreadable:
             return NSLocalizedString("This document does not say when it becomes valid.",
                                      comment: "Offline verification failure")

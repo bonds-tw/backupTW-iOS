@@ -174,6 +174,24 @@ enum ClaimLabel: Equatable {
         case "unifiedNo": return .known(NSLocalizedString("Unified No.", comment: ""))
         case "addressOfHousehold": return .known(NSLocalizedString("Address of household", comment: ""))
         case "nationality": return .known(NSLocalizedString("Nationality", comment: ""))
+        // The age predicate is a field **this app issues and signs**, and until
+        // it was listed here it fell through to `.declaredByTheDocument` — so
+        // it was drawn in the quotation style built specifically to flag a term
+        // a stranger chose, next to a bare `true`.
+        //
+        // That is worse than ugly. The whole value of that style is that it is
+        // rare: a 里長 who sees the app's own fields wearing it learns that the
+        // app "does that a lot", and the next time it appears on something
+        // genuinely suspicious it will not register. Dressing our own field as
+        // untrusted spends the signal that protects against untrusted ones.
+        //
+        // Same key and same wording as the holder's side
+        // (`StoredNationalID.displayKey`), named for when it was true — "Over
+        // 18" alone would read as a claim about today. The *value* stays
+        // untranslated `true`: it is the credential's literal, and this is a
+        // heading fix, not a value fix.
+        case AgePredicate.claimName:
+            return .known(NSLocalizedString("Had turned 18 when issued", comment: ""))
         default: return .declaredByTheDocument(.term(term))
         }
     }
