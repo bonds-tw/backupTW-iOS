@@ -629,3 +629,163 @@ TWDIW 卡沿用它，而卡片上的 caveat 要寫的不是「24 小時後過期
 
 > 這張卡有沒有被撤銷，只有連上網才知道；而且驗證那份撤銷清單所需要的金鑰，
 > 不在任何公告的信任清單裡。
+
+---
+
+# 十、對抗式查證的結果（2026-08-16，九個獨立審查）
+
+三項主張各自交給以「**反駁它**」為預設立場的審查，`client_id` 那條因為是要回報給
+政府單位的安全性主張，用三個互不相同的視角各查一次。另外三份是實作面的勘查，
+最後一份是完整性審查。以下只記與原文不同、或原文沒有的。
+
+## A. 一項主張被推翻——是我的因果機制錯了
+
+**C5：「VP token 用 `context` 而非 `@context`」。**
+
+- **拼字錯誤是真的**，而且比我寫的更全面：`openid_vc_vp.dart` 裡三個產生 VP 的
+  函式（`generateVPKx`、`generateVPNFC`、`transferVC`）**全部**寫 `'context'`。
+  全 repo 搜那個 `@context` 的 URL 只出現在這三處——**系統裡沒有任何一條產生 VP
+  的路徑寫對。**
+- **但我加粗的那句因果是錯的。** 我寫「JSON-LD 處理會把整個 VP 的主張丟掉」，
+  而 TWDIW 的驗證端**根本沒有做 JSON-LD 展開**，所以實際上沒有東西被丟掉。
+  我把 M1 咬過我們的那個 bug 的機制，套到一個形狀相似但管線不同的地方。
+
+正確的說法是：**這是一個會讓任何做 JSON-LD 展開的第三方驗證端整份讀不到主張的
+互通性缺陷，而不是一個目前正在造成靜默資料遺失的缺陷。** 值得回報，但不能用
+我原本那個描述回報。
+
+## B. `client_id` 那條沒有被推翻，而且比原文更糟
+
+三個視角（找註冊表／找 attestation／重讀 ID Token 那一段）都回報 refuted=false、
+confidence=high。額外挖到三件原文沒有的：
+
+1. **ID Token 的簽章根本沒被驗。** `CredentialIssuer.java:209` 取出 `IDT_sig`
+   之後全檔再未使用。所以連「從發行端出發、繞一圈回到發行端」的那一圈，
+   都不是靠簽章閉合的。
+2. **`AccessTokenFilter` 的驗證邏輯整段被註解掉**，程式碼裡留著
+   「尚未啟用 AccessToken 驗證，先讓請求繼續」。而 `SecurityConfiguration:77`
+   把 `/api/**` 設成 `permitAll`。
+3. **49 張資料表裡沒有任何 client／wallet／app／device 註冊表。** `client_id`
+   只以欄位形態出現在 `pre_auth_code` 與 `credential_access_token`，值由發行端
+   自己寫入。全 repo 無 `client_secret`／`client_assertion`／mTLS／Play Integrity／
+   App Attest／DeviceCheck。
+
+⚠️ **一處措辭要收緊。** 「任何第三方皮夾送 `client_id=moda_dw` 都與官方 App
+無法區分」在**身分鑑別**這一層完全成立，但不等於任何人都能領到憑證——
+領卡真正的門檻是 **pre-authorized code（QR 的內容）與可選的 `tx_code`**。
+可以送出去的那句話是：
+
+> **拿得到那張 QR 的人，用任何自製皮夾都能走完全程；官方 App 沒有任何
+> 密碼學上或註冊上的特權。**
+
+## C. 三件原本不知道的上游缺陷，其中一件比我原本列的四件都嚴重
+
+**一、四個對外抓取全部關閉 TLS 主機名驗證。**
+`ResourceLoadService` 的四個抓取（發行者公鑰、撤銷清單、schema、frontend DID 查詢）
+都是 `setAllowedHostnames(null)`，而 `HttpUtils` 的 `HostnameVerifier` 是：
+
+```java
+if (allowedHostnames != null && !allowedHostnames.isEmpty()) {
+    isVerified = allowedHostnames.contains(hostname);
+} else {
+    // directly pass when allowed hostname list is NOT set
+    isVerified = true;
+}
+```
+
+傳 `null` **不是**「不設允許清單、走系統預設驗證」，是**自訂 verifier 恆回 true**
+——等於把 TLS 憑證與主機名的繫結整個拆掉。這四條連線收任何憑證。
+RFC 8725（JWT BCP）§3.8 明文要求 `jku` 必須限制在受信任 URL 的允許清單。
+
+**二、撤銷清單那條路在發行者簽章驗證完成前就發出請求。**
+`PresentationServiceAsync.validateVC()` 的六個步驟是**同時起飛**的
+`CompletableFuture`——step 3 抓撤銷清單、step 5 抓 schema，而發行者簽章要到
+step 6 才驗。那兩個 URL 取自**尚未驗簽的** JWT payload。
+所以任何能對驗證端 POST 一份 VP 的人，都能讓它去 GET 任意 URL（SSRF），
+再配上第一條的主機名驗證恆真。
+
+而且 `StatusListCheckTask` **沒有** `DidUtils.extractIssuerPublicKey` 的優先嘗試
+——它直接 `loadIssuerPublicKey(jku, kid)`。這獨立確認了 §九.C：
+**撤銷是 `jku` 這個模式在正式環境真正活著的那個實例，而它是自我指涉的
+——清單自己說用哪把鑰匙驗自己。**
+
+**三、官方皮夾的選擇性揭露會多送欄位。**
+`utils.dart` 的 `sdJwtEncode` 決定保留哪些揭露的方法是**對解碼後整段 JSON
+做子字串比對**：
+
+```dart
+String decoded = utf8.decode(base64.decode(base64Url));   // ["鹽","欄位名","值"]
+for (var field in fields) { if (decoded.contains(field)) { result += part + '~'; continue; } }
+```
+
+`decoded` 包含鹽與值。所以駕照的 `id_number` 與 `controlnumber` **都含子字串
+`number`**；值裡若出現另一個欄位名也會誤中；隨機鹽理論上也可能命中。
+另外那個 `continue` 作用在內層迴圈，一個揭露同時命中兩個 field 會被**附加兩次**。
+
+> **使用者勾選「只揭露 A」，實際可能送出 A 與 B。**
+> 這是選擇性揭露這個功能的核心承諾被破壞，**比前面幾條更貼近使用者**。
+
+（附帶：皮夾 SDK 的 `sdJwtDecode` 在三元素揭露那條分支——也就是 TWDIW 六個欄位
+實際走的那條——**完全不驗摘要**，直接把值填進顯示結果。）
+
+## D. 兩個必須在寫 M5.2 第一行程式之前決定的事
+
+完整性審查標為 blocking 的兩條，我同意，而且它們改變 M5.2 的設計。
+
+**一、credential offer 來自一張 QR，而流程裡沒有任何「這個發行者是誰」的檢查。**
+M5.2 的第 1、3、4 步的 URL 全部來自那張 QR，而第 4 步會用持有人金鑰簽一個
+proof JWT，`aud` 直接填對方給的值。**任何人印一張 QR，就能讓皮夾對他指定的
+URL 產生一個由裝置長期金鑰簽出來的、內容由他選的 JWT。**
+
+本專案對這類輸入已經有立場，寫在 `MOICACallbackRouter` 的檔頭：
+inbound URL 是 untrusted input，只能當「再去查一次」的訊號，不能當結果。
+同一條規則要套到 credential offer 上——而 §八.B 那 43 筆信任清單正好是
+可以拿來比對 issuer DID 的東西（目前文件只把它用在驗發行者簽章，
+沒用在「要不要連過去」）。
+
+**二、TWDIW 領卡要用哪一把持有人金鑰——沿用現有那把會直接破壞不可連結。**
+`VerifiablePresentation.create()` 交給查驗方的 holder DID，就是 `DeviceKey`
+那把唯一的長期金鑰導出的。若領卡的 proof JWT 也用它：
+
+> TWDIW 憑證的 `cnf.jwk` 會被寫進政府發行端的資料庫，
+> 而**那串位元組正是任何一個離線查驗方看到的識別碼**。
+
+我們刻意讓自然人憑證那條路拿不到統一編號（§一.F），
+結果從另一扇門交出一個更好用的索引。而且**這條汙染不需要任何人上網才生效**
+——離線出示的那張卡上就帶著這個公鑰，事後才對得上。
+
+→ **至少一卡一金鑰。** 而一旦有第二把，`IdentityReset` 只吃單一 `keyTag`
+就不夠用了——「重設身分」會漏掉 TWDIW 那幾把，殘留的金鑰正是使用者
+以為已經丟掉的那個索引。
+
+## E. 我被指出的證據弱點，逐一處理
+
+完整性審查列了八條「證據不足卻被當成結論」。誠實處理：
+
+| 指出的弱點 | 處理 |
+|---|---|
+| **「43 筆」是用我自己證明壞掉的分頁 API 數的**，20 恰好是 clamp 邊界 | **已補測，數字站得住。** 用 `size=20` 與 `size=5` 兩種頁大小各自逐頁列舉到空頁，都得到 20 與 23，且 id 全部不重複。`size=100` 那個異常是「頁大小被夾在 20、但 offset 照送出的 size 算」，是 API 缺陷，不影響逐頁列舉的總數。 |
+| 「可以完全不信任 frontend.wallet.gov.tw」只驗了一筆交易，且 tx hash 來自 API | **接受，措辭要降級。** 目前證明的是「已知一筆交易，內容是明文而非雜湊」。要成為可用的無信任路徑，需要示範「只給合約位址就能列舉全部 43 筆」——沒有做。 |
+| 「41/43 上鏈」用的是 API 自報的 `onChainHistory` | **接受，是循環的。** 中國醫藥大學那兩筆是「API 說沒有」，不是「鏈上找過沒有」。 |
+| 非正規 holder DID 是 n=1、來源二手、未標 App 版本 | **接受。** 寬容解析這個決定獨立成立（§八.C），但把它列為要回報上游的第 2 件事，舉證責任是不同等級的，回報前要補樣本與版本。 |
+| §〇「第三方皮夾今天就走得通」比證據強一級 | **接受。** 領卡從來沒有真的跑過，整條推論來自讀原始碼；也無法排除正式部署在網路層另有管制。§八.F 已自承，但 §〇 的措辭沒有跟上。 |
+| 駕照六個欄位「都是字串」是單一 demo 卡的觀察，卻是 adapter 能不能用的前提 | **接受，而且失敗形態很差**：`SelectiveDisclosure` 對非三元素、非全字串的揭露是**拒整張卡**，所以一張真卡會被判成壞卡。882 組設定裡的電信、超商取貨卡完全可能帶非字串值。要決定：遇到不認得的揭露形狀，是拒收整張卡，還是收下並標記「有欄位無法顯示」。 |
+| 「每日 18:00 UTC 重簽」是 n=2 | **接受。** 由它導出的「剩餘效期介於 24 小時與趨近於零」在邏輯上仍穩（只需要 `exp` 是絕對時間），但預抓排程不要依賴那個時刻。 |
+| §一.B 的措辭會讓讀者以為誰都能領卡 | **已於 §十.B 收緊。** |
+
+## F. 要回報上游的清單，從四件變成七件
+
+依「使用者受害程度」排，不是依技術嚴重度：
+
+1. **選擇性揭露會多送欄位**（§十.C 三）——勾選只揭露 A，實際可能送出 A 與 B。
+2. **四個對外抓取關閉 TLS 主機名驗證**（§十.C 一）。
+3. **撤銷／schema 在發行者簽章驗證前就被抓取**（§十.C 二），構成 SSRF。
+4. `client_id` 不具鑑別力，且 ID Token 簽章未驗、AccessTokenFilter 被註解掉（§十.B）。
+5. issuer metadata 的 `format` 與實際回傳不符（882/882，§八.A）。
+6. VP 用 `context` 而非 `@context`（§十.A，**用修正後的描述**）。
+7. 官方皮夾產生的 did:key 不符 JCS（§一.D，**回報前要補樣本與版本**）。
+
+另外還有一件屬於設計層而非缺陷層的：**發行者身分是 `did:key`，金鑰即身分，
+所以輪替簽章金鑰等於變成另一個 DID**，而所有已發出憑證的 `iss` 會從此不在
+信任清單裡。皮夾將無法區分「這個發行者被撤下了」與「它換了金鑰、舊卡其實還是真的」。
+**這是唯一一件會讓已經在使用者手上的卡集體變成無法評估的事。**
