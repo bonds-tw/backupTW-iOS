@@ -357,6 +357,28 @@ final class ZKProofViewController: UICollectionViewController {
     }
 
     private func actionGroup() -> Group {
+        // # The limit is asked about here, not four screens later
+        //
+        // `ZKProofRunAssembly.makeSigner` returns nil in a release build, and
+        // that was only discovered inside `start(idNumber:)` — *after*
+        // `promptForIDNumber()` had already collected a 身分證統一編號. So the
+        // most sensitive value this app handles was gathered by a build that was
+        // never, at any point, going to be able to send it.
+        //
+        // The subtitle was worse than silent: it promised 「過程中會請你到行動
+        // 自然人憑證 App 完成核可」, which in this build does not happen.
+        guard ZKProofRunAssembly.isSigningAvailable else {
+            return Group(id: "action", title: "", rows: [
+                Row(id: "action.run",
+                    kind: .action,
+                    title: NSLocalizedString("Create a proof", comment: ""),
+                    detail: NSLocalizedString(
+                        "This version cannot create a proof: it has no credentials for the digital certificate service. Nothing will be asked for.",
+                        comment: ""),
+                    isBusy: false,
+                    isEnabled: false)
+            ])
+        }
         let title = isRunning
             ? NSLocalizedString("Stop", comment: "")
             : NSLocalizedString("Create a proof", comment: "")
@@ -646,10 +668,15 @@ final class ZKProofViewController: UICollectionViewController {
             return
         }
         // `open`'s return value is the authority on whether anything handled the
-        // link, and `canOpenURL` deliberately is not consulted: it answers false
-        // for any scheme absent from `LSApplicationQueriesSchemes`, which
-        // `mobilemoica` is, so asking it would report 行動自然人憑證 as missing
-        // on every device including ones that have it installed.
+        // link, and `canOpenURL` is still not consulted here.
+        //
+        // ⚠️ The reason given here used to be that `mobilemoica` is absent from
+        // `LSApplicationQueriesSchemes`. **That is no longer true** — it is in
+        // `Info.plist` now, and `MyDataOnboardViewController` relies on exactly
+        // that query working. The remaining reason is narrower and still holds:
+        // `canOpenURL` answers 「is something installed」 and `open` answers
+        // 「did the handoff happen」, and only the second is the question at this
+        // point in the flow.
         guard let signer = ZKProofRunAssembly.makeSigner(idNumber: idNumber, open: { url in
             await UIApplication.shared.open(url)
         }) else {

@@ -273,6 +273,26 @@ struct CredentialIssuance {
 /// without a preprocessor.
 enum CredentialIssuanceAssembly {
 
+    /// Whether this build can sign a credential at all — a **compile-time**
+    /// fact, readable before anything is spent.
+    ///
+    /// `make()` already encoded this, and the screens only consulted it at the
+    /// end. The cost of finding out late is not bandwidth: by then the holder
+    /// has authenticated to a government service, downloaded their whole
+    /// household record, and typed their 身分證統一編號 into a decryption box.
+    /// Then the app says it cannot sign.
+    ///
+    /// Same `#if` as `make()`, immediately above it, so the two cannot drift —
+    /// a predicate that said "yes" to a build whose factory returns nil would
+    /// be worse than no predicate.
+    static var isAvailable: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
     /// `nil` when this build cannot reach TW FidO at all, so the screen can say
     /// so before the holder waits for a prompt that will never arrive.
     static func make() -> CredentialIssuance? {

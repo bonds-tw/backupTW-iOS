@@ -594,6 +594,16 @@
         }
       }
     },
+    "Check a proof file. This version cannot download the checking files.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗一份證明檔。這個版本無法下載查驗用的檔案。"
+          }
+        }
+      }
+    },
     "Check a zero-knowledge proof": {
       "localizations": {
         "zh-Hant": {
@@ -1184,6 +1194,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "僅用於此次解壓縮，絕不另作他用"
+          }
+        }
+      }
+    },
+    "Get the app": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去安裝 App"
           }
         }
       }
@@ -2648,6 +2668,16 @@
         }
       }
     },
+    "Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章需要一個這個版本連不到的服務，所以就算把你的資料抓下來也做不出證件。因此不會去抓。"
+          }
+        }
+      }
+    },
     "Signing would complete but never return to this app.": {
       "localizations": {
         "zh-Hant": {
@@ -2888,6 +2918,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "你持有一張真的自然人憑證，而不透露是哪一張。"
+          }
+        }
+      }
+    },
+    "The TW FidO app is not on this phone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機上找不到行動自然人憑證 App"
           }
         }
       }
@@ -3605,6 +3645,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "本程式目前無法查驗政府憑證。這是程式的問題，不是這份文件的問題。"
+          }
+        }
+      }
+    },
+    "This app cannot check whether you already have a 行動自然人憑證 — only whether the app that holds it is installed here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 App 查不到你有沒有行動自然人憑證，只查得到裝著它的那個 App 有沒有裝在這裡。"
           }
         }
       }
@@ -4442,6 +4492,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "大約需要十五秒，全程在這支手機上跑，不連任何伺服器。"
+          }
+        }
+      }
+    },
+    "This version cannot create a document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法建立證件"
+          }
+        }
+      }
+    },
+    "This version cannot create a proof: it has no credentials for the digital certificate service. Nothing will be asked for.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法產生證明：它沒有憑證服務的憑據。因此不會向你索取任何東西。"
+          }
+        }
+      }
+    },
+    "This version cannot download the files needed to check a proof, so a proof sent here cannot be checked. Say so before they send one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法下載查驗證明所需的檔案，所以送到這裡的證明查不了。請在對方送出之前先告訴他。"
           }
         }
       }

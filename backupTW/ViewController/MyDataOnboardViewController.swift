@@ -32,9 +32,22 @@ class MyDataOnboardViewController: UICollectionViewController {
         case cover, data
     }
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
-    private var coverItem: Item = Item(
-        title: "📋\n" + NSLocalizedString("Create a Valid Document", comment: ""),
-        secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
+    /// # Why the cover states the build's limit before anything is spent
+    ///
+    /// `CredentialIssuanceAssembly.make()` returns nil in a release build, and
+    /// that is a compile-time fact. The screen only found out at
+    /// `issueCredential(for:)` — by which point the holder had authenticated to
+    /// a government service, downloaded their entire household record, and typed
+    /// their 身分證統一編號 into a decryption box.
+    ///
+    /// **The cost of the late answer is not bandwidth, it is identity data.**
+    /// `ZKProofViewController` already wrote this principle down; it had just
+    /// never been applied to this path.
+    private var coverItem: Item = CredentialIssuanceAssembly.isAvailable
+        ? Item(title: "📋\n" + NSLocalizedString("Create a Valid Document", comment: ""),
+               secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
+        : Item(title: "📋\n" + NSLocalizedString("This version cannot create a document", comment: ""),
+               secondaryText: NSLocalizedString("Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.", comment: ""))
     private var items: [Item] = [
         Item(title: NSLocalizedString("Nationality", comment: ""), secondaryText: ""),
         Item(title: NSLocalizedString("Unified No.", comment: ""), secondaryText: ""),
@@ -144,9 +157,27 @@ class MyDataOnboardViewController: UICollectionViewController {
             })
             present(vc, animated: true)
         } else {
+            // The check is `canOpenURL("mobilemoica://")`, which measures
+            // exactly one thing: whether that app is installed on this phone.
+            // It was reported as 「請先申請行動自然人憑證」 — an assertion about
+            // the person, and a wrong one for the most ordinary case there is,
+            // somebody who already has a 行動自然人憑證 and is holding a new
+            // phone. They were sent off to apply for something they have.
+            //
+            // So the title states the local fact, and the two actions cover the
+            // two real situations: install it, or apply for it.
             let alert = UIAlertController(
-                title: NSLocalizedString("Please apply for TW FidO first", comment: ""),
-                message: nil, preferredStyle: .alert)
+                title: NSLocalizedString("The TW FidO app is not on this phone", comment: ""),
+                message: NSLocalizedString(
+                    "This app cannot check whether you already have a 行動自然人憑證 — only whether the app that holds it is installed here.",
+                    comment: ""),
+                preferredStyle: .alert)
+            let install = UIAlertAction(
+                title: NSLocalizedString("Get the app", comment: ""),
+                style: .default) { _ in
+                    UIApplication.shared.open(
+                        URL(string: "https://apps.apple.com/tw/app/id1523302632")!)
+                }
             let confirm = UIAlertAction(
                 title: NSLocalizedString("Go to Application Guide", comment: ""),
                 style: .default) { _ in
@@ -157,6 +188,7 @@ class MyDataOnboardViewController: UICollectionViewController {
             let cancel = UIAlertAction(
                 title: NSLocalizedString("Cancel", comment: ""),
                 style: .cancel)
+            alert.addAction(install)
             alert.addAction(confirm)
             alert.addAction(cancel)
             present(alert, animated: true)

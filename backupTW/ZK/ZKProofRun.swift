@@ -73,6 +73,26 @@ enum ZKVerifyingKeyAssets {
     /// only — `sha256` is what decides whether a download is accepted — and
     /// `CircuitAsset.inflateByteLimit` already carries a 1/16 margin for exactly
     /// this kind of estimate.
+    /// Whether this phone can check a proof right now.
+    ///
+    /// Extracted from `HomeViewController.proofRowSubtitle()`, which owned the
+    /// only copy of this question — so the *screen that actually checks proofs*
+    /// could not ask it, and announced its readiness only by failing after the
+    /// other phone had spent twenty seconds sending 400 KB.
+    ///
+    /// Keyed to `all` rather than to `CircuitAssets.required`, and the
+    /// distinction is the one the home screen's comment records: `required` is
+    /// the **prover's** set, so a device whose verifying keys are present but
+    /// whose proving keys were reclaimed would report "not ready" for a screen
+    /// that works.
+    static var areInstalled: Bool {
+        guard let directory = try? CircuitAssets.defaultDirectory() else { return false }
+        return all.allSatisfy { asset in
+            FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent(asset.localFilename).path)
+        }
+    }
+
     static let all: [CircuitAsset] = [
         CircuitAsset(name: "cert_chain_rs4096_verifying",
                      remoteURL: release.appendingPathComponent("cert_chain_rs4096_verifying.key.gz"),

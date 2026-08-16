@@ -105,10 +105,18 @@ final class ZKVerifyViewController: UIViewController {
         title = NSLocalizedString("Check a proof", comment: "")
         view.backgroundColor = .systemGroupedBackground
         configureLayout()
+        // Said at load, not after the other phone has spent twenty seconds
+        // sending 400 KB. `verdict: nil` throughout — this is a fact about this
+        // device's setup and says nothing about anybody's proof.
+        let ready = ZKVerifyingKeyAssets.areInstalled
         show(status: NSLocalizedString("No proof loaded yet", comment: ""),
-             detail: NSLocalizedString(
-                "A zero-knowledge proof is about 400 KB — far too large for a QR code, so it arrives over Bluetooth or as a file.",
-                comment: ""),
+             detail: ready || ZKProofRunAssembly.isSigningAvailable
+                ? NSLocalizedString(
+                    "A zero-knowledge proof is about 400 KB — far too large for a QR code, so it arrives over Bluetooth or as a file.",
+                    comment: "")
+                : NSLocalizedString(
+                    "This version cannot download the files needed to check a proof, so a proof sent here cannot be checked. Say so before they send one.",
+                    comment: ""),
              verdict: nil)
     }
 

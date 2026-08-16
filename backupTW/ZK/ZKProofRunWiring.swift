@@ -660,6 +660,18 @@ struct TWFidOHolderSigner: ZKHolderSigning {
 /// without a preprocessor.
 enum ZKProofRunAssembly {
 
+    /// Whether this build can sign at all. See
+    /// `CredentialIssuanceAssembly.isAvailable` for the argument; the cost here
+    /// is the same 身分證統一編號, collected by a build that was never going to
+    /// be able to send it.
+    static var isSigningAvailable: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
     /// `nil` when this build cannot reach TW FidO at all, so the screen can say
     /// so up front rather than after a download.
     static func makeSigner(idNumber: String,

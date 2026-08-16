@@ -182,15 +182,29 @@ class HomeViewController: UICollectionViewController {
     /// screen that works. A readiness sentence keyed to a different screen's
     /// prerequisites is a sentence about nothing.
     private static func proofRowSubtitle() -> String {
-        let ready = (try? CircuitAssets.defaultDirectory()).map { directory in
-            ZKVerifyingKeyAssets.all.allSatisfy { asset in
-                FileManager.default.fileExists(
-                    atPath: directory.appendingPathComponent(asset.localFilename).path)
-            }
-        } ?? false
-        return ready
-            ? NSLocalizedString("Check a proof file. The checking files are on this phone.", comment: "")
-            : NSLocalizedString("Check a proof file. The large checking files are not downloaded yet.", comment: "")
+        // One copy of the question, in `ZKVerifyingKeyAssets`. It lived here, so
+        // the screen that actually checks proofs could not ask it.
+        let ready = ZKVerifyingKeyAssets.areInstalled
+        if ready {
+            return NSLocalizedString("Check a proof file. The checking files are on this phone.", comment: "")
+        }
+        // 「not downloaded **yet**」 is a promise, and in a shipping build it is
+        // permanently false.
+        //
+        // The only entry point that downloads these files sits behind
+        // `ZKProofRunAssembly.makeSigner`, which returns nil in a release build
+        // — so 「yet」 describes a future that this binary cannot reach. The
+        // person who pays for that sentence is the one on the other phone, who
+        // spends twenty seconds sending a proof of their identity to a device
+        // that was never able to check it.
+        //
+        // The right fix is upstream and is written down: **downloading and
+        // signing should not be the same gate**, because a checker needs the
+        // verifying keys and does not need to sign anything. Until then the row
+        // says which of the two situations this actually is.
+        return ZKProofRunAssembly.isSigningAvailable
+            ? NSLocalizedString("Check a proof file. The large checking files are not downloaded yet.", comment: "")
+            : NSLocalizedString("Check a proof file. This version cannot download the checking files.", comment: "")
     }
 
     init() {
