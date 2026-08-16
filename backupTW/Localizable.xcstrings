@@ -422,6 +422,16 @@
         }
       }
     },
+    "Built on this phone from your MyData record, and signed with your digital certificate.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這支手機上用你的 MyData 資料做出來的，由你的自然人憑證簽章。"
+          }
+        }
+      }
+    },
     "Camera access is turned off by a restriction on this device.": {
       "localizations": {
         "zh-Hant": {
@@ -671,6 +681,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "第 %1$d／%2$d 張"
+          }
+        }
+      }
+    },
+    "Computed on this phone from your digital certificate. The certificate itself is never shown.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這支手機上用你的自然人憑證算出來的。憑證本身不會被交出去。"
           }
         }
       }
@@ -1006,6 +1026,16 @@
         }
       }
     },
+    "Every checker sees the same duplicate-detection number, so two of them can tell they saw the same person.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每一個查驗方看到的去重編號都是同一個，所以兩個查驗方對得出他們看過同一個人。"
+          }
+        }
+      }
+    },
     "Every field in your document: name, ID number, date of birth, household address and nationality. This version cannot show only part of it.": {
       "localizations": {
         "zh-Hant": {
@@ -1124,6 +1154,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "前往申辦指南"
+          }
+        }
+      }
+    },
+    "Government wallet card": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "政府皮夾裡的卡"
           }
         }
       }
@@ -1260,12 +1300,42 @@
         }
       }
     },
+    "Issued by a government body through 數位憑證皮夾, and collected over the network.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由政府機關透過數位憑證皮夾發行，領卡走網路。"
+          }
+        }
+      }
+    },
     "Issuing authority certificate": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "簽發機關憑證"
+          }
+        }
+      }
+    },
+    "It carries a number unique to this card that every checker sees, whichever fields you withhold.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它帶著一個這張卡專屬的編號，不論你扣住哪些欄位，每一個查驗方都看得到。"
+          }
+        }
+      }
+    },
+    "It carries no national ID number, because the certificate does not contain one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它不帶身分證統一編號，因為那張憑證裡本來就沒有。"
           }
         }
       }
@@ -1286,6 +1356,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "其中含有能把畫面文字重新排列的字元，已用 � 標示。"
+          }
+        }
+      }
+    },
+    "It does not say how carefully your identity was checked. A card issued after a counter check and one issued from a web form look the same.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它不說你的身分被查得多仔細。臨櫃驗過證件才發的卡，跟在網頁上填一填就發的卡，長得一模一樣。"
           }
         }
       }
@@ -1728,6 +1808,16 @@
         }
       }
     },
+    "Offline there is no shared record of what has been used, so two checkers who never speak cannot both refuse the same person.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離線的時候沒有一份共用的紀錄可以查誰用過，所以兩個彼此不通訊的查驗方，沒辦法一起擋下同一個人。"
+          }
+        }
+      }
+    },
     "Only half of that": {
       "extractionState": "manual",
       "localizations": {
@@ -1735,6 +1825,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "只做得到一半"
+          }
+        }
+      }
+    },
+    "Only the fields you switch on, the same way as your own document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只有你打開的那些欄位，跟你自己那份文件一樣。"
+          }
+        }
+      }
+    },
+    "Only the fields you switch on. The rest stay as salted commitments the checker cannot open.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只有你打開的那些欄位。其餘的維持成加了鹽的承諾，查驗方打不開。"
           }
         }
       }
@@ -2540,6 +2650,16 @@
         }
       }
     },
+    "That a registered issuing body signed these fields, and which body it was.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有登記的發行機關簽過這些欄位，而且是哪一個機關。"
+          }
+        }
+      }
+    },
     "That code could not be read. Ask them to show it again from the start.": {
       "localizations": {
         "zh-Hant": {
@@ -2568,6 +2688,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "該名單製作於 %@。"
+          }
+        }
+      }
+    },
+    "That the Ministry of the Interior's certificate signed these fields — checkable with no network at all.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內政部的憑證簽過這些欄位——完全不用網路就查得出來。"
+          }
+        }
+      }
+    },
+    "That you hold a real national ID certificate, without revealing which one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你持有一張真的自然人憑證，而不透露是哪一張。"
           }
         }
       }
@@ -4343,6 +4483,16 @@
         }
       }
     },
+    "Whether it has been cancelled can only be known online, and the list that says so is vouched for by nothing this phone can check offline.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它有沒有被註銷只有連上網才知道，而說明這件事的那份清單，沒有任何這支手機離線查得動的東西替它背書。"
+          }
+        }
+      }
+    },
     "Whether this document has been revoked cannot be checked offline.": {
       "comment": "Shown alongside a successful offline verification",
       "localizations": {
@@ -4535,6 +4685,16 @@
         }
       }
     },
+    "Your name is always visible. It is written inside the certificate that signs the document, and the checker needs that certificate to check the signature — so no switch can withhold it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "姓名一定看得到。它寫在替這份文件簽章的憑證裡，而查驗方需要那張憑證才驗得了簽章——所以沒有任何開關扣得住它。"
+          }
+        }
+      }
+    },
     "Your name is written into the certificate that signs this document, and the checker needs that certificate to check the signature.": {
       "comment": "Why the name row has no switch",
       "localizations": {
@@ -4542,6 +4702,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "姓名寫在替這份證件簽章的憑證裡，而查驗方需要那張憑證才能驗簽。"
+          }
+        }
+      }
+    },
+    "Your own backed-up ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你自己備份的身分證"
           }
         }
       }
@@ -4572,6 +4742,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "你的簽署金鑰放在硬體裡"
+          }
+        }
+      }
+    },
+    "Zero-knowledge proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "零知識證明"
           }
         }
       }
