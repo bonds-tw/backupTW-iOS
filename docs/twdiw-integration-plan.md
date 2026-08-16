@@ -137,12 +137,17 @@ JCS 要求鍵依 UTF-16 碼元排序，也就是 `crv` < `kty` < `x` < `y`。
 
 駕照電子卡實測的揭露欄位（`~` 之後那六段 base64，我解過）：
 
-    name           陳籍玲
-    id_number      A2345678901
+    name           陳筱玲
+    id_number      A234567890
     roc_birthday   0570605      ← 民國 57-06-05 = 1968-06-05
     type           普通小型車
-    controlnumber  40104020914 45
+    controlnumber  4010402091445
     gDate          1020701
+
+⚠️ **這六個值我第一次抄錯了三個**（姓名寫成「陳籍玲」、身分證多一位變成 11 碼、
+管轄編號中間多一個空格）。原因是從 Craft.do 渲染後的頁面上讀，而不是把 base64
+解開來看。上面是解碼後的值。**渲染過的內容不可以當資料來源**——
+一個 11 碼的「身分證統一編號」如果留在文件裡，後面每一個讀它的人都會被誤導。
 
 對照我們自己量過的事實：**自然人憑證的 Subject DN 裡沒有身分證統一編號**
 （只有 C/CN/serialNumber 16 位數字），所以我們那條路**扣不住姓名，也拿不到號碼**。
@@ -529,3 +534,98 @@ UI 要說的不是「24 小時內有效」，是清單自己帶的 `exp`。
   而送出表單這件事要使用者決定。§三 M5.2 的「先送 `tw.bonds.backupTW` 量它會不會被拒」
   仍然待做，是整個 M5 唯一需要別人點頭的一步。
 - 沒有碰 UAT 環境（`frontend-uat`、`issuer-sandbox`），那些要帳號。
+
+---
+
+# 九、金鑰從哪裡來：一個追到底的問題，包含我一度過度警報的部分
+
+實測撞出來的。做 M5.3 要決定「驗發行者簽章的公鑰從哪裡拿」，而 TWDIW 的
+JWS header 同時給了兩個來源，它們**可以不一致**：
+
+    header: {"jku":"https://issuer-vc.wallet.gov.tw/api/keys","kid":"key-1|key-2",
+             "typ":"vc+sd-jwt","alg":"ES256"}
+    payload: {"iss":"did:key:z2dmzD81…"}   ← 這個 DID 本身就內嵌一把公鑰
+
+`jku` 是 JWT 的經典風險：讓被驗的文件自己指定去哪裡拿驗它的金鑰。
+
+## A. 實測：撤銷清單用的是一把**不在 DID 裡**的金鑰
+
+拿剛抓下來的那份 status list JWT，用兩個來源各驗一次：
+
+    iss 這個 did:key 內嵌的金鑰   →  ❌ 驗不過
+    jku 指的那組金鑰裡的 key-2    →  ✅ 驗過
+
+`GET https://issuer-vc.wallet.gov.tw/api/keys` 回兩把：
+
+    key-1  x=dnQ2W9ZTsILYac3XdcvxrYNgIgjSkGJUMecMXVJk7XM   ← 與 iss DID 內嵌的**相同**
+    key-2  x=9CNEmxkQimYxZtsoLuHyu2w_dHrVWrXapZzpYE0qm78   ← DID 裡**沒有這一把**
+
+而 DID 文件只有**一個** `verificationMethod`（我解過數發部那份，
+`{id, verificationMethod, @context}`，一把金鑰）。
+
+**所以：憑證由 key-1 簽，撤銷清單由 key-2 簽，而只有 key-1 在 DID 裡。**
+
+## B. 我一度警報過頭，這裡是更正
+
+看到官方驗證端對 `jku` 的檢查只有「非空字串」：
+
+```java
+if (jku != null && !jku.isBlank()) { LOGGER.info("[check vc jku]: PASS"); }
+```
+
+以及三個載入器全部 `setAllowedHostnames(null)`（發行者公鑰、撤銷清單、schema），
+我當下的結論是「教科書等級的 jku 漏洞」。**那個結論是錯的**，把 orchestration 讀完才看清楚：
+
+```java
+// FutureTaskService.getIssuerPublicKey(issuer, jku, kid)
+try {
+    return DidUtils.extractIssuerPublicKey(issuer);      // ← 主要來源：iss 的 did:key
+} catch (VpException e) {
+    return resourceLoadService.loadIssuerPublicKey(jku, kid);  // ← 只在上面丟例外時才走
+}
+```
+
+**主要來源是 `iss` 的 did:key，`jku` 只是 fallback。** 而且 `validateVC` 的
+step 4 會平行跑 `validateDidStatus(iss)`，拿 `iss` 去查信任清單。
+
+要讓 fallback 被走到，`extractIssuerPublicKey` 必須丟例外——條件全部是
+「`iss` 不是一個格式正確的 jwk_jcs-pub did:key」。但**任何能通過信任清單的 `iss`
+都必然是格式正確的**（§八.C 量到 43/43 全部合規）。
+兩個條件互斥，所以**對憑證而言那條 fallback 實務上是死路**。
+
+寫下來是因為：一個只讀 `ResourceLoadService` 就下結論的人（也就是十分鐘前的我）
+會發出一個站不住腳的安全指控。**證據鏈要讀到 orchestration 才算讀完。**
+
+## C. 但撤銷那條路上，情況不一樣，而且這才是真的發現
+
+對憑證來說 `jku` 是死路，因為 DID 裡有那把金鑰。
+**對撤銷清單來說 DID 裡沒有那把金鑰**（§九.A），所以 `jku` 不是 fallback，
+是**唯一的路**。於是：
+
+> **憑證這條路的信任錨點是公告的、上了 Arbitrum 的、可以離線驗的。
+> 撤銷那條路沒有。** 簽撤銷清單的 key-2 不在任何 DID 文件裡、不在信任清單裡、
+> 不在任何鏈上紀錄裡——它只存在於一個 URL。
+
+實務後果，對我們這個離線優先的皮夾特別直接：
+
+1. **查一張 TWDIW 憑證有沒有被撤銷，要連線到兩個端點**：撤銷清單本身，
+   以及它 header 裡 `jku` 指的那組金鑰。而後者的信任基礎只有 TLS。
+2. **離線時我們無法驗證撤銷清單的簽章**，即使清單本身被快取起來也一樣
+   ——除非額外把 key-2 也快取，而那把金鑰沒有任何公告管道可以讓我們確認它是對的。
+3. 這跟我們自己那條路是強烈的對比：MOICA 的撤銷走 SMT 快照，
+   錨點是鏈上的 root，**離線可驗**（雖然 root 錨定檢查本身還沒實作，碼裡誠實標著）。
+
+## D. 由此定下 M5.3 的兩個設計決定
+
+**一、發行者公鑰一律從 `iss` 的 did:key 取，永不跟隨 `jku`。**
+不是保守，是量過的：正式環境 43/43 發行者 DID 都內嵌了可用的金鑰，
+所以跟隨 `jku` 拿不到任何我們拿不到的東西，只會多一個由被驗文件指定的網路來源。
+`jku` 與 `kid` 照樣解析出來**存起來當診斷資訊**，因為「這張憑證宣稱去哪裡拿金鑰」
+是回報上游與事後追查時要看的東西——但它不參與判定。
+
+**二、撤銷狀態在離線時一律回報「未檢查」，不回報「未撤銷」。**
+本專案已經有這個型別（`RevocationLookup.unavailable` 回報「沒有檢查過」而不是「通過」）。
+TWDIW 卡沿用它，而卡片上的 caveat 要寫的不是「24 小時後過期」，是更準的那句：
+
+> 這張卡有沒有被撤銷，只有連上網才知道；而且驗證那份撤銷清單所需要的金鑰，
+> 不在任何公告的信任清單裡。
