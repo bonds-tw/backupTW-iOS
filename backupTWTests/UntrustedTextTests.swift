@@ -187,12 +187,39 @@ struct UntrustedTextTests {
     /// checker through `ClaimLabel`. Two independent tables naming one claim is
     /// how they drift — and the drift would show up as the holder and the
     /// checker reading different words off the same signed byte.
-    @Test func theHolderAndTheCheckerNameTheAgePredicateIdentically() throws {
-        guard case .known(let checkerWord) = ClaimLabel.label(for: AgePredicate.claimName) else {
-            Issue.record("the age predicate is not a known term")
+    @Test(arguments: ["name", "birthdate", "unifiedNo", "addressOfHousehold",
+                      "nationality", AgePredicate.claimName])
+    func theHolderAndTheCheckerNameEveryFieldIdentically(_ key: String) throws {
+        guard case .known(let checkerWord) = ClaimLabel.label(for: key) else {
+            Issue.record("\(key) is not a known term on the checker's side")
             return
         }
-        #expect(checkerWord == StoredNationalID.label(for: AgePredicate.claimName))
+        // The defect this replaces: the holder ticked a switch labelled
+        // 「身分證字號」 and the checker's screen said 「統一編號」 — the same
+        // signed byte under two names, in a flow whose whole purpose is that
+        // both people are looking at the same thing.
+        #expect(checkerWord == StoredNationalID.label(for: key))
+    }
+
+    /// The checker's table must not quietly grow its own entries again.
+    ///
+    /// `ClaimLabel` delegates now, so this holds by construction — and that is
+    /// exactly why it is worth a test: the next person who adds a `case` here
+    /// to fix one screen's wording would reintroduce the split without anything
+    /// failing.
+    @Test func theCheckerHasNoTableOfItsOwn() {
+        for key in ["nationality", "unifiedNo", "name", "birthdate",
+                    "addressOfHousehold", AgePredicate.claimName, "zzz_unknown"] {
+            let shared = StoredNationalID.label(for: key)
+            switch ClaimLabel.label(for: key) {
+            case .known(let word):
+                #expect(word == shared)
+            case .declaredByTheDocument:
+                // Only for keys the shared table does not know, which it signals
+                // by handing the key straight back.
+                #expect(shared == key, "\(key) is known to the holder but not to the checker")
+            }
+        }
     }
 
     /// A field *name* is untrusted text too, and it is drawn inside a heading —
