@@ -91,6 +91,67 @@ final class CapabilityViewController: UIViewController {
         contentStack.addArrangedSubview(PresentationUI.footnote(NSLocalizedString(
             "These answers come from the same table the rest of the app reads, so a screen cannot say more here than the code will do elsewhere.",
             comment: "")))
+
+        appendCardComparison()
+    }
+
+    // MARK: - Three kinds of card, side by side
+
+    /// # Why the comparison is on this page and not a page of its own
+    ///
+    /// Above, the question is 「can this app prove X」. Here it is 「what is each
+    /// of my cards worth」, and the two are the same question asked from the two
+    /// ends. A reader who has just been told that two of three scenarios are
+    /// half-answered is exactly the reader who should then see that the three
+    /// documents differ in *which* half they give up.
+    ///
+    /// A wallet holding a national ID, a driving licence and a proof is not
+    /// unusual — the official app holds cards too. Putting their limits next to
+    /// each other is the part nobody else is doing, and it only works as a
+    /// comparison: read alone, each card's limits look like a list of faults.
+    private func appendCardComparison() {
+        contentStack.addArrangedSubview(PresentationUI.sectionTitle(
+            NSLocalizedString("What each card is worth", comment: "card comparison")))
+        contentStack.addArrangedSubview(PresentationUI.body(NSLocalizedString(
+            "Three kinds of document, three different trust models. Each one gives something up, and it is not the same something — which is only visible with all three on one screen.",
+            comment: "")))
+        CardCapability.all.forEach { contentStack.addArrangedSubview(comparisonCard(for: $0)) }
+    }
+
+    private func comparisonCard(for card: CardCapability) -> UIView {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.alignment = .fill
+        stack.isLayoutMarginsRelativeArrangement = true
+        stack.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        stack.backgroundColor = .secondarySystemGroupedBackground
+        stack.layer.cornerRadius = 14
+        stack.accessibilityIdentifier = "cardCapability.\(card.id)"
+
+        let name = UILabel()
+        name.text = card.name
+        name.numberOfLines = 0
+        name.font = UIFontMetrics(forTextStyle: .headline)
+            .scaledFont(for: .systemFont(ofSize: 18, weight: .semibold))
+        name.adjustsFontForContentSizeCategory = true
+        stack.addArrangedSubview(name)
+
+        stack.addArrangedSubview(PresentationUI.footnote(card.origin))
+
+        stack.addArrangedSubview(PresentationUI.caveatGroup(
+            subtitle: NSLocalizedString("What a checker can rely on:", comment: ""),
+            messages: card.proves))
+
+        // The limits are drawn with the same weight as what the card proves, and
+        // directly after it. Putting them in a lighter style, or behind a
+        // disclosure arrow, would make the comparison decorative — and this
+        // whole section exists because the limits are the part that differs.
+        stack.addArrangedSubview(PresentationUI.caveatGroup(
+            subtitle: NSLocalizedString("What it cannot establish:", comment: ""),
+            messages: card.limits))
+
+        return stack
     }
 
     private func appendSection(_ title: String, scenarios: [PresentationScenario]) {

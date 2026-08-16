@@ -4186,6 +4186,16 @@
         }
       }
     },
+    "Three kinds of document, three different trust models. Each one gives something up, and it is not the same something — which is only visible with all three on one screen.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "三種文件，三種不同的信任模型。每一種都放棄了一些東西，而且放棄的不是同一樣——那件事只有在三張並排的時候看得見。"
+          }
+        }
+      }
+    },
     "Three things someone might ask this app to prove, and what it can honestly answer today. Two of the three are only half answered, and this page says which half.": {
       "extractionState": "manual",
       "localizations": {
@@ -4358,6 +4368,16 @@
         }
       }
     },
+    "What a checker can rely on:": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方可以倚賴的："
+          }
+        }
+      }
+    },
     "What arrived was not a proof this app can read.": {
       "extractionState": "manual",
       "localizations": {
@@ -4365,6 +4385,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "收到的東西不是這個 App 讀得懂的證明。"
+          }
+        }
+      }
+    },
+    "What each card is worth": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每一張卡值多少"
           }
         }
       }
@@ -4387,6 +4417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "它實際上證明了什麼"
+          }
+        }
+      }
+    },
+    "What it cannot establish:": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它建立不了的："
           }
         }
       }
