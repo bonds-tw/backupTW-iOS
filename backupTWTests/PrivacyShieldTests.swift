@@ -31,8 +31,16 @@ struct PrivacyShieldTests {
         let result: UIViewController = VerificationResultViewController(outcome: .verified(Self.presentation()))
         let holder: UIViewController = PresentCredentialViewController(holder: HolderPresentation(store: StubStore()))
         let scanner: UIViewController = QRScanningViewController(title: "t", prompt: "p") { _ in .stop }
+        // The two that were missing. This test's *name* claims to cover every
+        // screen that shows identity data; its list covered three of five, and
+        // the two absent ones are the first-run flow — where five identity
+        // fields are on screen and the very next step hands the person to
+        // another app — and the screen whose own comment asserted it was
+        // already shielded.
+        let onboard: UIViewController = MyDataOnboardViewController()
+        let stored: UIViewController = StoredCredentialViewController()
 
-        for screen in [result, holder, scanner] {
+        for screen in [result, holder, scanner, onboard, stored] {
             let shielded = screen as? PrivacyShieldedScreen
             #expect(shielded != nil, "\(type(of: screen)) does not declare itself shielded")
             #expect(shielded?.needsPrivacyShield == true)

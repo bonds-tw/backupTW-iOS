@@ -229,10 +229,27 @@ extension MyDataWebViewController : WKDownloadDelegate {
             title: title,
             message: NSLocalizedString("For this unzipping only, not to be used for any other purpose.", comment: ""),
             preferredStyle: .alert)
+        // `[weak alert, weak self]`, and both halves matter.
+        //
+        // The closure used to capture `alert` strongly, and `addAction` puts the
+        // closure on the alert — a cycle. Measured: after dismissal
+        // `alertStillAlive = true` and `fieldText = A123456789`. So the
+        // 身分證統一編號 stayed in memory for the life of the process, under a
+        // message that says 「僅供本次解壓縮使用，絕不另作他用」. A wrong password
+        // recurses, so each mistake left another one behind.
+        //
+        // The strong `self` was the second half and cost more: it kept this
+        // controller — and with it a `WKWebView` logged in to
+        // mydata.nat.gov.tw — alive to process exit, so the
+        // `deinit { try? scratch.purge() }` backstop never ran.
+        //
+        // Same shape as `ZKProofViewController.makeIDNumberPrompt`, which had
+        // this fixed already; this path was simply never revisited.
         let confirm = UIAlertAction(
             title: NSLocalizedString("Continue", comment: ""),
-            style: .default) { _ in
-                guard let passwordTextField = alert.textFields?.first,
+            style: .default) { [weak alert, weak self] _ in
+                guard let self,
+                      let passwordTextField = alert?.textFields?.first,
                       let password = passwordTextField.text
                 else {
                     return

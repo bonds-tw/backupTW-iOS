@@ -86,6 +86,17 @@ extension PresentCredentialViewController: PrivacyShieldedScreen {}
 /// from; it is the same defect, one screen over.
 extension QRScanningViewController: PrivacyShieldedScreen {}
 
+/// Draws 國籍／統一編號／姓名／出生日期／戶籍地址 and then, in the same flow,
+/// hands the person to 行動自然人憑證 — which is precisely the moment iOS takes
+/// its app-switcher snapshot. Five identity fields, bare, into the screenshot
+/// the system keeps.
+extension MyDataOnboardViewController: PrivacyShieldedScreen {}
+
+/// The other one. Its own comment said 「app-switcher snapshot is already
+/// handled by `PrivacyShield`」 — a statement about itself that was false,
+/// because it was not on this list.
+extension StoredCredentialViewController: PrivacyShieldedScreen {}
+
 // MARK: - The shield
 
 /// Covers the window while the app is not in front, if anything on it said it
