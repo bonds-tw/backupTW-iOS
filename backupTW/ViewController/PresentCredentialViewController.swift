@@ -41,6 +41,26 @@ final class PresentCredentialViewController: UIViewController {
     private enum Stage {
         /// No credential on the device at all.
         case nothingToShow
+        /// The store itself would not open, so what this phone holds is unknown.
+        ///
+        /// # Not the same screen as "you have nothing"
+        ///
+        /// `CredentialStore.init` gates on two *write*-side actions —
+        /// `createDirectory` and the iCloud-exclusion `setResourceValues`. So an
+        /// intact, readable document becomes 「there is nothing on this phone」
+        /// because a backup-exclusion xattr could not be written.
+        ///
+        /// The store's own next layer refuses exactly this substitution: 「only a
+        /// file that really is absent becomes nil. Anything else is thrown,
+        /// because reporting that as 『you have no document』 **sends somebody to
+        /// apply again for one they already have**.」 `CardInventory` says the
+        /// same: reading decides what a row *says*, never whether it exists.
+        /// Both disciplines were bypassed one level up by `try?`.
+        ///
+        /// And the route the old screen recommended was guaranteed to fail:
+        /// issuance saves through the same constructor. So the advice cost a
+        /// second 戶籍謄本 and a second 身分證統一編號 for a certain failure.
+        case cardsUnreadable
         /// Waiting for the checker's request.
         case awaitingRequest
         /// Request in hand, not yet signed. `freshness` is judged once, when the
@@ -151,9 +171,22 @@ final class PresentCredentialViewController: UIViewController {
     /// `PresentationScreenLifecycle`.
     private var lifecycle = PresentationScreenLifecycle()
 
-    init(holder: HolderPresentation = HolderPresentation(store: (try? CredentialStore()) ?? EmptyCredentialStore())) {
+    /// Whether the store opened. `false` is a different screen from "empty".
+    private let storeIsReadable: Bool
+
+    init(holder: HolderPresentation, storeIsReadable: Bool = true) {
         self.holder = holder
+        self.storeIsReadable = storeIsReadable
         super.init(nibName: nil, bundle: nil)
+    }
+
+    /// Opens the store **once** and keeps both facts: what it holds, and whether
+    /// it opened at all. The `?? EmptyCredentialStore()` that used to be inline
+    /// threw the second one away at the moment it was known.
+    convenience init() {
+        let store = try? CredentialStore()
+        self.init(holder: HolderPresentation(store: store ?? EmptyCredentialStore()),
+                  storeIsReadable: store != nil)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -169,7 +202,9 @@ final class PresentCredentialViewController: UIViewController {
         // Asked once, here, rather than at the moment of signing: a user who has
         // erased everything should be told so before they are asked to point a
         // camera at a stranger's phone.
-        if (try? holder.storedCredentialID()) == nil {
+        if !storeIsReadable {
+            stage = .cardsUnreadable
+        } else if (try? holder.storedCredentialID()) == nil {
             stage = .nothingToShow
         }
         render()
@@ -246,6 +281,8 @@ final class PresentCredentialViewController: UIViewController {
         switch stage {
         case .nothingToShow:
             renderNothingToShow()
+        case .cardsUnreadable:
+            renderCardsUnreadable()
         case .awaitingRequest:
             renderAwaitingRequest()
         case .confirming(let request, let freshness):
@@ -264,6 +301,22 @@ final class PresentCredentialViewController: UIViewController {
             NSLocalizedString("No document to show yet", comment: "")))
         contentStack.addArrangedSubview(PresentationUI.body(
             NSLocalizedString("Create a valid document from the home screen first. Nothing can be shown until this device holds one.", comment: "")))
+    }
+
+    /// A fact about this phone, and deliberately no route that costs identity
+    /// data again.
+    ///
+    /// 「Create a new one」 is the one instruction that would make somebody hand
+    /// over a 戶籍謄本 and a 身分證統一編號 a second time — into a save path that
+    /// uses the same constructor that has just failed. This app already knows the
+    /// right answer and has a row for it in Settings → Diagnostics
+    /// (`SelfCheck` 「儲存空間無法使用」); it was only the home screen that had no
+    /// way to point at it.
+    private func renderCardsUnreadable() {
+        contentStack.addArrangedSubview(PresentationUI.title(
+            NSLocalizedString("This phone's cards cannot be read right now", comment: "")))
+        contentStack.addArrangedSubview(PresentationUI.body(
+            NSLocalizedString("This is about this phone's storage, not about your documents — anything saved here is still saved. This most often means the phone is out of space. Free some up, then open this screen again. Settings ▸ Diagnostics says which check failed.", comment: "")))
     }
 
     private func renderAwaitingRequest() {

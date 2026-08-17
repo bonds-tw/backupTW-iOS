@@ -47,9 +47,27 @@ class HomeViewController: UICollectionViewController {
     /// reads the store and records what it found in `cardRows`, and a getter
     /// with a side effect is a getter somebody will call twice.
     private func makeSections() -> [Section] {
-        let rows = (try? CredentialStore()).map { CardInventory.rows(from: $0) } ?? []
-        cardRows = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return [validDocumentSection(cards: rows), offlineSection(hasDocument: rows.contains { $0.source == .selfIssued })]
+        // ⚠️ The `nil` is kept. It used to be `?? []`, one character that turned
+        // 「this phone's storage would not open」 into 「you have no documents」 —
+        // byte-for-byte the fresh-install screen.
+        //
+        // `CredentialStore.init` gates on two *write*-side actions
+        // (`createDirectory`, the iCloud-exclusion `setResourceValues`), so an
+        // intact and perfectly readable document disappears because a
+        // backup-exclusion xattr could not be written. The store's own next
+        // layer refuses this exact substitution in as many words — 「reporting
+        // that as 『you have no document』 sends somebody to apply again for one
+        // they already have」 — and `CardInventory` says reading decides what a
+        // row *says*, never whether it exists. Both were bypassed here.
+        //
+        // Note which way round the two paths were: `LocalDataEraser` uses a
+        // non-optional `try CredentialStore()`, so the destructive path threw
+        // and the informational one swallowed.
+        let rows = (try? CredentialStore()).map { CardInventory.rows(from: $0) }
+        cardRows = Dictionary((rows ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return [validDocumentSection(cards: rows),
+                offlineSection(hasDocument: rows?.contains { $0.source == .selfIssued } ?? false,
+                               storeIsReadable: rows != nil)]
     }
 
     /// Every card this phone holds, not only the one this app issues.
@@ -65,7 +83,9 @@ class HomeViewController: UICollectionViewController {
     /// over-the-shoulder-readable surface in the app, so rows carry the card's
     /// *kind* and its dates and nothing out of its claims. That rule is enforced
     /// in `CardInventory`, where it can be tested, not here.
-    private func validDocumentSection(cards rows: [CardInventoryRow]) -> Section {
+    /// - Parameter rows: `nil` when the store would not open, which is a
+    ///   different screen from an empty one.
+    private func validDocumentSection(cards rows: [CardInventoryRow]?) -> Section {
         // Not 「正式證件」 any more. That header is the onboarding screen's, where
         // it names the document about to be created; over a list that can now
         // contain an expired card and a card this build cannot read, it would be
@@ -79,6 +99,19 @@ class HomeViewController: UICollectionViewController {
         // there was nothing of ours stored to replace. This row only ever
         // creates or replaces the MyData-backed document, so a card of some
         // other kind must not change what it says.
+        guard let rows else {
+            // No 「create one」 row at all. That is the single instruction that
+            // would cost a second 戶籍謄本 and a second 身分證統一編號 — and
+            // issuance saves through the constructor that has just failed, so it
+            // would fail again after collecting them.
+            return Section(title: title, items: [
+                Item(image: UIImage(systemName: "externaldrive.badge.exclamationmark")?
+                        .withTintColor(.systemOrange, renderingMode: .alwaysOriginal),
+                     title: NSLocalizedString("This phone's cards cannot be read right now", comment: ""),
+                     secondaryText: NSLocalizedString("Anything saved here is still saved. This most often means the phone is out of space — free some up and open the app again.", comment: ""))
+            ])
+        }
+
         let hasOwnDocument = rows.contains { $0.source == .selfIssued }
         let refresh = Item(image: UIImage(systemName: "arrow.clockwise")?
                             .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
@@ -145,7 +178,7 @@ class HomeViewController: UICollectionViewController {
     /// do the thing it is for, and this screen's job is to say what this phone
     /// can do *right now* — which is what the neighbouring `proofRowSubtitle()`
     /// already does for the checking files.
-    private func offlineSection(hasDocument: Bool) -> Section {
+    private func offlineSection(hasDocument: Bool, storeIsReadable: Bool = true) -> Section {
         // Both halves live on the home screen rather than one of them being
         // buried in Settings. The whitepaper's §5.3 scenarios are a 里長, a
         // volunteer, a border desk — people who are checking documents as their
@@ -155,7 +188,12 @@ class HomeViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "qrcode")?
                     .withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
                  title: Row.present,
-                 secondaryText: hasDocument
+                 // Neutral when the store would not open. 「There is nothing on
+                 // this phone to show yet」 is an unconditional statement of fact
+                 // about the reader's own phone, and in that state it is false.
+                 secondaryText: !storeIsReadable
+                    ? NSLocalizedString("This phone's cards cannot be read right now.", comment: "")
+                    : hasDocument
                     ? NSLocalizedString("Answer a checker's code. Works with no network on either phone.", comment: "")
                     : NSLocalizedString("There is nothing on this phone to show yet — back up your ID first.", comment: "")),
             Item(image: UIImage(systemName: "checkmark.shield")?

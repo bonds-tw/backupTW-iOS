@@ -371,6 +371,16 @@
         }
       }
     },
+    "Anything saved here is still saved. This most often means the phone is out of space — free some up and open the app again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存在這裡的東西都還在。最常見的原因是手機空間不足——清一些出來，再重開一次 App。"
+          }
+        }
+      }
+    },
     "Ask the other person to scan this": {
       "localizations": {
         "zh-Hant": {
@@ -4685,6 +4695,16 @@
         }
       }
     },
+    "This is about this phone's storage, not about your documents — anything saved here is still saved. This most often means the phone is out of space. Free some up, then open this screen again. Settings ▸ Diagnostics says which check failed.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是這支手機的儲存空間的問題，不是你的證件的問題——存在這裡的東西都還在。最常見的原因是手機空間不足。清一些出來，再打開這個畫面。設定 ▸ 診斷會說是哪一項檢查沒過。"
+          }
+        }
+      }
+    },
     "This is about this phone, not about the person presenting. What they showed was never examined, so nothing here counts against them.": {
       "localizations": {
         "zh-Hant": {
@@ -4761,6 +4781,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "這支手機——沒有任何其他人為這些內容背書。"
+          }
+        }
+      }
+    },
+    "This phone's cards cannot be read right now": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前讀不到這支手機上的卡片"
+          }
+        }
+      }
+    },
+    "This phone's cards cannot be read right now.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前讀不到這支手機上的卡片。"
           }
         }
       }
