@@ -47,6 +47,19 @@ final class CapabilityViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let contentStack = UIStackView()
 
+    /// Injected so the gated configuration is testable. `DEBUG` is true wherever
+    /// the tests run, so a screen that read the flags directly could only be
+    /// tested in the one configuration where the gate never fires.
+    private let paths: BuildPaths
+
+    init(paths: BuildPaths = .current) {
+        self.paths = paths
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not from a storyboard") }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("What this app can prove", comment: "")
@@ -88,8 +101,20 @@ final class CapabilityViewController: UIViewController {
         appendSection(NSLocalizedString("During an emergency", comment: "Scenario group"),
                       scenarios: PresentationScenario.all.filter(\.isEmergency))
 
+        // ⚠️ **The previous sentence was the thing it was reassuring you about.**
+        //
+        // It read 「這些答案來自 App 其他地方讀的同一張表，所以這個畫面說不出比程式
+        // 碼實際做得到的更多。」 Nothing else in the app target read
+        // `PresentationScenario`, and the table asked neither build switch — so
+        // the one sentence promising the verdicts were derived was itself the
+        // only claim on the page with nothing behind it.
+        //
+        // What is written now is what this screen can actually stand behind: the
+        // caveats are the proof code's own list, the availability is read from
+        // the same switches the rest of the app reads, and the wording of each
+        // verdict is a human judgement that no test can check for honesty.
         contentStack.addArrangedSubview(PresentationUI.footnote(NSLocalizedString(
-            "These answers come from the same table the rest of the app reads, so a screen cannot say more here than the code will do elsewhere.",
+            "The caveats under each answer are the list the proof code itself carries, and whether a path exists at all is read from the same build switch the rest of the app reads. The wording of each answer is written by hand — it is this project's own account of its design, not a measurement.",
             comment: "")))
 
         appendCardComparison()
@@ -139,9 +164,16 @@ final class CapabilityViewController: UIViewController {
 
         stack.addArrangedSubview(PresentationUI.footnote(card.origin))
 
+        // Before the claim lists, not after: it changes what they mean.
+        if let note = card.buildNote(in: paths) {
+            stack.addArrangedSubview(PresentationUI.card(
+                title: NSLocalizedString("In this version", comment: ""),
+                body: note, nested: true))
+        }
+
         stack.addArrangedSubview(PresentationUI.caveatGroup(
             subtitle: NSLocalizedString("What a checker can rely on:", comment: ""),
-            messages: card.proves))
+            messages: card.proves, nested: true))
 
         // The limits are drawn with the same weight as what the card proves, and
         // directly after it. Putting them in a lighter style, or behind a
@@ -149,7 +181,7 @@ final class CapabilityViewController: UIViewController {
         // whole section exists because the limits are the part that differs.
         stack.addArrangedSubview(PresentationUI.caveatGroup(
             subtitle: NSLocalizedString("What it cannot establish:", comment: ""),
-            messages: card.limits))
+            messages: card.limits, nested: true))
 
         return stack
     }
@@ -184,21 +216,25 @@ final class CapabilityViewController: UIViewController {
         request.adjustsFontForContentSizeCategory = true
         stack.addArrangedSubview(request)
 
-        stack.addArrangedSubview(PresentationUI.verdict(Self.symbol(for: scenario.support),
-                                                        Self.headline(for: scenario.support),
-                                                        Self.colour(for: scenario.support)))
+        // Resolved once. Reading `scenario.support` again below would render a
+        // gated verdict above an ungated explanation.
+        let support = scenario.support(in: paths)
+
+        stack.addArrangedSubview(PresentationUI.verdict(Self.symbol(for: support),
+                                                        Self.headline(for: support),
+                                                        Self.colour(for: support)))
 
         // The whole point of the screen. Body weight, immediately under the
         // verdict, never collapsed.
-        switch scenario.support {
+        switch support {
         case .partial(let actually):
             stack.addArrangedSubview(PresentationUI.card(
                 title: NSLocalizedString("What it actually shows", comment: ""),
-                body: actually))
+                body: actually, nested: true))
         case .unsupported(let blockedBy):
             stack.addArrangedSubview(PresentationUI.card(
                 title: NSLocalizedString("What would have to change", comment: ""),
-                body: blockedBy))
+                body: blockedBy, nested: true))
         case .supported:
             break
         }
@@ -208,7 +244,7 @@ final class CapabilityViewController: UIViewController {
         if !scenario.caveats.isEmpty {
             stack.addArrangedSubview(PresentationUI.caveatGroup(
                 subtitle: NSLocalizedString("Still true even when this passes:", comment: ""),
-                messages: scenario.caveats.map(\.localizedDescription)))
+                messages: scenario.caveats.map(\.localizedDescription), nested: true))
         }
         return stack
     }

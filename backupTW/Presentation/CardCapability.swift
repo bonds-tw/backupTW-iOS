@@ -77,7 +77,27 @@ struct CardCapability: Equatable, Sendable {
             // The finding this app had to correct itself about, kept here so it
             // is never quietly dropped.
             NSLocalizedString("Your name is always visible. It is written inside the certificate that signs the document, and the checker needs that certificate to check the signature — so no switch can withhold it.", comment: ""),
-            NSLocalizedString("It carries no national ID number, because the certificate does not contain one.", comment: ""),
+            // ⚠️ **This used to say the card carries no national ID number.**
+            //
+            // It does. `VerifiableCredential.nationalIDClaims` sets
+            // `unifiedNo`, and `CredentialIssuance` refuses to issue the card
+            // at all without one. It is a switch on the presentation screen,
+            // and switching it on puts the number on the checker's display
+            // among the verified fields.
+            //
+            // What is true — and measured — is a fact about the **certificate**:
+            // a real MOICA G3 Subject DN carries only C, CN and serialNumber,
+            // and that serialNumber is not the national ID number. A true
+            // sentence about the certificate was written as a sentence about
+            // the card.
+            //
+            // The direction is what makes it an (a): it claimed the card was
+            // **safer than it is**, on the one page in this app that promises
+            // to list limits honestly, about the national ID number
+            // specifically. It is the same shape as
+            // `WallDisclosure.countIsSignaturesNotPeople` — a choice and an
+            // inability confused — pointing the other way.
+            NSLocalizedString("It carries your national ID number, but that is a field you can switch off each time you show it — switched off, the checker sees only a commitment they cannot open.", comment: ""),
         ])
 
     static let zeroKnowledge = CardCapability(
@@ -87,12 +107,32 @@ struct CardCapability: Equatable, Sendable {
             "Computed on this phone from your digital certificate. The certificate itself is never shown.",
             comment: "card origin"),
         proves: [
-            NSLocalizedString("That you hold a real national ID certificate, without revealing which one.", comment: ""),
+            // ⚠️ Not "you hold a real 自然人憑證".
+            //
+            // The app's own caveat says the signing material is a bearer token
+            // that never changes and never expires — anybody who has held it
+            // once, 內政部 included, can produce this proof without the holder
+            // present. So the subject of the sentence cannot be 「你」, and
+            // `ZKProver`'s own comment already says so in as many words.
+            NSLocalizedString("That somebody's real national ID certificate signed this, without revealing which one.", comment: ""),
         ],
-        limits: [
-            NSLocalizedString("Every checker sees the same duplicate-detection number, so two of them can tell they saw the same person.", comment: ""),
-            NSLocalizedString("Offline there is no shared record of what has been used, so two checkers who never speak cannot both refuse the same person.", comment: ""),
-        ])
+        // # Every unconditional caveat, taken from the source of truth
+        //
+        // This list used to be two sentences, hand-written, against six
+        // unconditional `ProofCaveat` cases — and the four it dropped included
+        // the two that `ZKProver`'s ordering comment calls the ones that
+        // "decide what this project can claim at all".
+        //
+        // Worse, it read next to the government card, which *does* declare a
+        // revocation limit — so the comparison implied the zero-knowledge card
+        // did not have that problem. It is strictly worse: the circuit has no
+        // date field at all and the revocation root is unanchored.
+        //
+        // `limits` is documented as "things it cannot establish however
+        // carefully it is checked", which is exactly `isUnconditional`. So the
+        // list is derived, and a seventh unconditional caveat appears here the
+        // day it is added rather than the day somebody remembers.
+        limits: ProofCaveat.unconditional.map(\.localizedDescription))
 
     static let twdiw = CardCapability(
         id: "twdiw",
@@ -102,7 +142,15 @@ struct CardCapability: Equatable, Sendable {
             comment: "card origin"),
         proves: [
             NSLocalizedString("That a registered issuing body signed these fields, and which body it was.", comment: ""),
-            NSLocalizedString("Only the fields you switch on, the same way as your own document.", comment: ""),
+            // ⚠️ Was 「…, the same way as your own document.」
+            //
+            // Behind the self-issued card's identical claim there is a real
+            // `UISwitch` on a screen that works. That clause pointed at it and
+            // said this card is the same, on a page titled 「what this app can
+            // prove」 — while this app has no way to show this card at all. The
+            // claim about the *format* is true; the comparison was to a path
+            // that exists, from one that does not.
+            NSLocalizedString("Only the fields you switch on.", comment: ""),
         ],
         limits: [
             // Measured 2026-08-16: the two published credentials are structurally
@@ -114,4 +162,40 @@ struct CardCapability: Equatable, Sendable {
             // `statusListIndex` sits outside `_sd` in the signed payload.
             NSLocalizedString("It carries a number unique to this card that every checker sees, whichever fields you withhold.", comment: ""),
         ])
+
+    /// What **this build** can do with this kind of card, which is a different
+    /// question from what the kind of card can do.
+    ///
+    /// # Why this is not a fourth `limits` entry
+    ///
+    /// `limits` is documented as what the card cannot establish however
+    /// carefully it is checked — properties of the format, true on every build
+    /// forever. "This version has no screen for it" is a property of the app in
+    /// August 2026. Filing it under `limits` would be the same mistake this file
+    /// has already made twice in the other direction: a true sentence about one
+    /// subject written as a sentence about another.
+    ///
+    /// It is rendered **above** the two claim lists rather than after them,
+    /// because it changes how the lists should be read.
+    func buildNote(in paths: BuildPaths) -> String? {
+        switch id {
+        case "twdiw":
+            // Not gated by a switch, because there is nothing to switch. OID4VP
+            // is milestone M5.4 and appears in this repo only as three comments
+            // and a plan; nothing writes a TWDIW card to the store, and
+            // `HolderPresentation.storedCredentialID()` returns `.selfIssued`
+            // only.
+            return NSLocalizedString(
+                "This version has no way to collect or show this card. What it describes is the card as the government issues it.",
+                comment: "")
+        case "self-issued":
+            return paths.credential ? nil : NSLocalizedString(
+                "This version cannot create a document.", comment: "")
+        case "zero-knowledge":
+            return paths.zeroKnowledge ? nil : NSLocalizedString(
+                "This version cannot make a proof.", comment: "")
+        default:
+            return nil
+        }
+    }
 }

@@ -37,6 +37,47 @@ enum PresentationPath: String, Codable, Equatable, Sendable {
     case zeroKnowledge
 }
 
+/// Which of the two paths this build actually has.
+///
+/// # Why the table needed this
+///
+/// `PresentationScenario` is a hand-written statement about the *design*. It was
+/// rendered as a statement about *this build*, and the two are not the same: the
+/// factories behind both paths are `#if DEBUG`, so an App Store or TestFlight
+/// copy can neither create a document nor make a proof.
+///
+/// On such a build the capability screen showed a green ✓「是，這個 App 做得到」
+/// and, two rows further down the same settings screen, a disabled 「最小揭露」
+/// row reading 「這個版本無法建立證明」. It was the only verdict screen in the app
+/// not wired to the availability flags — four others already were — and its own
+/// closing footnote assured the reader it was.
+///
+/// Injectable rather than read from the flags at the point of use, because the
+/// interesting case is the one no test machine is ever in: `DEBUG` is true
+/// everywhere the tests run, so a screen that asked the flags directly could
+/// only ever be tested in the configuration where the bug is invisible.
+struct BuildPaths: Equatable, Sendable {
+
+    let credential: Bool
+    let zeroKnowledge: Bool
+
+    /// What this build really has.
+    static var current: BuildPaths {
+        BuildPaths(credential: CredentialIssuanceAssembly.isAvailable,
+                   zeroKnowledge: ZKProofRunAssembly.isSigningAvailable)
+    }
+
+    /// The design as designed — what the table describes when nothing is gated.
+    static let complete = BuildPaths(credential: true, zeroKnowledge: true)
+
+    func has(_ path: PresentationPath) -> Bool {
+        switch path {
+        case .credential: return credential
+        case .zeroKnowledge: return zeroKnowledge
+        }
+    }
+}
+
 /// How well this build can answer a scenario.
 ///
 /// Three cases rather than a `Bool`, because "we can prove something adjacent"
@@ -100,9 +141,11 @@ enum ScenarioSupport: Equatable, Sendable {
 /// who never speak cannot both refuse the same nullifier. This is not solved
 /// below this line and is not solvable offline.
 ///
-/// **曾是台灣人** — this one is exactly what the proof says: some holder of a
-/// certificate issued by MOICA-G3 supplied signing material for it. It is the
-/// emergency-period scenario and the one the current build genuinely serves.
+/// **曾是台灣人** — the proof says *some* holder of a MOICA-G3 certificate
+/// supplied the signing material. The request says 「你」, and the gap between
+/// those two is `ProofCaveat.signatureMaterialIsReplayable`, so this is
+/// `.partial` like the other two rather than the page's one green tick. It is
+/// the emergency-period scenario and the one the current build serves best.
 struct PresentationScenario: Equatable, Sendable {
 
     let id: String
@@ -116,6 +159,30 @@ struct PresentationScenario: Equatable, Sendable {
     let caveats: [ProofCaveat]
 
     static let all: [PresentationScenario] = [ageOver18, uniquePerson, wasTaiwanese]
+
+    /// The answer for a given build, which is not always the answer in the table.
+    ///
+    /// A path this build does not have cannot support anything, so the verdict
+    /// collapses to `.unsupported` and `blockedBy` says which switch is off —
+    /// in the same words the home screen and the proof screen already use, so a
+    /// reader who has seen one recognises the other.
+    ///
+    /// ⚠️ This is the whole verdict, not a badge added next to it. A green tick
+    /// with a note beside it is still a green tick, and this screen's own header
+    /// comment says the verdict, the colour and the `actually` sentence are the
+    /// three carriers — gating one of them would leave the other two claiming
+    /// the capability.
+    func support(in paths: BuildPaths) -> ScenarioSupport {
+        guard !paths.has(path) else { return support }
+        switch path {
+        case .credential:
+            return .unsupported(blockedBy: NSLocalizedString(
+                "This version cannot create a document.", comment: ""))
+        case .zeroKnowledge:
+            return .unsupported(blockedBy: NSLocalizedString(
+                "This version cannot make a proof.", comment: ""))
+        }
+    }
 
     static let ageOver18 = PresentationScenario(
         id: "age-over-18",
@@ -133,7 +200,7 @@ struct PresentationScenario: Equatable, Sendable {
         isEmergency: false,
         path: .zeroKnowledge,
         support: .partial(actually: NSLocalizedString(
-            "A real cardholder — but not that this is their first time. Offline there is no shared record of what has already been used, so two checkers who never speak cannot both refuse the same person.",
+            "A real cardholder's signing material — but not that they are here, and not that this is their first time. Offline there is no shared record of what has already been used, so two checkers who never speak cannot both refuse the same person.",
             comment: "")),
         caveats: ProofCaveat.unconditional)
 
@@ -142,6 +209,24 @@ struct PresentationScenario: Equatable, Sendable {
         request: NSLocalizedString("Prove you once held a Taiwanese national ID", comment: "scenario"),
         isEmergency: true,
         path: .zeroKnowledge,
-        support: .supported,
+        // ⚠️ **Was `.supported`, and it was the page's only green tick.**
+        //
+        // The request's subject is 「你」. The first unconditional caveat says the
+        // signing material never changes and never expires, so anybody who has
+        // held it once — 內政部 included — can produce this same proof with the
+        // holder absent and unaware. `ZKProver.swift:432-448` states both halves
+        // outright: `(cert, signed_response)` answers any fresh challenge, and
+        // "the holder made this proof just now" is not something it supports.
+        //
+        // So the green tick sat on the **largest** gap on the page, while the
+        // two smaller gaps beside it were already `.partial`. A page whose whole
+        // reason to exist is stopping a demo from rounding half an answer up to
+        // a tick cannot round the biggest half-answer up to the only tick.
+        //
+        // The sentence below is the file's own comment at :103-105, which had
+        // already written this claim correctly with 「你」 removed.
+        support: .partial(actually: NSLocalizedString(
+            "That some holder of a certificate issued by MOICA-G3 supplied the signing material for this proof. Not that it was you, and not that it was made just now — the signing material never expires, so anybody who has ever held it can make this same proof without you.",
+            comment: "")),
         caveats: ProofCaveat.unconditional)
 }

@@ -90,7 +90,11 @@ struct CapabilityScreenTests {
         // If the table ever stops having partial scenarios, this test starts
         // proving nothing — and that would be a change worth noticing, not a
         // test worth quietly passing.
-        #expect(partials == 2, "expected two partial scenarios, found \(partials)")
+        //
+        // Three, not two: `wasTaiwanese` was demoted from the page's one green
+        // tick, because the request asks about 「你」 and the proof establishes
+        // that *somebody's* signing material was used.
+        #expect(partials == 3, "expected three partial scenarios, found \(partials)")
     }
 
     /// A partial answer must not be able to wear the supported answer's clothes.
@@ -125,22 +129,52 @@ struct CapabilityScreenTests {
         #expect(CapabilityViewController.symbol(for: .partial(actually: "x")) != "✗")
     }
 
-    /// The caveats that survive a pass are on the screen too.
+    /// The caveats are on the screen whatever the verdict says.
     ///
-    /// `wasTaiwanese` is the one fully supported scenario, and it carries
-    /// `ProofCaveat.unconditional`. A green tick shown without them is the exact
-    /// picture `VerifiedResultSection.order` was rewritten to prevent.
-    @Test func aSupportedScenarioStillShowsItsCaveats() {
+    /// This used to be `aSupportedScenarioStillShowsItsCaveats`, and it opened
+    /// with `#expect(!supported.isEmpty)` — so demoting the page's one green
+    /// tick turned it red, not because the rule broke but because the rule was
+    /// written around a particular scenario being supported.
+    ///
+    /// The rule is stronger without that: a caveat is not a footnote attached to
+    /// a pass, it is what remains true underneath any answer. `.partial` is the
+    /// case that needs it most — a half answer reads as the good half.
+    @Test func everyScenarioShowsItsCaveatsWhateverTheVerdict() {
         let text = Self.labelText(in: Self.screen().view).joined(separator: "\n")
-        let supported = PresentationScenario.all.filter { $0.support == .supported }
-        #expect(!supported.isEmpty)
-        for scenario in supported {
-            #expect(!scenario.caveats.isEmpty,
-                    "\(scenario.id) passes with no caveats at all — is that really true?")
+        for scenario in PresentationScenario.all where !scenario.caveats.isEmpty {
             for caveat in scenario.caveats {
                 #expect(text.contains(caveat.localizedDescription),
-                        "\(scenario.id) passes and the screen omits \(caveat)")
+                        "\(scenario.id) is on screen and the screen omits \(caveat)")
             }
+        }
+        // The zero-knowledge scenarios must not be caveat-free.
+        for scenario in PresentationScenario.all where scenario.path == .zeroKnowledge {
+            #expect(!scenario.caveats.isEmpty,
+                    "\(scenario.id) is answered with a proof and carries no caveats at all")
+        }
+    }
+
+    /// A build with neither path shows neither a tick nor a half-tick.
+    ///
+    /// Not a badge beside the verdict: this screen's own header says the word,
+    /// the colour and the `actually` sentence are the three carriers, so a
+    /// verdict left standing with a note next to it is still the verdict.
+    @Test func aGatedBuildDoesNotShowAnAnswerItCannotGive() {
+        let screen = CapabilityViewController(paths: BuildPaths(credential: false,
+                                                                zeroKnowledge: false))
+        screen.loadViewIfNeeded()
+        let text = Self.labelText(in: screen.view).joined(separator: "\n")
+
+        #expect(!text.contains(CapabilityViewController.headline(for: .supported)))
+        #expect(!text.contains(CapabilityViewController.headline(for: .partial(actually: ""))))
+        #expect(text.contains(CapabilityViewController.headline(for: .unsupported(blockedBy: ""))))
+
+        // And no `.partial` sentence survives, which is the one that states a
+        // capability in the holder's own language.
+        for scenario in PresentationScenario.all {
+            guard case .partial(let actually) = scenario.support else { continue }
+            #expect(!text.contains(actually),
+                    "a build with no paths still tells the reader what \(scenario.id) shows")
         }
     }
 
@@ -167,5 +201,79 @@ struct CapabilityScreenTests {
         let credential = CapabilityViewController.pathDescription(.credential)
         #expect(credential.contains("姓名") || credential.localizedCaseInsensitiveContains("name"),
                 "the credential path must say the holder's name travels: \(credential)")
+    }
+}
+
+/// The nested boxes on the capability page must be visible against the card
+/// they sit in.
+///
+/// # The defect this pins
+///
+/// `caveatGroup` and `card` paint `.secondarySystemGroupedBackground`, which is
+/// correct for their other thirteen call sites: those sit on a screen-level
+/// stack that is `.systemGroupedBackground`. The capability page reused them one
+/// level deeper, inside a comparison card that is *itself*
+/// `.secondarySystemGroupedBackground` — so the boxes were the same colour as
+/// their parent, at 1.00:1.
+///
+/// What was lost is not decoration. Under 「What a checker can rely on:」 and
+/// 「What it cannot establish:」 the items are deliberately the same weight and
+/// the same black, because the comparison is the point. The grey 12pt subtitle
+/// was therefore the only thing saying which list was the negative one, and
+/// 「it carries a number unique to this card that every checker sees」 reads as a
+/// feature to anybody who skipped it.
+@MainActor
+struct NestedGroupGroundTests {
+
+    /// Light **and** dark, because a same-colour bug can hide in one of them.
+    @Test(arguments: [UIUserInterfaceStyle.light, .dark])
+    func theNestedGroundDiffersFromTheCardItSitsOn(style: UIUserInterfaceStyle) {
+        let traits = UITraitCollection(userInterfaceStyle: style)
+        let ground = PresentationUI.nestedGroupBackground.resolvedColor(with: traits)
+        let card = UIColor.secondarySystemGroupedBackground.resolvedColor(with: traits)
+        #expect(ground != card,
+                "a nested box is the same colour as its parent card in \(style == .light ? "light" : "dark") mode")
+    }
+
+    /// The durable half: a sixth box added to this page must not silently
+    /// inherit the flat ground.
+    ///
+    /// Pinned at the source rather than the hierarchy because the failure is
+    /// somebody adding a call, and a hierarchy walk only sees the calls that
+    /// exist. Both helpers default `nested` to false, so forgetting it is the
+    /// quiet outcome.
+    @Test func everyGroupOnThisPageDeclaresItselfNested() throws {
+        let source = try String(contentsOf: URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("backupTW/ViewController/CapabilityViewController.swift"),
+                                encoding: .utf8)
+        let calls = ["PresentationUI.caveatGroup(", "PresentationUI.card("]
+        var found = 0
+        for call in calls {
+            var searched = source[...]
+            while let start = searched.range(of: call) {
+                // The call runs to its closing paren; every one here is written
+                // across lines ending in `))`.
+                let tail = searched[start.upperBound...]
+                let end = tail.range(of: "))") ?? tail.startIndex..<tail.startIndex
+                let body = tail[..<end.lowerBound]
+                found += 1
+                #expect(body.contains("nested: true"),
+                        "a \(call) on the capability page takes the flat ground: \(body.prefix(120))")
+                searched = tail[end.lowerBound...]
+            }
+        }
+        // Six since 2d-3 added 「In this version」 to the comparison cards. The
+        // number is here so a seventh box is looked at rather than counted; this
+        // is the one time it has fired, and the box it caught was correct.
+        #expect(found == 6, "expected 6 nested boxes on this page, walked \(found) — the page changed shape")
+    }
+
+    /// On this page the subtitle is the negative word, so it is body-black.
+    @Test func theSubtitleThatSaysWhichListIsWhichIsNotGrey() throws {
+        let group = PresentationUI.caveatGroup(subtitle: "What it cannot establish:",
+                                               messages: ["a"], nested: true)
+        let subtitle = try #require((group as? UIStackView)?.arrangedSubviews.first as? UILabel)
+        #expect(subtitle.textColor == .label)
     }
 }

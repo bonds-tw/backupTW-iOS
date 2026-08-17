@@ -127,3 +127,168 @@ struct CardCapabilityLocalizationTests {
         }
     }
 }
+
+/// # Nothing here could catch `limits` telling a lie, and one was telling one
+///
+/// `selfIssued.limits` said the card carries no national ID number. It does —
+/// `VerifiableCredential.nationalIDClaims` sets `unifiedNo`, and issuance
+/// refuses without one. The sentence was true of the *certificate* and was
+/// written about the *card*.
+///
+/// Every other test in this file checks shape: that limits exist, that they are
+/// translated, that nothing claims unlinkability. None of them compares a
+/// sentence against what the credential actually contains, which is the only
+/// check that would have caught it.
+struct CardCapabilityHonestyTests {
+
+    /// A field the card carries must not appear in a sentence that denies it.
+    ///
+    /// Keyed off the real claim keys rather than a hand-written list, so a new
+    /// field added to the credential is covered the day it is added.
+    @Test func noLimitDeniesAFieldTheCardActuallyCarries() {
+        let model = NationalIDModel(nationality: "中華民國",
+                                    unifiedNo: "A123456789",
+                                    name: "王小明",
+                                    birthdate: "0700101",
+                                    addressOfHousehold: "臺北市中正區")
+        let carried = VerifiableCredential.nationalIDClaims(model, validFrom: Date())
+
+        // The English names a limit sentence would use for each key it must not
+        // deny. Deliberately not derived from `StoredNationalID.label` — this
+        // test is about the prose, and the prose is written in whole sentences.
+        let denials: [String: [String]] = [
+            "unifiedNo": ["carries no national ID number", "不帶身分證統一編號",
+                          "does not carry a national ID number"],
+            "addressOfHousehold": ["carries no address", "不帶戶籍地址"],
+            "birthdate": ["carries no date of birth", "不帶出生年月日"],
+        ]
+
+        for (key, phrases) in denials where carried[key] != nil {
+            for limit in CardCapability.selfIssued.limits {
+                for phrase in phrases {
+                    #expect(!limit.contains(phrase),
+                            "the card carries \(key), and a limit denies it: \(limit)")
+                }
+            }
+        }
+    }
+
+    /// The one field that genuinely cannot be withheld must stay named.
+    ///
+    /// `name` is inside the signing certificate's Subject CN, so no switch can
+    /// hold it back — that is the finding this app had to correct itself about
+    /// once already, and dropping it would be reverting that correction.
+    @Test func theLimitThatCannotBeWithheldIsStillNamed() {
+        let joined = CardCapability.selfIssued.limits.joined()
+        #expect(joined.contains("name") || joined.contains("姓名"),
+                "the name-is-always-visible limit has gone")
+    }
+
+    /// A limit that names a field must be talking about the card, not the
+    /// certificate — the two are different objects and the confusion between
+    /// them is what produced the defect.
+    @Test func theCardsLimitsDoNotBorrowTheCertificatesProperties() {
+        for limit in CardCapability.selfIssued.limits where limit.contains("憑證") {
+            // Mentioning the certificate is fine — the name limit has to. What
+            // is not fine is deriving a claim about the card's *contents* from
+            // it without saying which object is meant.
+            #expect(limit.contains("姓名") || limit.contains("簽章"),
+                    "a limit reasons from the certificate without saying so: \(limit)")
+        }
+    }
+}
+
+/// The zero-knowledge card's limits must be the caveats, not a subset of them.
+///
+/// They were two sentences against six unconditional `ProofCaveat` cases, and
+/// the four dropped included the two `ZKProver`'s own ordering comment calls
+/// the ones that decide what this project can claim at all.
+///
+/// It also read beside the government card, which *does* declare a revocation
+/// limit — so the comparison implied the zero-knowledge card did not have that
+/// problem. It is strictly worse: no date field in the circuit, and an
+/// unanchored revocation root.
+struct ZeroKnowledgeLimitsTests {
+
+    @Test func theLimitsAreEveryUnconditionalCaveat() {
+        #expect(Set(CardCapability.zeroKnowledge.limits)
+                == Set(ProofCaveat.unconditional.map(\.localizedDescription)))
+        #expect(CardCapability.zeroKnowledge.limits.count >= 6,
+                "only \(CardCapability.zeroKnowledge.limits.count) limits — the list has been trimmed again")
+    }
+
+    /// The two the prover's own comment singles out must be present by name.
+    @Test func theTwoThatDecideWhatCanBeClaimedArePresent() {
+        let joined = CardCapability.zeroKnowledge.limits.joined()
+        for caveat in [ProofCaveat.signatureMaterialIsReplayable,
+                       ProofCaveat.nullifierSharedAcrossVerifiers] {
+            #expect(joined.contains(caveat.localizedDescription),
+                    "missing the caveat that decides what this project can claim: \(caveat)")
+        }
+    }
+
+    /// The proof does not establish that **you** are holding the card.
+    ///
+    /// The signing material is a bearer token that never expires, so anybody who
+    /// has held it once can make this proof with the holder absent. A sentence
+    /// whose subject is the reader claims presence the proof cannot support.
+    @Test func theProvesSentenceDoesNotClaimTheReaderIsPresent() {
+        let joined = CardCapability.zeroKnowledge.proves.joined()
+        #expect(!joined.contains("you hold") && !joined.contains("你持有"),
+                "the proof claims the reader is holding the card: \(joined)")
+    }
+}
+
+/// The comparison page must not present a card this build cannot touch as if it
+/// were on the same footing as the one that works.
+///
+/// # The defect
+///
+/// `twdiw.proves` said 「only the fields you switch on, **the same way as your
+/// own document**」. Behind the self-issued card's version of that claim there is
+/// a real `UISwitch` on a working screen; behind this one there is nothing —
+/// OID4VP is milestone M5.4, and the whole repo's mention of it is three
+/// comments and a plan. `comparisonCard(for:)` draws no verdict and no badge, so
+/// the two cards were rendered in identical visual language on a page titled
+/// 「what this app can prove」.
+struct CardBuildNoteTests {
+
+    @Test func theGovernmentCardSaysThisBuildCannotShowIt() throws {
+        let note = try #require(CardCapability.twdiw.buildNote(in: .complete),
+                                "the card this build has no path for carries no note")
+        #expect(!note.isEmpty)
+    }
+
+    /// The note is not filed under `limits`, which is about the format forever.
+    @Test func theBuildNoteIsNotSmuggledIntoTheFormatsLimits() {
+        for card in CardCapability.all {
+            let note = card.buildNote(in: .complete)
+            #expect(note == nil || !card.limits.contains(note!))
+            // Three measured limits on the government card, all about the card
+            // itself. A fourth appearing here means the app-level fact was
+            // filed as a property of the format.
+            #expect(!card.limits.contains { $0.contains("這個版本") || $0.contains("This version") },
+                    "\(card.id) files a fact about this build as a property of the card")
+        }
+    }
+
+    /// The two cards this build *does* have get their note from the same
+    /// switches every other screen reads.
+    @Test func theOtherTwoCardsFollowTheBuildSwitches() {
+        let none = BuildPaths(credential: false, zeroKnowledge: false)
+        #expect(CardCapability.selfIssued.buildNote(in: .complete) == nil)
+        #expect(CardCapability.zeroKnowledge.buildNote(in: .complete) == nil)
+        #expect(CardCapability.selfIssued.buildNote(in: none) != nil)
+        #expect(CardCapability.zeroKnowledge.buildNote(in: none) != nil)
+    }
+
+    /// No claim on this page may point at the working path to borrow its
+    /// credibility.
+    @Test func theGovernmentCardDoesNotCompareItselfToTheWorkingPath() {
+        let joined = CardCapability.twdiw.proves.joined()
+        for equation in ["the same way as your own document", "跟你自己那份文件一樣"] {
+            #expect(!joined.contains(equation),
+                    "the card with no path claims parity with the one that works")
+        }
+    }
+}

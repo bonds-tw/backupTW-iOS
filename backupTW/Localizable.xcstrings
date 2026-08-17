@@ -165,12 +165,12 @@
         }
       }
     },
-    "A real cardholder — but not that this is their first time. Offline there is no shared record of what has already been used, so two checkers who never speak cannot both refuse the same person.": {
+    "A real cardholder's signing material — but not that they are here, and not that this is their first time. Offline there is no shared record of what has already been used, so two checkers who never speak cannot both refuse the same person.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "證明得了「是真的持卡人」，證明不了「這是他第一次」。離線的時候沒有一份共用的紀錄可以查誰用過，所以兩個彼此不通訊的查驗方，沒辦法一起擋下同一個人。"
+            "value": "一位真實持卡人的簽章材料——但不代表他人在現場，也不代表這是第一次。離線時沒有共用的已用紀錄，兩個彼此不通訊的查驗方無法一起擋下同一個人。"
           }
         }
       }
@@ -1380,6 +1380,16 @@
         }
       }
     },
+    "In this version": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這個版本裡"
+          }
+        }
+      }
+    },
     "Includes your ID number and home address. Check who can see your screen.": {
       "localizations": {
         "zh-Hant": {
@@ -1436,6 +1446,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "它不帶身分證統一編號，因為那張憑證裡本來就沒有。"
+          }
+        }
+      }
+    },
+    "It carries your national ID number, but that is a field you can switch off each time you show it — switched off, the checker sees only a commitment they cannot open.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它帶著你的身分證統一編號，但那是一個你每次出示都可以關掉的欄位；關掉之後查驗方只會看到一個打不開的承諾。"
           }
         }
       }
@@ -2089,12 +2109,12 @@
         }
       }
     },
-    "Only the fields you switch on, the same way as your own document.": {
+    "Only the fields you switch on.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "只有你打開的那些欄位，跟你自己那份文件一樣。"
+            "value": "只有你打開的那些欄位。"
           }
         }
       }
@@ -3072,6 +3092,26 @@
         }
       }
     },
+    "That some holder of a certificate issued by MOICA-G3 supplied the signing material for this proof. Not that it was you, and not that it was made just now — the signing material never expires, so anybody who has ever held it can make this same proof without you.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某位 MOICA-G3 所發憑證的持有人，提供了這份證明所用的簽章材料。不代表那是你，也不代表是剛剛做的——簽章材料不會過期，任何拿過一次的人都能在你不在場時做出同一份證明。"
+          }
+        }
+      }
+    },
+    "That somebody's real national ID certificate signed this, without revealing which one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有一張真的自然人憑證簽了這份證明，而不透露是哪一張。"
+          }
+        }
+      }
+    },
     "That the Ministry of the Interior's certificate signed these fields — checkable with no network at all.": {
       "localizations": {
         "zh-Hant": {
@@ -3098,6 +3138,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這支手機上找不到行動自然人憑證 App"
+          }
+        }
+      }
+    },
+    "The caveats under each answer are the list the proof code itself carries, and whether a path exists at all is read from the same build switch the rest of the app reads. The wording of each answer is written by hand — it is this project's own account of its design, not a measurement.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每個答案底下的但書，就是證明程式自己帶著的那份清單；某條路徑這個版本有沒有，也是讀跟 App 其他地方同一個編譯開關。至於每個答案怎麼措辭，是人寫的——那是這個專案對自己設計的說法，不是量出來的。"
           }
         }
       }
@@ -3842,17 +3892,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "可用空間不足，無法準備驗證檔案。"
-          }
-        }
-      }
-    },
-    "These answers come from the same table the rest of the app reads, so a screen cannot say more here than the code will do elsewhere.": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這些答案來自 App 其他地方讀的同一張表，所以這個畫面說不出比程式碼實際做得到的更多。"
           }
         }
       }
@@ -4972,6 +5011,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這個版本還不能簽署證件。簽署要經過 bonds-tw 的服務，而這個版本連不上它。"
+          }
+        }
+      }
+    },
+    "This version has no way to collect or show this card. What it describes is the card as the government issues it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本沒有領取或出示這張卡的功能。上面寫的是政府發出來的那張卡本身。"
           }
         }
       }

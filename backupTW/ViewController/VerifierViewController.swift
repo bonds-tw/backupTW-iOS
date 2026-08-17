@@ -1284,13 +1284,36 @@ enum PresentationUI {
     /// truncates, and the group renders every message it is given in the order
     /// it is given. What it buys is that eight visually identical pills become
     /// three titled paragraphs a person can navigate.
-    static func caveatGroup(subtitle: String, messages: [String]) -> UIView {
+    /// The ground a group sits on when it is **inside** another card.
+    ///
+    /// # Why this exists
+    ///
+    /// `caveatGroup` and `card` paint `.secondarySystemGroupedBackground`, which
+    /// is the right colour for their thirteen original call sites: every one of
+    /// them is added to a screen-level stack on `.systemGroupedBackground`, so
+    /// the box is a visible white panel on grey.
+    ///
+    /// The capability page reused them one level deeper — inside a comparison
+    /// card that is *itself* `.secondarySystemGroupedBackground`. Same colour on
+    /// same colour is 1.00:1, so the rounded boxes vanished, and the only thing
+    /// left separating 「what a checker can rely on」 from 「what it cannot
+    /// establish」 was a 12pt 3.44:1 grey subtitle above two lists of identical
+    /// black text. Read without that grey line, 「it carries a number unique to
+    /// this card that every checker sees」 reads as a feature.
+    static let nestedGroupBackground = UIColor.tertiarySystemGroupedBackground
+
+    /// - Parameter nested: true when this group is added inside another card
+    ///   rather than onto a screen-level stack. It takes a third-level ground so
+    ///   the box is visible, and promotes the subtitle to `.label` — on a page
+    ///   where the subtitle is the only thing saying which of two equally black
+    ///   lists is the negative one, that subtitle is not category furniture.
+    static func caveatGroup(subtitle: String, messages: [String], nested: Bool = false) -> UIView {
         let stack = UIStackView()
         stack.axis = .vertical
         stack.spacing = 8
         stack.isLayoutMarginsRelativeArrangement = true
         stack.layoutMargins = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
-        stack.backgroundColor = .secondarySystemGroupedBackground
+        stack.backgroundColor = nested ? nestedGroupBackground : .secondarySystemGroupedBackground
         stack.layer.cornerRadius = 12
 
         let title = UILabel()
@@ -1299,7 +1322,7 @@ enum PresentationUI {
         title.font = UIFontMetrics(forTextStyle: .caption1)
             .scaledFont(for: .systemFont(ofSize: 12, weight: .semibold))
         title.adjustsFontForContentSizeCategory = true
-        title.textColor = .secondaryLabel
+        title.textColor = nested ? .label : .secondaryLabel
         stack.addArrangedSubview(title)
 
         for message in messages {
@@ -1326,13 +1349,16 @@ enum PresentationUI {
         return stack
     }
 
-    static func card(title: String? = nil, body: String) -> UIView {
+    /// - Parameter nested: see `caveatGroup(subtitle:messages:nested:)`. The
+    ///   title here stays `.secondaryLabel` either way — unlike the caveat
+    ///   group's, it labels one box rather than distinguishing two.
+    static func card(title: String? = nil, body: String, nested: Bool = false) -> UIView {
         let stack = UIStackView()
         stack.axis = .vertical
         stack.spacing = 4
         stack.isLayoutMarginsRelativeArrangement = true
         stack.layoutMargins = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
-        stack.backgroundColor = .secondarySystemGroupedBackground
+        stack.backgroundColor = nested ? nestedGroupBackground : .secondarySystemGroupedBackground
         stack.layer.cornerRadius = 12
 
         if let title {
