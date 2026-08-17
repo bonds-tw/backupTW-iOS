@@ -1281,6 +1281,125 @@ struct OfflineVerifierNetworkTests {
     /// Located from this test file rather than from the bundle: the source is not
     /// a build product, so there is nowhere else to get it. A moved or renamed
     /// file throws here instead of quietly reporting a pass over an empty string.
+    /// # The same question, asked of every file instead of one
+    ///
+    /// `theVerifierSourceNamesNoNetworkingAPI` reads one hard-coded path, so it
+    /// silently skips **every file written after it** — and `NetworkCanary`
+    /// cannot cover the gap, because a `URLProtocol` only sees sessions that
+    /// registered it and all four of this app's real network call sites build
+    /// their own `URLSessionConfiguration`. Source scanning is the only
+    /// mechanism that actually holds.
+    ///
+    /// So this walks `backupTW/` and requires every file that can open a socket
+    /// to be on a list somebody wrote down. The list is **matched by exact
+    /// path**, not by substring: `contains("CircuitAssets")` would also permit a
+    /// future `CircuitAssetsPrefetcher.swift` that nobody agreed to.
+    ///
+    /// Adding a file here is meant to be uncomfortable. This app's claim is that
+    /// checking somebody's document reaches nothing, and each new entry is one
+    /// more place that claim depends on a reviewer having been careful.
+    @Test func onlyTheNamedFilesCanReachTheNetwork() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("backupTW")
+
+        let mayOpenASocket: Set<String> = [
+            // Downloads ~2 GB of circuit material, on an explicit tap.
+            "ZK/CircuitAssets.swift",
+            // Builds the signer that talks to TW FidO.
+            "ZK/ZKProofRunWiring.swift",
+            // The TW FidO client itself.
+            "TWFidO/TWFidOClient.swift",
+            // Issuance: the MyData round trip.
+            "Model/CredentialIssuance.swift",
+            // The MyData web view. A browser is a network client by definition.
+            "ViewController/MyDataWebViewController.swift",
+        ]
+
+        // The same list as the single-file test, plus `import Network`. Not
+        // exhaustive — it cannot be — but it is what somebody reaches for while
+        // adding "just one check".
+        let symbols = ["URLSession", "URLRequest", "NSURLConnection", "NWConnection",
+                       "NWPathMonitor", "CFStream", "CFSocket", "getaddrinfo",
+                       "dataTask", "downloadTask", "WKWebView", "import Network"]
+
+        let enumerator = FileManager.default.enumerator(at: root,
+                                                        includingPropertiesForKeys: nil)
+        var scanned = 0
+        var offenders: [String] = []
+        while let url = enumerator?.nextObject() as? URL {
+            guard url.pathExtension == "swift" else { continue }
+            let relative = url.path.replacingOccurrences(of: root.path + "/", with: "")
+            guard !mayOpenASocket.contains(relative) else { continue }
+            scanned += 1
+            let source = Self.codeOnly(String(decoding: try Data(contentsOf: url), as: UTF8.self))
+            if let found = symbols.first(where: { source.contains($0) }) {
+                offenders.append("\(relative) mentions \(found)")
+            }
+        }
+
+        // Without this the test passes loudly while walking an empty directory,
+        // which is exactly how a path-based check dies.
+        #expect(scanned > 40, "only \(scanned) files scanned — the walk is not finding the source")
+        #expect(offenders.isEmpty,
+                "files reached the network without being on the list:\n\(offenders.joined(separator: "\n"))")
+    }
+
+    /// Every entry on the allowlist must still exist.
+    ///
+    /// A renamed file would leave a stale entry that permits nothing and hides
+    /// nothing — harmless — but it would also mean the *new* name is being
+    /// scanned, which is the good outcome arrived at by luck. Better to be told.
+    @Test func theAllowlistHasNoStaleEntries() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("backupTW")
+        for relative in ["ZK/CircuitAssets.swift", "ZK/ZKProofRunWiring.swift",
+                         "TWFidO/TWFidOClient.swift", "Model/CredentialIssuance.swift",
+                         "ViewController/MyDataWebViewController.swift"] {
+            #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent(relative).path),
+                    "the allowlist names \(relative), which no longer exists")
+        }
+    }
+
+    /// Strips comments, because prose about an API is not a use of it.
+    ///
+    /// The first run of this scan failed on `ZKProofViewController.swift`, which
+    /// mentions `URLSession` **in a doc comment** explaining what
+    /// `TWFidOClient` does with one. The file opens no sockets.
+    ///
+    /// This is the third time in this project a check has been broken by text
+    /// describing it — the Worker's 「exactly one `.bind('citizen')`」 invariant
+    /// did it twice, both times because the sentence asserting the property
+    /// contained the string the property was about. The lesson each time is the
+    /// same: **a check that reads source has to read code, or it forbids
+    /// explaining itself.** A codebase whose comments carry the reasoning would
+    /// be forced to stop carrying it.
+    ///
+    /// Whole-line comments only, which is what this codebase writes. A trailing
+    /// comment on a line of code still trips the scan, and that is the right way
+    /// round for a canary: a false positive costs a sentence being reworded, a
+    /// false negative costs the property this app is built on.
+    private static func codeOnly(_ source: String) -> String {
+        var kept: [Substring] = []
+        var inBlockComment = false
+        for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if inBlockComment {
+                if trimmed.contains("*/") { inBlockComment = false }
+                continue
+            }
+            if trimmed.hasPrefix("/*") {
+                if !trimmed.contains("*/") { inBlockComment = true }
+                continue
+            }
+            if trimmed.hasPrefix("//") || trimmed.hasPrefix("*") { continue }
+            kept.append(line)
+        }
+        return kept.joined(separator: "\n")
+    }
+
     private static func verifierSource() throws -> String {
         let url = URL(fileURLWithPath: #filePath)   // …/backupTWTests/OfflineVerifierTests.swift
             .deletingLastPathComponent()             // …/backupTWTests
