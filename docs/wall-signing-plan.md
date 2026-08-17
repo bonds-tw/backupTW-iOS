@@ -677,7 +677,45 @@ static var canRequestSignature: Bool {
 
 ---
 
+## 七之〇、其中四條已經結案（2026-08-17／18）
+
+**1（主機名）→ `https://bonds.tw/api/wall`。** 授權下來之後才發現**權限本身把答案
+決定了**：token 只有 `zone (read)`，建不了 DNS 記錄，而 Workers 自訂網域要的正是
+那筆寫入。路徑 route 只要 `workers_routes (write)`，有。
+
+而路徑其實是更好的選擇，理由跟 DNS 無關：**這個字串會被編進一個要送到手機上的二
+進位檔**。`bonds-wall.gimmychang.workers.dev` 是某個人帳號的子網域——帳號改名，每
+一份已安裝的 App 就永久失去這面牆，而且沒有辦法推修正給一支不更新的手機。
+
+⚠️ 加 route 的第一次部署**把 live wall 弄掛了約三分鐘**：`routes` 會把 workers.dev
+子網域預設關掉，而網站前端正寫死指向它。實測，不是推論。詳見 `MOVING.md`。
+
+**2（路徑名）→ base 是 `https://bonds.tw/api/wall`，其下 `challenge`／`sign-zk`。**
+dispatcher 同時接受 `/api/wall` 前綴與裸路徑，因為換手期間兩種 client 都存在。
+
+**3（分鐘時間戳）→ 保留，並且升格成「立場」。** 所以它必須寫在它影響的人看得到的
+地方——按鈕旁邊，不是設計文件裡。牆上原本只寫「只留下徽章類型與時間」，現在明講
+「到分鐘為止，寫進去的時候就截掉」，並加一句說清楚殘留風險。中英兩版同步。
+
+**6（`go.mod` / `go.sum`）→ 建好了**，pin 在上游 commit `4bd1fdb`。⚠️ 在 Mac 上
+`go build` 會停在連結階段（`ld: library 'zk_verifier' not found`），那是預期的，也
+是 Dockerfile 開頭就寫著「用 Cloud Build，不要在 Mac 上建」的原因；編譯本身乾淨。
+
+**4（`IssuerCert`）→ 部分結案。** 它不再是 `nil`：`main.go` 現在從
+`issuercert.NewProvider`（`LoadEmbedded`）建信任庫，**沒有它就不准啟動**。原本的
+`nil` 不是「用預設值」——`linkverify.Verify:99` 是 `if v.IssuerCert != nil`，nil 會
+把 `checkIssuerModulus` 整段跳過，而 `/healthz` 同時宣稱它檢查了 issuer_modulus。
+`/healthz` 的清單現在從實際跑著的 verifier 推導。
+
+**但 `WallDisclosure.issuerNotCheckedByTheWall` 仍然無條件納入**，而且那是刻意的：
+App 的文案是編譯期常數、走 App Store 送審週期，verifier 的組態是維運者幾分鐘就能
+改的 runtime 事實。把前者綁在後者上，兩邊都會在某些時刻是錯的。
+
+---
+
 ## 七、還決定不了、需要你拍板的
+
+（下列為仍未結案的三條。原本七條的 1／2／3／6 見上。）
 
 1. **牆的正式主機名。** 這是最硬的一個：`wall.bonds.tw` 不存在（`dig` 無回應、`wrangler.jsonc` 沒有 `routes`/`custom_domain`、`MOVING.md` 明寫「⚠️ 尚未做……那是動到 live 網域的 DNS，沒有先問就不做」）。今天存在的只有 `https://bonds-wall.gimmychang.workers.dev`——那個名字裡有帳號擁有者的本名，會出現在每一支 App 的每一次網路請求裡。**在拍板之前不編任何 production 值。** App Store 的二進位檔不像 Worker，改不了。
 2. **兩條路徑的名字。** `/wall/challenge` 與 `/wall/sign-zk` 是我方單方面的提案，bond-website 裡不存在任何相關字串（`/wall/sign` 已被開放徽章佔走）。這要在出貨的那個 build 之前談定。
