@@ -247,3 +247,67 @@ struct WallResponseReaderTests {
         #expect(!failure.canPromiseNothingWasPublished)
     }
 }
+
+struct WallSignPlanTests {
+
+    /// The ordering decision that matters most.
+    ///
+    /// The download can take an hour; the challenge lives thirty minutes.
+    /// Fetching the number first would guarantee that a first-time signer on a
+    /// slow connection watches it die — and pays for the next one with another
+    /// 身分證統一編號 disclosure to 內政部.
+    @Test func theBigDownloadHappensBeforeAnyClockStarts() {
+        #expect(WallSignPlan.filesBeforeClock)
+        let order = WallSignStage.allCases
+        let files = order.firstIndex(of: .files)
+        let challenge = order.firstIndex(of: .challenge)
+        #expect(files != nil && challenge != nil && files! < challenge!)
+        // And the clock starts before anything that costs a disclosure.
+        #expect(challenge! < order.firstIndex(of: .signature)!)
+    }
+
+    /// A proof this phone refused itself never leaves it.
+    ///
+    /// Sending it would spend the challenge, and a new one costs another round
+    /// trip to 內政部. On the proof screen a failed self-check is information;
+    /// here it is a decision.
+    @Test func aProofThisPhoneRefusedIsNotSent() {
+        #expect(!WallSignPlan.maySubmit(selfCheck: .failed(message: "no", recoverable: false)))
+    }
+
+    /// Not having checked is not the same as having refused. The verifying keys
+    /// are optional, and a phone that never looked has learned nothing.
+    @Test func notHavingCheckedIsNotARefusal() {
+        #expect(WallSignPlan.maySubmit(selfCheck: .unavailable(reason: "keys not installed")))
+        #expect(WallSignPlan.maySubmit(selfCheck: .succeeded(detail: "ok")))
+    }
+
+    /// Every artifact goes, whatever happened.
+    ///
+    /// The `*_instance.bin` files carry a directly parseable nullifier —
+    /// `ZKProver`'s own words call them what somebody asking to be forgotten
+    /// would want rid of. The wall path has no export, so leaving them behind
+    /// ends a political act with a linkable handle on the device.
+    @Test func everyArtifactIncludingTheNullifierBearingOnesIsSweptUp() {
+        let swept = Set(WallSignPlan.artifactsToDeleteAfterwards)
+        for name in ZKProver.proofFilenames + ZKProver.instanceFilenames {
+            #expect(swept.contains(name), "\(name) is left on disk after signing")
+        }
+        #expect(swept.contains { $0.contains("instance") },
+                "the nullifier-bearing files are not swept")
+    }
+
+    /// Total mapping, so a new `ZKRunStage` fails to compile rather than landing
+    /// silently in a bucket somebody has to notice on screen.
+    @Test(arguments: ZKRunStage.allCases)
+    func everyProofStageHasAWallStage(_ stage: ZKRunStage) {
+        _ = WallSignPlan.stage(for: stage)
+    }
+
+    /// Two attempts, not a loop. A wall handing out short-lived tokens twice
+    /// running is misconfigured, and each attempt is a request with somebody's
+    /// address attached.
+    @Test func challengesAreNotRetriedIndefinitely() {
+        #expect(WallSignPlan.challengeAttempts == 2)
+    }
+}
