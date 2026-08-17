@@ -1315,6 +1315,15 @@ struct OfflineVerifierNetworkTests {
             "Model/CredentialIssuance.swift",
             // The MyData web view. A browser is a network client by definition.
             "ViewController/MyDataWebViewController.swift",
+            // The Lennon Wall. **The first entry added after this list existed,
+            // and the first one that publishes rather than fetches** — every
+            // other line here downloads something the holder asked for; this one
+            // puts a signature on a public page.
+            //
+            // It earned its place the intended way: the scan failed on the
+            // commit that introduced the file, and adding it was a deliberate
+            // act rather than something that slipped in behind a green suite.
+            "Wall/WallConfiguration.swift",
         ]
 
         // The same list as the single-file test, plus `import Network`. Not
@@ -1357,7 +1366,8 @@ struct OfflineVerifierNetworkTests {
             .appendingPathComponent("backupTW")
         for relative in ["ZK/CircuitAssets.swift", "ZK/ZKProofRunWiring.swift",
                          "TWFidO/TWFidOClient.swift", "Model/CredentialIssuance.swift",
-                         "ViewController/MyDataWebViewController.swift"] {
+                         "ViewController/MyDataWebViewController.swift",
+                         "Wall/WallConfiguration.swift"] {
             #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent(relative).path),
                     "the allowlist names \(relative), which no longer exists")
         }

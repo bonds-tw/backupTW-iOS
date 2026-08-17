@@ -24,7 +24,7 @@
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>出示證件時，可以改用藍牙把證件直接傳給查驗方，不必舉著螢幕讓對方掃十幾張條碼。藍牙只在你按下出示、且對方的條碼指定了這次連線時才開啟，用完就關閉；全程不連任何伺服器，也不會保留對方的裝置資訊。</string>
 	<key>NSCameraUsageDescription</key>
-	<string>需要相機才能掃描查驗用的 QR Code：出示證件時掃描查驗者的條碼，查驗他人證件時掃描對方的條碼。全程離線比對，不會拍照、不會錄影，也不會將任何影像或資料上傳。</string>
+	<string>需要相機才能掃描查驗用的 QR Code：出示證件時掃描查驗者的條碼，查驗他人證件時掃描對方的條碼。全程離線比對，不會拍照、不會錄影，也不會將任何影像上傳。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
