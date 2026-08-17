@@ -442,6 +442,16 @@
         }
       }
     },
+    "Bluetooth sending has stopped.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "藍牙傳送已經停止。"
+          }
+        }
+      }
+    },
     "Bluetooth was offered but this document could not be prepared for it.": {
       "localizations": {
         "zh-Hant": {

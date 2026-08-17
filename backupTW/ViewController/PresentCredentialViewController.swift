@@ -87,6 +87,32 @@ final class PresentCredentialViewController: UIViewController {
     /// rather than the QR frames of it — the two transports carry the same
     /// bytes, framed for different media.
     private var presentationPayload: Data?
+
+    /// The service identifier the checker offered, kept past the frame render.
+    ///
+    /// # Why the peripheral needed an address it could come back to
+    ///
+    /// The radio was only ever started inside `renderFrames`, and `render()` has
+    /// four call sites, none of them on the appearance path. So a back gesture
+    /// begun and released — the exact grip this screen is held in, one hand, arm
+    /// extended, in front of somebody else's camera — ran `viewWillDisappear`
+    /// then `viewWillAppear`: the carousel restarted from frame 0 and the
+    /// brightness came back, while `CBPeripheralManager` had been released and
+    /// **was never rebuilt**.
+    ///
+    /// `BluetoothLink.stop()` posts no state, so `linkLabel` froze on whatever it
+    /// last said — 「已可透過藍牙被搜尋到…」 or 「透過藍牙傳送… N%」. The holder was
+    /// told the transfer was still going. The checker, if already connected, was
+    /// told it ended early; if not yet connected, `didDisconnectPeripheral` says
+    /// nothing at all because `collector.progress` is nil, so they scanned a
+    /// silent screen to the end.
+    ///
+    /// This screen's own comment lists what a cancelled back gesture breaks —
+    /// frozen codes, a stale 「第 2／3 張」, a waiting collector. The radio was not
+    /// on that list. Now its lifetime is the same `.startShowing`/`.stopShowing`
+    /// pair as the brightness and the carousel, which is what the comment on
+    /// `stopLink()` already said the wanted lifetime was.
+    private var linkServiceID: UUID?
     /// One place for the carousel pace. The cycle-time sentence above and the
     /// timer below must never quote two different speeds.
     private static let frameInterval: TimeInterval = 0.55
@@ -182,6 +208,9 @@ final class PresentCredentialViewController: UIViewController {
             // preference the holder could have set differently.
             wakeLock.hold()
             startCarousel()
+            // Third, and for the same reason as the other two: this runs on
+            // every appearance, including the one after a cancelled swipe.
+            startLinkIfPossible()
         case .stopShowing:
             stopCarousel()
             stopLink()
@@ -656,7 +685,8 @@ final class PresentCredentialViewController: UIViewController {
             contentStack.addArrangedSubview(linkLabel)
         }
 
-        if let serviceID = request.linkServiceID, let payload = presentationPayload, link == nil {
+        if let serviceID = request.linkServiceID, presentationPayload != nil {
+            linkServiceID = serviceID
             linkLabel.numberOfLines = 0
             linkLabel.textAlignment = .center
             linkLabel.font = .preferredFont(forTextStyle: .subheadline)
@@ -664,12 +694,7 @@ final class PresentCredentialViewController: UIViewController {
             linkLabel.textColor = .secondaryLabel
             linkLabel.text = NSLocalizedString("Also sending this over Bluetooth, so the checker does not have to scan every code.", comment: "")
             contentStack.addArrangedSubview(linkLabel)
-
-            let link = BluetoothLinkPeripheral(payload: payload, serviceID: serviceID) { [weak self] state in
-                self?.showLink(state)
-            }
-            self.link = link
-            link.start()
+            startLinkIfPossible()
         }
 
         contentStack.addArrangedSubview(PresentationUI.body(
@@ -1067,8 +1092,50 @@ final class PresentCredentialViewController: UIViewController {
     /// object is releasing the radio. The lifetime that was wanted is the
     /// screen's, and that is `.stopShowing`.
     private func stopLink() {
+        let wasRunning = link != nil
         link?.stop()
         link = nil
+        // `BluetoothLink.stop()` posts no state, so without this the label keeps
+        // whatever it last said — including 「sending over Bluetooth… 63%」 for a
+        // transfer whose radio no longer exists. The holder must not be told a
+        // transfer is in progress when there is none.
+        if wasRunning {
+            linkLabel.text = NSLocalizedString("Bluetooth sending has stopped.", comment: "")
+        }
+    }
+
+    /// Starts the radio if there is something to send and somewhere to send it.
+    ///
+    /// Idempotent on `link == nil`, so `.startShowing` firing on an appearance
+    /// where the radio is already up costs nothing — and the frame render and
+    /// the lifecycle can both call it without either having to know about the
+    /// other.
+    // MARK: - Seams for the radio's lifetime
+    //
+    // Narrow, and deliberately below the real path: reaching the frames for real
+    // needs a stored credential, a Keychain round trip and a Secure Enclave
+    // signature, none of which say anything about whether a cancelled back
+    // gesture leaves the radio dead.
+
+    /// Stands in for the frame render having happened.
+    func prepareLinkForReview(serviceID: UUID, payload: Data) {
+        linkServiceID = serviceID
+        presentationPayload = payload
+    }
+
+    var radioIsAdvertisingForReview: Bool { link != nil }
+
+    var linkLineForReview: String? { linkLabel.text }
+
+    func applyForReview(_ effect: PresentationScreenLifecycle.Effect) { apply(effect) }
+
+    private func startLinkIfPossible() {
+        guard link == nil, let serviceID = linkServiceID, let payload = presentationPayload else { return }
+        let link = BluetoothLinkPeripheral(payload: payload, serviceID: serviceID) { [weak self] state in
+            self?.showLink(state)
+        }
+        self.link = link
+        link.start()
     }
 }
 

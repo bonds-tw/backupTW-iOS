@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+import UIKit
 @testable import backupTW
 
 /// When the holder's codes rotate, and when the screen is turned up.
@@ -248,5 +249,83 @@ struct ScreenBrightnessBoostTests {
         boost.restore()
 
         #expect(panel.level == 0.9)
+    }
+}
+
+/// The radio has the same lifetime as the screen, and a cancelled back gesture
+/// is where that stopped being true.
+///
+/// # What the enum test could not see
+///
+/// `restartsOnEveryReturn` above asserts the effects — `.stopShowing` then
+/// `.startShowing`, five times over — and it has always been green. The radio
+/// was not built by either effect: `BluetoothLinkPeripheral` was created inside
+/// `renderFrames`, and `render()` has four call sites, none on the appearance
+/// path. So the effects were right and the peripheral was gone.
+///
+/// The grip this screen is held in — one hand, arm extended, in front of
+/// somebody else's camera — is the grip that brushes the left edge. Begun and
+/// released, that is `viewWillDisappear` then `viewWillAppear`: the carousel
+/// restarted from frame 0, the brightness came back, and the radio did not.
+/// `BluetoothLink.stop()` posts no state, so the holder's screen still read
+/// 「sending over Bluetooth… 63%」.
+@MainActor
+struct PresentationRadioLifetimeTests {
+
+    private static func onScreen() -> (PresentCredentialViewController, UIWindow) {
+        let controller = PresentCredentialViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = UINavigationController(rootViewController: controller)
+        window.isHidden = false
+        controller.loadViewIfNeeded()
+        return (controller, window)
+    }
+
+    @Test func aCancelledBackGestureDoesNotLeaveTheRadioDead() {
+        let (controller, window) = Self.onScreen()
+        defer { window.isHidden = true }
+        controller.prepareLinkForReview(serviceID: UUID(), payload: Data("presentation".utf8))
+
+        controller.applyForReview(.startShowing)
+        #expect(controller.radioIsAdvertisingForReview)
+
+        // The brush.
+        controller.applyForReview(.stopShowing)
+        #expect(!controller.radioIsAdvertisingForReview)
+
+        // The release. The carousel and the brightness always came back here.
+        controller.applyForReview(.startShowing)
+        #expect(controller.radioIsAdvertisingForReview,
+                "the carousel restarted and the radio did not — this is the screen held at arm's length")
+    }
+
+    /// And while it is down, the screen must not claim a transfer is running.
+    @Test func aStoppedRadioDoesNotLeaveASendingLineOnScreen() {
+        let (controller, window) = Self.onScreen()
+        defer { window.isHidden = true }
+        controller.prepareLinkForReview(serviceID: UUID(), payload: Data("presentation".utf8))
+
+        controller.applyForReview(.startShowing)
+        controller.applyForReview(.stopShowing)
+
+        let line = controller.linkLineForReview ?? ""
+        for progress in ["%", "Sending over Bluetooth", "透過藍牙傳送", "Discoverable", "已可透過藍牙被搜尋到"] {
+            #expect(!line.contains(progress),
+                    "the radio is off and the screen still says: \(line)")
+        }
+    }
+
+    /// Starting twice does not build two radios.
+    @Test func startingAgainWhileAlreadyAdvertisingIsFree() {
+        let (controller, window) = Self.onScreen()
+        defer { window.isHidden = true }
+        controller.prepareLinkForReview(serviceID: UUID(), payload: Data("presentation".utf8))
+
+        controller.applyForReview(.startShowing)
+        controller.applyForReview(.startShowing)
+        #expect(controller.radioIsAdvertisingForReview)
+        controller.applyForReview(.stopShowing)
+        #expect(!controller.radioIsAdvertisingForReview,
+                "one stop left a second peripheral advertising")
     }
 }
