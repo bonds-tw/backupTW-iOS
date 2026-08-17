@@ -4825,12 +4825,32 @@
         }
       }
     },
+    "This proof passed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明通過了"
+          }
+        }
+      }
+    },
     "This proof was made by a newer version of the app. Update this app, then check it again.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "這份證明是較新版本的 App 產生的。請先更新這個 App，再查驗一次。"
+          }
+        }
+      }
+    },
+    "This proof was refused": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明被拒絕"
           }
         }
       }
@@ -4882,6 +4902,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這個版本無法建立證件"
+          }
+        }
+      }
+    },
+    "This version cannot create a document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法建立證件。"
           }
         }
       }

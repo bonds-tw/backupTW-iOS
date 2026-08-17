@@ -288,3 +288,48 @@ struct PrivacyShieldTests {
         return (0 ..< width).map { pixels[y * width + $0] }
     }
 }
+
+/// The gate that stands between a release build and somebody's ID number.
+///
+/// # Why this asserts a property and not a mechanism
+///
+/// The defect it replaces was copy and behaviour disagreeing: the cover said
+/// 「因此不會去抓」 and the Continue button fetched anyway. Each half looked
+/// reasonable on its own, and a test pinned to either half would have passed.
+///
+/// So the assertion is the property: **when this build cannot sign, no enabled
+/// control on that screen may reach the MyData flow.** That survives somebody
+/// rewording the copy, moving the button, or adding a second entry point.
+struct MyDataGateTests {
+
+    @MainActor
+    @Test func aBuildThatCannotSignOffersNoWayIntoMyData() {
+        let screen = MyDataOnboardViewController()
+        screen.loadViewIfNeeded()
+
+        let proceed = screen.navigationItem.rightBarButtonItem
+        #expect(proceed != nil, "the screen has no Continue control at all — has it moved?")
+
+        if CredentialIssuanceAssembly.isAvailable {
+            // DEBUG: the flow is real and the button must work.
+            #expect(proceed?.isEnabled == true)
+        } else {
+            // Release: the cover promises nothing is fetched. Nothing may fetch.
+            #expect(proceed?.isEnabled == false,
+                    "the cover says nothing will be fetched and the button still fetches")
+        }
+    }
+
+    /// The two halves must agree, whichever way the build is configured.
+    ///
+    /// Not "the copy mentions the limit" — that is the half that was already
+    /// true when the defect existed. This checks the *pair*.
+    @MainActor
+    @Test func theCoverAndTheButtonAgree() {
+        let screen = MyDataOnboardViewController()
+        screen.loadViewIfNeeded()
+        let enabled = screen.navigationItem.rightBarButtonItem?.isEnabled ?? false
+        #expect(enabled == CredentialIssuanceAssembly.isAvailable,
+                "the button's state and the build's actual ability disagree")
+    }
+}

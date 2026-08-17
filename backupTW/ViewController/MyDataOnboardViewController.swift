@@ -78,7 +78,25 @@ class MyDataOnboardViewController: UICollectionViewController {
         title = NSLocalizedString("Valid Document", comment: "")
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: NSLocalizedString("Continue", comment: ""), style: .done, target: self, action: #selector(nextAction))
+        // # The button obeys the same fact the cover states
+        //
+        // The cover says 「因此不會去抓」 when this build cannot sign. That
+        // sentence was added and **the button was not**, so pressing Continue
+        // walked the person through the entire MyData flow — a full household
+        // record downloaded, their 身分證統一編號 typed into a decryption prompt,
+        // five identity fields on screen — before `issueCredential` reached
+        // `CredentialIssuanceAssembly.make()` and gave up. Identity data spent,
+        // nothing kept: the only `save` sits *after* `issue(...)`, which a
+        // release build never reaches.
+        //
+        // The same commit got this right one screen over
+        // (`ZKProofViewController` returns a row with `isEnabled: false`), so
+        // this was an asymmetry inside one change rather than a policy. Copy and
+        // behaviour each looked reasonable alone, which is exactly the shape.
+        let proceed = UIBarButtonItem(title: NSLocalizedString("Continue", comment: ""),
+                                      style: .done, target: self, action: #selector(nextAction))
+        proceed.isEnabled = CredentialIssuanceAssembly.isAvailable
+        navigationItem.rightBarButtonItem = proceed
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
         collectionView.allowsSelection = false
 
@@ -149,6 +167,12 @@ class MyDataOnboardViewController: UICollectionViewController {
     }
 
     @objc private func nextAction() {
+        // Belt as well as braces. The disabled button is what a person sees; this
+        // is what holds if some future path invokes the action another way —
+        // a keyboard shortcut, a restored state, a test. The thing being
+        // guarded is somebody's national ID number, so it is guarded twice.
+        guard CredentialIssuanceAssembly.isAvailable else { return }
+
         if isMobileMoicaReady {
             let vc = MyDataWebViewController(completion: { [weak self] nationalIDModel in
                 guard let self else { return }

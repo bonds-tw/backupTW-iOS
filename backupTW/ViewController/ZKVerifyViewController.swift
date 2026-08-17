@@ -96,6 +96,9 @@ final class ZKVerifyViewController: UIViewController {
     /// silently does nothing.
     private var engagement: ZKLinkEngagement?
 
+    /// Holds the verdict card. See `show(status:detail:caveats:verdict:)`.
+    private let verdictContainer = UIStackView()
+
     /// Holds the caveat group. Empty and hidden until there is a verdict, so
     /// the waiting screen does not carry a heading with nothing under it.
     private let caveatContainer = UIStackView()
@@ -207,6 +210,11 @@ final class ZKVerifyViewController: UIViewController {
         linkLabel.textColor = .secondaryLabel
         linkLabel.accessibilityIdentifier = "zkverify.link"
 
+        verdictContainer.axis = .vertical
+        verdictContainer.spacing = 12
+        verdictContainer.isHidden = true
+        verdictContainer.accessibilityIdentifier = "zkverify.verdict"
+
         caveatContainer.axis = .vertical
         caveatContainer.spacing = 12
         caveatContainer.isHidden = true
@@ -215,7 +223,8 @@ final class ZKVerifyViewController: UIViewController {
         view.addSubview(scroll)
         scroll.addSubview(stack)
         [codeContainer, codeCaptionLabel, linkLabel,
-         chooseButton, spinner, statusLabel, detailLabel, caveatContainer].forEach(stack.addArrangedSubview)
+         chooseButton, spinner, verdictContainer, statusLabel, detailLabel,
+         caveatContainer].forEach(stack.addArrangedSubview)
         stack.setCustomSpacing(8, after: codeContainer)
 
         NSLayoutConstraint.activate([
@@ -248,11 +257,37 @@ final class ZKVerifyViewController: UIViewController {
     private func show(status: String, detail: String, caveats: [String] = [], verdict: Bool?) {
         statusLabel.text = status
         detailLabel.text = detail
-        switch verdict {
-        case .some(true): statusLabel.textColor = .systemGreen
-        case .some(false): statusLabel.textColor = .systemOrange
-        case .none: statusLabel.textColor = .label
-        }
+        // The status line stays `.label`, always.
+        //
+        // # Two defects, one cause: coloured text on a grouped background
+        //
+        // These three lines used to set `.systemGreen` / `.systemOrange` here.
+        // Measured on the grouped background: **1.99:1 for green, 1.97:1 for
+        // orange, and 1.01:1 against each other** — the same luminance. Only
+        // light mode is broken, which is to say only a counter in daylight.
+        //
+        // Worse than the contrast: **orange meant "refused" on this screen and
+        // "not a judgement about anybody" everywhere else in this app.** The
+        // credential path spends a red ⛔️ on a real refusal and reserves orange
+        // for 「沒有東西被查驗」, under a comment saying a state that is not bad
+        // must not be drawn as a bad state. The home screen uses orange for an
+        // expired card because a date is nobody's fault. So a 里長 who had just
+        // learned red-means-refused, orange-means-my-phone-has-nothing would
+        // read a refused proof as "this device could not answer" — which is a
+        // *different state that exists on this very screen*, drawn in black.
+        //
+        // That is the mirror of the first audit's `a-3`: that one drew a
+        // housekeeping state as an accusation, this one drew an accusation as
+        // housekeeping — moving the fault off the proof and onto the device,
+        // which is the flattering direction.
+        //
+        // ⚠️ The fix is a **new card beside** the status line, not a recolour of
+        // it. `statusLabel` is shared: it also carries 「尚未載入證明」,
+        // 「檢查中…」 and every `verdict: nil` error, `liftTheVerdictAboveTheFold`
+        // reorders by its object identity, and `ZKVerifyUITests` asserts on
+        // `zkverify.status`.
+        statusLabel.textColor = .label
+        renderVerdictCard(verdict)
         renderCaveats(caveats)
         if verdict != nil { liftTheVerdictAboveTheFold() }
     }
@@ -267,6 +302,30 @@ final class ZKVerifyViewController: UIViewController {
     /// one of them again. `signatureMaterialIsReplayable` and
     /// `nullifierSharedAcrossVerifiers` are among the six, and they are the two
     /// least suited to being skimmed past in a block.
+    /// The verdict, in the same three-way vocabulary as the credential path.
+    ///
+    /// The symbol goes in the **label text**, not in an image: VoiceOver reads
+    /// the text, and a verdict carried only by a coloured glyph is a verdict a
+    /// blind checker does not get.
+    private func renderVerdictCard(_ verdict: Bool?) {
+        verdictContainer.arrangedSubviews.forEach {
+            verdictContainer.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+        guard let verdict else {
+            // `nil` is 「this device could not answer」, and it stays plain. It
+            // is not a verdict, so it does not get a verdict card.
+            verdictContainer.isHidden = true
+            return
+        }
+        verdictContainer.isHidden = false
+        verdictContainer.addArrangedSubview(verdict
+            ? PresentationUI.verdict("✅", NSLocalizedString("This proof passed", comment: ""), .systemGreen)
+            // Red, matching a refused presentation. The two refusals are the
+            // same kind of answer and now look like it.
+            : PresentationUI.verdict("⛔️", NSLocalizedString("This proof was refused", comment: ""), .systemRed))
+    }
+
     private func renderCaveats(_ messages: [String]) {
         caveatContainer.arrangedSubviews.forEach {
             caveatContainer.removeArrangedSubview($0)
@@ -299,7 +358,7 @@ final class ZKVerifyViewController: UIViewController {
     /// unable to accept a second proof without a round trip, and a checker at a
     /// counter checks more than one person.
     private func liftTheVerdictAboveTheFold() {
-        for (index, view) in [statusLabel, detailLabel, caveatContainer].enumerated()
+        for (index, view) in [verdictContainer, statusLabel, detailLabel, caveatContainer].enumerated()
         where stack.arrangedSubviews.contains(view) {
             stack.insertArrangedSubview(view, at: index)
         }

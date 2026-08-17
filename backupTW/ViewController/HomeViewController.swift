@@ -83,7 +83,14 @@ class HomeViewController: UICollectionViewController {
         let refresh = Item(image: UIImage(systemName: "arrow.clockwise")?
                             .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
                            title: Row.backUp,
-                           secondaryText: hasOwnDocument
+                           secondaryText: !CredentialIssuanceAssembly.isAvailable
+                            // Said here as well as on the screen it opens.
+                            // Otherwise the home screen is still advertising a
+                            // capability whose own destination has just been
+                            // gated — and the row is where somebody decides to
+                            // go there at all.
+                            ? NSLocalizedString("This version cannot create a document.", comment: "")
+                            : hasOwnDocument
                             ? NSLocalizedString("Fetch it again and replace what's stored.", comment: "")
                             : NSLocalizedString("with Taiwan's official MyData service", comment: ""))
 
