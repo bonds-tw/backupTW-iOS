@@ -93,6 +93,66 @@ enum BluetoothLinkState: Equatable {
 /// One payload, one service ID, one exchange. Nothing here is reused between
 /// presentations — a peripheral that stayed up would keep broadcasting after the
 /// holder had put their phone away.
+/// What the bytes on this link are called, and what the reader of a failure
+/// should actually do about it.
+///
+/// # Why the transport stopped choosing the words
+///
+/// One sentence lived in `BluetoothLink` and was shown on both paths: 「The other
+/// phone disconnected before the whole **proof** had been sent. Ask **them** to
+/// scan the code again.」 Both halves were wrong on one path each.
+///
+/// **The noun.** The credential screen sends a document, not a proof; the same
+/// object's prepare-failure sentence made the opposite mistake, calling a proof
+/// 「this document」 on the zero-knowledge send screen.
+///
+/// **The direction.** On the zero-knowledge path the *checker* draws the code and
+/// the *holder* scans it. So 「ask them to scan the code again」 was pointed at a
+/// person with no scanner on screen — while the checker's own screen said 「ask
+/// them to scan the code above」. Two phones, two instructions, and between them
+/// nobody was told to do anything.
+///
+/// The cleanest window for that is real: `LinkCollector.progress` is nil before
+/// the first frame and the checker's disconnect handler only speaks when it is
+/// non-nil — so a disconnect after subscribing and before frame 0 left the
+/// checker silent and the holder reading an instruction meant for the checker.
+/// It is also the step with no fallback: 400 KB is 824 QR frames, about 453
+/// seconds, and `QRTransport` refuses anything over 64 KB.
+struct LinkVocabulary: Equatable, Sendable {
+
+    /// The peripheral could not frame what it was given.
+    let couldNotPrepare: String
+    /// The peripheral's subscriber went away mid-transfer.
+    let sendInterrupted: String
+    /// The central lost the connection before everything arrived.
+    let receiveInterrupted: String
+
+    /// The credential path: the checker holds the scanner, and the QR carousel
+    /// is still turning on the holder's screen as a live fallback.
+    static let credential = LinkVocabulary(
+        couldNotPrepare: NSLocalizedString(
+            "This document could not be prepared for sending.", comment: "Bluetooth failure"),
+        sendInterrupted: NSLocalizedString(
+            "The checker's phone disconnected before the whole document had been sent. The codes on this screen are still turning — they can scan those instead.",
+            comment: "Bluetooth send failure"),
+        receiveInterrupted: NSLocalizedString(
+            "The connection ended before the whole document arrived. Their screen is still showing the codes — you can scan those instead.",
+            comment: "Bluetooth receive failure"))
+
+    /// The zero-knowledge path: the **checker** draws the pairing code and the
+    /// holder scans it, so 「scan again」 is an instruction to whoever is holding
+    /// the phone that sends.
+    static let zeroKnowledgeProof = LinkVocabulary(
+        couldNotPrepare: NSLocalizedString(
+            "This proof could not be prepared for sending.", comment: "Bluetooth failure"),
+        sendInterrupted: NSLocalizedString(
+            "The checker's phone disconnected before the whole proof had been sent. Scan the pairing code on their screen again — a proof is far too large for QR codes, so there is no other way across.",
+            comment: "Bluetooth send failure"),
+        receiveInterrupted: NSLocalizedString(
+            "The connection ended before the whole proof arrived. Ask them to scan the pairing code again.",
+            comment: "Bluetooth receive failure"))
+}
+
 final class BluetoothLinkPeripheral: NSObject {
 
     private let payload: Data
@@ -105,7 +165,11 @@ final class BluetoothLinkPeripheral: NSObject {
     private var nextFrame = 0
     private var subscriber: CBCentral?
 
-    init(payload: Data, serviceID: UUID, onState: @escaping (BluetoothLinkState) -> Void) {
+    private let vocabulary: LinkVocabulary
+
+    init(payload: Data, serviceID: UUID, vocabulary: LinkVocabulary,
+         onState: @escaping (BluetoothLinkState) -> Void) {
+        self.vocabulary = vocabulary
         self.payload = payload
         self.serviceID = CBUUID(nsuuid: serviceID)
         self.onState = onState
@@ -230,7 +294,7 @@ extension BluetoothLinkPeripheral: CBPeripheralManagerDelegate {
             onState(.transferring(fraction: 0))
             pump()
         } catch {
-            onState(.failed(reason: NSLocalizedString("This document could not be prepared for sending.", comment: "")))
+            onState(.failed(reason: vocabulary.couldNotPrepare))
         }
     }
 
@@ -254,9 +318,7 @@ extension BluetoothLinkPeripheral: CBPeripheralManagerDelegate {
         subscriber = nil
         nextFrame = 0
         if wasIncomplete {
-            onState(.failed(reason: NSLocalizedString(
-                "The other phone disconnected before the whole proof had been sent. Ask them to scan the code again.",
-                comment: "Bluetooth send failure")))
+            onState(.failed(reason: vocabulary.sendInterrupted))
         }
     }
 
@@ -283,7 +345,7 @@ final class BluetoothLinkCentral: NSObject {
 
     private let serviceID: CBUUID
     private let onState: (BluetoothLinkState) -> Void
-    private let collector = LinkCollector()
+    private var collector = LinkCollector()
 
     private var manager: CBCentralManager?
     private var peripheral: CBPeripheral?
@@ -299,8 +361,12 @@ final class BluetoothLinkCentral: NSObject {
     /// finished document and saying nothing.
     private static let acknowledgementTimeout: TimeInterval = 1.5
 
-    init(serviceID: UUID, onState: @escaping (BluetoothLinkState) -> Void) {
+    private let vocabulary: LinkVocabulary
+
+    init(serviceID: UUID, vocabulary: LinkVocabulary,
+         onState: @escaping (BluetoothLinkState) -> Void) {
         self.serviceID = CBUUID(nsuuid: serviceID)
+        self.vocabulary = vocabulary
         self.onState = onState
         super.init()
     }
@@ -381,7 +447,21 @@ extension BluetoothLinkCentral: CBCentralManagerDelegate {
         // Whether the other end hung up politely is not a fact the checker
         // needs; whether the proof arrived is.
         if collector.progress != nil {
-            onState(.failed(reason: NSLocalizedString("The connection ended before the whole document arrived.", comment: "")))
+            onState(.failed(reason: vocabulary.receiveInterrupted))
+        }
+
+        // And listen again. Without this the code stayed on the checker's screen
+        // with a dead radio behind it: `didDiscover` guards on
+        // `self.peripheral == nil`, and the scan had already been stopped when
+        // this peripheral was first seen. So a mid-transfer disconnect ended the
+        // exchange permanently, and the only recovery was leaving and returning
+        // — which mints a new serviceID, so anybody scanning the code still on
+        // screen waited forever.
+        self.peripheral = nil
+        collector = LinkCollector()
+        if central.state == .poweredOn {
+            central.scanForPeripherals(withServices: [serviceID], options: nil)
+            onState(.waiting)
         }
     }
 }

@@ -1184,7 +1184,8 @@ final class PresentCredentialViewController: UIViewController {
 
     private func startLinkIfPossible() {
         guard link == nil, let serviceID = linkServiceID, let payload = presentationPayload else { return }
-        let link = BluetoothLinkPeripheral(payload: payload, serviceID: serviceID) { [weak self] state in
+        let link = BluetoothLinkPeripheral(payload: payload, serviceID: serviceID,
+                                             vocabulary: .credential) { [weak self] state in
             self?.showLink(state)
         }
         self.link = link

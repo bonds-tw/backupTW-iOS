@@ -3313,6 +3313,26 @@
         }
       }
     },
+    "The checker's phone disconnected before the whole document had been sent. The codes on this screen are still turning — they can scan those instead.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方的手機在整份證件送完之前就斷線了。這個畫面上的條碼還在轉——請他直接掃那些。"
+          }
+        }
+      }
+    },
+    "The checker's phone disconnected before the whole proof had been sent. Scan the pairing code on their screen again — a proof is far too large for QR codes, so there is no other way across.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方的手機在整份證明送完之前就斷線了。請重新掃描他畫面上的配對碼——證明太大了，條碼那條路走不通，沒有別的辦法。"
+          }
+        }
+      }
+    },
     "The checker's phone has the document.": {
       "localizations": {
         "zh-Hant": {
@@ -3334,12 +3354,22 @@
         }
       }
     },
-    "The connection ended before the whole document arrived.": {
+    "The connection ended before the whole document arrived. Their screen is still showing the codes — you can scan those instead.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "連線在整份證件送達前就結束了。"
+            "value": "連線在整份證件送達之前就結束了。對方畫面上的條碼還在——你可以改掃那些。"
+          }
+        }
+      }
+    },
+    "The connection ended before the whole proof arrived. Ask them to scan the pairing code again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線在整份證明送達之前就結束了。請對方重新掃描一次配對碼。"
           }
         }
       }
@@ -3565,16 +3595,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "連不上對方的手機。"
-          }
-        }
-      }
-    },
-    "The other phone disconnected before the whole proof had been sent. Ask them to scan the code again.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "對方的手機在證明送完之前就斷線了。請他重新掃描一次條碼。"
           }
         }
       }
@@ -4898,6 +4918,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這份證明無法打包"
+          }
+        }
+      }
+    },
+    "This proof could not be prepared for sending.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明無法準備傳送。"
           }
         }
       }

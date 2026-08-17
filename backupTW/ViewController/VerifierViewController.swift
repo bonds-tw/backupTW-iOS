@@ -576,7 +576,8 @@ final class VerifierViewController: UIViewController {
             return
         }
         linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
-        let link = BluetoothLinkCentral(serviceID: serviceID) { [weak self] state in
+        let link = BluetoothLinkCentral(serviceID: serviceID,
+                                        vocabulary: .credential) { [weak self] state in
             self?.receiveOverLink(state)
         }
         self.link = link

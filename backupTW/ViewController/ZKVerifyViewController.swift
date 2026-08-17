@@ -556,7 +556,8 @@ final class ZKVerifyViewController: UIViewController {
     private func startLink(for engagement: ZKLinkEngagement) {
         stopLink()
         linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
-        let link = BluetoothLinkCentral(serviceID: engagement.serviceID) { [weak self] state in
+        let link = BluetoothLinkCentral(serviceID: engagement.serviceID,
+                                        vocabulary: .zeroKnowledgeProof) { [weak self] state in
             self?.receiveOverLink(state)
         }
         self.link = link

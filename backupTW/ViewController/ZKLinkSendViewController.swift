@@ -150,7 +150,8 @@ final class ZKLinkSendViewController: UIViewController {
             format: NSLocalizedString("A proof is about %1$@, so sending it usually takes about %2$d seconds. Keep this screen open.", comment: "ZK send estimate"),
             ZKStagePresentation.byteString(Int64(payload.count)),
             max(1, Int((Double(payload.count) / 13_800).rounded())))
-        let link = BluetoothLinkPeripheral(payload: payload, serviceID: engagement.serviceID) { [weak self] state in
+        let link = BluetoothLinkPeripheral(payload: payload, serviceID: engagement.serviceID,
+                                           vocabulary: .zeroKnowledgeProof) { [weak self] state in
             self?.show(state)
         }
         self.link = link
