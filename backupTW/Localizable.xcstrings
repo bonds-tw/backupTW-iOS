@@ -185,6 +185,16 @@
         }
       }
     },
+    "A signature cannot be taken back. The wall keeps nothing that says which one is yours — that is the same reason it is anonymous.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽名沒有辦法撤回。這面牆不保存任何說明哪一筆是你的東西——它匿名的理由就是這個。"
+          }
+        }
+      }
+    },
     "A stored credential is damaged and cannot be read.": {
       "localizations": {
         "zh-Hant": {
@@ -3329,12 +3339,32 @@
         }
       }
     },
+    "The proof carries two numbers that are the same for you every time. bonds.tw says it does not store them and does not publish them. Nothing in the proof stops them — that is a promise, not a property.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明裡有兩個對你每次都一樣的號碼。bonds.tw 說它不會保存、也不會公開。證明本身擋不住他們——那是一個承諾，不是一個性質。"
+          }
+        }
+      }
+    },
     "The proof could not be created on this device.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "這台裝置無法產生證明。"
+          }
+        }
+      }
+    },
+    "The proofs are not published, so nobody outside bonds.tw can recompute the number on the wall. Publishing them would leak the two numbers above.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明不會公開，所以 bonds.tw 以外的人沒辦法自己重算牆上的數字。公開證明會洩漏上面說的那兩個號碼。"
           }
         }
       }
@@ -3482,6 +3512,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "伺服器上的驗證檔案與這個版本的 App 預期的不符。請更新 App 後再試。"
+          }
+        }
+      }
+    },
+    "The wall counts signatures, not people. It could tell that the same person signed twice — those two numbers in the proof would be identical — it says it does not look. Signing twice is two entries.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆數的是簽名，不是人。它分得出來同一個人簽了兩次——證明裡那兩個號碼會一模一樣——它只是說它不看。簽兩次就是兩筆。"
+          }
+        }
+      }
+    },
+    "The wall does not check that the certificate behind the proof was issued by 內政部. In this version the badge means a valid proof, not necessarily a real national ID card.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆不檢查證明背後的憑證是不是內政部發的。在這個版本裡，徽章代表一份有效的證明，不一定代表一張自然人憑證。"
+          }
+        }
+      }
+    },
+    "The wall does not check the revocation list. This app applies one when it makes the proof, but the wall does not look at it, so a card already reported lost still earns the badge.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆不檢查撤銷清單。這支 App 做證明的時候套用了一份，但牆不看它，所以已經掛失的卡片一樣拿得到徽章。"
           }
         }
       }
@@ -4272,6 +4332,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這是這台手機的狀態，不是對出示者的判斷。他們出示的內容根本沒有被檢查，所以這裡沒有任何一項對他們不利。"
+          }
+        }
+      }
+    },
+    "This is the only thing in this app that sends anything to a server. About 250 KB of proof goes over the internet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是這支 App 裡唯一會把東西送到伺服器的動作。大約 250 KB 的證明會經由網路送出去。"
           }
         }
       }
@@ -5232,6 +5302,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "透過台灣官方MyData服務"
+          }
+        }
+      }
+    },
+    "內政部 already knows your ID number asked for a signature for this app, and when. The wall publishes the minute each signature was made. Those two lists can be lined up.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內政部已經知道你的身分證統一編號在什麼時候為這支 App 要過一次簽章。這面牆會公開每一筆簽名發生在哪一分鐘。這兩份清單對得起來。"
           }
         }
       }

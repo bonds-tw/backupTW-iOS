@@ -25,7 +25,11 @@ struct WallResponseReaderTests {
                       .verifierUnavailable, .refused, .unknownWhetherPublished,
                       .cannotProveInThisBuild])
     func mightDuplicateNeverPromisesNothingWasPublished(_ error: WallError) {
-        let failure = WallFailure(error, retryCost: .mightDuplicate)
+        // Asked for the contradictory combination on purpose: the initialiser
+        // has to refuse it, because a caller writing these two fields by hand is
+        // exactly how they end up disagreeing on screen.
+        let failure = WallFailure(error, retryCost: .mightDuplicate,
+                                  publication: .nothingWasPublished)
         #expect(!failure.canPromiseNothingWasPublished,
                 "\(error) claims nothing was published while a retry might duplicate")
     }
@@ -34,13 +38,19 @@ struct WallResponseReaderTests {
     ///
     /// The Worker inserts the signature and *then* reads the board back with two
     /// more queries, so an unreadable reply is not evidence of failure.
-    @Test func theTwoAmbiguousOutcomesNeverPromiseAnything() {
-        for error in [WallError.unreadableReply, .unknownWhetherPublished] {
-            for cost in [WallRetryCost.resend, .startOver, .mightDuplicate, .none] {
-                #expect(!WallFailure(error, retryCost: cost).canPromiseNothingWasPublished,
-                        "\(error) promised nothing was published at cost \(cost)")
-            }
-        }
+    /// A challenge-call failure is always safe, by construction.
+    ///
+    /// `issueChallenge` contains no database statement at all, so there is
+    /// nothing for it to have written. An earlier version derived this from the
+    /// error and got it wrong: a twenty-second timeout on the challenge fetch
+    /// reported "we do not know whether it published", about a call with no
+    /// write path.
+    @Test(arguments: [WallError.hostDoesNotExist, .offline, .unreadableReply,
+                      .unavailable, .rateLimited])
+    func aChallengeFailureAlwaysKnowsNothingWasPublished(_ error: WallError) {
+        let failure = WallFailure.whileFetchingChallenge(error)
+        #expect(failure.canPromiseNothingWasPublished)
+        #expect(failure.retryCost == .resend)
     }
 
     // MARK: - Which errors leave the challenge alive
@@ -61,6 +71,50 @@ struct WallResponseReaderTests {
         #expect(WallResponseReader.failure(forErrorCode: code, status: 400).retryCost == .startOver)
     }
 
+    /// # The most expensive case in the file, and it depends on the session
+    ///
+    /// `challenge-used` means some earlier request got past `claimChallenge`.
+    /// On a **retry** that earlier request was this session's own ambiguous
+    /// submit — so "already spent" is the strongest evidence available that the
+    /// signature exists, and promising otherwise produces the duplicate *and*
+    /// a second 身分證統一編號 disclosure at once.
+    @Test func aChallengeSpentByOurOwnEarlierSubmitIsNotAPromiseOfSafety() {
+        let first = WallResponseReader.failure(forErrorCode: "challenge-used", status: 400,
+                                               hasAlreadySubmittedThisChallenge: false)
+        #expect(first.canPromiseNothingWasPublished)
+        #expect(first.retryCost == .startOver)
+
+        let afterOurOwn = WallResponseReader.failure(forErrorCode: "challenge-used", status: 400,
+                                                     hasAlreadySubmittedThisChallenge: true)
+        #expect(!afterOurOwn.canPromiseNothingWasPublished,
+                "told somebody nothing was published, right after their own submit spent the challenge")
+        #expect(afterOurOwn.retryCost == .mightDuplicate)
+    }
+
+    /// `challenge-invalid` is the one case where "was it consumed" and "does
+    /// this person need a new one" give different answers.
+    ///
+    /// It sits above the claim, so nothing was spent — but an expired token or a
+    /// rotated MAC can never become valid, and the decimal is bound into the
+    /// proof, so `.resend` would loop for ever. It has its own test because it
+    /// is the classification most likely to be "corrected" by somebody applying
+    /// the general rule.
+    @Test func anUnusableChallengeNeedsANewOneEvenThoughNothingWasSpent() {
+        let failure = WallResponseReader.failure(forErrorCode: "challenge-invalid", status: 400)
+        #expect(failure.retryCost == .startOver)
+        #expect(failure.canPromiseNothingWasPublished)
+    }
+
+    /// Today's actual outcome: `sign-zk` is not routed, so the dispatcher
+    /// answers 404 with JSON before any handler runs. Calling that "might have
+    /// duplicated" would be false about a request that provably did nothing.
+    @Test(arguments: [404, 405])
+    func aRoutingLayerRefusalProvablyTouchedNothing(_ status: Int) {
+        let failure = WallResponseReader.failure(forErrorCode: "not found", status: status)
+        #expect(failure.retryCost == .resend)
+        #expect(failure.canPromiseNothingWasPublished)
+    }
+
     /// An error code from a wall newer than this app.
     ///
     /// It cannot be known whether that branch sits above or below the INSERT, so
@@ -79,6 +133,19 @@ struct WallResponseReaderTests {
         let result = WallResponseReader.readSubmission(
             status: 200, body: Self.body(["signatureCount": 42, "recent": []]))
         #expect(result == .success(.published(signatureCount: 42)))
+    }
+
+    /// The Worker's post-insert fallback: the row is written and reading the
+    /// board back failed, so it answers `{verified:true}` and nothing else.
+    ///
+    /// An earlier version defaulted the count to zero — so the single branch
+    /// built to guarantee "the signature exists" would have shown an empty wall
+    /// to somebody seconds after they signed it, inviting the retry that
+    /// duplicates.
+    @Test func aPublishedSignatureWithNoBoardDoesNotInventACountOfZero() {
+        let result = WallResponseReader.readSubmission(
+            status: 200, body: Self.body(["verified": true]))
+        #expect(result == .success(.published(signatureCount: nil)))
     }
 
     @Test func anExplicitRefusalIsNotAFailure() {
@@ -128,7 +195,11 @@ struct WallResponseReaderTests {
 
         let onChallenge = WallResponseReader.failure(forTransport: timeout, duringSubmit: false)
         #expect(onChallenge.retryCost == .resend)
-        #expect(onChallenge.canPromiseNothingWasPublished == false)
+        // `true`. This line asserted `false` until an adversarial review pointed
+        // out that `issueChallenge` contains no database statement at all — so
+        // saying "we do not know whether it published" about a twenty-second
+        // timeout on it was false, and pushed people away from a free retry.
+        #expect(onChallenge.canPromiseNothingWasPublished)
 
         let onSubmit = WallResponseReader.failure(forTransport: timeout, duringSubmit: true)
         // The wall may have finished the work and lost the reply.
@@ -137,8 +208,15 @@ struct WallResponseReaderTests {
     }
 
     /// A connection that never opened cannot have published anything.
+    /// Everything that fails before a single HTTP byte is written: name
+    /// resolution, TCP connect, the TLS handshake, a URL that never left the
+    /// process. `cannotConnectToHost` is the one that matters most — it is what
+    /// a missing route or an unhealthy edge produces, which is precisely the
+    /// rollout window.
     @Test(arguments: [URLError.Code.notConnectedToInternet, .dataNotAllowed,
-                      .internationalRoamingOff])
+                      .internationalRoamingOff, .cannotConnectToHost,
+                      .secureConnectionFailed, .serverCertificateUntrusted,
+                      .serverCertificateHasBadDate, .badURL, .unsupportedURL])
     func aConnectionThatNeverOpenedIsSafeToRetry(_ code: URLError.Code) {
         let failure = WallResponseReader.failure(forTransport: URLError(code), duringSubmit: true)
         #expect(failure.retryCost == .resend)

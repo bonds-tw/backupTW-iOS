@@ -79,6 +79,32 @@ struct LocalizationCoverageTests {
                 "untranslated proof caveat: \(caveat)")
     }
 
+    /// What signing a public wall discloses.
+    ///
+    /// Added with the strings rather than after them — the b-1 lesson from the
+    /// 2026-08-13 audit, where a whole screen's argument shipped in English
+    /// because the coverage test enumerated every type except that one.
+    ///
+    /// These are the sentences somebody reads while deciding whether to publish
+    /// something they cannot take back, which makes an untranslated one worse
+    /// here than almost anywhere else in the app.
+    @Test(arguments: WallDisclosure.allCases)
+    func everyWallDisclosureReachesAChineseReader(_ disclosure: WallDisclosure) {
+        #expect(Self.readableInChinese(disclosure.message),
+                "untranslated wall disclosure: \(disclosure)")
+    }
+
+    /// The reading order must contain every case.
+    ///
+    /// A screen that renders `inReadingOrder` would silently drop any case left
+    /// out of it — and the case most likely to be forgotten is the one added
+    /// last, which here is the one about 內政部 being able to line up two lists.
+    @Test func theReadingOrderLeavesNothingOut() {
+        #expect(Set(WallDisclosure.inReadingOrder) == Set(WallDisclosure.allCases))
+        #expect(WallDisclosure.inReadingOrder.count == WallDisclosure.allCases.count,
+                "a disclosure appears twice in the reading order")
+    }
+
     /// The capability screen, which this suite did not cover — b-1 of the
     /// 2026-08-13 audit.
     ///

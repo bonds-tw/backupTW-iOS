@@ -108,62 +108,61 @@ enum WallError: Error, Equatable {
 
 }
 
-/// A failure together with what it costs to try again.
+/// Whether the app may tell somebody that nothing reached the wall.
 ///
-/// # Why the cost is not computed from the error
+/// Its own type, and **supplied by the caller** rather than derived from the
+/// error — for the same reason `WallRetryCost` is. The first version derived it
+/// from `WallError`, which put the decision back on the error and reintroduced
+/// exactly the bug this file says it exists to prevent: a `.unreadableReply` on
+/// the challenge call provably wrote nothing, and the same case on submit is
+/// genuinely ambiguous.
+enum WallPublicationState: Equatable, Sendable {
+
+    /// The wall provably returned before `INSERT INTO signature`.
+    case nothingWasPublished
+
+    /// It might be up there. **The default for anything unrecognised**, because
+    /// the wrong answer in this direction is the one that makes somebody sign
+    /// twice — another 身分證統一編號 to 內政部, and a duplicate on a wall whose
+    /// count is supposed to mean something.
+    case unknown
+}
+
+/// A failure, what retrying costs, and whether anything reached the wall.
 ///
-/// The first version of this file put `retryCost` on `WallError` — and that
-/// reintroduced the exact bug the type exists to prevent. `.unreadableReply`
-/// means "nothing was spent, send it again" when the *challenge* call returns
-/// something unparseable, and "we do not know whether it published" when the
-/// *submit* call does. One error, two costs, and only the caller knows which
-/// call it was.
+/// # Why neither field is computed from the error
 ///
-/// So the client constructs this, and the initialiser enforces the one rule
-/// that must never be got wrong by hand: **if trying again might duplicate,
-/// the app is not allowed to say nothing was published.** Those two statements
-/// are the same fact seen from two directions, and letting them be set
-/// independently is how they end up contradicting each other on screen.
+/// The same `WallError` means different things depending on which call produced
+/// it and what happened earlier in the session. `.unreadableReply` on the
+/// challenge fetch spent nothing; on submit it is ambiguous. `.challengeAlreadyUsed`
+/// on a **first** submit means somebody else's request spent the nonce; on a
+/// **retry** it means *this session's own earlier submit* got past the claim —
+/// which is the strongest available evidence that a row exists.
+///
+/// So both travel beside the error, and the initialiser enforces the one rule
+/// that must never be got wrong by hand.
 struct WallFailure: Error, Equatable, Sendable {
 
     let error: WallError
     let retryCost: WallRetryCost
+    let publication: WallPublicationState
 
-    /// Derived, never passed in. See the note above.
-    var canPromiseNothingWasPublished: Bool {
-        retryCost != .mightDuplicate && error.isSettledBeforeAnyWrite
-    }
+    var canPromiseNothingWasPublished: Bool { publication == .nothingWasPublished }
 
-    init(_ error: WallError, retryCost: WallRetryCost) {
+    /// `.mightDuplicate` and `.nothingWasPublished` are contradictory, so the
+    /// combination is not representable: asking for it gets `.unknown`.
+    init(_ error: WallError, retryCost: WallRetryCost, publication: WallPublicationState) {
         self.error = error
         self.retryCost = retryCost
+        self.publication = retryCost == .mightDuplicate ? .unknown : publication
     }
 
-    /// A failure on the challenge call. Nothing has been spent, by definition:
-    /// `claimChallenge` runs inside submit and nowhere else.
-    static func whileFetchingChallenge(_ error: WallError) -> WallFailure {
-        WallFailure(error, retryCost: .resend)
-    }
-}
-
-extension WallError {
-
-    /// Whether the wall provably returned before writing a signature row.
+    /// A failure on the challenge call.
     ///
-    /// Read off the Worker's own control flow: everything here is either an
-    /// early return above `claimChallenge`, or a branch that ends before the
-    /// `INSERT`. `.unreadableReply` and `.unknownWhetherPublished` are absent
-    /// on purpose — they are the two shapes that are consistent with "it wrote
-    /// the row and then fell over", which the Worker can do because it reads
-    /// the board back *after* the insert.
-    var isSettledBeforeAnyWrite: Bool {
-        switch self {
-        case .hostDoesNotExist, .offline, .unavailable, .rateLimited, .budgetSpent,
-             .challengeUnusable, .proofTooLarge, .cannotProveInThisBuild,
-             .challengeAlreadyUsed, .verifierUnavailable, .refused:
-            return true
-        case .unreadableReply, .unknownWhetherPublished:
-            return false
-        }
+    /// Nothing has been spent, by definition: `issueChallenge` contains no
+    /// database statement at all, and `claimChallenge` runs inside submit and
+    /// nowhere else. So both fields are fixed here rather than passed in.
+    static func whileFetchingChallenge(_ error: WallError) -> WallFailure {
+        WallFailure(error, retryCost: .resend, publication: .nothingWasPublished)
     }
 }
