@@ -397,11 +397,28 @@ extension HomeViewController {
             return
         }
 
+        // This alert **is** the screen the row promises, because there is no
+        // other one. It used to assert 「this build cannot read it」, which is a
+        // confident claim in the one branch that cannot support one: it is
+        // reached by a malformed card *and* by a well-formed card whose
+        // signature does not verify, and telling the two apart is exactly what
+        // failed. `CardInventory`'s comment says the row stays silent because
+        // 「the screen that can explain properly does the explaining」 — so this
+        // one now explains, including the part that is not known.
+        let message: String
+        switch card.state {
+        case .unreadable:
+            message = String(format: NSLocalizedString(
+                "Something about it did not come out right, and this build cannot tell which: the stored file may be damaged, or its signature may not match. It is listed here so you know it was not lost. Stored as %@.",
+                comment: ""), card.id)
+        default:
+            message = NSLocalizedString("It is stored on this phone and was read correctly. There is no screen for its contents yet.", comment: "")
+        }
         let alert = UIAlertController(
-            title: NSLocalizedString("This version cannot open this card", comment: ""),
-            message: card.state == .unreadable
-                ? NSLocalizedString("It is stored on this phone, and this build cannot read it. It is listed here so you know it was not lost.", comment: "")
-                : NSLocalizedString("It is stored on this phone and was read correctly. There is no screen for its contents yet.", comment: ""),
+            title: card.state == .unreadable
+                ? NSLocalizedString("This card could not be read or checked", comment: "")
+                : NSLocalizedString("This version cannot open this card", comment: ""),
+            message: message,
             preferredStyle: .alert)
         if card.capability != nil {
             alert.addAction(UIAlertAction(

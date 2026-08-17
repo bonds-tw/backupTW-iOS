@@ -273,7 +273,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "關於這份文件"
+            "value": "關於這份證件"
           }
         }
       }
@@ -1233,7 +1233,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "對方文件自訂的欄位「%@」"
+            "value": "對方證件自訂的欄位「%@」"
           }
         }
       }
@@ -1576,16 +1576,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "它存在這支手機上，也讀得正確。只是還沒有顯示內容的畫面。"
-          }
-        }
-      }
-    },
-    "It is stored on this phone, and this build cannot read it. It is listed here so you know it was not lost.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "它存在這支手機上，而這個版本讀不懂它。列在這裡是為了讓你知道它沒有不見。"
           }
         }
       }
@@ -2386,7 +2376,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "引述自對方文件：%@"
+            "value": "引述自對方證件：%@"
           }
         }
       }
@@ -2949,6 +2939,16 @@
         }
       }
     },
+    "Something about it did not come out right, and this build cannot tell which: the stored file may be damaged, or its signature may not match. It is listed here so you know it was not lost. Stored as %@.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有地方不對，而這個版本分不出是哪一種：可能是存下來的檔案損壞了，也可能是它的簽章對不起來。列在這裡是讓你知道它沒有不見。儲存識別碼 %@。"
+          }
+        }
+      }
+    },
     "Something went wrong on this device.": {
       "localizations": {
         "zh-Hant": {
@@ -3288,7 +3288,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "替這份文件簽章的憑證帶著持有人的法定姓名，無論他有沒有選擇揭露姓名，那張憑證都會送給每一個查驗方。任兩個查驗方都能看出是同一個人。"
+            "value": "替這份證件簽章的憑證帶著持有人的法定姓名，無論他有沒有選擇揭露姓名，那張憑證都會送給每一個查驗方。任兩個查驗方都能看出是同一個人。"
           }
         }
       }
@@ -3449,7 +3449,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "簽署這份文件的憑證無法查驗，最常見的原因是憑證已經過期。"
+            "value": "簽署這份證件的憑證無法查驗，最常見的原因是憑證已經過期。"
           }
         }
       }
@@ -3460,7 +3460,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "簽署這份文件的憑證已被撤銷。請用現行的憑證重新簽發一次。"
+            "value": "簽署這份證件的憑證已被撤銷。請用現行的憑證重新簽發一次。"
           }
         }
       }
@@ -4178,12 +4178,22 @@
         }
       }
     },
-    "This card could not be checked. Open it for details.": {
+    "This card could not be read or checked": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這張卡沒能通過檢查。點開看細節。"
+            "value": "這張卡沒辦法讀取或檢查"
+          }
+        }
+      }
+    },
+    "This card could not be read or checked.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡沒辦法讀取或檢查。"
           }
         }
       }
@@ -4499,7 +4509,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份文件還出示了 %d 個欄位，這裡沒有顯示。"
+            "value": "這份證件還出示了 %d 個欄位，這裡沒有顯示。"
           }
         }
       }
@@ -4529,7 +4539,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份文件與它上面的簽章不符。"
+            "value": "這份證件與它上面的簽章不符。"
           }
         }
       }
@@ -4668,7 +4678,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "簽署這份文件的人，與文件所描述的人不是同一位。"
+            "value": "簽署這份證件的人，與證件所描述的人不是同一位。"
           }
         }
       }
@@ -5839,7 +5849,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "姓名一定看得到。它寫在替這份文件簽章的憑證裡，而查驗方需要那張憑證才驗得了簽章——所以沒有任何開關扣得住它。"
+            "value": "姓名一定看得到。它寫在替這份證件簽章的憑證裡，而查驗方需要那張憑證才驗得了簽章——所以沒有任何開關扣得住它。"
           }
         }
       }

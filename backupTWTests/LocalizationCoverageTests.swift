@@ -25,7 +25,7 @@ import UIKit
 struct LocalizationCoverageTests {
 
     /// The app's Traditional Chinese resources, as built.
-    private static let chinese: Bundle? = {
+    static let chinese: Bundle? = {
         let app = Bundle(for: VerifierViewController.self)
         guard let path = app.path(forResource: "zh-Hant", ofType: "lproj") else { return nil }
         return Bundle(path: path)
@@ -40,6 +40,17 @@ struct LocalizationCoverageTests {
     /// the run is localized and the lookup happened upstairs — or it came back as
     /// the English key, in which case the key has to be findable in `zh-Hant`.
     /// An untranslated string fails both ways round, which is the point.
+    /// The Chinese for a sentence, or nil when there is none. Sibling of
+    /// `readableInChinese`, shared with `VerifierTerminologyTests`.
+    static func chineseValue(for message: String) -> String? {
+        guard let chinese else { return nil }
+        let value = chinese.localizedString(forKey: message, value: sentinel, table: nil)
+        return value == sentinel ? nil : value
+    }
+
+    /// Every refusal sentence, walked rather than listed.
+    static var allFailureMessages: [String] { everyFailure.map(\.message) }
+
     private static func readableInChinese(_ message: String) -> Bool {
         let hasHan = message.unicodeScalars.contains { (0x4E00 ... 0x9FFF).contains($0.value) }
         if hasHan { return true }
@@ -203,7 +214,7 @@ struct LocalizationCoverageTests {
     /// reason: `VerificationFailure` has associated values so it cannot be
     /// `CaseIterable`, and a hand-written list silently stops covering the case
     /// somebody adds next. The switch must be exhaustive to compile.
-    private static var everyFailure: [VerificationFailure] {
+    static var everyFailure: [VerificationFailure] {
         var all: [VerificationFailure] = []
         var current: VerificationFailure? = .presentationIsNotAJWS
         while let failure = current {
@@ -251,6 +262,48 @@ struct LocalizationCoverageTests {
         case .trustAnchorUnavailable:
             return .deviceClockPrecedesCertificate(validFrom: Date(timeIntervalSince1970: 1_654_560_000))
         case .deviceClockPrecedesCertificate: return nil
+        }
+    }
+}
+
+/// 查驗端的每一句話都叫它「證件」。「文件」只留給 MyData 的原始檔與 PDF 的
+/// document-level 術語。
+///
+/// # 為什麼這條要有測試
+///
+/// 第一輪的 `d-6` 標記為已修，實際上 sweep 只碰了七個字串、其中三個是文件→證件。
+/// `d-6` 自己在「現況」欄裡逐字引用的那兩句話，一個位元組都沒改。最尖銳的一對是
+/// 同一個 switch 裡相鄰的兩個 case，一個寫證件、一個寫文件。
+///
+/// 英文那側是一致的（全部 "this document"），所以這個分裂完全是在譯文裡產生的，
+/// 而讀者最可能的誤讀是「文件」與「證件」是兩樣不同的東西——查驗方正在找的是哪
+/// 一樣，就變成不明的了。
+///
+/// 沒有測試的話，這條會第三次以同樣的形狀回來。
+@Suite("查驗端的用詞")
+struct VerifierTerminologyTests {
+
+    private static func chineseText(_ message: String) -> String {
+        // Same two-way lookup as `readableInChinese`: either the run is
+        // localized and this already came back in Chinese, or we look it up.
+        if message.range(of: "\\p{Han}", options: .regularExpression) != nil { return message }
+        return LocalizationCoverageTests.chineseValue(for: message) ?? message
+    }
+
+    @Test("查驗端的但書、群組標題與拒絕理由都不說「文件」")
+    func nothingTheCheckerReadsCallsItADocument() {
+        var sentences: [String] = VerificationCaveat.allCases.map(\.message)
+        sentences += VerificationCaveat.Group.allCases.map(\.subtitle)
+        sentences += LocalizationCoverageTests.allFailureMessages
+
+        for sentence in sentences {
+            let chinese = Self.chineseText(sentence)
+            // ⚠️ 非空洞性：如果查不到中文，`chineseText` 會回傳英文，而英文裡永遠
+            // 沒有「文件」——那樣這支測試會以全綠通過，理由卻是它什麼都沒看到。
+            #expect(chinese.range(of: "\\p{Han}", options: .regularExpression) != nil,
+                    "查不到中文，這一條的斷言等於沒有斷言：\(sentence)")
+            #expect(!chinese.contains("文件"),
+                    "查驗端出口說「文件」：\(chinese)")
         }
     }
 }

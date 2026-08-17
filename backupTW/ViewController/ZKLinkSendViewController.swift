@@ -44,9 +44,25 @@ final class ZKLinkSendViewController: UIViewController {
 
     private var link: BluetoothLinkPeripheral?
 
-    /// True once the checker's phone has acknowledged the whole payload. Kept so
-    /// that dismissing after a success is not reported as an interrupted send.
-    private var delivered = false
+    /// The privacy sentence, on its own label.
+    ///
+    /// # It was written, translated, positioned — and never drawn once
+    ///
+    /// `buildInterface()` set `detailLabel.text` to 「%@ · nothing is sent
+    /// anywhere else, and nothing is kept afterwards」 and `viewDidLoad` called
+    /// `startLink()` immediately afterwards, which overwrote the same label in
+    /// the same runloop with the duration estimate. `show(.starting)` wrote it a
+    /// third time. Three assignments to one label, no state that put the first
+    /// one back: the sentence was not brief on screen, it was never on screen.
+    ///
+    /// It happened while adding the estimate: the audit note that asked for it
+    /// described this screen as 「four lines of text」, so the estimate was
+    /// written *into* the fourth line rather than added as a fifth. The line
+    /// count did not change and a sentence quietly left the build.
+    ///
+    /// Two labels now, because they answer different questions and neither is a
+    /// qualification of the other.
+    private let privacyLabel = UILabel()
 
     init(payload: Data, engagement: ZKLinkEngagement) {
         self.payload = payload
@@ -115,16 +131,22 @@ final class ZKLinkSendViewController: UIViewController {
         detailLabel.font = .preferredFont(forTextStyle: .footnote)
         detailLabel.textColor = .secondaryLabel
         detailLabel.adjustsFontForContentSizeCategory = true
-        detailLabel.text = String(
+        detailLabel.accessibilityIdentifier = "zklink.detail"
+        showTheEstimate()
+
+        privacyLabel.numberOfLines = 0
+        privacyLabel.font = .preferredFont(forTextStyle: .footnote)
+        privacyLabel.adjustsFontForContentSizeCategory = true
+        privacyLabel.text = String(
             format: NSLocalizedString("%@ · nothing is sent anywhere else, and nothing is kept afterwards.", comment: ""),
             ZKStagePresentation.byteString(Int64(payload.count)))
-        detailLabel.accessibilityIdentifier = "zklink.detail"
+        privacyLabel.accessibilityIdentifier = "zklink.privacy"
 
         progressView.translatesAutoresizingMaskIntoConstraints = false
         progressView.progress = 0
         progressView.accessibilityIdentifier = "zklink.progress"
 
-        [statusLabel, progressView, purposeLabel, detailLabel].forEach(stack.addArrangedSubview)
+        [statusLabel, progressView, purposeLabel, detailLabel, privacyLabel].forEach(stack.addArrangedSubview)
         view.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
@@ -133,23 +155,28 @@ final class ZKLinkSendViewController: UIViewController {
         ])
     }
 
-    // MARK: - The radio
-
-    private func startLink() {
-        statusLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
-        // An estimate, said as one.
-        //
-        // This file's own header measures the transfer at 398,181 bytes over a
-        // 13.8 kB/s steady state — 21.7 seconds — and none of that reached the
-        // screen. The credential screen goes to the trouble of computing 「約 N
-        // 秒」 for a cycle three times shorter, and this is a modal sheet a
-        // casual downward swipe dismisses, taking the radio with it. Somebody
-        // with no expectation of how long it takes is exactly the person who
-        // swipes.
+    /// An estimate, said as one — and written in one place.
+    ///
+    /// This file's own header measures the transfer at 398,181 bytes over a
+    /// 13.8 kB/s steady state, 21.7 seconds, and none of that used to reach the
+    /// screen. The credential screen computes 「約 N 秒」 for a cycle three times
+    /// shorter, and this is a modal sheet that a casual downward swipe dismisses,
+    /// taking the radio with it — somebody with no expectation of how long it
+    /// takes is exactly the person who swipes.
+    ///
+    /// The twelve-line comment and the assignment were pasted twice. Once.
+    private func showTheEstimate() {
         detailLabel.text = String(
             format: NSLocalizedString("A proof is about %1$@, so sending it usually takes about %2$d seconds. Keep this screen open.", comment: "ZK send estimate"),
             ZKStagePresentation.byteString(Int64(payload.count)),
             max(1, Int((Double(payload.count) / 13_800).rounded())))
+    }
+
+    // MARK: - The radio
+
+    private func startLink() {
+        statusLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        showTheEstimate()
         let link = BluetoothLinkPeripheral(payload: payload, serviceID: engagement.serviceID,
                                            vocabulary: .zeroKnowledgeProof) { [weak self] state in
             self?.show(state)
@@ -158,6 +185,10 @@ final class ZKLinkSendViewController: UIViewController {
         link.start()
     }
 
+    /// Seam: drive a radio state without a radio. It was a state transition that
+    /// ate the privacy sentence, so the test has to make the transitions.
+    func showForReview(_ state: BluetoothLinkState) { show(state) }
+
     /// One line about what is happening, never an error code.
     private func show(_ state: BluetoothLinkState) {
         switch state {
@@ -165,19 +196,7 @@ final class ZKLinkSendViewController: UIViewController {
             statusLabel.text = reason
         case .starting:
             statusLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
-        // An estimate, said as one.
-        //
-        // This file's own header measures the transfer at 398,181 bytes over a
-        // 13.8 kB/s steady state — 21.7 seconds — and none of that reached the
-        // screen. The credential screen goes to the trouble of computing 「約 N
-        // 秒」 for a cycle three times shorter, and this is a modal sheet a
-        // casual downward swipe dismisses, taking the radio with it. Somebody
-        // with no expectation of how long it takes is exactly the person who
-        // swipes.
-        detailLabel.text = String(
-            format: NSLocalizedString("A proof is about %1$@, so sending it usually takes about %2$d seconds. Keep this screen open.", comment: "ZK send estimate"),
-            ZKStagePresentation.byteString(Int64(payload.count)),
-            max(1, Int((Double(payload.count) / 13_800).rounded())))
+            showTheEstimate()
         case .waiting:
             // Deliberately not the same sentence as `.starting`. When those two
             // matched on the credential screen, "advertising and waiting" and
@@ -189,7 +208,6 @@ final class ZKLinkSendViewController: UIViewController {
                                       Int((fraction * 100).rounded()))
             progressView.setProgress(Float(fraction), animated: true)
         case .finished:
-            delivered = true
             progressView.setProgress(1, animated: true)
             statusLabel.text = NSLocalizedString("The checker's phone has the proof.", comment: "")
             // Down at once. A peripheral that kept advertising after delivery

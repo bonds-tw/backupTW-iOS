@@ -150,7 +150,21 @@ enum CardInventory {
             return CardInventoryRow(
                 id: id, source: .twdiw, capability: .twdiw,
                 title: CardCapability.twdiw.name,
-                detail: NSLocalizedString("This card could not be checked. Open it for details.", comment: ""),
+                // ⚠️ 「could not be checked」 is ambiguous in English and the
+                // Chinese picked the wrong half of it: 「沒能通過檢查」 is a
+                // verdict — checked, and failed. What is true is that the check
+                // could not be *carried out*, which is what the comment above
+                // says this row must not turn into an accusation.
+                //
+                // And the row now says what the tap gives you. It used to say
+                // 「open it for details」 while the only thing on the other side
+                // was an alert claiming the opposite: 「this build cannot read
+                // it」, which is a confident story about a card that may be
+                // perfectly well-formed with a signature that does not match.
+                // Two screens, two mutually exclusive certainties, and the true
+                // sentence the comment was protecting — that it could be either
+                // — said by neither.
+                detail: NSLocalizedString("This card could not be read or checked.", comment: ""),
                 state: .unreadable)
         }
 
