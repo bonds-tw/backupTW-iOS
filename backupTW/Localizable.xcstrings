@@ -1036,6 +1036,26 @@
         }
       }
     },
+    "Each one counts once. If your last attempt ended without an answer, that attempt very likely counted — signing again would add a second signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每一個只算一次。如果你上一次送出後沒收到回覆，那一次很可能已經算進去了——再簽一次會多一筆簽名。"
+          }
+        }
+      }
+    },
+    "Each one counts once. Nothing of yours was published.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每一個只算一次。你的沒有被公開。"
+          }
+        }
+      }
+    },
     "Erase": {
       "localizations": {
         "zh-Hant": {
@@ -1450,6 +1470,26 @@
         }
       }
     },
+    "It has no credentials for the digital certificate service, so nothing was asked for and nothing was sent.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它沒有憑證服務的憑據，所以沒有向你索取任何東西，也沒有送出任何東西。"
+          }
+        }
+      }
+    },
+    "It is %@, which is far larger than a real proof. It was not sent, so the one-time number is still good.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它有 %@，比真正的證明大得多。它沒有被送出去，所以一次性號碼還可以用。"
+          }
+        }
+      }
+    },
     "It is listed on this phone but could not be opened.": {
       "localizations": {
         "zh-Hant": {
@@ -1476,6 +1516,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "它存在這支手機上，而這個版本讀不懂它。列在這裡是為了讓你知道它沒有不見。"
+          }
+        }
+      }
+    },
+    "It may have expired, or the wall may have changed its keys. Either way, starting again means making a new proof and signing again in 行動自然人憑證.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可能是它過期了，也可能是牆那邊換過金鑰。不論哪一種，重新開始就要做一份新的證明，也要再在行動自然人憑證裡簽一次名。"
+          }
+        }
+      }
+    },
+    "It resets at 08:00 Taipei time. Nothing was used up, so the same proof can go again while the one-time number is still valid.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "台灣時間早上八點重置。沒有東西被用掉，在一次性號碼還有效之前，同一份證明可以再送一次。"
           }
         }
       }
@@ -1786,6 +1846,16 @@
         }
       }
     },
+    "No usable connection.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有可用的連線。"
+          }
+        }
+      }
+    },
     "No verdict": {
       "localizations": {
         "zh-Hant": {
@@ -1924,6 +1994,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "沒有東西被查驗"
+          }
+        }
+      }
+    },
+    "Nothing was published.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有任何東西被公開。"
+          }
+        }
+      }
+    },
+    "Nothing was sent and nothing on this phone changed. This is an address setting in this version of the app, not your network.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "什麼都沒有送出去，這支手機上也沒有任何東西改變。這是這個版本的位址設定問題，不是你的網路。"
+          }
+        }
+      }
+    },
+    "Nothing was used up — the same proof can go again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有東西被用掉——同一份證明可以再送一次。"
+          }
+        }
+      }
+    },
+    "Nothing was used up — the same proof can go again. The wall counts by network address, so other people on the same Wi-Fi count towards it too.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有東西被用掉——同一份證明可以再送一次。這面牆是按網路位址計算的，所以同一個 Wi-Fi 上的其他人也算在裡面。"
           }
         }
       }
@@ -2452,6 +2562,16 @@
         }
       }
     },
+    "Send the same proof again": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再送一次同一份證明"
+          }
+        }
+      }
+    },
     "Send this proof over Bluetooth": {
       "extractionState": "manual",
       "localizations": {
@@ -2658,6 +2778,16 @@
         }
       }
     },
+    "Signing again may add a second signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再簽一次可能會多一筆簽名。"
+          }
+        }
+      }
+    },
     "Signing has to go through the bonds-tw server, which this build can't reach.": {
       "localizations": {
         "zh-Hant": {
@@ -2684,6 +2814,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "簽章需要一個這個版本連不到的服務，所以就算把你的資料抓下來也做不出證件。因此不會去抓。"
+          }
+        }
+      }
+    },
+    "Signing needs the internet once, to send the proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署需要連一次網路，把證明送出去。"
+          }
+        }
+      }
+    },
+    "Signing with a proof is switched off.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用證明簽署目前是關閉的。"
           }
         }
       }
@@ -2725,6 +2875,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這支手機上出了問題。"
+          }
+        }
+      }
+    },
+    "Start again": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新開始"
           }
         }
       }
@@ -3278,6 +3438,16 @@
         }
       }
     },
+    "The one-time number is gone, so trying again means making a new proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一次性號碼已經用掉了，所以再試一次就要重做一份證明。"
+          }
+        }
+      }
+    },
     "The other device's clock is too far off for this to be checked.": {
       "comment": "Offline verification failure",
       "localizations": {
@@ -3365,6 +3535,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這台裝置無法產生證明。"
+          }
+        }
+      }
+    },
+    "The proof was sent and no answer came back. The wall keeps nothing that says which signature is yours, so this cannot be looked up — by anyone, including us. That is the same design that keeps it anonymous. Signing again may add a second signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明送出去了，但答案沒有回來。這面牆不保存任何說明哪一筆是你的東西，所以這件事查不到——任何人都查不到，包括我們。讓它匿名的正是同一個設計。再簽一次可能會多一筆簽名。"
           }
         }
       }
@@ -3536,6 +3716,36 @@
         }
       }
     },
+    "The wall answered something this app cannot read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆回了一個這個 App 讀不懂的東西。"
+          }
+        }
+      }
+    },
+    "The wall checked this proof and did not accept it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆檢查了這份證明，沒有接受。"
+          }
+        }
+      }
+    },
+    "The wall could not reach its checking service.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆連不上檢查證明的服務。"
+          }
+        }
+      }
+    },
     "The wall counts signatures, not people. It could tell that the same person signed twice — that number in the proof would be identical — it says it does not look. Signing twice is two entries.": {
       "localizations": {
         "zh-Hant": {
@@ -3572,6 +3782,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "這面牆不檢查撤銷清單。這支 App 做證明的時候套用了一份，但牆不看它，所以已經掛失的卡片一樣拿得到徽章。"
+          }
+        }
+      }
+    },
+    "The wall does not recognise this one-time number.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆不認這個一次性號碼。"
+          }
+        }
+      }
+    },
+    "The wall has used up today's checks.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆今天能付錢檢查的證明已經用完了。"
           }
         }
       }
@@ -4345,6 +4575,16 @@
         }
       }
     },
+    "This is a mismatch between this app and the wall.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是這個 App 跟牆之間對不上。"
+          }
+        }
+      }
+    },
     "This is a stored document rather than a presentation made for this check.": {
       "comment": "Offline verification failure",
       "localizations": {
@@ -4376,6 +4616,26 @@
         }
       }
     },
+    "This one-time number has already been used.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個一次性號碼已經用掉了。"
+          }
+        }
+      }
+    },
+    "This phone checked the mathematics and it passed. The wall checks the mathematics **and** which service the proof was made for **and** whether it is bound to the number the wall just issued — the last two are things this phone cannot check by itself. So this usually means the wall's settings and this app disagree, not that there is anything wrong with your card. Nothing was published. This is worth reporting.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機檢查的是數學，而且通過了。牆檢查的是數學、加上這份證明是為哪個服務做的、加上它綁的是不是牆剛剛發出的那個號碼——這兩件事這支手機沒有辦法自己檢查。所以這通常代表牆那邊的設定和這支 App 對不上，不代表你的卡片有問題。沒有任何東西被公開。這件事值得回報。"
+          }
+        }
+      }
+    },
     "This phone checked the proof and refused it": {
       "localizations": {
         "zh-Hant": {
@@ -4392,6 +4652,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這支手機無法讓自己被找到（%@）。"
+          }
+        }
+      }
+    },
+    "This phone did not check the proof itself, so there is nothing to compare against. Nothing was published.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機沒有自己檢查過這份證明，所以沒有東西可以拿來比對。沒有任何東西被公開。"
           }
         }
       }
@@ -4545,6 +4815,16 @@
         }
       }
     },
+    "This proof is too large to send.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明太大，沒有送出去。"
+          }
+        }
+      }
+    },
     "This proof was made by a newer version of the app. Update this app, then check it again.": {
       "localizations": {
         "zh-Hant": {
@@ -4626,6 +4906,26 @@
         }
       }
     },
+    "This version cannot find the wall.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本找不到那面牆。"
+          }
+        }
+      }
+    },
+    "This version cannot make a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法產生證明。"
+          }
+        }
+      }
+    },
     "This version cannot open this card": {
       "localizations": {
         "zh-Hant": {
@@ -4693,6 +4993,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "產生證明耗時"
+          }
+        }
+      }
+    },
+    "Too many requests from this network.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個網路送出的請求太多了。"
           }
         }
       }
@@ -4854,6 +5164,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "等你在行動自然人憑證上簽名"
+          }
+        }
+      }
+    },
+    "We do not know whether this was published.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我們不知道這一筆有沒有被公開。"
           }
         }
       }
@@ -5074,6 +5394,16 @@
         }
       }
     },
+    "Whoever runs the wall has turned it off. Nothing was sent, and trying again now gets the same answer.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "經營這面牆的人把它關掉了。什麼都沒有送出去，現在再試一次也會得到同樣的答案。"
+          }
+        }
+      }
+    },
     "Working…": {
       "localizations": {
         "zh-Hant": {
@@ -5282,6 +5612,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "你自己的自然人憑證。這證明的是「這些主張出自你本人」，不是政府已經確認過這些內容。"
+          }
+        }
+      }
+    },
+    "Your proof was not checked and nothing was published. The one-time number is gone, so trying again means making a new proof — including signing again in 行動自然人憑證.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的證明沒有被檢查，也沒有任何東西被公開。一次性號碼已經用掉了，所以再試一次就要重做一份證明——包括再在行動自然人憑證裡簽一次名。"
           }
         }
       }

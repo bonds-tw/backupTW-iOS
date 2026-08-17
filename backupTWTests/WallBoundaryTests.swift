@@ -177,3 +177,90 @@ struct WallBoundaryTests {
             proofDirectory: directory))
     }
 }
+
+/// Every ending a person can reach has to say three things.
+struct WallCopyTests {
+
+    private static let everyError: [WallError] = [
+        .hostDoesNotExist, .offline, .unreadableReply, .unavailable, .rateLimited,
+        .budgetSpent, .challengeUnusable, .challengeAlreadyUsed, .verifierUnavailable,
+        .refused, .unknownWhetherPublished, .proofTooLarge(bytes: 9_000_000),
+        .cannotProveInThisBuild,
+    ]
+
+    /// No silent branch. A failure with no sentence is a spinner that stops.
+    @Test func everyFailureHasATitleAndABody() {
+        for error in Self.everyError {
+            for cost in [WallRetryCost.resend, .startOver, .mightDuplicate, .none] {
+                let message = WallCopy.message(for: WallFailure(error, retryCost: cost,
+                                                                publication: .unknown))
+                #expect(!message.title.isEmpty, "\(error) has no title")
+                #expect(!message.body.isEmpty, "\(error) at \(cost) has no body")
+            }
+        }
+    }
+
+    /// **A retry that might duplicate is never offered as a button.**
+    ///
+    /// Pressing it may add a second signature to a public wall and send another
+    /// 身分證統一編號 to 內政部. That is not a decision to hand somebody behind a
+    /// one-word label — the body says what is unknown, and they choose.
+    @Test func nothingThatMightDuplicateGetsARetryButton() {
+        for error in Self.everyError {
+            let message = WallCopy.message(for: WallFailure(error, retryCost: .mightDuplicate,
+                                                            publication: .unknown))
+            #expect(message.retryLabel == nil,
+                    "\(error) offers a retry button that may publish twice")
+        }
+    }
+
+    /// The button is named after its cost, not "try again".
+    @Test func theRetryButtonSaysWhatItCosts() {
+        let resend = WallCopy.message(for: WallFailure(.rateLimited, retryCost: .resend,
+                                                       publication: .nothingWasPublished))
+        let over = WallCopy.message(for: WallFailure(.verifierUnavailable, retryCost: .startOver,
+                                                     publication: .nothingWasPublished))
+        #expect(resend.retryLabel != over.retryLabel,
+                "resending the same proof and starting over read as the same action")
+    }
+
+    /// ⚠️ The `challengeUnusable` body must not assert expiry.
+    ///
+    /// The Worker returns the same string for a malformed token, a bad MAC and
+    /// an expired one — and this app has already checked the format when parsing
+    /// and the remaining time on a monotonic clock before sending. So expiry is
+    /// the one cause it has ruled out, and asserting it would be guessing wrong
+    /// in the only branch that has to guess.
+    @Test func theUnusableChallengeMessageDoesNotAssertACause() {
+        let body = WallCopy.message(for: WallFailure(.challengeUnusable, retryCost: .startOver,
+                                                     publication: .nothingWasPublished)).body
+        #expect(body.contains("may") || body.contains("可能"),
+                "the message asserts a cause it cannot know")
+    }
+
+    /// The refusal message must not blame the card.
+    ///
+    /// The wall's checks are a strict superset of this phone's, so "passed here,
+    /// refused there" is the expected symptom of a `WALL_APP_ID` mismatch — and
+    /// this sentence is the only place that misconfiguration surfaces to a human.
+    @Test func aRefusalAfterALocalPassBlamesTheSettingsNotTheCard() {
+        let passed = WallCopy.refusal(selfCheckPassedHere: true).body
+        #expect(passed.contains("settings") || passed.contains("設定"))
+        #expect(passed.contains("nothing wrong with your card") || passed.contains("不代表你的卡片有問題"))
+
+        let notChecked = WallCopy.refusal(selfCheckPassedHere: nil).body
+        #expect(passed != notChecked, "both refusal variants say the same thing")
+    }
+
+    /// Every sentence reaches a Chinese reader.
+    @Test func everyFailureSentenceIsTranslated() {
+        for error in Self.everyError {
+            let message = WallCopy.message(for: WallFailure(error, retryCost: .resend,
+                                                            publication: .nothingWasPublished))
+            for text in [message.title, message.body] {
+                let hasHan = text.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) }
+                #expect(hasHan, "untranslated wall message for \(error): \(text)")
+            }
+        }
+    }
+}
