@@ -195,6 +195,16 @@
         }
       }
     },
+    "A signature field is present but empty — no signature was ever written into it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有簽章欄位，但它是空的——從來沒有任何簽章被寫進去。"
+          }
+        }
+      }
+    },
     "A stored credential is damaged and cannot be read.": {
       "localizations": {
         "zh-Hant": {
@@ -315,6 +325,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "一律出示"
+          }
+        }
+      }
+    },
+    "An empty signature field is not a signature — there is nothing here to verify. Treat this the same as unsigned, and say so when reporting it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "空的簽章欄位不是簽章——這裡沒有東西可以驗。請把它當成未簽章處理，回報時也這樣寫。"
           }
         }
       }

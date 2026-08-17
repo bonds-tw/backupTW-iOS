@@ -1217,26 +1217,42 @@ enum PresentationUI {
         label.numberOfLines = 0
         label.font = .preferredFont(forTextStyle: .subheadline)
         label.adjustsFontForContentSizeCategory = true
-        label.textColor = .secondaryLabel
+        // `.label`. See `footnote(_:)` immediately below for the measurement and
+        // for the comment that used to say the opposite.
+        label.textColor = .label
         return label
     }
 
-    /// Secondary, not tertiary.
+    /// Full label ink. The hierarchy is carried by the type scale, not by how
+    /// hard the sentence is to read.
     ///
-    /// `.tertiaryLabel` is 26% ink: about 1.7:1 against either grouped
-    /// background, which fails WCAG AA at every text size the app can be set to.
-    /// `.secondaryLabel` is 60% and clears it. Nothing on this screen is
-    /// decorative enough to be worth a contrast ratio a reader cannot resolve —
-    /// and a footnote is where this app habitually puts the sentence that limits
-    /// what the headline above it means, which is the worst possible place for
-    /// unreadable ink.
+    /// # The comment here used to be wrong, and being wrong was its whole effect
+    ///
+    /// It said: 「`.tertiaryLabel` is 26% ink … fails WCAG AA at every text size.
+    /// **`.secondaryLabel` is 60% and clears it.**」 The first half is right and
+    /// the second is not. Measured: `.secondaryLabel` (#3C3C43 at 60%) is
+    /// **3.44:1** on `.secondarySystemGroupedBackground` and **3.30:1** on
+    /// `.systemGroupedBackground`. Body text needs 4.5:1, and `footnote` is 13pt
+    /// so the large-text 3:1 exemption does not apply. Dark mode is 5.95:1 —
+    /// again, only light mode is broken, which is to say only daylight.
+    ///
+    /// The number was already written down **in this same file, 85 lines away**:
+    /// `caveatGroup`'s comment says 3.44:1 does not pass AA for body text, which
+    /// is why the first audit round moved those messages to `.label`. One
+    /// `UIColor`, two comments, opposite claims — and this one is the one every
+    /// new screen reads before reaching for the style.
+    ///
+    /// Four sentences had no full-ink copy anywhere near them: where the purpose
+    /// text a checker typed came from, why the name row has no switch beside it,
+    /// the airplane-mode claim, and `disclosureNote` — which this file's own
+    /// comment calls the fingerprint of a hand-made document.
     static func footnote(_ text: String) -> UILabel {
         let label = UILabel()
         label.text = text
         label.numberOfLines = 0
         label.font = .preferredFont(forTextStyle: .footnote)
         label.adjustsFontForContentSizeCategory = true
-        label.textColor = .secondaryLabel
+        label.textColor = .label
         return label
     }
 

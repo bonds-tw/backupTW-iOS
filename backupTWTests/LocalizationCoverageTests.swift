@@ -158,6 +158,47 @@ struct LocalizationCoverageTests {
                 "untranslated path description: \(path)")
     }
 
+    /// # The type-walk has a hole, and this is the shape of it
+    ///
+    /// Every sentence checked above is reached by walking a *type*:
+    /// `VerificationCaveat`, `VerificationFailure`, `ProofCaveat`,
+    /// `WallDisclosure`, `PresentationScenario`. Two sentences live on a struct
+    /// and a view controller instead, and nothing enumerated could reach them —
+    /// so they were the only two `NSLocalizedString` literals in the whole app
+    /// with no catalog entry at all, and they shipped in English.
+    ///
+    /// Their neighbours in the same `switch` were translated. In one `if/else`,
+    /// the true branch was Chinese and the false branch fell back to the English
+    /// key. That false branch is 「this file only *looks* signed」 — the one
+    /// sentence whose misreading this file's own comment says sends the work
+    /// down the wrong path for weeks.
+    ///
+    /// This is the first round's `b-1`, one type later: that fix added the keys
+    /// and a walk, and the walk never became a rule. So this walks the four flag
+    /// combinations rather than the two sentences, which closes the branch
+    /// instead of the instance.
+    @Test("PDF 掃描結果的四種旗標組合，每一句都要有中文")
+    func everyPDFScanSummaryReachesAChineseReader() {
+        let scans = [
+            PDFSignatureScan(isSigned: false, hasSignatureBytes: false,
+                             subFilters: [], signatureCount: 0, hasByteRange: false),
+            // The expensive one: prepared for signing, never signed. Measured on
+            // a real interrupted run — 2,206 bytes of `/Contents`, not one
+            // non-zero digit.
+            PDFSignatureScan(isSigned: true, hasSignatureBytes: false,
+                             subFilters: [], signatureCount: 1, hasByteRange: true),
+            PDFSignatureScan(isSigned: true, hasSignatureBytes: true,
+                             subFilters: ["adbe.pkcs7.detached"], signatureCount: 1,
+                             hasByteRange: true),
+            PDFSignatureScan(isSigned: true, hasSignatureBytes: true,
+                             subFilters: [], signatureCount: 2, hasByteRange: true),
+        ]
+        for scan in scans {
+            #expect(Self.readableInChinese(scan.summary),
+                    "untranslated PDF scan summary: \(scan.summary)")
+        }
+    }
+
     /// Same construction as `OfflineVerifierTests.everyFailure`, and for the same
     /// reason: `VerificationFailure` has associated values so it cannot be
     /// `CaseIterable`, and a hand-written list silently stops covering the case
