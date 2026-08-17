@@ -228,6 +228,21 @@ enum IssuerCertificateError: LocalizedError, Equatable {
         }
     }
 
+    /// The date a not-yet-valid certificate starts being valid, so a caller can
+    /// say which date this phone's clock is behind.
+    ///
+    /// Only the two `isRecoverable` cases have one. `trustAnchorExpired` and
+    /// `holderCertificateExpired` carry a date too, but it is the other end of
+    /// the window and means something else entirely.
+    var validFrom: Date? {
+        switch self {
+        case .trustAnchorNotYetValid(let from), .holderCertificateNotYetValid(let from):
+            return from
+        default:
+            return nil
+        }
+    }
+
     var errorDescription: String? {
         switch self {
         case .bundledCertificateMissing:

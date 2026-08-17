@@ -4735,6 +4735,16 @@
         }
       }
     },
+    "This phone's date is earlier than %@, when the certificate on this document starts being valid — so nothing about the document could be checked. Check this phone's date and time.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機的日期早於 %@——那是這份證件上的憑證開始生效的日子——所以沒有對這份證件做過任何查驗。請檢查這支手機的日期與時間。"
+          }
+        }
+      }
+    },
     "This presentation answers a different check, so it may be a copy of an earlier one.": {
       "comment": "Offline verification failure",
       "localizations": {

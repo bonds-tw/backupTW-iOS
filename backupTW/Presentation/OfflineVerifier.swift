@@ -414,6 +414,32 @@ enum VerificationFailure: Error, Equatable {
     /// *this app's* fault. Reporting it as a bad document would send somebody to
     /// renew a card that is perfectly fine.
     case trustAnchorUnavailable
+
+    /// **This** phone's clock is set before a certificate starts being valid,
+    /// so nothing about the document was judged at all.
+    ///
+    /// # Why it needed its own case
+    ///
+    /// Both certificate checks used to `catch` bare and discard the error, so
+    /// `IssuerCertificateError.trustAnchorNotYetValid` and
+    /// `.holderCertificateNotYetValid` arrived on screen as ⛔️ 「查驗未通過」 with
+    /// one of two sentences that point in two wrong directions: 「this app cannot
+    /// check government certificates right now」 (go and update the app, then
+    /// give up) or 「most often because it has expired」 — which sends a person
+    /// whose certificate is perfectly valid off to renew it, when the branch
+    /// actually means *not valid yet*, the opposite direction.
+    ///
+    /// `IssuerCertificateError.isRecoverable` had already picked exactly these
+    /// two out, with a comment saying they mean "this device's clock says a
+    /// certificate that is in date is not". Only the ZK path ever read it.
+    ///
+    /// Nor does the later check save it: `checkCardSigned` is step 3 and the
+    /// clock sentence the first audit round got right sits at step 5, so a
+    /// checker's wrong clock is swallowed before it can ever be reached.
+    ///
+    /// The bundled anchor's own `notBefore` is 2022-06-07, so a phone whose
+    /// clock has slipped to before that date hits this on every document it sees.
+    case deviceClockPrecedesCertificate(validFrom: Date)
 }
 
 extension VerificationFailure {
@@ -470,6 +496,17 @@ extension VerificationFailure {
         case .trustAnchorUnavailable:
             return NSLocalizedString("This app cannot check government certificates right now. This is a problem with the app, not with the document.",
                                      comment: "Offline verification failure")
+        case .deviceClockPrecedesCertificate(let from):
+            // ⚠️ Deliberately **not** `IssuerCertificateError.errorDescription`
+            // verbatim, ready-made and translated though those two sentences
+            // are. They are written to the holder — 「your citizen certificate
+            // isn't valid until …」 — and this screen is read by somebody looking
+            // at *another* person's document, where 「your」 and 「this device」
+            // name the wrong things. The substance is theirs; the pronouns are
+            // this screen's.
+            return String(format: NSLocalizedString(
+                "This phone's date is earlier than %@, when the certificate on this document starts being valid — so nothing about the document could be checked. Check this phone's date and time.",
+                comment: "Offline verification failure"), Self.certificateDateFormatter.string(from: from))
         case .credentialUnreadable:
             return NSLocalizedString("This document uses fields this app does not understand.",
                                      comment: "Offline verification failure")
@@ -517,6 +554,48 @@ extension VerificationFailure {
                                      comment: "Offline verification failure")
         }
     }
+
+    /// Whether this outcome is a statement about **this phone** rather than
+    /// about the document in front of it.
+    ///
+    /// The result screen draws these ⚠️ orange, not ⛔️ red, for the reason its
+    /// own 「nothing was checked」 branch already gives: a state that is not the
+    /// bad one must not be drawn as the bad one. Neither of these two says
+    /// anything whatever about what the other person presented — one is a
+    /// bundled file this build could not load, the other is this phone's clock.
+    ///
+    /// Exhaustive on purpose. A new failure has to be decided about rather than
+    /// falling into the accusing half by default.
+    var isAboutThisDevice: Bool {
+        switch self {
+        case .trustAnchorUnavailable, .deviceClockPrecedesCertificate:
+            return true
+        case .presentationIsNotAJWS, .presentationUnreadable, .presentationFieldsDisagree,
+             .presentationFieldIsNotText, .presentationIsNotAPresentation,
+             .unsupportedSignatureAlgorithm, .holderIdentifierUnusable,
+             .presentationKeyIDMismatch, .presentationSignatureInvalid, .credentialMissing,
+             .presentationCarriesMultipleCredentials, .credentialNotEnveloped,
+             .credentialIsNotAJWS, .credentialIsNotACredential, .issuerIdentifierUnusable,
+             .credentialKeyIDMismatch, .credentialSignatureInvalid, .credentialUnreadable,
+             .credentialNotBoundToPresenter, .credentialIssuerIsNotTheSubject,
+             .challengeMismatch, .purposeMismatch, .audienceMismatch,
+             .presentationTimestampUnreadable, .presentationTooOld,
+             .presentationDatedInTheFuture, .credentialValidityUnreadable,
+             .credentialNotYetValid, .credentialExpired, .cardSignatureInvalid,
+             .cardholderIsNotTheSubject, .cardholderCertificateUnusable,
+             .cardholderCertificateRevoked:
+            return false
+        }
+    }
+
+    /// Date only, in the checker's locale — the same shape
+    /// `IssuerCertificateError` uses for the sentences this one replaces.
+    private static let certificateDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
 }
 
 extension VerificationFailure: LocalizedError {
@@ -1255,6 +1334,15 @@ enum OfflineVerifier {
         let anchor: IssuerCertificate
         do {
             anchor = try IssuerCertificate.loadBundled(now: now)
+        } catch let error as IssuerCertificateError where error.isRecoverable {
+            // `isRecoverable` is true for exactly the two not-yet-valid cases,
+            // and its own comment says what they mean: this device's clock says
+            // a certificate that is in date is not. Discarding the error here
+            // turned that into 「this app cannot check government certificates
+            // right now」 — which sends the checker to update the app, and then
+            // to give up.
+            throw VerificationFailure.deviceClockPrecedesCertificate(
+                validFrom: error.validFrom ?? now)
         } catch {
             // The bundled trust anchor is unusable, which is this build's fault
             // and not the presenter's. Distinguished so a support report does
@@ -1277,9 +1365,16 @@ enum OfflineVerifier {
                 // deserves the same sentence.
                 throw VerificationFailure.cardSignatureInvalid
             }
+        } catch let error as IssuerCertificateError where error.isRecoverable {
+            // The same swallow, one certificate further in — and here the
+            // discarded message was worse than useless. 「most often because it
+            // has expired」 sent a person whose 自然人憑證 is perfectly valid off
+            // to renew it, while the branch actually means *not valid yet*.
+            throw VerificationFailure.deviceClockPrecedesCertificate(
+                validFrom: error.validFrom ?? now)
         } catch {
-            // Everything `IssuerCertificate` raises: wrong generation, expired,
-            // not signed by MOICA G3.
+            // Everything else `IssuerCertificate` raises: wrong generation,
+            // expired, not signed by MOICA G3.
             throw VerificationFailure.cardholderCertificateUnusable
         }
 

@@ -877,7 +877,9 @@ struct OfflineVerifierTests {
         case .cardholderIsNotTheSubject: return .cardholderCertificateUnusable
         case .cardholderCertificateUnusable: return .cardholderCertificateRevoked
         case .cardholderCertificateRevoked: return .trustAnchorUnavailable
-        case .trustAnchorUnavailable: return nil
+        case .trustAnchorUnavailable:
+            return .deviceClockPrecedesCertificate(validFrom: Date(timeIntervalSince1970: 1_654_560_000))
+        case .deviceClockPrecedesCertificate: return nil
         }
     }
 }

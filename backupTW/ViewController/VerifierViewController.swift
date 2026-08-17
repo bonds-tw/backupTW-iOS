@@ -892,6 +892,19 @@ final class VerificationResultViewController: UIViewController {
         switch outcome {
         case .some(.verified(let presentation)):
             buildVerified(presentation, into: stack)
+        case .some(.rejected(let failure)) where failure.isAboutThisDevice:
+            // Orange, and a different word, for the same reason as the `.none`
+            // branch below: **nothing about the document was judged.** One of
+            // these two is a file this build could not load; the other is this
+            // phone's clock reading a date before a certificate starts being
+            // valid. An honest document used to get the identical red a forgery
+            // gets, under a sentence pointing the reader in one of two wrong
+            // directions.
+            stack.addArrangedSubview(PresentationUI.verdict("⚠️",
+                NSLocalizedString("Nothing was checked", comment: ""), .systemOrange))
+            stack.addArrangedSubview(PresentationUI.card(body: failure.message))
+            stack.addArrangedSubview(PresentationUI.mitigation(
+                NSLocalizedString("This is about this phone, not about the person presenting. What they showed was never examined, so nothing here counts against them.", comment: "")))
         case .some(.rejected(let failure)):
             stack.addArrangedSubview(PresentationUI.verdict("⛔️",
                 NSLocalizedString("Not accepted", comment: ""), .systemRed))
