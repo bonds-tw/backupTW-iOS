@@ -644,6 +644,16 @@
         }
       }
     },
+    "Check the next person": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查下一個人"
+          }
+        }
+      }
+    },
     "Check the proof on this device": {
       "localizations": {
         "zh-Hant": {
@@ -3535,6 +3545,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方的手機沒有在提供證件。"
+          }
+        }
+      }
+    },
+    "The pairing code is down. This proof is being dealt with, so nobody else can send one until you ask for the next person.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配對碼已經收起來了。這份證明還在處理，在你按下「查下一個人」之前，別人送不進來。"
           }
         }
       }

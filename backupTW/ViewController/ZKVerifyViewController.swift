@@ -96,8 +96,39 @@ final class ZKVerifyViewController: UIViewController {
     /// silently does nothing.
     private var engagement: ZKLinkEngagement?
 
+    /// The only screen-to-screen screen in this app that held neither a wake
+    /// lock nor a brightness boost — and the one that has to survive 21.7
+    /// measured seconds.
+    ///
+    /// The other half of the same transfer holds one and says why: the holder
+    /// touches nothing for the whole transfer, and Low Power Mode pins Auto-Lock
+    /// at 30 seconds with no way to change it. This phone has been sitting on
+    /// the pairing screen untouched since *before* the holder started scanning,
+    /// so the idle timer is already part-spent when the transfer begins.
+    ///
+    /// Losing the screen mid-transfer is not recoverable by touching it:
+    /// `BluetoothLinkCentral` has no reconnect path — `didDiscover` is guarded
+    /// on `peripheral == nil` and scanning has already stopped — so the instance
+    /// is permanently dead and recovery means leaving and returning, which mints
+    /// a new serviceID and a new code for the other person to scan again.
+    ///
+    /// The brightness half is deliberately not taken: this code has a real
+    /// fallback in `chooseFile()`, unlike the credential screen's, whose QR is
+    /// the only way its `linkServiceID` ever reaches anybody.
+    private let wakeLock = AppScreenWakeLock.shared
+
     /// Holds the verdict card. See `show(status:detail:caveats:verdict:)`.
     private let verdictContainer = UIStackView()
+
+    /// Offered once the radio is off, because from that moment the code on
+    /// screen is an address nobody is listening at. See `retireTheCode()`.
+    private let nextPersonButton = UIButton(type: .system)
+
+    /// The arranged order of the waiting state, captured once.
+    ///
+    /// `liftTheVerdictAboveTheFold()` reorders in place and there is no other
+    /// way back: this screen never pushes, pops or reloads.
+    private var waitingOrder: [UIView] = []
 
     /// Holds the caveat group. Empty and hidden until there is a verdict, so
     /// the waiting screen does not carry a heading with nothing under it.
@@ -130,12 +161,17 @@ final class ZKVerifyViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         beginEngagement()
+        // Same lifetime as the engagement, and counted rather than flagged, so
+        // returning to this screen twice costs nothing. `isIdleTimerDisabled` is
+        // process-global — see `ScreenWakeLock`.
+        wakeLock.hold()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         if isMovingFromParent || isBeingDismissed {
             stopLink()
+            wakeLock.release()
         }
     }
 
@@ -210,6 +246,13 @@ final class ZKVerifyViewController: UIViewController {
         linkLabel.textColor = .secondaryLabel
         linkLabel.accessibilityIdentifier = "zkverify.link"
 
+        var nextConfig = UIButton.Configuration.filled()
+        nextConfig.title = NSLocalizedString("Check the next person", comment: "")
+        nextPersonButton.configuration = nextConfig
+        nextPersonButton.accessibilityIdentifier = "zkverify.next"
+        nextPersonButton.isHidden = true
+        nextPersonButton.addTarget(self, action: #selector(checkNextPerson), for: .touchUpInside)
+
         verdictContainer.axis = .vertical
         verdictContainer.spacing = 12
         verdictContainer.isHidden = true
@@ -222,10 +265,11 @@ final class ZKVerifyViewController: UIViewController {
 
         view.addSubview(scroll)
         scroll.addSubview(stack)
-        [codeContainer, codeCaptionLabel, linkLabel,
+        [codeContainer, codeCaptionLabel, linkLabel, nextPersonButton,
          chooseButton, spinner, verdictContainer, statusLabel, detailLabel,
          caveatContainer].forEach(stack.addArrangedSubview)
         stack.setCustomSpacing(8, after: codeContainer)
+        waitingOrder = stack.arrangedSubviews
 
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -253,6 +297,25 @@ final class ZKVerifyViewController: UIViewController {
     func showForReview(status: String, detail: String, caveats: [String], verdict: Bool?) {
         show(status: status, detail: detail, caveats: caveats, verdict: verdict)
     }
+
+    // MARK: - Seams for the code/radio invariant
+    //
+    // Narrow on purpose: the pair below is the whole assertion, and it is the
+    // one this screen's own comment claims cannot come apart.
+
+    /// Whether a scanner is running for the identifier currently drawn.
+    var radioIsListeningForReview: Bool { link != nil }
+
+    /// Whether there is a pairing code on screen.
+    var pairingCodeIsShownForReview: Bool { !codeImageView.isHidden }
+
+    var nextPersonIsOfferedForReview: Bool { !nextPersonButton.isHidden }
+
+    var verdictIsShownForReview: Bool { !verdictContainer.isHidden }
+
+    func receiveForReview(_ state: BluetoothLinkState) { receiveOverLink(state) }
+
+    func checkNextPersonForReview() { checkNextPerson() }
 
     private func show(status: String, detail: String, caveats: [String] = [], verdict: Bool?) {
         statusLabel.text = status
@@ -362,6 +425,90 @@ final class ZKVerifyViewController: UIViewController {
         where stack.arrangedSubviews.contains(view) {
             stack.insertArrangedSubview(view, at: index)
         }
+        announceTheVerdict()
+    }
+
+    /// The one notification this app has ever posted.
+    ///
+    /// # Fifteen seconds of silence, and then a silent answer
+    ///
+    /// `UIAccessibility.post` appeared **nowhere** in this app. iOS does not
+    /// re-speak a `UILabel` whose `text` changed; the spinner is not an
+    /// accessibility element, so starting and stopping it is silent; nothing is
+    /// removed from the hierarchy when the first verdict lands, so the
+    /// "focused element disappeared" recovery never fires; and this screen never
+    /// pushes or pops, so there is no transition to ride on. The credential path
+    /// is fine only by accident — it pushes a whole result view controller and
+    /// UIKit announces that itself.
+    ///
+    /// Over Bluetooth it was worse: 21.7 measured seconds of transfer writing
+    /// percentages into a label nobody hears, then fifteen more of checking.
+    ///
+    /// `.layoutChanged` rather than `.screenChanged`, because the screen was not
+    /// replaced. The argument does two jobs at once: it speaks the verdict, and
+    /// it parks the cursor on the verdict **before** `liftTheVerdictAboveTheFold`
+    /// moves three views out from under it.
+    private func announceTheVerdict() {
+        let target: UIView = verdictContainer.isHidden
+            ? statusLabel
+            : (verdictContainer.arrangedSubviews.first ?? statusLabel)
+        UIAccessibility.post(notification: .layoutChanged, argument: target)
+    }
+
+    /// Takes the pairing code down at the moment the radio goes off.
+    ///
+    /// # A code nobody is listening at, over the last person's verdict
+    ///
+    /// `.finished` calls `stopLink()` first thing, and `beginEngagement()` — the
+    /// only thing that mints an identifier, draws a code and starts a scanner —
+    /// had exactly one caller: `viewWillAppear`. Nothing re-opened it. The file
+    /// picker is a sheet, so it does not trigger `viewWillAppear` either.
+    ///
+    /// So the second person in the queue scanned a code that was still on
+    /// screen, their phone broadcast into a room with nobody listening
+    /// (`BluetoothLink` has no advertising timeout), and they sat at 「ready —
+    /// waiting for the checker's phone」 while the checker's screen did not
+    /// change by one pixel: `liftTheVerdictAboveTheFold()` had just moved the
+    /// *previous* person's green 「passed」 to the top, with 「received 389 KB over
+    /// Bluetooth」 under it and no timestamp anywhere on the screen.
+    ///
+    /// This screen's own comments state both halves of the rule it was breaking:
+    /// 「a code drawn without a scanner running is a code that does nothing when
+    /// scanned … `engagement` exists so the two cannot drift」, and the reason
+    /// the code is *not* hidden after a verdict, which is that a checker at a
+    /// counter checks more than one person. Both are right. What was missing was
+    /// the step in between: the way to the next person is a new engagement, not
+    /// a stale code.
+    ///
+    /// So the code comes down with the radio, and comes back only when somebody
+    /// asks for the next person — which also clears the verdict, because a live
+    /// code and the previous person's answer must never be on screen together.
+    private func retireTheCode() {
+        engagement = nil
+        codeImageView.image = nil
+        codeImageView.isHidden = true
+        codeCaptionLabel.text = NSLocalizedString(
+            "The pairing code is down. This proof is being dealt with, so nobody else can send one until you ask for the next person.",
+            comment: "")
+        codeCaptionLabel.isHidden = false
+        nextPersonButton.isHidden = false
+    }
+
+    @objc private func checkNextPerson() {
+        // Everything about the last person goes before anything about the next
+        // one arrives.
+        nextPersonButton.isHidden = true
+        show(status: NSLocalizedString("No proof loaded yet", comment: ""),
+             detail: NSLocalizedString(
+                "A zero-knowledge proof is about 400 KB — far too large for a QR code, so it arrives over Bluetooth or as a file.",
+                comment: ""),
+             verdict: nil)
+        for (index, view) in waitingOrder.enumerated() where stack.arrangedSubviews.contains(view) {
+            stack.insertArrangedSubview(view, at: index)
+        }
+        linkLabel.text = nil
+        beginEngagement()
+        UIAccessibility.post(notification: .screenChanged, argument: codeImageView)
     }
 
     // MARK: - The pairing code and the radio
@@ -447,6 +594,11 @@ final class ZKVerifyViewController: UIViewController {
             // Down at once: the proof is here, and a second transfer arriving
             // mid-verification would stack a second result on the first.
             stopLink()
+            // And the code down with it. Both branches below are terminal for
+            // the radio — including the one where the bytes arrived and could
+            // not be decoded, which used to switch the radio off permanently
+            // over a proof that was never judged at all.
+            retireTheCode()
             linkLabel.text = String(format: NSLocalizedString("Received %@ over Bluetooth.", comment: ""),
                                     ZKStagePresentation.byteString(Int64(payload.count)))
             do {
