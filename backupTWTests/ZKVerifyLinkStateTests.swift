@@ -54,8 +54,13 @@ struct ZKVerifyLinkStateTests {
         defer { window.isHidden = true }
 
         agree(controller, "while waiting")
-        #expect(controller.pairingCodeIsShownForReview)
+        // Only when this phone could actually answer the invitation — see
+        // `ZKCheckingAvailability`. A simulator with no downloaded verifying
+        // keys is in the same position as a shipped build, and this screen must
+        // not put a live code up in that state.
+        #expect(controller.pairingCodeIsShownForReview == controller.canCheckAProofForReview)
         #expect(!controller.nextPersonIsOfferedForReview)
+        guard controller.canCheckAProofForReview else { return }
 
         // Three bytes that are not a package: the branch where the transfer
         // finished, the radio went off, and no verdict was ever reached. It used
@@ -87,7 +92,7 @@ struct ZKVerifyLinkStateTests {
         window.layoutIfNeeded()
 
         agree(controller, "after asking for the next person")
-        #expect(controller.pairingCodeIsShownForReview)
+        #expect(controller.pairingCodeIsShownForReview == controller.canCheckAProofForReview)
         #expect(!controller.verdictIsShownForReview,
                 "the next person's code is up and the last person's verdict is still on screen")
         #expect(!controller.nextPersonIsOfferedForReview)
@@ -112,5 +117,57 @@ struct ZKVerifyLinkStateTests {
         window.isHidden = true
         #expect(AppScreenWakeLock.shared.holderCount == before,
                 "the wake lock outlived the screen — it is process-global")
+    }
+}
+
+/// A screen that cannot check a proof must not invite one.
+///
+/// # Two instructions on one screen, and the cost lands on the other person
+///
+/// In a shipped build `ZKVerifyingKeyAssets.areInstalled` is permanently false —
+/// the only path that writes verifying keys sits behind
+/// `ZKProofRunAssembly.makeSigner`, nil in release, and no `.key` ships in the
+/// bundle. The screen said so at load: 「this version cannot download the files …
+/// tell them before they send one.」 Then `viewWillAppear` drew a pairing code
+/// and started listening anyway, and the invitation sat four views *above* the
+/// disqualification — 「ask them to scan the code above」 at the top, the sentence
+/// that withdraws it below the fold.
+///
+/// `verify(package:)` never asked either, so a proof really did arrive,
+/// reassemble, spin for fifteen seconds, and come back 「no verdict」.
+@MainActor
+struct ZKCheckingAvailabilityTests {
+
+    @Test func theThreeStatesAreDistinguishedAndSayDifferentThings() {
+        let sentences = [ZKCheckingAvailability.ready.sentence,
+                         ZKCheckingAvailability.notDownloadedYet.sentence,
+                         ZKCheckingAvailability.impossibleInThisBuild.sentence]
+        #expect(Set(sentences).count == 3, "two of the three states say the same thing")
+        #expect(ZKCheckingAvailability.ready.canCheck)
+        #expect(!ZKCheckingAvailability.notDownloadedYet.canCheck)
+        #expect(!ZKCheckingAvailability.impossibleInThisBuild.canCheck)
+    }
+
+    /// 「Yet」 is a promise, and only one of the three states can keep it.
+    @Test func onlyTheStateThatCanDownloadSaysYet() {
+        for promise in ["yet", "還沒", "尚未"] {
+            #expect(!ZKCheckingAvailability.impossibleInThisBuild.sentence.contains(promise),
+                    "a build that can never download says 「\(promise)」")
+        }
+    }
+
+    /// And the screen's own invitation follows it.
+    @Test func theScreenOffersNoPairingCodeWhenItCannotCheck() {
+        let controller = ZKVerifyViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = UINavigationController(rootViewController: controller)
+        window.isHidden = false
+        controller.loadViewIfNeeded()
+        window.layoutIfNeeded()
+        defer { window.isHidden = true }
+
+        #expect(controller.pairingCodeIsShownForReview == controller.canCheckAProofForReview,
+                "the screen invites a transfer it cannot check")
+        #expect(controller.radioIsListeningForReview == controller.canCheckAProofForReview)
     }
 }

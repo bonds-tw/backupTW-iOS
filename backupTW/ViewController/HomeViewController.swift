@@ -229,8 +229,7 @@ class HomeViewController: UICollectionViewController {
     private static func proofRowSubtitle() -> String {
         // One copy of the question, in `ZKVerifyingKeyAssets`. It lived here, so
         // the screen that actually checks proofs could not ask it.
-        let ready = ZKVerifyingKeyAssets.areInstalled
-        if ready {
+        if ZKCheckingAvailability.current.canCheck {
             return NSLocalizedString("Check a proof file. The checking files are on this phone.", comment: "")
         }
         // 「not downloaded **yet**」 is a promise, and in a shipping build it is
@@ -247,7 +246,9 @@ class HomeViewController: UICollectionViewController {
         // signing should not be the same gate**, because a checker needs the
         // verifying keys and does not need to sign anything. Until then the row
         // says which of the two situations this actually is.
-        return ZKProofRunAssembly.isSigningAvailable
+        // The two situations are told apart by `ZKCheckingAvailability` now, so
+        // this row and the checking screen cannot drift into different tenses.
+        return ZKCheckingAvailability.current == .notDownloadedYet
             ? NSLocalizedString("Check a proof file. The large checking files are not downloaded yet.", comment: "")
             : NSLocalizedString("Check a proof file. This version cannot download the checking files.", comment: "")
     }

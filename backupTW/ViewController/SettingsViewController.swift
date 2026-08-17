@@ -70,7 +70,14 @@ class SettingsViewController: UICollectionViewController {
         Section(title: NSLocalizedString("Experimental", comment: ""), items: [
             Item(image: UIImage(systemName: "eye.slash")?.withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
                  title: Row.minimalDisclosure,
-                 secondaryText: NSLocalizedString("Prove you hold a valid 自然人憑證 without showing it. Needs a large one-time download.", comment: ""))
+                 // 「Needs a large one-time download」 is an instruction, and in
+                 // a shipped build there is no way to follow it — the only path
+                 // that downloads sits behind `ZKProofRunAssembly.makeSigner`,
+                 // nil in release. Same split as the home row's subtitle and the
+                 // checking screen, asked of the same two flags.
+                 secondaryText: CredentialIssuanceAssembly.isAvailable
+                    ? NSLocalizedString("Prove you hold a valid 自然人憑證 without showing it. Needs a large one-time download.", comment: "")
+                    : NSLocalizedString("Prove you hold a valid 自然人憑證 without showing it. This version cannot create a proof.", comment: ""))
         ])
     ]
 

@@ -49,8 +49,12 @@ extension ZKPackageVerificationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .verifyingKeysMissing:
+            // ⚠️ No 「yet」 here. This is the generic description, reached from
+            // anywhere; the two situations 「not downloaded yet」 and 「this
+            // version cannot download them」 are told apart by
+            // `ZKCheckingAvailability`, which is what the screens render.
             return NSLocalizedString(
-                "This device does not have the files needed to check a proof yet.", comment: "")
+                "This device does not have the files needed to check a proof.", comment: "")
         case .unusablePackage:
             return NSLocalizedString("This proof file could not be read.", comment: "")
         case .inconclusive:
@@ -174,5 +178,65 @@ struct ZKPackageVerifier {
 
     private static func seconds(since start: UInt64) -> Double {
         Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000_000
+    }
+}
+
+
+/// Why this phone can or cannot check a proof, in one place.
+///
+/// # 「Yet」 is a promise, and a shipped build never keeps it
+///
+/// The home row already told the two apart. The screen that actually checks
+/// proofs did not: its `.failure` branch printed `localizedDescription`
+/// unclassified, so 「this phone does not have the files needed to check a proof
+/// **yet**」 arrived **after** 400 KB had crossed. At that moment the cheapest,
+/// most obvious and most wrong inference available is 「send it again」 — a
+/// retry costs a tap here and another twenty-two seconds of Bluetooth on the
+/// other person's phone.
+///
+/// The screen says the true, permanent thing at load — 「this version cannot
+/// download the files … tell them before they send one」 — and `show()` rewrites
+/// both labels, so by the only moment that matters the permanent truth had been
+/// replaced by a temporary tense.
+///
+/// The only path that writes verifying keys sits behind
+/// `ZKProofRunAssembly.makeSigner`, which is nil in a release build, and no
+/// `.key` ships in the bundle. So on the App Store this is not an edge case, it
+/// is the permanent state.
+enum ZKCheckingAvailability: Equatable, Sendable {
+
+    /// The files are on this phone.
+    case ready
+    /// Not downloaded, but this build can download them.
+    case notDownloadedYet
+    /// This build has no way to get them at all.
+    case impossibleInThisBuild
+
+    static var current: ZKCheckingAvailability {
+        if ZKVerifyingKeyAssets.areInstalled { return .ready }
+        return ZKProofRunAssembly.isSigningAvailable ? .notDownloadedYet : .impossibleInThisBuild
+    }
+
+    var canCheck: Bool { self == .ready }
+
+    /// What the checking screen says when it cannot reach a verdict for this
+    /// reason. Same split as the home row's subtitle, and asked of the same two
+    /// flags.
+    var sentence: String {
+        switch self {
+        case .ready:
+            // Reached when the files are present and the check still could not
+            // run — a path problem, not a download one.
+            return NSLocalizedString(
+                "The checking files are on this phone, but they could not be opened.", comment: "")
+        case .notDownloadedYet:
+            return NSLocalizedString(
+                "The large checking files have not been downloaded to this phone yet, so a proof sent here cannot be checked.",
+                comment: "")
+        case .impossibleInThisBuild:
+            return NSLocalizedString(
+                "This version cannot download the files needed to check a proof, so a proof sent here cannot be checked. Say so before they send one.",
+                comment: "")
+        }
     }
 }

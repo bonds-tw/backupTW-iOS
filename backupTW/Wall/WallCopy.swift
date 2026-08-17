@@ -35,20 +35,37 @@ enum WallCopy {
         switch failure.error {
 
         case .hostDoesNotExist:
-            // Today's reality, and deliberately **not** phrased as "the wall is
-            // not accepting proofs yet".
+            // ⚠️ **This used to end 「…, not your network」 — and that is the one
+            // explanation the code has already ruled out.**
             //
-            // The Worker answers an unrouted path and a path this app spelled
-            // wrong with the identical 404, and the path names are still this
-            // side's unilateral proposal. Saying which one it is would be
-            // guessing, in the one branch where a guess is unnecessary: what is
-            // certain is that nothing left the phone.
+            // `.hostDoesNotExist` is produced in exactly one place, from
+            // `.cannotFindHost` / `.dnsLookupFailed`. The compiled-in host is
+            // `bonds.tw`, which resolves. So on any shipped build a name-lookup
+            // failure **cannot** come from this app's address setting; the only
+            // way into this branch is a resolver failing on the reader's side —
+            // a broken resolver, a VPN with dead DNS, ISP-level DNS blocking.
+            // Which is to say: this app's readers.
+            //
+            // The sentence is a fossil. The plan wrote it while the compiled-in
+            // host was `wall.bonds.tw`, which did not exist — true then. Fifteen
+            // minutes after the host was settled on `bonds.tw`, this file was
+            // written and carried the pre-decision sentence in unchanged. The
+            // 404 it thinks it is describing goes somewhere else entirely: a
+            // JSON 404 is `.unavailable`, a non-JSON one is
+            // `.unknownWhetherPublished`.
+            //
+            // So the body now states what is certain and leaves the cause open,
+            // and the button follows `retryCost` like every other branch —
+            // `.hostDoesNotExist` is `.resend` on both paths, asserted by
+            // `WallResponseReaderTests`, and this branch was the one place that
+            // silently overrode it. It also skipped `Self.body(for:)`, which is
+            // why 「nothing was used up」 was missing too.
             return WallMessage(
                 title: NSLocalizedString("This version cannot find the wall.", comment: "Wall failure"),
-                body: NSLocalizedString(
-                    "Nothing was sent and nothing on this phone changed. This is an address setting in this version of the app, not your network.",
-                    comment: "Wall failure"),
-                retryLabel: nil)
+                body: Self.body(for: failure, base: NSLocalizedString(
+                    "Nothing was sent and nothing on this phone changed. Either this version has the wrong address, or this network cannot look the name up.",
+                    comment: "Wall failure")),
+                retryLabel: Self.retryLabel(for: failure.retryCost))
 
         case .offline:
             return WallMessage(

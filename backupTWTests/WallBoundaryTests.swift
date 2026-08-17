@@ -214,6 +214,70 @@ struct WallCopyTests {
         }
     }
 
+    /// The other direction of the same invariant, which nothing asserted.
+    ///
+    /// `nothingThatMightDuplicateGetsARetryButton` above is one-way: it stops a
+    /// duplicate-risking outcome from getting a button. Nothing stopped a
+    /// zero-cost outcome from being denied one — and `.hostDoesNotExist` was
+    /// exactly that, hard-coding `retryLabel: nil` over a `retryCost` of
+    /// `.resend` that `WallResponseReaderTests` asserts by name. It also skipped
+    /// `WallCopy.body(for:)`, so 「nothing was used up — the same proof can go
+    /// again」 was suppressed along with the button.
+    /// Six branches refuse a retry whatever the cost says, and each has a reason
+    /// that survives being handed `.resend`:
+    ///
+    /// - `.unavailable` — whoever runs the wall switched it off; the same answer
+    ///   is waiting.
+    /// - `.challengeAlreadyUsed` — the nonce is spent; a resend cannot unspend it.
+    /// - `.refused` — the wall checked the proof and said no.
+    /// - `.unknownWhetherPublished` — a retry may publish a second time.
+    /// - `.proofTooLarge` — the bytes will be the same bytes.
+    /// - `.cannotProveInThisBuild` — nothing was ever asked for.
+    ///
+    /// `.hostDoesNotExist` was a seventh and did not belong: it was not an
+    /// editorial judgement, it was a sentence copied from a plan written while
+    /// the compiled-in host did not exist. Everything outside this list must
+    /// honour `retryCost`.
+    @Test func onlyTheSixBranchesWithAReasonRefuseAFreeRetry() {
+        let deliberatelySilent: Set<String> = [
+            "unavailable", "challengeAlreadyUsed", "refused",
+            "unknownWhetherPublished", "proofTooLarge", "cannotProveInThisBuild",
+        ]
+        for error in Self.everyError {
+            let name = String(describing: error).prefix { $0 != "(" }
+            let message = WallCopy.message(for: WallFailure(error, retryCost: .resend,
+                                                            publication: .nothingWasPublished))
+            if deliberatelySilent.contains(String(name)) {
+                #expect(message.retryLabel == nil,
+                        "\(error) is on the deliberate-silence list and now offers a button — decide which")
+            } else {
+                #expect(message.retryLabel != nil,
+                        "\(error) costs nothing to retry and offers no way to")
+            }
+        }
+    }
+
+    /// ⚠️ `.hostDoesNotExist` must not blame the reader's network *or* clear it.
+    ///
+    /// The compiled-in host resolves, so this branch is reachable only through a
+    /// name lookup failing on the reader's side — which is what the sentence
+    /// 「this is an address setting in this version of the app, **not your
+    /// network**」 denied. It was written while the compiled-in host was
+    /// `wall.bonds.tw`, which did not exist; the host was settled fifteen
+    /// minutes before this file was written and the sentence came along
+    /// unchanged.
+    @Test func theHostBranchDoesNotRuleOutTheOnlyThingItCanMean() {
+        let message = WallCopy.message(for: WallFailure(.hostDoesNotExist, retryCost: .resend,
+                                                        publication: .nothingWasPublished))
+        for denial in ["not your network", "不是你的網路"] where message.body.contains(denial) {
+            Issue.record("the DNS branch denies DNS: \(message.body)")
+        }
+        #expect(message.retryLabel != nil)
+        // And the cost sentence is back.
+        #expect(message.body.contains("go again") || message.body.contains("再送一次"),
+                "the branch still suppresses 「nothing was used up」: \(message.body)")
+    }
+
     /// The button is named after its cost, not "try again".
     @Test func theRetryButtonSaysWhatItCosts() {
         let resend = WallCopy.message(for: WallFailure(.rateLimited, retryCost: .resend,

@@ -142,15 +142,15 @@ final class ZKVerifyViewController: UIViewController {
         // Said at load, not after the other phone has spent twenty seconds
         // sending 400 KB. `verdict: nil` throughout — this is a fact about this
         // device's setup and says nothing about anybody's proof.
-        let ready = ZKVerifyingKeyAssets.areInstalled
+        let availability = ZKCheckingAvailability.current
         show(status: NSLocalizedString("No proof loaded yet", comment: ""),
-             detail: ready || ZKProofRunAssembly.isSigningAvailable
+             detail: availability.canCheck
                 ? NSLocalizedString(
                     "A zero-knowledge proof is about 400 KB — far too large for a QR code, so it arrives over Bluetooth or as a file.",
                     comment: "")
-                : NSLocalizedString(
-                    "This version cannot download the files needed to check a proof, so a proof sent here cannot be checked. Say so before they send one.",
-                    comment: ""),
+                // One source for this sentence now, so the screen cannot say one
+                // thing at load and a differently-tensed thing at the verdict.
+                : availability.sentence,
              verdict: nil)
     }
 
@@ -310,6 +310,8 @@ final class ZKVerifyViewController: UIViewController {
     var pairingCodeIsShownForReview: Bool { !codeImageView.isHidden }
 
     var nextPersonIsOfferedForReview: Bool { !nextPersonButton.isHidden }
+
+    var canCheckAProofForReview: Bool { ZKCheckingAvailability.current.canCheck }
 
     var verdictIsShownForReview: Bool { !verdictContainer.isHidden }
 
@@ -520,6 +522,31 @@ final class ZKVerifyViewController: UIViewController {
     /// identifier that is no longer displayed is a phone looking for a device
     /// nobody is pretending to be. `engagement` exists so the two cannot drift.
     private func beginEngagement() {
+        // ⚠️ **No invitation when this phone cannot answer it.**
+        //
+        // `viewWillAppear` used to call this unconditionally, so a build that had
+        // just said 「this version cannot download the files needed to check a
+        // proof … tell them before they send one」 drew a live pairing code four
+        // views above that sentence and started listening. `verify(package:)`
+        // does not ask either, so a proof really did arrive, reassemble, spin,
+        // and come back 「no verdict」.
+        //
+        // Suppressing the code here is not the 「hide the row」 move the first
+        // round ruled out: what is hidden is not a capability, it is an
+        // invitation that costs the person opposite twenty seconds and a proof
+        // of their identity. The file picker stays — it fails locally and
+        // honestly, on this checker's own phone.
+        guard ZKCheckingAvailability.current.canCheck else {
+            engagement = nil
+            stopLink()
+            codeImageView.image = nil
+            codeImageView.isHidden = true
+            codeCaptionLabel.text = ZKCheckingAvailability.current.sentence
+            codeCaptionLabel.isHidden = false
+            linkLabel.text = nil
+            return
+        }
+
         let engagement = ZKLinkEngagement(serviceID: UUID(), purpose: Self.purpose)
         self.engagement = engagement
 
@@ -688,9 +715,14 @@ final class ZKVerifyViewController: UIViewController {
         guard let directory = try? CircuitAssets.defaultDirectory() else {
             spinner.stopAnimating()
             chooseButton.isEnabled = true
+            // Its own sentence. What failed here is getting an Application
+            // Support path at all — nothing to do with whether the files were
+            // downloaded, which is what this used to say by borrowing the
+            // download branch's wording.
             show(status: NSLocalizedString("No verdict", comment: ""),
                  detail: NSLocalizedString(
-                    "This device does not have the files needed to check a proof yet.", comment: ""),
+                    "This phone would not give the app a place to work in, so the check could not start. Restarting the phone is the usual fix.",
+                    comment: ""),
                  verdict: nil)
             return
         }
@@ -758,8 +790,21 @@ final class ZKVerifyViewController: UIViewController {
             // Neither an acceptance nor a rejection. `verdict: nil` keeps it
             // grey: an orange warning here would say the proof is bad, when what
             // happened is that this device could not answer.
+            //
+            // ⚠️ Classified rather than printed. This branch used to render
+            // `localizedDescription` for every error, which is how 「this phone
+            // does not have the files needed **yet**」 arrived after 400 KB had
+            // crossed — a promise this binary cannot keep, read at the one
+            // moment when 「send it again」 is the obvious inference and costs the
+            // other person another twenty-two seconds.
+            let detail: String
+            if case ZKPackageVerificationError.verifyingKeysMissing = error {
+                detail = ZKCheckingAvailability.current.sentence
+            } else {
+                detail = error.localizedDescription
+            }
             show(status: NSLocalizedString("No verdict", comment: ""),
-                 detail: error.localizedDescription,
+                 detail: detail,
                  verdict: nil)
         }
     }

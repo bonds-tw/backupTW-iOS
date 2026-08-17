@@ -2078,12 +2078,12 @@
         }
       }
     },
-    "Nothing was sent and nothing on this phone changed. This is an address setting in this version of the app, not your network.": {
+    "Nothing was sent and nothing on this phone changed. Either this version has the wrong address, or this network cannot look the name up.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "什麼都沒有送出去，這支手機上也沒有任何東西改變。這是這個版本的位址設定問題，不是你的網路。"
+            "value": "什麼都沒有送出去，這支手機上也沒有任何改變。可能是這個版本的位址設錯了，也可能是這個網路查不到那個名稱。"
           }
         }
       }
@@ -2346,6 +2346,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "證明你持有有效的自然人憑證，但不出示憑證內容。需要一次性的大量下載。"
+          }
+        }
+      }
+    },
+    "Prove you hold a valid 自然人憑證 without showing it. This version cannot create a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明你持有一張有效的自然人憑證，而不必出示它。這個版本無法建立證明。"
           }
         }
       }
@@ -3354,6 +3364,16 @@
         }
       }
     },
+    "The checking files are on this phone, but they could not be opened.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗用的檔案在這支手機上，但打不開。"
+          }
+        }
+      }
+    },
     "The connection ended before the whole document arrived. Their screen is still showing the codes — you can scan those instead.": {
       "localizations": {
         "zh-Hant": {
@@ -3543,6 +3563,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "識別碼在刪除後仍然存活"
+          }
+        }
+      }
+    },
+    "The large checking files have not been downloaded to this phone yet, so a proof sent here cannot be checked.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗用的大型檔案還沒下載到這支手機，所以送到這裡的證明無法查驗。"
           }
         }
       }
@@ -4352,12 +4382,12 @@
         }
       }
     },
-    "This device does not have the files needed to check a proof yet.": {
+    "This device does not have the files needed to check a proof.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這支手機還沒有查驗證明所需的檔案。"
+            "value": "這支手機沒有查驗證明所需的檔案。"
           }
         }
       }
@@ -4791,6 +4821,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這支手機沒有自己檢查過這份證明，所以沒有東西可以拿來比對。沒有任何東西被公開。"
+          }
+        }
+      }
+    },
+    "This phone would not give the app a place to work in, so the check could not start. Restarting the phone is the usual fix.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機沒有給 App 一個可以工作的位置，所以查驗沒有開始。通常重開機就會好。"
           }
         }
       }
