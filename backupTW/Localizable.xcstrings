@@ -3339,6 +3339,16 @@
         }
       }
     },
+    "The proof carries a number that is the same for you every time you sign this wall. bonds.tw says it does not store it and does not publish it. Nothing in the proof stops them — that is a promise, not a property.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明裡有一個號碼，你每次簽這面牆它都一樣。bonds.tw 說它不會保存、也不會公開。證明本身擋不住他們——那是一個承諾，不是一個性質。"
+          }
+        }
+      }
+    },
     "The proof carries two numbers that are the same for you every time. bonds.tw says it does not store them and does not publish them. Nothing in the proof stops them — that is a promise, not a property.": {
       "localizations": {
         "zh-Hant": {
@@ -3355,6 +3365,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這台裝置無法產生證明。"
+          }
+        }
+      }
+    },
+    "The proofs are not published, so nobody outside bonds.tw can recompute the number on the wall. Publishing them would leak the number above.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明不會公開，所以 bonds.tw 以外的人沒辦法自己重算牆上的數字。公開證明會洩漏上面說的那個號碼。"
           }
         }
       }
@@ -3512,6 +3532,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "伺服器上的驗證檔案與這個版本的 App 預期的不符。請更新 App 後再試。"
+          }
+        }
+      }
+    },
+    "The wall counts signatures, not people. It could tell that the same person signed twice — that number in the proof would be identical — it says it does not look. Signing twice is two entries.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這面牆數的是簽名，不是人。它分得出來同一個人簽了兩次——證明裡那個號碼會一模一樣——它只是說它不看。簽兩次就是兩筆。"
           }
         }
       }

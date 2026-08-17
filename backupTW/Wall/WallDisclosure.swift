@@ -49,21 +49,33 @@ enum WallDisclosure: String, CaseIterable, Equatable, Sendable {
                 comment: "Wall disclosure")
 
         case .nullifierReachesTheOperator:
-            // **Two numbers, not one.**
+            // **One number, not two — and this is a correction.**
             //
-            // `nullifier` is derived from an RSA signature over the app id, so
-            // it is scoped to this app. `pk_commit` is not: both proofs carry
-            // one and they must be equal — that equality is how `linkVerify`
-            // ties the two halves together — so it can only be a function of
-            // the holder's key, with no relying-party separation at all.
+            // An earlier version of this sentence said "two numbers that are the
+            // same for you every time", counting `pk_commit` alongside the
+            // nullifier. That was an inference from the verifier requiring the
+            // two proofs' `pk_commit` values to be equal, and it was **wrong**.
             //
-            // ⚠️ Whether `pk_commit` is therefore a global identifier across
-            // every zkID relying party is an inference from the verifier's
-            // behaviour, not something read out of the circuit. It is listed in
-            // the plan as needing confirmation. Until then the copy says "two
-            // numbers", which is true either way.
+            // Read from the circuit source: `pkCommit` is a Poseidon hash of the
+            // public key limbs **plus `pkBlind`**, a fresh 31-byte value drawn
+            // from the OS RNG on every proving session
+            // (`random_pk_blind`, called once per proof pair). It is a different
+            // value every time the same person proves anything to anyone. The
+            // circuits' own spec names the attacker holding the whole MOICA
+            // directory and says the blind is the defence against exactly the
+            // matching attack the old sentence implied was already possible.
+            //
+            // Over-stating a harm is still getting it wrong, and it is the
+            // failure this file's tests are otherwise written to catch in the
+            // other direction. So: one number.
+            //
+            // ⚠️ The hiding is **prover-enforced, not circuit-enforced** —
+            // nothing constrains `pkBlind` to be fresh, and a wallet that pinned
+            // it would silently turn `pk_commit` into the global identifier this
+            // sentence used to describe. That is a property of the wallet, not
+            // of the wall, so it is not disclosed here; it is going upstream.
             return NSLocalizedString(
-                "The proof carries two numbers that are the same for you every time. bonds.tw says it does not store them and does not publish them. Nothing in the proof stops them — that is a promise, not a property.",
+                "The proof carries a number that is the same for you every time you sign this wall. bonds.tw says it does not store it and does not publish it. Nothing in the proof stops them — that is a promise, not a property.",
                 comment: "Wall disclosure")
 
         case .issuerKnowsWhenYouAsked:
@@ -100,7 +112,7 @@ enum WallDisclosure: String, CaseIterable, Equatable, Sendable {
             // were an inability — in the same list that insists, one item above,
             // on the difference between a promise and a property.
             return NSLocalizedString(
-                "The wall counts signatures, not people. It could tell that the same person signed twice — those two numbers in the proof would be identical — it says it does not look. Signing twice is two entries.",
+                "The wall counts signatures, not people. It could tell that the same person signed twice — that number in the proof would be identical — it says it does not look. Signing twice is two entries.",
                 comment: "Wall disclosure")
 
         case .cannotBeWithdrawn:
@@ -110,7 +122,7 @@ enum WallDisclosure: String, CaseIterable, Equatable, Sendable {
 
         case .operatorMustBeTrusted:
             return NSLocalizedString(
-                "The proofs are not published, so nobody outside bonds.tw can recompute the number on the wall. Publishing them would leak the two numbers above.",
+                "The proofs are not published, so nobody outside bonds.tw can recompute the number on the wall. Publishing them would leak the number above.",
                 comment: "Wall disclosure")
 
         case .issuerNotCheckedByTheWall:

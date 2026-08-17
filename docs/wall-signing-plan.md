@@ -679,6 +679,33 @@ static var canRequestSignature: Bool {
 
 ## 七之〇、其中四條已經結案（2026-08-17／18）
 
+**5（`pk_commit` 有沒有 relying-party 域分隔）→ 我的推論被推翻了。**
+
+電路原始碼在本機的 Cargo checkout 裡（`zkid` submodule 是空的，從沒 checkout 過；
+真正的來源在 `~/.cargo/git/checkouts/zkid-*/36bcdd4/wallet-unit-poc/circom/`）。
+
+`pkCommit` 是 `userPkLimbs` **加上 `pkBlind`** 的 Poseidon hash，而 `pkBlind` 是每
+一次證明工作階段從 OS RNG 現抽的 31 bytes（`random_pk_blind`，`mobile/src/lib.rs`
+每產一對證明呼叫一次）。**它不是識別碼**——同一個人對任何人證明任何事，每次都是不
+同的值。電路自己的 SPEC 指名「持有整份 MOICA 憑證目錄的攻擊者」，並說這個 blind
+正是防那件事的東西。
+
+所以 App 原本的註解「Ties the two proofs together」是對的，不需要警告。
+
+**而我寫的揭露文案因此是錯的**：它說「兩個對你每次都一樣的號碼」。**高估危害也是
+寫錯**，而且就寫在一份用測試禁止過度宣稱的檔案裡。已改成「一個號碼」，三處引用一
+起改。
+
+⚠️ **不過有一件值得回報上游的**：隱藏性是**證明端保證的，不是電路保證的**。沒有
+任何約束逼 `pkBlind` 要新鮮，`ChunkedPoseidonP256` 自己的註解就寫著「NOT inherently
+hiding」。一個把 `pkBlind` 釘死的皮夾實作，會**安靜地**把 `pk_commit` 變成我原本
+以為它已經是的那個跨服務全域識別碼——而查驗端與使用者都看不出來。上游的 CLI 對
+`--pk-blind` 覆寫有警告，但電路裡與查驗端都沒有檢查。以那份 SPEC 自己假設的攻擊者
+來說，「皮夾必須被信任會正確抽樣」是一個值得在協定文件裡明講的部署假設。
+
+（現行出貨路徑是安全的：`mobile/src/lib.rs` 每次都從 `getrandom` 現抽。）
+
+
 **1（主機名）→ `https://bonds.tw/api/wall`。** 授權下來之後才發現**權限本身把答案
 決定了**：token 只有 `zone (read)`，建不了 DNS 記錄，而 Workers 自訂網域要的正是
 那筆寫入。路徑 route 只要 `workers_routes (write)`，有。
