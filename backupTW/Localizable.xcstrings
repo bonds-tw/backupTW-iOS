@@ -4863,6 +4863,16 @@
         }
       }
     },
+    "This proof file leaves out limits that every proof of this kind carries, so it was not opened.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份證明檔漏掉了這種證明一定有的限制，所以沒有打開它。"
+          }
+        }
+      }
+    },
     "This proof is %1$@, which is more than the %2$@ this app will send over Bluetooth. Save it as a file instead.": {
       "extractionState": "manual",
       "localizations": {

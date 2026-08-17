@@ -204,6 +204,84 @@ struct ZKProofPackageTests {
         }
     }
 
+    /// # A file that lies about its own limits is not drawn
+    ///
+    /// `caveats` is a decoded field the sender wrote, and nothing checked it.
+    /// Editing `"caveats"` to `[]` — four binaries untouched, every signature
+    /// still valid — used to produce the largest green line on the screen with
+    /// nothing under it: the verdict comes from `verdict.accepted`, and the
+    /// caveat block hides itself when the list is empty.
+    ///
+    /// The producing side of this same app has always counted the omissions
+    /// (`ZKProofRunReport.omittedUnconditionalCaveats`, which prints 「!! CAVEAT
+    /// LIST INCOMPLETE」). The credential path never had the problem at all,
+    /// because there the verifier assembles the caveats itself. This is the one
+    /// path where a stranger builds the list.
+    @Test("把 caveats 清成空陣列的證明檔會被拒絕，不是被畫成一片綠")
+    func refusesAPackageThatUnderstatesItsOwnLimits() throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let package = try ZKProofPackage(readingFrom: try Self.makeBundle(in: directory))
+        var json = try JSONSerialization.jsonObject(with: package.encoded()) as! [String: Any]
+        json["caveats"] = [String]()
+        #expect(throws: ZKProofPackage.PackagingError.self) {
+            _ = try ZKProofPackage.decoded(from: try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    /// Harder to see than an empty list: one short.
+    ///
+    /// The heading is still there and five items are still there, and nothing on
+    /// the screen says one is missing. Which one is the sender's choice, and the
+    /// first worth dropping is that the signing material keeps making new proofs
+    /// forever with the holder absent.
+    @Test("少一條也一樣被拒絕——標題還在、其他條還在，畫面上沒有任何訊號")
+    func refusesAPackageMissingASingleUnconditionalCaveat() throws {
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let package = try ZKProofPackage(readingFrom: try Self.makeBundle(in: directory))
+        var json = try JSONSerialization.jsonObject(with: package.encoded()) as! [String: Any]
+        let dropped = String(describing: ProofCaveat.signatureMaterialIsReplayable)
+        let kept = (json["caveats"] as! [String]).filter { $0 != dropped }
+        #expect(kept.count < (json["caveats"] as! [String]).count,
+                "the fixture never carried the caveat this test drops")
+        json["caveats"] = kept
+
+        #expect(throws: ZKProofPackage.PackagingError.self) {
+            _ = try ZKProofPackage.decoded(from: try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    /// A v1 file is honest, not incomplete — and it is shown today's list.
+    @Test("v1 少的那一條是詞彙還沒出現，不是隱瞞；查驗時補上")
+    func aVersionOnePackageIsAcceptedAndShownTodaysCaveats() throws {
+        let required = ZKProofPackage.requiredCaveats(forVersion: 1)
+        #expect(!required.contains(.nullifierSharedAcrossVerifiers),
+                "v1 is being held to vocabulary that did not exist when it was written")
+        #expect(required == Set(ProofCaveat.unconditional)
+                    .subtracting([.nullifierSharedAcrossVerifiers]))
+
+        let directory = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let package = try ZKProofPackage(readingFrom: try Self.makeBundle(in: directory))
+        var json = try JSONSerialization.jsonObject(with: package.encoded()) as! [String: Any]
+        json["version"] = 1
+        json["caveats"] = (json["caveats"] as! [String])
+            .filter { $0 != String(describing: ProofCaveat.nullifierSharedAcrossVerifiers) }
+        let old = try ZKProofPackage.decoded(from: try JSONSerialization.data(withJSONObject: json))
+
+        #expect(!old.caveats.contains(.nullifierSharedAcrossVerifiers))
+        #expect(old.caveatsToDisplay.contains(.nullifierSharedAcrossVerifiers),
+                "a v1 proof is drawn without a caveat that is no less true of it")
+        for caveat in ProofCaveat.unconditional {
+            #expect(old.caveatsToDisplay.contains(caveat))
+        }
+        // And the order is this build's, not the sender's.
+        #expect(old.caveatsToDisplay == ProofCaveat.allCases.filter { old.caveatsToDisplay.contains($0) })
+    }
+
     @Test("過大的檔案在做任何昂貴的事之前就被擋下")
     func refusesAnOversizedArtifact() throws {
         let directory = try Self.temporaryDirectory()

@@ -120,6 +120,8 @@ struct ZKProofPackage: Codable, Equatable {
         case missingArtifact(String)
         case unsupportedVersion(Int)
         case artifactTooLarge(name: String, bytes: Int)
+        /// The package leaves out limits that every proof of its kind has.
+        case caveatsIncomplete(missing: [String])
 
         var errorDescription: String? {
             switch self {
@@ -138,8 +140,41 @@ struct ZKProofPackage: Codable, Equatable {
                 return NSLocalizedString(
                     "This proof file is larger than a real proof ever is, so it was not opened.",
                     comment: "ZK package error")
+            case .caveatsIncomplete:
+                // Refused rather than repaired. A file that understates its own
+                // limits is making a claim, and the honest answer to a claim we
+                // can prove false is not to quietly correct it.
+                return NSLocalizedString(
+                    "This proof file leaves out limits that every proof of this kind carries, so it was not opened.",
+                    comment: "ZK package error")
             }
         }
+    }
+
+    /// What a package of a given version must carry to be drawn at all.
+    ///
+    /// Version-aware because the vocabulary grew: v2 added
+    /// `nullifierSharedAcrossVerifiers`, and a v1 file exported before that bump
+    /// is honest, not incomplete. Everything else on the unconditional list has
+    /// been there since v1.
+    static func requiredCaveats(forVersion version: Int) -> Set<ProofCaveat> {
+        var required = Set(ProofCaveat.unconditional)
+        if version < 2 { required.remove(.nullifierSharedAcrossVerifiers) }
+        return required
+    }
+
+    /// What a verifier should draw: the sender's list, plus every unconditional
+    /// caveat, in this build's own order.
+    ///
+    /// The union is what upgrades a v1 package. Its five caveats were true and
+    /// complete when it was written; the sixth became sayable later and is no
+    /// less true of that proof, so a v1 file checked today shows six.
+    ///
+    /// `validate()` has already refused anything missing a caveat required at
+    /// its own version, so this union never silently repairs a lie — it only
+    /// adds what the sender had no vocabulary for.
+    var caveatsToDisplay: [ProofCaveat] {
+        ProofCaveat.allCases.filter { caveats.contains($0) || $0.isUnconditional }
     }
 
     /// A ceiling on any single artifact, so a malicious package cannot ask this
@@ -176,6 +211,33 @@ struct ZKProofPackage: Codable, Equatable {
     func validate() throws {
         guard Self.supportedVersions.contains(version) else {
             throw PackagingError.unsupportedVersion(version)
+        }
+        // ⚠️ **`caveats` is a decoded field, and the sender wrote it.**
+        //
+        // Nothing checked it. Editing `"caveats"` to `[]` in the JSON — four
+        // binaries untouched, every signature still valid — produced the largest
+        // green line on the screen with nothing under it, because the verdict
+        // comes from `verdict.accepted` and the caveat block hides itself when
+        // the list is empty. The six sentences that are gone are the ones this
+        // project describes as things no amount of checking can establish.
+        //
+        // Harder to notice than an empty list is a list two short: the heading
+        // is still there, four items are still there, and nothing says two are
+        // missing. Which two is the sender's choice, and the first one worth
+        // dropping is that the signing material makes new proofs forever without
+        // the holder.
+        //
+        // This app already stops the same thing on the producing side —
+        // `ZKProofRunReport` counts `omittedUnconditionalCaveats` and prints
+        // 「!! CAVEAT LIST INCOMPLETE」 — and the credential path never had the
+        // problem, because there the verifier assembles `VerificationCaveat`
+        // itself. This is the one path where a stranger builds the list.
+        let missing = Self.requiredCaveats(forVersion: version)
+            .subtracting(caveats)
+            .map(String.init(describing:))
+            .sorted()
+        guard missing.isEmpty else {
+            throw PackagingError.caveatsIncomplete(missing: missing)
         }
         for name in Self.artifactNames {
             guard let data = artifacts[name] else {

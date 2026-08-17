@@ -144,7 +144,7 @@ struct ZKPackageVerifier {
             }
             return ZKPackageVerdict(accepted: false,
                                     outcome: nil,
-                                    caveats: package.caveats,
+                                    caveats: package.caveatsToDisplay,
                                     producerSelfCheckPassed: package.producerSelfCheckPassed,
                                     seconds: Self.seconds(since: start),
                                     byteCount: package.totalByteCount)
@@ -152,7 +152,7 @@ struct ZKPackageVerifier {
 
         return ZKPackageVerdict(accepted: outcome.isFullyValid,
                                 outcome: outcome,
-                                caveats: package.caveats,
+                                caveats: package.caveatsToDisplay,
                                 producerSelfCheckPassed: package.producerSelfCheckPassed,
                                 seconds: Self.seconds(since: start),
                                 byteCount: package.totalByteCount)
