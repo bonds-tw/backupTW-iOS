@@ -75,9 +75,21 @@ class SettingsViewController: UICollectionViewController {
                  // that downloads sits behind `ZKProofRunAssembly.makeSigner`,
                  // nil in release. Same split as the home row's subtitle and the
                  // checking screen, asked of the same two flags.
+                 // ⚠️ **Not 「a valid 自然人憑證」.** The proof establishes who
+                 // issued the certificate; it establishes nothing about today.
+                 // `ProofCaveat.certificateExpiryNotProven` exists for the sole
+                 // purpose of saying so — 「This proves who issued the
+                 // certificate, not that it is still valid today」 — and the
+                 // circuit has no date field at all to make it otherwise.
+                 //
+                 // Four places claimed 「valid」: these two branches, this
+                 // screen's own About title, and the TW FidO signing hint. All
+                 // four are the same sentence, so all four move together; fixing
+                 // one would be the sixth repeat of 「a recommendation with two
+                 // halves, one half done, recorded as closed」.
                  secondaryText: CredentialIssuanceAssembly.isAvailable
-                    ? NSLocalizedString("Prove you hold a valid 自然人憑證 without showing it. Needs a large one-time download.", comment: "")
-                    : NSLocalizedString("Prove you hold a valid 自然人憑證 without showing it. This version cannot create a proof.", comment: ""))
+                    ? NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.", comment: "")
+                    : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: ""))
         ])
     ]
 

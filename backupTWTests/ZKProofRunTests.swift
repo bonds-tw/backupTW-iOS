@@ -1817,6 +1817,78 @@ struct ZKProofScreenCopyTests {
         "沒被撤銷"
     ]
 
+    /// The second thing a proof about a certificate must never claim: that the
+    /// certificate is **valid today**, or that **you** are the one holding it.
+    ///
+    /// # This list is here because the old one walked past four live strings
+    ///
+    /// `forbiddenRevocationClaims` above ran over 「Proves you hold a valid
+    /// certificate」 on every run and passed it, because revocation and expiry
+    /// are different words for the same missing capability. Meanwhile
+    /// `ProofCaveat.certificateExpiryNotProven` shipped in the same binary for
+    /// the sole purpose of denying it: 「This proves who issued the certificate,
+    /// not that it is still valid today.」 The circuit has no date field at all.
+    ///
+    /// The 「you」 half is the same defect the capability page was corrected for:
+    /// the signing material never expires and never changes, so anybody who has
+    /// held it once can make this proof with the holder absent.
+    ///
+    /// Four strings carried it — two Settings subtitles, this screen's About
+    /// title, and the hint shown inside 行動自然人憑證 at the moment of signing.
+    static let forbiddenValidityClaims = [
+        "hold a valid",
+        "holds a valid",
+        "you hold",
+        "still valid",
+        "持有有效",
+        "有效的自然人憑證",
+        "有效的憑證",
+        "你持有",
+    ]
+
+    /// Every user-visible sentence in the ZK path, from all four sources that
+    /// carried the claim — not just this screen's prose, which is what let the
+    /// Settings subtitles and the signing hint through.
+    static var everyZKSentence: [String] {
+        ZKProofCopy.allProse
+            + [ZKProofCopy.whatItDoesTitle]
+            + ProofCaveat.allCases.map(\.localizedDescription)
+    }
+
+    @Test("沒有任何一句說這份證明證得了憑證今天有效，或說是「你」")
+    func nothingClaimsValidityOrPresence() {
+        for sentence in Self.everyZKSentence {
+            for claim in Self.forbiddenValidityClaims {
+                #expect(!sentence.localizedCaseInsensitiveContains(claim),
+                        "forbidden claim 「\(claim)」 in: \(sentence)")
+            }
+        }
+    }
+
+    /// And the same rule at the two places outside this screen that said it.
+    ///
+    /// Pinned at the source, because these are a view controller's list item and
+    /// a defaulted initialiser parameter — neither is reachable by walking a
+    /// type, which is exactly how they survived.
+    @Test("設定頁與簽章提示也不得宣稱「有效」")
+    func theSettingsRowAndTheSigningHintDoNotClaimValidity() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+        for relative in ["backupTW/ViewController/SettingsViewController.swift",
+                         "backupTW/ZK/ZKProofRunWiring.swift"] {
+            let source = try String(contentsOf: root.appendingPathComponent(relative),
+                                    encoding: .utf8)
+            // Only the string literals; the comments in both files quote the old
+            // wording on purpose, to record what it used to say.
+            for line in source.split(separator: "\n") where line.contains("NSLocalizedString(") {
+                for claim in ["hold a valid", "持有有效", "有效的自然人憑證"] {
+                    #expect(!line.contains(claim),
+                            "\(relative) still claims validity: \(line.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+        }
+    }
+
     /// The sentence `IssuerCertificate.swift` forbids by name must not exist in
     /// anything this screen shows — the opening paragraph included, which is
     /// where it was.

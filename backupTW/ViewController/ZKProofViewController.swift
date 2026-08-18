@@ -2,7 +2,8 @@
 //  ZKProofViewController.swift
 //  backupTW
 //
-//  白皮書 5.2 的最小揭露：證明「我持有有效的自然人憑證」而不揭露憑證內容。
+//  白皮書 5.2 的最小揭露：證明「有一張真的自然人憑證簽了這份證明」而不揭露憑證內容。
+//  刻意不寫「有效」——電路裡沒有日期欄位，certificateExpiryNotProven 就是為了否認它。
 //
 
 import UIKit
@@ -22,7 +23,17 @@ import UIKit
 /// stranger's identity.
 enum ZKProofCopy {
 
-    static let whatItDoesTitle = NSLocalizedString("Proves you hold a valid certificate",
+    /// ⚠️ Two words removed, and each was doing damage.
+    ///
+    /// **「valid」** — the circuit has no date field. `certificateExpiryNotProven`
+    /// is shipped for the sole purpose of denying this: 「This proves who issued
+    /// the certificate, not that it is still valid today.」
+    ///
+    /// **「you」** — the signing material never expires and never changes, so
+    /// anybody who has held it once can produce this proof with the holder
+    /// absent. `ZKProver`'s own comment says the same, and the capability page
+    /// was corrected in the same direction.
+    static let whatItDoesTitle = NSLocalizedString("Proves a real certificate signed this",
                                                    comment: "")
 
     /// What a proof does establish. Every clause is scoped, and the scopes are

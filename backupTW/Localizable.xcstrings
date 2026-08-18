@@ -2300,6 +2300,36 @@
         }
       }
     },
+    "Prove a real certificate signed this": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明有一張真的憑證簽了這份證明"
+          }
+        }
+      }
+    },
+    "Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明有一張真的自然人憑證簽了這份證明，而不出示它。需要一次大型下載。"
+          }
+        }
+      }
+    },
+    "Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明有一張真的自然人憑證簽了這份證明，而不出示它。這個版本無法建立證明。"
+          }
+        }
+      }
+    },
     "Prove you are a real person, counted once": {
       "localizations": {
         "zh-Hant": {
@@ -2320,36 +2350,6 @@
         }
       }
     },
-    "Prove you hold a valid certificate": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "證明持有有效的自然人憑證"
-          }
-        }
-      }
-    },
-    "Prove you hold a valid 自然人憑證 without showing it. Needs a large one-time download.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "證明你持有有效的自然人憑證，但不出示憑證內容。需要一次性的大量下載。"
-          }
-        }
-      }
-    },
-    "Prove you hold a valid 自然人憑證 without showing it. This version cannot create a proof.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "證明你持有一張有效的自然人憑證，而不必出示它。這個版本無法建立證明。"
-          }
-        }
-      }
-    },
     "Prove you once held a Taiwanese national ID": {
       "localizations": {
         "zh-Hant": {
@@ -2360,12 +2360,12 @@
         }
       }
     },
-    "Proves you hold a valid certificate": {
+    "Proves a real certificate signed this": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "證明你持有有效的自然人憑證"
+            "value": "證明有一張真的憑證簽了這份證明"
           }
         }
       }

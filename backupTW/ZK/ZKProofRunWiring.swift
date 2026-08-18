@@ -499,7 +499,11 @@ struct TWFidOHolderSigner: ZKHolderSigning {
          session: any TWFidOSignSession,
          callbacks: any TWFidOCallbackWaiting = MOICACallbackRouter.shared,
          open: @escaping @Sendable (URL) async -> Bool,
-         hint: String = NSLocalizedString("Prove you hold a valid certificate", comment: ""),
+         // Shown inside 行動自然人憑證 at the moment of signing. Same correction
+         // as the three screens: this signature does not establish that the
+         // certificate is valid today, and the circuit has no date field to make
+         // it so.
+         hint: String = NSLocalizedString("Prove a real certificate signed this", comment: ""),
          timeLimit: Int = 600,
          pollInterval: TimeInterval = 4,
          now: @escaping @Sendable () -> Date = { Date() },
