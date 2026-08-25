@@ -256,17 +256,60 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.window = window
     }
 
-    /// The `backuptw://` return leg of the TW FidO App-to-App flow.
+    /// The `backuptw://` return leg of the TW FidO App-to-App flow, and the
+    /// `openid-credential-offer://` entry of the TWDIW collection flow.
     ///
-    /// Without this the registered scheme still launches the app on the
-    /// callback and then does nothing, which is indistinguishable from the deep
-    /// link never firing. Inbound URLs are untrusted — any app can open our
-    /// scheme — so the router only uses them to shorten a wait it already
-    /// started, never as the signing result itself.
+    /// Without this the registered schemes still launch the app and then do
+    /// nothing, which is indistinguishable from the deep link never firing.
+    /// Inbound URLs are untrusted — any app can open our schemes — so the
+    /// FidO router only uses them to shorten a wait it already started, and
+    /// the credential offer goes through `IssuerAuthorization`'s gates before
+    /// a single request leaves the device.
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         for context in URLContexts {
             let url = context.url
+            if let link = try? CredentialOfferLink.parse(url) {
+                collectCredential(from: link)
+                continue
+            }
             Task { await MOICACallbackRouter.shared.handle(url) }
+        }
+    }
+
+    /// Runs one collection and tells the user how it ended.
+    ///
+    /// The trust list is fetched fresh for each collection rather than cached:
+    /// TWDIW's list is an online artefact with an on-chain anchor, not this
+    /// app's offline `TrustList`, and a stale copy would be a second source of
+    /// truth drifting from the first (`docs/twdiw-integration-plan.md` §四).
+    private func collectCredential(from link: CredentialOfferLink) {
+        Task { @MainActor in
+            let outcome: String
+            do {
+                let trustList = try await TrustListFetcher(session: .shared).fetchAll()
+                let collector = OID4VCICollector(session: .shared,
+                                                 trustList: trustList,
+                                                 keyring: .app(),
+                                                 store: try CredentialStore())
+                let receipt = try await collector.collect(from: link)
+                outcome = String(
+                    format: NSLocalizedString("Stored as %@.", comment: "collection success"),
+                    receipt.storedID)
+            } catch {
+                // The error's own description, not a rewrite of it: for a
+                // refusal this names the gate; for a bad status it names the
+                // step and code — which is the M5.2 measurement itself.
+                outcome = String(describing: error)
+            }
+            let alert = UIAlertController(
+                title: NSLocalizedString("Digital wallet card collection", comment: ""),
+                message: outcome,
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""),
+                                          style: .default))
+            var presenter = window?.rootViewController
+            while let presented = presenter?.presentedViewController { presenter = presented }
+            presenter?.present(alert, animated: true)
         }
     }
 

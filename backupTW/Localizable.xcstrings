@@ -965,6 +965,16 @@
         }
       }
     },
+    "Digital wallet card collection": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領取數位皮夾卡片"
+          }
+        }
+      }
+    },
     "Discoverable over Bluetooth — waiting for the checker to connect.": {
       "localizations": {
         "zh-Hant": {
@@ -2560,6 +2570,7 @@
       }
     },
     "Scan the checker's code": {
+      "extractionState": "manual",
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
@@ -2567,8 +2578,7 @@
             "value": "掃描查驗方的碼"
           }
         }
-      },
-      "extractionState": "manual"
+      }
     },
     "Scan the checker's code and %@ goes straight to their phone — about twenty seconds. Nothing is stored anywhere else.": {
       "extractionState": "manual",
@@ -3036,6 +3046,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "儲存區無法使用"
+          }
+        }
+      }
+    },
+    "Stored as %@.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已存入:%@。"
           }
         }
       }

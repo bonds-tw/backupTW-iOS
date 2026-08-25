@@ -1326,6 +1326,15 @@ struct OfflineVerifierNetworkTests {
             // commit that introduced the file, and adding it was a deliberate
             // act rather than something that slipped in behind a green suite.
             "Wall/WallConfiguration.swift",
+            // OID4VCI collection: the TWDIW round trip, on an explicit deep
+            // link the holder opened. Nothing here runs while a document is
+            // being checked, and every URL it contacts passed
+            // `IssuerAuthorization`'s gates before the first request left.
+            "TWDIW/OID4VCICollection.swift",
+            // The trust list those gates compare against, fetched from the
+            // registry at collection time. Also caught by this scan on the
+            // commit that introduced it, which is the list working.
+            "TWDIW/TrustListFetcher.swift",
         ]
 
         // The same list as the single-file test, plus `import Network`. Not
