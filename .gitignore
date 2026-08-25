@@ -84,3 +84,4 @@ tw_fido_sign_response.json
 
 # Local-only replay of a real card presentation — contains real cardholder data, never commit
 backupTWTests/ReplayLocal*.swift
+build/
