@@ -42,6 +42,21 @@ enum CredentialOfferLink: Equatable {
     /// `credential_offer=…` — the offer document inline, percent-decoded.
     case byValue(json: String)
 
+    /// The schemes a credential-offer link can arrive under.
+    ///
+    /// - `openid-credential-offer` is the OID4VCI standard, and the **only one
+    ///   this app registers** (`Info.plist`). It is what a conformant issuer or
+    ///   a QR generated to spec produces.
+    /// - `modadigitalwallet` is 台灣數位憑證皮夾 官方 App 的自訂 scheme, measured
+    ///   off `demo.wallet.gov.tw` on 2026-08-26: the deep link reads
+    ///   `modadigitalwallet://credential_offer?credential_offer_uri=…`. It is
+    ///   **understood but not registered** — registering it would fight the
+    ///   official app for the same deep link, whose resolution iOS leaves
+    ///   undefined. So a `modadigitalwallet` URL only reaches this parser when
+    ///   the holder brought it in another way (a scanned QR, a paste), never by
+    ///   the OS routing a tap to us.
+    private static let offerSchemes: Set<String> = ["openid-credential-offer", "modadigitalwallet"]
+
     /// Reads a link, or says exactly why not.
     ///
     /// The scheme comparison is case-insensitive because URL schemes are;
@@ -50,10 +65,18 @@ enum CredentialOfferLink: Equatable {
     /// it answers one question: which of the two forms is this, and what is
     /// its payload.
     static func parse(_ url: URL) throws -> CredentialOfferLink {
-        guard url.scheme?.lowercased() == "openid-credential-offer" else {
+        guard let scheme = url.scheme?.lowercased(), offerSchemes.contains(scheme) else {
             throw CredentialOfferError.notACredentialOffer
         }
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw CredentialOfferError.notACredentialOffer
+        }
+        // `modadigitalwallet://credential_offer?…` puts `credential_offer` in
+        // the host position, so its query lands on `components`. A standard
+        // `openid-credential-offer://?…` has an empty host and the same query.
+        // Either way the parameters are read the same; the host word, when
+        // present, must be `credential_offer` and nothing else.
+        if let host = components.host, !host.isEmpty, host != "credential_offer" {
             throw CredentialOfferError.notACredentialOffer
         }
         let items = components.queryItems ?? []

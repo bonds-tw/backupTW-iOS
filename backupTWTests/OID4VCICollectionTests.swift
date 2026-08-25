@@ -48,6 +48,24 @@ struct CredentialOfferTests {
         }
     }
 
+    /// The official app's own scheme, measured off `demo.wallet.gov.tw`
+    /// 2026-08-26. Understood but not registered — see `CredentialOfferLink`.
+    @Test func theOfficialAppSchemeIsUnderstood() throws {
+        let parsed = try CredentialOfferLink.parse(
+            URL(string: "modadigitalwallet://credential_offer?credential_offer_uri=https%3A%2F%2Fissuer-oid4vci.wallet.gov.tw%2Fapi%2Fissuer%2F00000000%2Foffer")!)
+        #expect(parsed == .byReference(
+            fetchURL: "https://issuer-oid4vci.wallet.gov.tw/api/issuer/00000000/offer"))
+    }
+
+    /// `modadigitalwallet://` with anything other than `credential_offer` in the
+    /// host position is not one — the host word carries meaning in this scheme.
+    @Test func theOfficialSchemeWithAWrongHostIsRefused() {
+        #expect(throws: CredentialOfferError.notACredentialOffer) {
+            try CredentialOfferLink.parse(
+                URL(string: "modadigitalwallet://something_else?credential_offer_uri=x")!)
+        }
+    }
+
     private func offerJSON(issuer: String = "https://issuer-sandbox.wallet.gov.tw/api/issuer/00000000",
                            ids: String = #"["00000000_demo_drivinglicense_202504251418"]"#,
                            grants: String = #"{"urn:ietf:params:oauth:grant-type:pre-authorized_code":{"pre-authorized_code":"CODE-1"}}"#)

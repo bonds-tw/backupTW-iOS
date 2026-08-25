@@ -286,7 +286,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task { @MainActor in
             let outcome: String
             do {
-                let trustList = try await TrustListFetcher(session: .shared).fetchAll()
+                var trustList = try await TrustListFetcher(session: .shared).fetchAll()
+                #if DEBUG
+                // DEBUG only: let a development build collect from the
+                // demo sandbox, whose issuer host is not on the production
+                // trust list (docs/m52-live-collection-2026-08-26.md §七).
+                // Compiled out of Release entirely.
+                trustList.append(.sandboxDemo)
+                #endif
                 let collector = OID4VCICollector(session: .shared,
                                                  trustList: trustList,
                                                  keyring: .app(),

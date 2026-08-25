@@ -263,3 +263,32 @@ extension TWDIWIssuer {
         self.reportsOnChainAnchor = !((entry["onChainHistory"] as? [Any]) ?? []).isEmpty
     }
 }
+
+#if DEBUG
+extension TWDIWIssuer {
+
+    /// The `demo.wallet.gov.tw` sandbox issuer, added to the gate **only in
+    /// DEBUG**.
+    ///
+    /// Measured 2026-08-26 (`docs/m52-live-collection-2026-08-26.md` §七): the
+    /// demo issuer host `issuer-oid4vci.wallet.gov.tw` is **not** among the 43
+    /// production entries of `frontend.wallet.gov.tw/api/did`. Sandbox and
+    /// production are separate trust domains, so a wallet that gates on the
+    /// production list refuses demo collection — correctly, for a release
+    /// build.
+    ///
+    /// This entry exists so a DEBUG build can act as the **one** party that
+    /// dereferences a demo offer (the role a QR scan plays for the official
+    /// app), which is the only way to measure whether the token endpoint
+    /// accepts `client_id=tw.bonds.backupTW`. It is compiled out of Release
+    /// entirely — a shipped wallet trusts the production list and nothing else.
+    static let sandboxDemo = TWDIWIssuer(
+        did: "did:key:sandbox-demo",
+        displayName: "數位憑證皮夾 Demo 沙盒",
+        displayNameEnglish: "TWDIW Demo Sandbox",
+        taxID: "00000000",
+        issuerMetadataBaseURL: "https://issuer-oid4vci.wallet.gov.tw",
+        serviceBaseURL: nil,
+        reportsOnChainAnchor: false)
+}
+#endif
