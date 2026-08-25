@@ -1335,6 +1335,11 @@ struct OfflineVerifierNetworkTests {
             // registry at collection time. Also caught by this scan on the
             // commit that introduced it, which is the list working.
             "TWDIW/TrustListFetcher.swift",
+            // OID4VP presentation: posts the signed vp_token back to the
+            // verifier's response_uri, on an explicit user action, only after
+            // the request object's signature and its response_uri host both
+            // passed. Nothing here runs while a document is being checked.
+            "TWDIW/OID4VPResponse.swift",
         ]
 
         // The same list as the single-file test, plus `import Network`. Not
