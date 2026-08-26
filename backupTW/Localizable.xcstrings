@@ -1810,7 +1810,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "最小揭露"
+            "value": "只出示必要欄位"
           }
         }
       }
@@ -3436,7 +3436,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "替這份證件簽章的憑證帶著持有人的法定姓名，無論他有沒有選擇揭露姓名，那張憑證都會送給每一個查驗方。任兩個查驗方都能看出是同一個人。"
+            "value": "替這份證件簽章的憑證帶著持有人的法定姓名，無論他有沒有選擇出示姓名，那張憑證都會送給每一個查驗方。任兩個查驗方都能看出是同一個人。"
           }
         }
       }
@@ -4726,7 +4726,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件沒有揭露任何欄位。"
+            "value": "這份證件沒有出示任何欄位。"
           }
         }
       }
@@ -5800,7 +5800,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "對方揭露了什麼"
+            "value": "對方出示了什麼"
           }
         }
       }
