@@ -58,7 +58,7 @@ class SettingsViewController: UICollectionViewController {
             // there needs to be somewhere on the phone that reports them.
             Item(image: UIImage(systemName: "stethoscope")?.withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
                  title: Row.diagnostics,
-                 secondaryText: NSLocalizedString("Where your key lives, how your credentials are protected, and what identifier you present.", comment: "")),
+                 secondaryText: NSLocalizedString("See this phone's security status and your card details.", comment: "")),
             Item(image: UIImage(systemName: "trash")?.withTintColor(.systemRed, renderingMode: .alwaysOriginal),
                  title: Row.eraseEverything,
                  secondaryText: NSLocalizedString("Removes your credentials, the documents they came from, and the key that identifies you.", comment: ""))

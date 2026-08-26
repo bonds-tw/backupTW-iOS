@@ -288,6 +288,16 @@
         }
       }
     },
+    "Add your ID first, then you can show it to a checker.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先加入你的身分證，就能出示給別人查驗。"
+          }
+        }
+      }
+    },
     "Address of household": {
       "localizations": {
         "zh-Hant": {
@@ -349,12 +359,12 @@
         }
       }
     },
-    "Answer a checker's code. Works with no network on either phone.": {
+    "Answer a checker's code. Neither phone needs a network.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "掃描查驗方的條碼並回應，兩支手機都不需要網路。"
+            "value": "回答查驗方的條碼，兩支手機都不需要網路。"
           }
         }
       }
@@ -624,52 +634,12 @@
         }
       }
     },
-    "Check a document someone shows you, without contacting any server.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查驗別人出示的證件，全程不連任何伺服器。"
-          }
-        }
-      }
-    },
     "Check a proof": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "查驗證明"
-          }
-        }
-      }
-    },
-    "Check a proof file. The checking files are on this phone.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查驗一份證明檔。查驗用的檔案已在這支手機上。"
-          }
-        }
-      }
-    },
-    "Check a proof file. The large checking files are not downloaded yet.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查驗一份證明檔。大型查驗檔案尚未下載。"
-          }
-        }
-      }
-    },
-    "Check a proof file. This version cannot download the checking files.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查驗一份證明檔。這個版本無法下載查驗用的檔案。"
           }
         }
       }
@@ -2687,6 +2657,16 @@
         }
       }
     },
+    "Scan someone's document to check it is genuine — no network needed.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描對方的證件，確認真偽——不需連網。"
+          }
+        }
+      }
+    },
     "Scan the checker's code": {
       "extractionState": "manual",
       "localizations": {
@@ -2736,6 +2716,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "安全隔離區（Secure Enclave）"
+          }
+        }
+      }
+    },
+    "See this phone's security status and your card details.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看這支手機的安全狀態與你的證件細節。"
           }
         }
       }
@@ -4159,16 +4149,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "這台裝置上還沒有可以出示的證件。"
-          }
-        }
-      }
-    },
-    "There is nothing on this phone to show yet — back up your ID first.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這支手機還沒有東西可以出示，請先備份你的身分證件。"
           }
         }
       }
@@ -5653,6 +5633,36 @@
         }
       }
     },
+    "Verify a zero-knowledge proof. The checking files are on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證一份零知識證明。驗證檔已在這支手機上。"
+          }
+        }
+      }
+    },
+    "Verify a zero-knowledge proof. The first time, it downloads the checking files (about 950 MB).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證一份零知識證明。首次使用會先下載驗證檔（約 950 MB）。"
+          }
+        }
+      }
+    },
+    "Verify a zero-knowledge proof. This version cannot download the checking files.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證一份零知識證明。這個版本無法下載驗證檔。"
+          }
+        }
+      }
+    },
     "Version": {
       "localizations": {
         "zh-Hant": {
@@ -5863,16 +5873,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "要改變什麼才做得到"
-          }
-        }
-      }
-    },
-    "Where your key lives, how your credentials are protected, and what identifier you present.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你的金鑰在哪、憑證受什麼保護、你出示的是哪個識別碼。"
           }
         }
       }

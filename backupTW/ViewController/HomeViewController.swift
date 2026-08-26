@@ -207,12 +207,12 @@ class HomeViewController: UICollectionViewController {
                  secondaryText: !storeIsReadable
                     ? NSLocalizedString("This phone's cards cannot be read right now.", comment: "")
                     : hasDocument
-                    ? NSLocalizedString("Answer a checker's code. Works with no network on either phone.", comment: "")
-                    : NSLocalizedString("There is nothing on this phone to show yet — back up your ID first.", comment: "")),
+                    ? NSLocalizedString("Answer a checker's code. Neither phone needs a network.", comment: "")
+                    : NSLocalizedString("Add your ID first, then you can show it to a checker.", comment: "")),
             Item(image: UIImage(systemName: "checkmark.shield")?
                     .withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
                  title: Row.verify,
-                 secondaryText: NSLocalizedString("Check a document someone shows you, without contacting any server.", comment: "")),
+                 secondaryText: NSLocalizedString("Scan someone's document to check it is genuine — no network needed.", comment: "")),
             // The proof half of the checker's job, next to the credential half
             // rather than in Settings, for the reason above: the 里長 and the
             // border desk are doing one task, and which kind of thing they were
@@ -243,7 +243,7 @@ class HomeViewController: UICollectionViewController {
         // One copy of the question, in `ZKVerifyingKeyAssets`. It lived here, so
         // the screen that actually checks proofs could not ask it.
         if ZKCheckingAvailability.current.canCheck {
-            return NSLocalizedString("Check a proof file. The checking files are on this phone.", comment: "")
+            return NSLocalizedString("Verify a zero-knowledge proof. The checking files are on this phone.", comment: "")
         }
         // 「not downloaded **yet**」 is a promise, and in a shipping build it is
         // permanently false.
@@ -262,8 +262,8 @@ class HomeViewController: UICollectionViewController {
         // The two situations are told apart by `ZKCheckingAvailability` now, so
         // this row and the checking screen cannot drift into different tenses.
         return ZKCheckingAvailability.current == .notDownloadedYet
-            ? NSLocalizedString("Check a proof file. The large checking files are not downloaded yet.", comment: "")
-            : NSLocalizedString("Check a proof file. This version cannot download the checking files.", comment: "")
+            ? NSLocalizedString("Verify a zero-knowledge proof. The first time, it downloads the checking files (about 950 MB).", comment: "")
+            : NSLocalizedString("Verify a zero-knowledge proof. This version cannot download the checking files.", comment: "")
     }
 
     init() {
