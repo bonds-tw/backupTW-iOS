@@ -34,12 +34,21 @@ enum OID4VPResponseError: Error, Equatable {
 /// 1. **`aud` is prefixed with `redirect_uri:`.** The verifier checks the token's
 ///    audience against `redirect_uri:<response_uri>`, literally — the prefix is
 ///    part of the string, not a description of it. Sign over exactly that.
-/// 2. **The VP claim uses `context`, not `@context`.** The official verifier does
-///    no JSON-LD expansion, so a spec-correct `@context` would make it read an
-///    unexpanded document and silently drop every claim while the signature still
-///    verifies. Copying the typo is how the presentation is actually received.
-///    ⚠️ When TWDIW fixes this upstream, this line must change back to `@context`
-///    — it is a compatibility shim with an expiry, not this app's own spelling.
+/// 2. **The VP claim uses `context`, not `@context`.** Measured: the official
+///    verifier does no JSON-LD expansion and reads the presentation by the
+///    literal key `context`, which is what the official app emits. Sending a
+///    spec-correct `@context` would hand it a document missing the `context`
+///    key it looks for. Copying the spelling is how the presentation is
+///    actually received.
+///    ⚠️ The mirror-image cost, stated so nobody thinks this is free: a
+///    *conformant* JSON-LD verifier that DOES expand would drop this VP's
+///    claims, because `context` is not the `@context` keyword. That is the
+///    interop defect worth reporting (see `docs/upstream-reports.md` A6, which
+///    corrects an earlier, wrong version of this very reasoning — "JSON-LD
+///    processing silently drops the claims" was false, because TWDIW's own
+///    verifier loses nothing today). It is not a current data-loss bug. When
+///    TWDIW fixes this upstream, this must change back to `@context` — a
+///    compatibility shim with an expiry, not this app's own spelling.
 struct OID4VPResponder {
 
     let session: URLSession

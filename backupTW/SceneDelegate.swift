@@ -276,38 +276,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    /// Runs one collection and tells the user how it ended.
+    /// Runs one collection from a deep link and tells the user how it ended.
     ///
-    /// The trust list is fetched fresh for each collection rather than cached:
-    /// TWDIW's list is an online artefact with an on-chain anchor, not this
-    /// app's offline `TrustList`, and a stale copy would be a second source of
-    /// truth drifting from the first (`docs/twdiw-integration-plan.md` §四).
+    /// The sequence itself lives in `CredentialCollection`, shared with the
+    /// in-app scan entry point so the two cannot drift; this method only owns
+    /// where the resulting alert is presented from a scene launch.
     private func collectCredential(from link: CredentialOfferLink) {
         Task { @MainActor in
-            let outcome: String
-            do {
-                var trustList = try await TrustListFetcher(session: .shared).fetchAll()
-                #if DEBUG
-                // DEBUG only: let a development build collect from the
-                // demo sandbox, whose issuer host is not on the production
-                // trust list (docs/m52-live-collection-2026-08-26.md §七).
-                // Compiled out of Release entirely.
-                trustList.append(.sandboxDemo)
-                #endif
-                let collector = OID4VCICollector(session: .shared,
-                                                 trustList: trustList,
-                                                 keyring: .app(),
-                                                 store: try CredentialStore())
-                let receipt = try await collector.collect(from: link)
-                outcome = String(
-                    format: NSLocalizedString("Stored as %@.", comment: "collection success"),
-                    receipt.storedID)
-            } catch {
-                // The error's own description, not a rewrite of it: for a
-                // refusal this names the gate; for a bad status it names the
-                // step and code — which is the M5.2 measurement itself.
-                outcome = String(describing: error)
-            }
+            let outcome = await CredentialCollection.run(from: link)
             let alert = UIAlertController(
                 title: NSLocalizedString("Digital wallet card collection", comment: ""),
                 message: outcome,

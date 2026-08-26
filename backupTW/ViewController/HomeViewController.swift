@@ -21,6 +21,7 @@ class HomeViewController: UICollectionViewController {
     /// `SettingsViewController` documents, arrived at from the other direction.
     private enum Row {
         static let backUp = NSLocalizedString("Back up my national ID", comment: "")
+        static let collect = NSLocalizedString("Add a card by scanning", comment: "")
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
@@ -127,8 +128,20 @@ class HomeViewController: UICollectionViewController {
                             ? NSLocalizedString("Fetch it again and replace what's stored.", comment: "")
                             : NSLocalizedString("with Taiwan's official MyData service", comment: ""))
 
+        // Collecting an official card by scanning its QR. Present whether or not
+        // a self-issued document exists — the official flow (「皮夾夥伴卡」) is
+        // independent of MyData, and a fresh install collecting a government card
+        // first is a real path. This is the entry the wallet was missing: the
+        // scanner otherwise only opened for presentation and verification, so an
+        // official credential-offer QR had nowhere to be pointed.
+        let collect = Item(image: UIImage(systemName: "qrcode.viewfinder")?
+                            .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+                           title: Row.collect,
+                           secondaryText: NSLocalizedString(
+                            "Point the camera at a QR from 數位憑證皮夾 to add its card.", comment: ""))
+
         guard !rows.isEmpty else {
-            return Section(title: title, items: [refresh])
+            return Section(title: title, items: [refresh, collect])
         }
 
         // The row that carries the milestone's argument onto the screen people
@@ -140,7 +153,7 @@ class HomeViewController: UICollectionViewController {
                            secondaryText: NSLocalizedString(
                             "What a checker can rely on, and what none of them can establish.", comment: ""))
 
-        return Section(title: title, items: rows.map(item(for:)) + [refresh, compare])
+        return Section(title: title, items: rows.map(item(for:)) + [refresh, collect, compare])
     }
 
     private func item(for row: CardInventoryRow) -> Item {
@@ -367,6 +380,8 @@ extension HomeViewController {
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .fullScreen
             present(nav, animated: true)
+        case Row.collect:
+            ScanToCollect.begin(on: navigationController)
         case Row.present:
             navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
         case Row.verify:

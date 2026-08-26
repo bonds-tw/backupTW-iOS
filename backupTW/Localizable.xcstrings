@@ -278,6 +278,16 @@
         }
       }
     },
+    "Add a card by scanning": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描領取卡片"
+          }
+        }
+      }
+    },
     "Address of household": {
       "localizations": {
         "zh-Hant": {
@@ -2229,6 +2239,26 @@
         }
       }
     },
+    "Point the camera at a QR from 數位憑證皮夾 to add its card.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把相機對準數位憑證皮夾的 QR，加入卡片。"
+          }
+        }
+      }
+    },
+    "Point the camera at the QR from 數位憑證皮夾.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把相機對準數位憑證皮夾的 QR。"
+          }
+        }
+      }
+    },
     "Point the camera at the checker's phone.": {
       "extractionState": "manual",
       "localizations": {
@@ -2565,6 +2595,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "存成一個 %@ 的檔案。太大了塞不進 QR code——請用檔案傳送。"
+          }
+        }
+      }
+    },
+    "Scan a card's QR": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描卡片 QR"
           }
         }
       }
