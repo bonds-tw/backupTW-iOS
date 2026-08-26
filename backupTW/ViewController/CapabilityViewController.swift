@@ -88,7 +88,7 @@ final class CapabilityViewController: UIViewController {
         ])
 
         contentStack.addArrangedSubview(PresentationUI.body(NSLocalizedString(
-            "Three things someone might ask this app to prove, and what it can honestly answer today. Two of the three are only half answered, and this page says which half.",
+            "Three things someone might ask this app to prove, and what it can do today. Two of the three come with an important limit — open each card's details to see exactly what.",
             comment: "")))
 
         // Grouped by the whitepaper's own division rather than by verdict.
@@ -220,16 +220,19 @@ final class CapabilityViewController: UIViewController {
         // gated verdict above an ungated explanation.
         let support = scenario.support(in: paths)
 
-        stack.addArrangedSubview(PresentationUI.verdict(Self.symbol(for: support),
-                                                        Self.headline(for: support),
-                                                        Self.colour(for: support)))
+        // A small chip, not the old 22pt colour block. The verdict still leads
+        // and is still unmissable (symbol + colour + word), but it no longer
+        // dominates the card — the app leads with what it can do, not with a
+        // banner of its own limitation.
+        stack.addArrangedSubview(chip(for: support))
 
-        // The whole point of the screen. Body weight, immediately under the
-        // verdict, never collapsed.
+        // The honest explanation stays visible and at body weight — it is the
+        // point of the screen. For `.partial` it already reads capability-first
+        // (「…可以單獨出示…。但…」), which is exactly the lead we want.
         switch support {
         case .partial(let actually):
             stack.addArrangedSubview(PresentationUI.card(
-                title: NSLocalizedString("What it actually shows", comment: ""),
+                title: NSLocalizedString("What it can show", comment: ""),
                 body: actually, nested: true))
         case .unsupported(let blockedBy):
             stack.addArrangedSubview(PresentationUI.card(
@@ -239,26 +242,117 @@ final class CapabilityViewController: UIViewController {
             break
         }
 
-        stack.addArrangedSubview(PresentationUI.footnote(Self.pathDescription(scenario.path)))
-
+        // The densest hedge material — how the answer travels and what stays
+        // true underneath it — moves into an expandable「完整細節」, collapsed by
+        // default. It is still built into the view (so the caveats are on the
+        // screen for anyone who opens it, and the coverage test still finds
+        // them), just no longer the first wall of text a person meets.
+        var details: [UIView] = [PresentationUI.footnote(Self.pathDescription(scenario.path))]
         if !scenario.caveats.isEmpty {
-            stack.addArrangedSubview(PresentationUI.caveatGroup(
+            details.append(PresentationUI.caveatGroup(
                 subtitle: NSLocalizedString("Still true even when this passes:", comment: ""),
                 messages: scenario.caveats.map(\.localizedDescription), nested: true))
         }
+        stack.addArrangedSubview(expandableDetails(
+            title: NSLocalizedString("Full details and limits", comment: "capability disclosure"),
+            content: details))
         return stack
+    }
+
+    // MARK: - Verdict chip and expandable details
+
+    /// The verdict as a compact pill rather than a full-width colour block.
+    /// Leading-aligned so it hugs its text; the trailing spacer stops the pill
+    /// stretching across the card.
+    private func chip(for support: ScenarioSupport) -> UIView {
+        let label = UILabel()
+        label.text = Self.symbol(for: support) + "  " + Self.headline(for: support)
+        label.numberOfLines = 0
+        label.font = UIFontMetrics(forTextStyle: .subheadline)
+            .scaledFont(for: .systemFont(ofSize: 14, weight: .semibold))
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = Self.colour(for: support) == .secondaryLabel ? .secondaryLabel : .label
+
+        let pill = UIStackView(arrangedSubviews: [label])
+        pill.isLayoutMarginsRelativeArrangement = true
+        pill.layoutMargins = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        pill.backgroundColor = Self.colour(for: support).withAlphaComponent(0.16)
+        pill.layer.cornerRadius = 9
+
+        let row = UIStackView(arrangedSubviews: [pill, UIView()])
+        row.axis = .horizontal
+        row.alignment = .center
+        row.accessibilityIdentifier = "verdictChip"
+        return row
+    }
+
+    /// A tappable「完整細節」row that shows or hides the caveat material below it.
+    ///
+    /// The content is added to the hierarchy either way and only its visibility
+    /// toggles, so it is on the screen for the coverage test and for a screen
+    /// reader that walks the tree — collapsed is a display state, not an
+    /// omission.
+    private func expandableDetails(title: String, content: [UIView]) -> UIView {
+        let container = UIStackView()
+        container.axis = .vertical
+        container.spacing = 10
+
+        let body = UIStackView(arrangedSubviews: content)
+        body.axis = .vertical
+        body.spacing = 12
+        body.isHidden = true
+
+        var config = UIButton.Configuration.plain()
+        config.title = title
+        config.image = UIImage(systemName: "chevron.down")
+        config.imagePlacement = .trailing
+        config.imagePadding = 6
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
+        config.baseForegroundColor = .secondaryLabel
+        var titleAttr = AttributeContainer()
+        titleAttr.font = UIFontMetrics(forTextStyle: .subheadline)
+            .scaledFont(for: .systemFont(ofSize: 14, weight: .medium))
+        config.attributedTitle = AttributedString(title, attributes: titleAttr)
+
+        let button = UIButton(configuration: config)
+        button.contentHorizontalAlignment = .leading
+        button.accessibilityIdentifier = "capabilityDisclosure"
+        button.addAction(UIAction { [weak body, weak button] _ in
+            guard let body, let button else { return }
+            let willShow = body.isHidden
+            UIView.animate(withDuration: 0.22) {
+                body.isHidden = !willShow
+                button.configuration?.image = UIImage(
+                    systemName: willShow ? "chevron.up" : "chevron.down")
+                button.superview?.superview?.layoutIfNeeded()
+            }
+            button.accessibilityLabel = title
+            button.accessibilityValue = willShow
+                ? NSLocalizedString("Expanded", comment: "")
+                : NSLocalizedString("Collapsed", comment: "")
+        }, for: .touchUpInside)
+
+        container.addArrangedSubview(button)
+        container.addArrangedSubview(body)
+        return container
     }
 
     // MARK: - Words for a verdict
 
-    /// Deliberately not 「通過 / 部分通過」. 「部分」 as a modifier reads as a
-    /// qualified version of the same answer; 「做得到一半」 reads as a different
-    /// answer, which is what it is.
+    /// The word on the verdict chip.
+    ///
+    /// Reworded 2026-08-26 from the self-negating 「只做得到一半」/「只答得出一半」
+    /// at the owner's request: the page now leads with what the app *can* do and
+    /// the limits move into an expandable「完整細節」below. The one rule the
+    /// original author set still holds and still must — **`.partial` cannot be
+    /// allowed to read as `.supported`** — so the three stay distinct by symbol,
+    /// colour and word together: 「部分做得到」 is not a qualified 「做得到」, it is
+    /// its own answer, and the ◐ and the orange carry the rest.
     static func headline(for support: ScenarioSupport) -> String {
         switch support {
-        case .supported: return NSLocalizedString("Yes, this app can show that", comment: "")
-        case .partial: return NSLocalizedString("Only half of that", comment: "")
-        case .unsupported: return NSLocalizedString("No, not on any path this app has", comment: "")
+        case .supported: return NSLocalizedString("Can do this", comment: "capability verdict")
+        case .partial: return NSLocalizedString("Partly — one limit", comment: "capability verdict")
+        case .unsupported: return NSLocalizedString("Not yet", comment: "capability verdict")
         }
     }
 

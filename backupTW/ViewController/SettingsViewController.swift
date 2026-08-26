@@ -45,7 +45,7 @@ class SettingsViewController: UICollectionViewController {
             // source keeps and the product does not. This is the entrance.
             Item(image: UIImage(systemName: "checklist")?.withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
                  title: Row.capabilities,
-                 secondaryText: NSLocalizedString("The three things people ask this app to prove, and which of them it only half answers.", comment: "")),
+                 secondaryText: NSLocalizedString("The three things people ask this app to prove, and which of them come with a limit.", comment: "")),
             Item(image: UIImage(systemName: "doc.text"),
                  title: Row.license,
                  secondaryText: NSLocalizedString("Third Party Software License", comment: ""))

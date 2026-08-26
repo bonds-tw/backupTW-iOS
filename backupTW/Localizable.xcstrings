@@ -542,6 +542,16 @@
         }
       }
     },
+    "Can do this": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以做到"
+          }
+        }
+      }
+    },
     "Can't start": {
       "localizations": {
         "zh-Hant": {
@@ -801,6 +811,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "第 %1$d／%2$d 張"
+          }
+        }
+      }
+    },
+    "Collapsed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已收合"
           }
         }
       }
@@ -1257,6 +1277,16 @@
         }
       }
     },
+    "Expanded": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已展開"
+          }
+        }
+      }
+    },
     "Expected here — there is no Secure Enclave to use.": {
       "localizations": {
         "zh-Hant": {
@@ -1334,6 +1364,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "僅用於此次解壓縮，絕不另作他用"
+          }
+        }
+      }
+    },
+    "Full details and limits": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整細節與限制"
           }
         }
       }
@@ -1996,17 +2036,6 @@
         }
       }
     },
-    "No, not on any path this app has": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不行，這個 App 現有的路徑都做不到"
-          }
-        }
-      }
-    },
     "None reported": {
       "localizations": {
         "zh-Hant": {
@@ -2063,6 +2092,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚未開始"
+          }
+        }
+      }
+    },
+    "Not yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未支援"
           }
         }
       }
@@ -2198,17 +2237,6 @@
         }
       }
     },
-    "Only half of that": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "只做得到一半"
-          }
-        }
-      }
-    },
     "Only the fields you switch on.": {
       "localizations": {
         "zh-Hant": {
@@ -2245,6 +2273,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "已過期 · 需重新下載 %@"
+          }
+        }
+      }
+    },
+    "Partly — one limit": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部分做得到"
           }
         }
       }
@@ -3965,13 +4003,12 @@
         }
       }
     },
-    "The three things people ask this app to prove, and which of them it only half answers.": {
-      "extractionState": "manual",
+    "The three things people ask this app to prove, and which of them come with a limit.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "人們會要求這個 App 證明的三件事，以及其中哪些它只答得出一半。"
+            "value": "人們會要求這個 App 證明的三件事，以及其中哪些附帶限制。"
           }
         }
       }
@@ -5455,13 +5492,12 @@
         }
       }
     },
-    "Three things someone might ask this app to prove, and what it can honestly answer today. Two of the three are only half answered, and this page says which half.": {
-      "extractionState": "manual",
+    "Three things someone might ask this app to prove, and what it can do today. Two of the three come with an important limit — open each card's details to see exactly what.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "有人可能會要求這個 App 證明的三件事，以及它今天誠實答得出什麼。三件裡有兩件只答得出一半，這一頁說明是哪一半。"
+            "value": "有人可能會要求這個 App 證明的三件事，以及它今天能做到什麼。其中兩件附帶一項重要限制——展開每張卡的細節就能看到是什麼。"
           }
         }
       }
@@ -5719,13 +5755,12 @@
         }
       }
     },
-    "What it actually shows": {
-      "extractionState": "manual",
+    "What it can show": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "它實際上證明了什麼"
+            "value": "它能證明的"
           }
         }
       }
@@ -5899,17 +5934,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "有"
-          }
-        }
-      }
-    },
-    "Yes, this app can show that": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "是，這個 App 做得到"
           }
         }
       }
