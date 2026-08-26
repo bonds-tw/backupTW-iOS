@@ -1340,6 +1340,11 @@ struct OfflineVerifierNetworkTests {
             // the request object's signature and its response_uri host both
             // passed. Nothing here runs while a document is being checked.
             "TWDIW/OID4VPResponse.swift",
+            // OID4VP request fetch: GETs the verifier's request object from a
+            // scanned request_uri, on an explicit scan, after the request_uri
+            // host passed the trust gate. Fetches a signed ask, publishes
+            // nothing.
+            "TWDIW/OID4VPRequestFetcher.swift",
         ]
 
         // The same list as the single-file test, plus `import Network`. Not

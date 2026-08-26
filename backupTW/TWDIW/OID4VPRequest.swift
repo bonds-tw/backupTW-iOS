@@ -29,6 +29,15 @@ enum OID4VPRequestError: Error, Equatable {
     /// `response_uri`'s host is not one this wallet will post a signed token to
     /// — the verifier equivalent of the issuer trust-list gate.
     case responseURINotTrusted(host: String)
+    /// The `request_uri` the QR pointed at is not a host this wallet will
+    /// fetch from. Checked **before** the GET, because the fetch itself leaves
+    /// the device — the same "gate before the first request" rule as the
+    /// issuer offer's `authorise(fetchURL:)`.
+    case requestURINotTrusted(host: String)
+    /// The network failed fetching the request object.
+    case network
+    /// The server answered the request-object fetch with a non-2xx status.
+    case badStatus(Int)
 }
 
 /// The `openid4vp` / `modadigitalwallet://authorize` link a verifier shows,

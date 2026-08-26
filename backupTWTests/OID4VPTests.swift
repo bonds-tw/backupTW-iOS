@@ -152,6 +152,77 @@ struct OID4VPRequestTests {
     }
 }
 
+// MARK: - Request fetch
+
+@Suite("抓 request_uri:閘門先過、簽章要驗", .serialized)
+struct OID4VPRequestFetcherTests {
+
+    static let trusted: Set<String> = ["verifier-oid4vp.wallet.gov.tw"]
+    static let requestURI = "https://verifier-oid4vp.wallet.gov.tw/api/oidvp/request/abc"
+    static let responseURI = "https://verifier-oid4vp.wallet.gov.tw/api/oidvp/authorization-response"
+
+    private func makeFetcher() -> OID4VPRequestFetcher {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [OID4VPStubURLProtocol.self]
+        return OID4VPRequestFetcher(session: URLSession(configuration: config), trustedHosts: Self.trusted)
+    }
+
+    private func requestObject(_ verifier: TestVerifier) -> String {
+        verifier.requestJWT(responseURI: Self.responseURI, nonce: "N", state: "S",
+                            definitionID: "D", descriptorID: "D",
+                            credentialType: "D", fields: ["name"])
+    }
+
+    @Test func aTrustedRequestURIIsFetchedAndVerified() async throws {
+        OID4VPStubURLProtocol.reset()
+        defer { OID4VPStubURLProtocol.reset() }
+        let verifier = TestVerifier()
+        let jws = requestObject(verifier)
+        OID4VPStubURLProtocol.routes = [
+            .init(match: "/api/oidvp/request/", status: 200, body: { _, _ in Data(jws.utf8) }),
+        ]
+        let request = try await makeFetcher().fetch(
+            .byReference(clientID: verifier.clientID, requestURI: Self.requestURI))
+        #expect(request.nonce == "N")
+        #expect(request.responseURI == Self.responseURI)
+    }
+
+    @Test func anUntrustedRequestURINeverLeavesTheDevice() async {
+        OID4VPStubURLProtocol.reset()
+        defer { OID4VPStubURLProtocol.reset() }
+        let verifier = TestVerifier()
+        await #expect(throws: OID4VPRequestError.requestURINotTrusted(
+            host: "verifier-oid4vp.wallet.gov.tw.evil.tw")) {
+            _ = try await makeFetcher().fetch(.byReference(
+                clientID: verifier.clientID,
+                requestURI: "https://verifier-oid4vp.wallet.gov.tw.evil.tw/api/oidvp/request/abc"))
+        }
+        #expect(OID4VPStubURLProtocol.exchanges.isEmpty)
+    }
+
+    @Test func aBadStatusOnTheFetchIsSurfaced() async {
+        OID4VPStubURLProtocol.reset()
+        defer { OID4VPStubURLProtocol.reset() }
+        OID4VPStubURLProtocol.routes = [
+            .init(match: "/api/oidvp/request/", status: 404, body: { _, _ in Data() }),
+        ]
+        await #expect(throws: OID4VPRequestError.badStatus(404)) {
+            _ = try await makeFetcher().fetch(.byReference(
+                clientID: TestVerifier().clientID, requestURI: Self.requestURI))
+        }
+    }
+
+    @Test func anInlineRequestObjectSkipsTheFetchButStillVerifies() async throws {
+        OID4VPStubURLProtocol.reset()
+        defer { OID4VPStubURLProtocol.reset() }
+        let verifier = TestVerifier()
+        let request = try await makeFetcher().fetch(
+            .byValue(clientID: verifier.clientID, requestObject: requestObject(verifier)))
+        #expect(request.state == "S")
+        #expect(OID4VPStubURLProtocol.exchanges.isEmpty)
+    }
+}
+
 // MARK: - Response
 
 @Suite("出示的 vp_token 說了該說的、只揭露選的", .serialized)
