@@ -62,6 +62,14 @@ struct TrustListFetcher {
             }
         }
         guard !all.isEmpty else { throw TrustListFetcherError.emptyList }
-        return all
+
+        // Deduplicate by DID. Both org types are fetched because either can be
+        // the issuer of a card, but an organisation registered as both — like
+        // 行政院-數位發展部 — is listed in both and would otherwise appear twice.
+        // Two rows for one DID made the issuer gate see an ambiguity that is
+        // not one, refusing a card the org legitimately issued. The DID is the
+        // organisation's identity here, so it is the key that collapses them.
+        var seen = Set<String>()
+        return all.filter { seen.insert($0.did).inserted }
     }
 }

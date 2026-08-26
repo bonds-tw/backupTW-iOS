@@ -161,10 +161,26 @@ enum IssuerAuthorization {
                 .compactMap { $0 }
                 .contains { (try? normalisedHost(of: $0).get()) == host }
         }
-        guard let only = agreeing.first, agreeing.count == 1 else {
-            // Zero means the offer pointed somewhere else than the QR did. More
-            // than one means the list cannot tell us who this is, and a wallet
-            // that picked one would be inventing an answer to show the user.
+        // What gate 2 must establish is that the offer's issuer host is one of
+        // the trusted hosts gate 1 allowed — not that exactly one *row* carries
+        // it. Two facts in the production list break a strict count == 1, and
+        // neither is an attack (measured 2026-08-26):
+        //
+        // - **A distinct DID per row is not a distinct organisation.** An org
+        //   registered as both an issuer and a verifier is listed under both,
+        //   and 行政院-數位發展部 (moda.wallet.gov.tw) is exactly this — so a card
+        //   it issued matched two rows and was refused as if redirected. The
+        //   official 皮夾夥伴卡 lands here.
+        // - **One host can genuinely belong to several organisations.** Three
+        //   universities share `dcert.wallet.gov.tw`, differing only by path.
+        //
+        // So this refuses only the case that matters — zero rows agree, meaning
+        // the offer named a host the QR's host does not — and otherwise returns
+        // one agreeing row. Which row is safe: `canonicalIssuerIdentifier` takes
+        // the path from the offer, not from the row, so the several rows on a
+        // shared host lead to the same signed `aud` regardless of which is
+        // picked.
+        guard let only = agreeing.first else {
             return .failure(.organisationMismatch)
         }
         return .success(only)

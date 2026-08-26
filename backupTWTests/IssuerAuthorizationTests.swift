@@ -168,9 +168,15 @@ struct IssuerAuthorizationTests {
             matched: matched) == .success(Self.sandbox))
     }
 
-    /// Ambiguity is refused rather than resolved by array order. A wallet that
-    /// picked one would be inventing the name it then shows the user.
-    @Test func aHostBelongingToTwoOrganisationsIsRefusedNotGuessed() {
+    /// A host that genuinely belongs to more than one organisation is confirmed,
+    /// not refused. Measured 2026-08-26: three universities share
+    /// `dcert.wallet.gov.tw` and 行政院-數位發展部 is listed as both an issuer and a
+    /// verifier — so `matched` legitimately carries more than one row for one
+    /// host, and a strict count == 1 refused cards those hosts really issued.
+    /// What gate 2 must establish is that the offer's issuer host is a trusted
+    /// one; which row is returned is safe because the signed `aud` takes its
+    /// path from the offer, not from the row.
+    @Test func aHostBelongingToTwoOrganisationsIsConfirmedNotRefused() {
         let twin = TWDIWIssuer(did: "did:key:z2dmzD81…twin", displayName: "另一個機關",
                                displayNameEnglish: "Another Agency", taxID: "11111111",
                                issuerMetadataBaseURL: "https://issuer-oid4vci.wallet.gov.tw",
@@ -182,9 +188,28 @@ struct IssuerAuthorizationTests {
             return
         }
         #expect(matched.count == 2)
+        let result = IssuerAuthorization.confirm(
+            credentialIssuer: "https://issuer-oid4vci.wallet.gov.tw/api/issuer/00000000/",
+            matched: matched)
+        // Confirmed as one of the two — not refused as an ambiguity.
+        #expect(result == .success(Self.sandbox) || result == .success(twin))
+    }
+
+    /// The same organisation listed twice — as issuer and as verifier — is one
+    /// organisation, and a card it issued must confirm rather than read as a
+    /// two-org ambiguity. This is the exact shape that refused the official
+    /// 皮夾夥伴卡 (行政院-數位發展部) before the fix.
+    @Test func oneOrganisationListedTwiceStillConfirms() {
+        let asVerifier = TWDIWIssuer(did: Self.sandbox.did, displayName: Self.sandbox.displayName,
+                                     displayNameEnglish: Self.sandbox.displayNameEnglish,
+                                     taxID: Self.sandbox.taxID,
+                                     issuerMetadataBaseURL: nil,
+                                     serviceBaseURL: "https://issuer-oid4vci.wallet.gov.tw",
+                                     reportsOnChainAnchor: true)
+        let matched = [Self.sandbox, asVerifier]
         #expect(IssuerAuthorization.confirm(
             credentialIssuer: "https://issuer-oid4vci.wallet.gov.tw/api/issuer/00000000/",
-            matched: matched) == .failure(.organisationMismatch))
+            matched: matched) != .failure(.organisationMismatch))
     }
 
     /// **We sign over our own bytes.** Once the host is agreed there is nothing
