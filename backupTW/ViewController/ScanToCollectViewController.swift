@@ -38,10 +38,11 @@ enum ScanToCollect {
             prompt: NSLocalizedString("Point the camera at the QR from 數位憑證皮夾.", comment: "")
         ) { [weak navigationController] scanned in
             guard !latch.fired else { return .stop }
-            guard let url = URL(string: scanned),
-                  let link = try? CredentialOfferLink.parse(url) else {
+            guard let link = try? CredentialOfferLink.parse(scanned: scanned) else {
                 // Not a credential offer — any other QR that wandered in. Silent,
-                // because this fires once per video frame.
+                // because this fires once per video frame. `parse(scanned:)`
+                // tolerates the CR+LF the official deep link frames its query
+                // with; a plain `URL(string:)` here would drop the real card.
                 return .keepScanning(status: nil)
             }
             latch.fired = true

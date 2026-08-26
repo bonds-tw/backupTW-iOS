@@ -335,6 +335,21 @@ final class QRScanningViewController: UIViewController {
             showUnavailable(Self.unavailableMessage, offeringSettings: false)
             return false
         }
+
+        // Prefer a high-resolution preset so a dense QR's small modules resolve.
+        // The default is 720p, and a credential offer that packs a long
+        // `credential_offer_uri` into its code — a driving licence's is longer
+        // than a visitor card's — produces a denser QR whose modules blur into
+        // each other at 720p, so the detector never fires while a sparser code
+        // scans fine. Measured on device: the driving-licence card would not
+        // scan, the visitor card would. Walk down the ladder on a device that
+        // lacks a tier.
+        for preset in [AVCaptureSession.Preset.hd4K3840x2160, .hd1920x1080, .high]
+        where session.canSetSessionPreset(preset) {
+            session.sessionPreset = preset
+            break
+        }
+
         session.addInput(input)
         session.addOutput(output)
         // Set only after the output is attached; `metadataObjectTypes` is empty
@@ -342,6 +357,19 @@ final class QRScanningViewController: UIViewController {
         output.setMetadataObjectsDelegate(self, queue: .main)
         output.metadataObjectTypes = [.qr]
         session.commitConfiguration()
+
+        // Focus for a code held close — a QR on another screen is scanned from
+        // 10–20 cm, and the near restriction plus continuous autofocus keeps a
+        // dense code sharp where the default range hunts past it.
+        if (try? device.lockForConfiguration()) != nil {
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
+            }
+            if device.isAutoFocusRangeRestrictionSupported {
+                device.autoFocusRangeRestriction = .near
+            }
+            device.unlockForConfiguration()
+        }
 
         showPreview()
         return true

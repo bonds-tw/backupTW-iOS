@@ -57,6 +57,32 @@ enum CredentialOfferLink: Equatable {
     ///   the OS routing a tap to us.
     private static let offerSchemes: Set<String> = ["openid-credential-offer", "modadigitalwallet"]
 
+    /// Reads a link from a **scanned string**, tolerating the framing a QR
+    /// carries.
+    ///
+    /// Measured on device 2026-08-26: the official deep link embeds a CR+LF
+    /// right after `credential_offer?` —
+    /// `modadigitalwallet://credential_offer?\r\ncredential_offer_uri=…` — and a
+    /// raw newline inside the query makes `URLComponents` read the parameter
+    /// name as `\r\ncredential_offer_uri`, so the lookup for
+    /// `credential_offer_uri` finds nothing and the whole thing is rejected as
+    /// "not an offer". The card then silently would not scan. A scanner's input
+    /// is bytes off a camera, not a URL the OS built, so the newlines are
+    /// stripped and surrounding whitespace trimmed before a URL is formed.
+    ///
+    /// The percent-encoded `credential_offer_uri` value contains no raw
+    /// newlines of its own, so removing them only undoes the malformed framing.
+    static func parse(scanned: String) throws -> CredentialOfferLink {
+        let cleaned = scanned
+            .replacingOccurrences(of: "\r", with: "")
+            .replacingOccurrences(of: "\n", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        guard let url = URL(string: cleaned) else {
+            throw CredentialOfferError.notACredentialOffer
+        }
+        return try parse(url)
+    }
+
     /// Reads a link, or says exactly why not.
     ///
     /// The scheme comparison is case-insensitive because URL schemes are;
