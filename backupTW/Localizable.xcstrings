@@ -805,6 +805,26 @@
         }
       }
     },
+    "Collecting the card did not succeed (the issuer's system returned %d). Go back to the official page, make a fresh QR code, and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領卡沒有成功（發卡系統回應 %d）。請回到官方頁面重新產生 QR code 再試一次。"
+          }
+        }
+      }
+    },
+    "Collecting the card did not work. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領卡沒有成功，請再試一次。"
+          }
+        }
+      }
+    },
     "Computed on this phone from your digital certificate. The certificate itself is never shown.": {
       "localizations": {
         "zh-Hant": {
@@ -845,12 +865,32 @@
         }
       }
     },
+    "Could not load the list of trusted issuers. Check your connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法取得可信任發卡單位的清單。請檢查網路後再試一次。"
+          }
+        }
+      }
+    },
     "Could not reach the digital certificate service.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "無法連線到行動自然人憑證服務。"
+          }
+        }
+      }
+    },
+    "Could not reach the issuer. Check your connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上發卡單位。請檢查網路後再試一次。"
           }
         }
       }
@@ -3262,6 +3302,26 @@
         }
       }
     },
+    "The card that came back could not be verified, so it was not saved.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領到的卡片無法通過驗證，所以沒有存入。"
+          }
+        }
+      }
+    },
+    "The card that came back is not tied to this phone, so it was not saved.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "領到的卡片不是綁定這支手機，所以沒有存入。"
+          }
+        }
+      }
+    },
     "The caveats under each answer are the list the proof code itself carries, and whether a path exists at all is read from the same build switch the rest of the app reads. The wording of each answer is written by hand — it is this project's own account of its design, not a measurement.": {
       "localizations": {
         "zh-Hant": {
@@ -3623,6 +3683,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "識別碼在刪除後仍然存活"
+          }
+        }
+      }
+    },
+    "The issuer's reply could not be read. Please try again in a moment.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡系統的回應無法解讀。請稍後再試。"
+          }
+        }
+      }
+    },
+    "The issuer's reply was incomplete. Please try again in a moment.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡系統的回應不完整。請稍後再試。"
           }
         }
       }
@@ -4154,6 +4234,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "第三方軟體授權條款"
+          }
+        }
+      }
+    },
+    "This QR code is not a card you can collect.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR code 不是可以領取的卡片。"
+          }
+        }
+      }
+    },
+    "This QR code is not from a trusted card issuer, so no card was added.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR code 不是來自可信任的發卡單位，沒有加入任何卡片。"
+          }
+        }
+      }
+    },
+    "This QR code points to mismatched addresses, so nothing was collected — for your safety.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR code 指向的位址不一致，為了你的安全，沒有領取任何卡片。"
+          }
+        }
+      }
+    },
+    "This QR code's address looks unsafe, so the app did not connect to it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR code 的位址看起來不安全，App 沒有連上它。"
+          }
+        }
+      }
+    },
+    "This QR code's issuer information does not match, so nothing was collected — for your safety.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR code 的發卡單位資訊不一致，為了你的安全，沒有領取任何卡片。"
           }
         }
       }
@@ -4875,12 +5005,32 @@
         }
       }
     },
+    "This phone could not create a secure key for the card. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機無法為卡片建立安全金鑰。請再試一次。"
+          }
+        }
+      }
+    },
     "This phone could not make itself discoverable (%@).": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "這支手機無法讓自己被找到（%@）。"
+          }
+        }
+      }
+    },
+    "This phone could not save the card. It most often means the phone is out of space — free some up and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機無法存入卡片。通常是空間不足——請清出一些空間再試一次。"
           }
         }
       }

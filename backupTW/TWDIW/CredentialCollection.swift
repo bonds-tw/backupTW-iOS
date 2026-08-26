@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 /// Coordinates one OID4VCI collection from a parsed offer link.
 ///
@@ -25,10 +26,14 @@ enum CredentialCollection {
     ///
     /// Returns rather than presents: the caller owns a view hierarchy this type
     /// does not, and a scan screen dismisses to a different place than a
-    /// deep-link launch. The string is already localized; on failure it is the
-    /// error's own description, which for a refusal names the gate and for a bad
-    /// status names the step and code — the M5.2 measurement itself, not a
-    /// rewrite of it.
+    /// deep-link launch. The string is already localized. On failure it is a
+    /// person-facing sentence from `UserFacingError` — what happened and what to
+    /// do — never the error's own `description`, which used to put a Swift type
+    /// name on screen.
+    ///
+    /// The raw error is still logged for a developer; only the screen is
+    /// translated. The measurement value of the exact case (which gate, which
+    /// status) lives in the log, not in front of the cardholder.
     @MainActor
     static func run(from link: CredentialOfferLink) async -> String {
         do {
@@ -48,7 +53,10 @@ enum CredentialCollection {
             return String(format: NSLocalizedString("Stored as %@.", comment: "collection success"),
                           receipt.storedID)
         } catch {
-            return String(describing: error)
+            log.error("collection failed: \(String(describing: error), privacy: .public)")
+            return UserFacingError.collectionMessage(for: error)
         }
     }
+
+    private static let log = Logger(subsystem: "tw.bonds.backupTW", category: "collection")
 }
