@@ -163,7 +163,7 @@ struct OID4VPRequestFetcherTests {
 
     private func makeFetcher() -> OID4VPRequestFetcher {
         let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [OID4VPStubURLProtocol.self]
+        config.protocolClasses = [OID4VPFetchStubURLProtocol.self]
         return OID4VPRequestFetcher(session: URLSession(configuration: config), trustedHosts: Self.trusted)
     }
 
@@ -174,11 +174,11 @@ struct OID4VPRequestFetcherTests {
     }
 
     @Test func aTrustedRequestURIIsFetchedAndVerified() async throws {
-        OID4VPStubURLProtocol.reset()
-        defer { OID4VPStubURLProtocol.reset() }
+        OID4VPFetchStubURLProtocol.reset()
+        defer { OID4VPFetchStubURLProtocol.reset() }
         let verifier = TestVerifier()
         let jws = requestObject(verifier)
-        OID4VPStubURLProtocol.routes = [
+        OID4VPFetchStubURLProtocol.routes = [
             .init(match: "/api/oidvp/request/", status: 200, body: { _, _ in Data(jws.utf8) }),
         ]
         let request = try await makeFetcher().fetch(
@@ -188,8 +188,8 @@ struct OID4VPRequestFetcherTests {
     }
 
     @Test func anUntrustedRequestURINeverLeavesTheDevice() async {
-        OID4VPStubURLProtocol.reset()
-        defer { OID4VPStubURLProtocol.reset() }
+        OID4VPFetchStubURLProtocol.reset()
+        defer { OID4VPFetchStubURLProtocol.reset() }
         let verifier = TestVerifier()
         await #expect(throws: OID4VPRequestError.requestURINotTrusted(
             host: "verifier-oid4vp.wallet.gov.tw.evil.tw")) {
@@ -197,13 +197,13 @@ struct OID4VPRequestFetcherTests {
                 clientID: verifier.clientID,
                 requestURI: "https://verifier-oid4vp.wallet.gov.tw.evil.tw/api/oidvp/request/abc"))
         }
-        #expect(OID4VPStubURLProtocol.exchanges.isEmpty)
+        #expect(OID4VPFetchStubURLProtocol.exchanges.isEmpty)
     }
 
     @Test func aBadStatusOnTheFetchIsSurfaced() async {
-        OID4VPStubURLProtocol.reset()
-        defer { OID4VPStubURLProtocol.reset() }
-        OID4VPStubURLProtocol.routes = [
+        OID4VPFetchStubURLProtocol.reset()
+        defer { OID4VPFetchStubURLProtocol.reset() }
+        OID4VPFetchStubURLProtocol.routes = [
             .init(match: "/api/oidvp/request/", status: 404, body: { _, _ in Data() }),
         ]
         await #expect(throws: OID4VPRequestError.badStatus(404)) {
@@ -213,13 +213,13 @@ struct OID4VPRequestFetcherTests {
     }
 
     @Test func anInlineRequestObjectSkipsTheFetchButStillVerifies() async throws {
-        OID4VPStubURLProtocol.reset()
-        defer { OID4VPStubURLProtocol.reset() }
+        OID4VPFetchStubURLProtocol.reset()
+        defer { OID4VPFetchStubURLProtocol.reset() }
         let verifier = TestVerifier()
         let request = try await makeFetcher().fetch(
             .byValue(clientID: verifier.clientID, requestObject: requestObject(verifier)))
         #expect(request.state == "S")
-        #expect(OID4VPStubURLProtocol.exchanges.isEmpty)
+        #expect(OID4VPFetchStubURLProtocol.exchanges.isEmpty)
     }
 }
 
@@ -349,6 +349,77 @@ struct OID4VPResponseTests {
 /// static route tables cannot clear each other when Swift Testing runs them
 /// concurrently.
 final class OID4VPStubURLProtocol: URLProtocol {
+
+    struct Route {
+        let match: String
+        let status: Int
+        let body: (URLRequest, Data) -> Data
+    }
+
+    struct Exchange {
+        let url: URL
+        let method: String
+        let headers: [String: String]
+        let body: Data
+    }
+
+    nonisolated(unsafe) static var routes: [Route] = []
+    nonisolated(unsafe) static var exchanges: [Exchange] = []
+
+    static func reset() {
+        routes = []
+        exchanges = []
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let body = Self.drainBody(of: request)
+        let url = request.url!
+        Self.exchanges.append(Exchange(url: url,
+                                       method: request.httpMethod ?? "GET",
+                                       headers: request.allHTTPHeaderFields ?? [:],
+                                       body: body))
+        guard let route = Self.routes.first(where: { url.absoluteString.contains($0.match) }) else {
+            client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
+            return
+        }
+        let response = HTTPURLResponse(url: url, statusCode: route.status,
+                                       httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: route.body(request, body))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+
+    private static func drainBody(of request: URLRequest) -> Data {
+        guard let stream = request.httpBodyStream else { return request.httpBody ?? Data() }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        let size = 4096
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
+        defer { buffer.deallocate() }
+        while stream.hasBytesAvailable {
+            let read = stream.read(buffer, maxLength: size)
+            guard read > 0 else { break }
+            data.append(buffer, count: read)
+        }
+        return data
+    }
+}
+
+// MARK: - Fetch stub transport (isolated from the response suite)
+
+/// The fetcher suite's own routing stub. Separate class from
+/// `OID4VPStubURLProtocol` for the same reason that one is separate from
+/// `OID4VCIStubURLProtocol`: Swift Testing runs the fetcher and response
+/// suites concurrently, and one shared static route table would let them clear
+/// each other mid-run — which is exactly the `network` failure this reproduced
+/// on CI while passing locally.
+final class OID4VPFetchStubURLProtocol: URLProtocol {
 
     struct Route {
         let match: String
