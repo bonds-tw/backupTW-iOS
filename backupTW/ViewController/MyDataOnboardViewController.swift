@@ -44,9 +44,9 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// `ZKProofViewController` already wrote this principle down; it had just
     /// never been applied to this path.
     private var coverItem: Item = CredentialIssuanceAssembly.isAvailable
-        ? Item(title: "📋\n" + NSLocalizedString("Create a Valid Document", comment: ""),
+        ? Item(title: NSLocalizedString("Create a Valid Document", comment: ""),
                secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
-        : Item(title: "📋\n" + NSLocalizedString("This version cannot create a document", comment: ""),
+        : Item(title: NSLocalizedString("This version cannot create a document", comment: ""),
                secondaryText: NSLocalizedString("Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.", comment: ""))
     private var items: [Item] = [
         Item(title: NSLocalizedString("Nationality", comment: ""), secondaryText: ""),
@@ -118,7 +118,21 @@ class MyDataOnboardViewController: UICollectionViewController {
                 attributes: [.font: UIFont.preferredFont(forTextStyle: textStyle)]
             )
             if isCover {
-                title.addAttribute(.font, value: UIFont.systemFont(ofSize: 60), range: NSRange(location: 0, length: 2)) // for the emoji
+                // A symbol hero, not a 60pt emoji: 📋 read as a placeholder and
+                // sat oddly against the rest of the app, which is SF Symbols
+                // throughout. `person.text.rectangle` is the ID-card glyph, drawn
+                // in the app's card tint at a hero size and centred above the
+                // title with a blank line between.
+                let config = UIImage.SymbolConfiguration(pointSize: 52, weight: .regular)
+                if let symbol = UIImage(systemName: "person.text.rectangle", withConfiguration: config)?
+                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
+                    let attachment = NSTextAttachment(image: symbol)
+                    let hero = NSMutableAttributedString(attachment: attachment)
+                    hero.append(NSAttributedString(string: "\n\n"))
+                    hero.addAttributes([.font: UIFont.preferredFont(forTextStyle: textStyle)],
+                                       range: NSRange(location: hero.length - 2, length: 2))
+                    title.insert(hero, at: 0)
+                }
             }
             content.attributedText = title
             content.secondaryAttributedText = NSAttributedString(
