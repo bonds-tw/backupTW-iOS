@@ -27,6 +27,19 @@ class HomeViewController: UICollectionViewController {
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
         static let compare = NSLocalizedString("What each of these cards is worth", comment: "")
+
+        // The guide rows a card group shows when it holds nothing. They are
+        // verbs wearing a noun's clothes: each stands in an empty card group and,
+        // when tapped, starts the flow that would put a card there — so they
+        // dispatch to the same destinations as the action rows below, not to a
+        // screen of their own.
+        static let governmentEmpty = NSLocalizedString("No government cards yet", comment: "home card group empty state")
+        // MyData's row is present on every launch, because in this build the
+        // MyData group never fills: the household record is fetched only to build
+        // the national ID and is erased straight after (see `MyDataScratch`). The
+        // row says that plainly rather than showing a vault that will always be
+        // empty with no word on why.
+        static let myDataVault = NSLocalizedString("Nothing stored from MyData yet", comment: "home card group empty state")
     }
 
     /// Card rows, keyed by the identifier the `Item` carries.
@@ -67,54 +80,81 @@ class HomeViewController: UICollectionViewController {
         // and the informational one swallowed.
         let rows = (try? CredentialStore()).map { CardInventory.rows(from: $0) }
         cardRows = Dictionary((rows ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return [validDocumentSection(cards: rows),
+
+        // # Why the home screen now separates nouns from verbs
+        //
+        // Every card the phone holds and every button used to live in one
+        // 「My cards」 section — `rows.map(item(for:)) + [refresh, collect,
+        // presentOnline, compare]`. A held card and a thing-you-can-do sat in
+        // the same list, told apart only by an icon colour, and the three kinds
+        // of thing the wallet is *about* — the national ID it issues, government
+        // cards collected from 數位憑證皮夾, and the MyData record the ID is
+        // built from — had no structural place. MyData in particular appeared
+        // nowhere as a source, only hidden inside the 「back up」 action.
+        //
+        // So the card groups (nouns) come first, one per source with its own
+        // header, each showing its cards or — when it holds none — a guide row
+        // that says so and leads to the flow that would fill it. The actions
+        // (verbs) follow in their own section. A source with nothing in it is
+        // still shown, so all three of the wallet's targets stand on the home
+        // screen as peers rather than one being reachable only through a button.
+        //
+        // `nil` still means 「the store would not open」, a different thing from
+        // an empty group, and it is threaded to each group so none of them
+        // reports 「you hold nothing of this kind」 when the truth is 「this phone
+        // could not be read」.
+        let selfIssued = rows?.filter { $0.source == .selfIssued }
+        // Unrecognised cards ride with the government group rather than getting a
+        // fourth catch-all: this app mints exactly one self-issued document under
+        // one fixed id and format, so a blob matching neither shape is far
+        // likelier to be something collected than something of ours gone wrong.
+        // The row itself already says 「this version does not recognise this
+        // card」, so the header claims nothing the row then has to walk back.
+        let government = rows?.filter { $0.source == .twdiw || $0.source == .unrecognised }
+        let hasAnyCard = !(rows ?? []).isEmpty
+
+        return [nationalIDSection(cards: selfIssued),
+                governmentSection(cards: government),
+                myDataSection(),
+                actionsSection(hasAnyCard: hasAnyCard),
                 offlineSection(hasDocument: rows?.contains { $0.source == .selfIssued } ?? false,
                                storeIsReadable: rows != nil)]
     }
 
-    /// Every card this phone holds, not only the one this app issues.
+    /// The national ID this app builds — the one document it issues, kept with
+    /// the action that creates and replaces it.
     ///
-    /// The section used to be a single row for the self-issued document, which
-    /// was the whole truth while that was the only thing the store could hold.
-    /// A card collected from 數位憑證皮夾 would have been saved successfully and
-    /// then been invisible — the same class of defect as the one the comment on
-    /// `makeSections` describes, and with the same consequence: a person with no
-    /// evidence their card arrived goes and collects it again.
+    /// The 「back up」 row stays in this group rather than moving out with the
+    /// other verbs, because unlike them it is bound to exactly one card: it does
+    /// not collect an arbitrary offer, it creates or replaces *this* document in
+    /// place (`MyDataOnboardViewController` files it under one constant id). So
+    /// it reads as this card's own 「create / refresh」 control, present whether
+    /// or not the card exists yet.
     ///
-    /// Named fields are still not summarised here. The home screen is the most
-    /// over-the-shoulder-readable surface in the app, so rows carry the card's
-    /// *kind* and its dates and nothing out of its claims. That rule is enforced
-    /// in `CardInventory`, where it can be tested, not here.
+    /// Named fields are still not summarised in the card row. The home screen is
+    /// the most over-the-shoulder-readable surface in the app, so rows carry the
+    /// card's *kind* and its dates and nothing out of its claims — a rule
+    /// enforced in `CardInventory`, where it can be tested, not here.
     /// - Parameter rows: `nil` when the store would not open, which is a
     ///   different screen from an empty one.
-    private func validDocumentSection(cards rows: [CardInventoryRow]?) -> Section {
-        // Not 「正式證件」 any more. That header is the onboarding screen's, where
-        // it names the document about to be created; over a list that can now
-        // contain an expired card and a card this build cannot read, it would be
-        // the section itself making a claim the rows underneath contradict.
-        let title = "🔐 " + NSLocalizedString("My cards", comment: "home section")
+    private func nationalIDSection(cards rows: [CardInventoryRow]?) -> Section {
+        let title = "🪪 " + NSLocalizedString("National ID", comment: "home card group")
 
-        // Keyed to *our own* document, not to whether any card exists.
-        //
-        // Found by rendering the screen with a government card and no
-        // self-issued one: the row read 「重新抓一次，取代目前存的這份」 while
-        // there was nothing of ours stored to replace. This row only ever
-        // creates or replaces the MyData-backed document, so a card of some
-        // other kind must not change what it says.
         guard let rows else {
-            // No 「create one」 row at all. That is the single instruction that
-            // would cost a second 戶籍謄本 and a second 身分證統一編號 — and
-            // issuance saves through the constructor that has just failed, so it
-            // would fail again after collecting them.
-            return Section(title: title, items: [
-                Item(image: UIImage(systemName: "externaldrive.badge.exclamationmark")?
-                        .withTintColor(.systemOrange, renderingMode: .alwaysOriginal),
-                     title: NSLocalizedString("This phone's cards cannot be read right now", comment: ""),
-                     secondaryText: NSLocalizedString("Anything saved here is still saved. This most often means the phone is out of space — free some up and open the app again.", comment: ""))
-            ])
+            // No 「create one」 row while the store is unreadable. That row is the
+            // single instruction that would cost a second 戶籍謄本 and a second
+            // 身分證統一編號 — and issuance saves through the constructor that has
+            // just failed, so it would fail again after collecting them.
+            return Section(title: title, items: [Self.unreadableStoreRow(in: "national-id")])
         }
 
-        let hasOwnDocument = rows.contains { $0.source == .selfIssued }
+        // Keyed to whether *our own* document exists — which, since these rows
+        // are already filtered to `.selfIssued`, is simply whether the group is
+        // non-empty. Found by rendering the screen with a government card and no
+        // self-issued one: the row read 「重新抓一次，取代目前存的這份」 while there
+        // was nothing of ours stored to replace. Filtering by source before this
+        // point is what keeps a card of some other kind from changing what it says.
+        let hasOwnDocument = !rows.isEmpty
         let refresh = Item(image: UIImage(systemName: "arrow.clockwise")?
                             .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
                            title: Row.backUp,
@@ -129,6 +169,72 @@ class HomeViewController: UICollectionViewController {
                             ? NSLocalizedString("Fetch it again and replace what's stored.", comment: "")
                             : NSLocalizedString("with Taiwan's official MyData service", comment: ""))
 
+        return Section(title: title, items: rows.map(item(for:)) + [refresh])
+    }
+
+    /// Cards collected from other issuers through 數位憑證皮夾.
+    ///
+    /// Collecting one is a verb and lives in the actions section, so this group
+    /// is nouns only: the government cards themselves, or — when there are none —
+    /// a guide row that says so and opens the scanner. The guide is not the
+    /// collect action taking a card's place by accident; it dispatches to the
+    /// same scanner precisely because an empty government group and 「add a
+    /// government card」 are the same intention seen from two sides.
+    /// - Parameter rows: `nil` when the store would not open.
+    private func governmentSection(cards rows: [CardInventoryRow]?) -> Section {
+        let title = "🏛️ " + NSLocalizedString("Government wallet cards", comment: "home card group")
+
+        guard let rows else {
+            return Section(title: title, items: [Self.unreadableStoreRow(in: "government")])
+        }
+
+        guard !rows.isEmpty else {
+            return Section(title: title, items: [
+                Item(image: UIImage(systemName: "tray")?
+                        .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
+                     title: Row.governmentEmpty,
+                     secondaryText: NSLocalizedString(
+                        "Scan a QR from 數位憑證皮夾 to add a card issued by a government body.", comment: ""))
+            ])
+        }
+
+        return Section(title: title, items: rows.map(item(for:)))
+    }
+
+    /// MyData, shown as a source even though this build keeps nothing under it.
+    ///
+    /// The point of the row is honesty about an absence, not a placeholder for a
+    /// feature. `MyDataScratch` fetches the household record, hands its fields to
+    /// issuance, and erases them the moment the PDF has been read — by design
+    /// there is no MyData vault to fill. Rather than leave the source off the
+    /// home screen (its previous state, discoverable only behind the 「back up」
+    /// button) or draw a vault that is permanently empty with no explanation, the
+    /// row states what MyData does here and opens the one flow that uses it.
+    private func myDataSection() -> Section {
+        let title = "🗂️ " + NSLocalizedString("MyData vault", comment: "home card group")
+        return Section(title: title, items: [
+            Item(image: UIImage(systemName: "lock.doc")?
+                    .withTintColor(.systemGray, renderingMode: .alwaysOriginal),
+                 title: Row.myDataVault,
+                 secondaryText: NSLocalizedString(
+                    "Your household record is fetched through MyData only to build your national ID, then erased — nothing is kept here.", comment: ""))
+        ])
+    }
+
+    /// The verbs, taken out of the card lists and put in one place.
+    ///
+    /// `collect`, `presentOnline` and `compare` used to trail the cards inside
+    /// 「My cards」, where a button and a held card were the same kind of row.
+    /// Here they are what they are: things to do, not things you hold.
+    ///
+    /// `presentOnline` and `compare` appear only once at least one card exists,
+    /// which is the gating the single-section version already had (`!rows.isEmpty`):
+    /// there is nothing to present online, and nothing for the comparison to be
+    /// about, on a phone that holds no card. `collect` is unconditional — a fresh
+    /// install scanning a government offer first is a real path.
+    private func actionsSection(hasAnyCard: Bool) -> Section {
+        let title = "⚙️ " + NSLocalizedString("Things you can do", comment: "home section")
+
         // Collecting an official card by scanning its QR. Present whether or not
         // a self-issued document exists — the official flow (「皮夾夥伴卡」) is
         // independent of MyData, and a fresh install collecting a government card
@@ -141,12 +247,22 @@ class HomeViewController: UICollectionViewController {
                            secondaryText: NSLocalizedString(
                             "Point the camera at a QR from 數位憑證皮夾 to add its card.", comment: ""))
 
-        guard !rows.isEmpty else {
-            return Section(title: title, items: [refresh, collect])
+        guard hasAnyCard else {
+            return Section(title: title, items: [collect])
         }
 
+        // Presenting an official card online — the mirror of collecting one, and
+        // the wallet's whole point next to it: scan the verifier's request, then
+        // choose which of the asked-for fields to actually reveal. Shown only
+        // once there is a card to present.
+        let presentOnline = Item(image: UIImage(systemName: "person.badge.shield.checkmark")?
+                                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+                                 title: Row.presentOnline,
+                                 secondaryText: NSLocalizedString(
+                                    "Scan a verifier's QR and choose exactly what to show.", comment: ""))
+
         // The row that carries the milestone's argument onto the screen people
-        // actually open. Last, not first: the comparison only means anything to
+        // actually open. Last, because the comparison only means anything to
         // somebody who has just seen that they hold more than one kind of thing.
         let compare = Item(image: UIImage(systemName: "list.bullet.rectangle")?
                             .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
@@ -154,18 +270,28 @@ class HomeViewController: UICollectionViewController {
                            secondaryText: NSLocalizedString(
                             "What a checker can rely on, and what none of them can establish.", comment: ""))
 
-        // Presenting an official card online — the mirror of collecting one, and
-        // the wallet's whole point next to it: scan the verifier's request, then
-        // choose which of the asked-for fields to actually reveal. Shown only
-        // once there is a card to present; a self-issued document is not a TWDIW
-        // credential and would find no match, so this leads with the cards that can.
-        let presentOnline = Item(image: UIImage(systemName: "person.badge.shield.checkmark")?
-                                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
-                                 title: Row.presentOnline,
-                                 secondaryText: NSLocalizedString(
-                                    "Scan a verifier's QR and choose exactly what to show.", comment: ""))
+        return Section(title: title, items: [collect, presentOnline, compare])
+    }
 
-        return Section(title: title, items: rows.map(item(for:)) + [refresh, collect, presentOnline, compare])
+    /// The one row both card groups show when the store itself would not open.
+    ///
+    /// Shared so the national ID group and the government group say the same true
+    /// thing in the same words — 「could not be read」, never 「you hold none」 —
+    /// rather than one of them silently reporting an empty group for a phone whose
+    /// storage failed to open.
+    /// The same "storage would not open" row appears under **both** the national
+    /// ID and government sections when the store will not open, so each needs its
+    /// own identifier. `Item`'s identity is `identifier` + title + text (image
+    /// ignored), and two rows sharing a `nil` identifier are, to a
+    /// `NSDiffableDataSourceSnapshot`, one duplicated item — which traps and kills
+    /// the app on the exact path this row exists to explain calmly. `group` makes
+    /// the two unique while they still say the same true thing.
+    private static func unreadableStoreRow(in group: String) -> Item {
+        Item(image: UIImage(systemName: "externaldrive.badge.exclamationmark")?
+                .withTintColor(.systemOrange, renderingMode: .alwaysOriginal),
+             title: NSLocalizedString("This phone's cards cannot be read right now", comment: ""),
+             secondaryText: NSLocalizedString("Anything saved here is still saved. This most often means the phone is out of space — free some up and open the app again.", comment: ""),
+             identifier: "unreadable-store.\(group)")
     }
 
     private func item(for row: CardInventoryRow) -> Item {
@@ -387,12 +513,20 @@ extension HomeViewController {
         switch item.title {
         case Row.compare:
             navigationController?.pushViewController(CapabilityViewController(), animated: true)
-        case Row.backUp:
+        // The MyData vault guide opens the same flow as 「back up」: the one thing
+        // MyData does in this build is fetch the household record to build the
+        // national ID. Routed here rather than given a screen of its own, because
+        // there is no separate MyData destination — the guide and the create row
+        // are two doors onto the one flow, worded for where each is read.
+        case Row.backUp, Row.myDataVault:
             let vc = MyDataOnboardViewController()
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .fullScreen
             present(nav, animated: true)
-        case Row.collect:
+        // The empty-government-group guide and the collect action are the same
+        // intention, so they reach the same scanner. Kept as one case rather than
+        // a title alias so each row keeps its own wording.
+        case Row.collect, Row.governmentEmpty:
             ScanToCollect.begin(on: navigationController)
         case Row.presentOnline:
             ScanToPresent.begin(on: navigationController)
@@ -409,44 +543,47 @@ extension HomeViewController {
 
     /// What tapping a card does — including when the answer is "nothing yet".
     ///
-    /// Only the self-issued document has a detail screen.
-    /// `StoredCredentialViewController` reads `StoredNationalID.load()`, which is
-    /// keyed to one fixed identifier, so pushing it for a government card would
-    /// show the holder **a different card's contents under the row they
-    /// tapped** — the worst available outcome, and the one that happens by
-    /// default if this method does not exist.
+    /// Each readable card has a detail screen keyed to its own bytes:
+    /// `StoredCredentialViewController` reads the self-issued document (which is
+    /// keyed to one fixed identifier, so it may only be pushed for that one),
+    /// and `GovernmentCardViewController` reads a TWDIW card *by the id the row
+    /// carries*, so the government card the holder tapped is the one whose
+    /// contents open. Pushing either for the wrong card would show a holder **a
+    /// different card's contents under the row they tapped**, which is why the
+    /// routing is by source and id, not by title.
     ///
-    /// So the government card says plainly that this build lists it but cannot
-    /// open it, and offers the one thing it genuinely can answer. A row that
-    /// silently did nothing would read as a bug, and a row that pretended would
-    /// be one.
+    /// Only the `unreadable` state has no detail screen, and it keeps the honest
+    /// alert: a card that would not decode has no contents to show, and the
+    /// alert says the one true thing — that it could be damaged *or* wrongly
+    /// signed, and this build cannot tell which — rather than guessing.
     private func open(_ card: CardInventoryRow) {
         if card.source == .selfIssued, card.state == .usable {
             navigationController?.pushViewController(StoredCredentialViewController(), animated: true)
             return
         }
 
-        // This alert **is** the screen the row promises, because there is no
-        // other one. It used to assert 「this build cannot read it」, which is a
-        // confident claim in the one branch that cannot support one: it is
-        // reached by a malformed card *and* by a well-formed card whose
-        // signature does not verify, and telling the two apart is exactly what
-        // failed. `CardInventory`'s comment says the row stays silent because
-        // 「the screen that can explain properly does the explaining」 — so this
-        // one now explains, including the part that is not known.
-        let message: String
-        switch card.state {
-        case .unreadable:
-            message = String(format: NSLocalizedString(
-                "Something about it did not come out right, and this build cannot tell which: the stored file may be damaged, or its signature may not match. It is listed here so you know it was not lost. Stored as %@.",
-                comment: ""), card.id)
-        default:
-            message = NSLocalizedString("It is stored on this phone and was read correctly. There is no screen for its contents yet.", comment: "")
+        // A government card that decoded — usable or expired, but not unreadable
+        // — now opens onto its contents. An expired card is still readable and
+        // the holder is entitled to see what is in it; the detail screen marks
+        // the expiry rather than the home screen hiding the fields.
+        if card.source == .twdiw, card.state != .unreadable {
+            navigationController?.pushViewController(
+                GovernmentCardViewController(id: card.id), animated: true)
+            return
         }
+
+        // This alert **is** the screen the row promises, because there is no
+        // other one for a card that would not decode. It is reached by a
+        // malformed card *and* by a well-formed card whose signature does not
+        // verify, and telling the two apart is exactly what failed —
+        // `CardInventory`'s comment says the row stays silent because 「the
+        // screen that can explain properly does the explaining」, so this one
+        // explains, including the part that is not known.
+        let message = String(format: NSLocalizedString(
+            "Something about it did not come out right, and this build cannot tell which: the stored file may be damaged, or its signature may not match. It is listed here so you know it was not lost. Stored as %@.",
+            comment: ""), card.id)
         let alert = UIAlertController(
-            title: card.state == .unreadable
-                ? NSLocalizedString("This card could not be read or checked", comment: "")
-                : NSLocalizedString("This version cannot open this card", comment: ""),
+            title: NSLocalizedString("This card could not be read or checked", comment: ""),
             message: message,
             preferredStyle: .alert)
         if card.capability != nil {

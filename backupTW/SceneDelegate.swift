@@ -97,6 +97,15 @@ extension MyDataOnboardViewController: PrivacyShieldedScreen {}
 /// because it was not on this list.
 extension StoredCredentialViewController: PrivacyShieldedScreen {}
 
+/// Draws a government card's disclosed fields — a name, a national ID number, a
+/// date of birth. The same over-the-shoulder surface as the holder's own ID
+/// screen, so it gets the same shield: the fields are revealed on request, but
+/// once revealed they must not be left in the app-switcher snapshot either. On
+/// the list from the moment the screen exists, not the moment the fields are
+/// shown — a condition here would have to be re-derived every time the reveal
+/// logic changes, by somebody editing a different file.
+extension GovernmentCardViewController: PrivacyShieldedScreen {}
+
 // MARK: - The shield
 
 /// Covers the window while the app is not in front, if anything on it said it
