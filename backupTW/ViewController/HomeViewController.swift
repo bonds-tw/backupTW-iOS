@@ -262,6 +262,16 @@ class HomeViewController: UICollectionViewController {
         var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         config.headerMode = .supplementary
         let layout = UICollectionViewCompositionalLayout.list(using: config)
+        // A *boundary* supplementary of the whole collection view (not a section
+        // header), so the big 「有備而來」 title with the gear stands above the
+        // first card group. See `BrandHeaderView`.
+        let brand = NSCollectionLayoutBoundarySupplementaryItem(
+            layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
+                                               heightDimension: .estimated(52)),
+            elementKind: BrandHeaderView.elementKind, alignment: .top)
+        let layoutConfig = UICollectionViewCompositionalLayoutConfiguration()
+        layoutConfig.boundarySupplementaryItems = [brand]
+        layout.configuration = layoutConfig
         super.init(collectionViewLayout: layout)
     }
 
@@ -273,15 +283,19 @@ class HomeViewController: UICollectionViewController {
         super.viewDidLoad()
 
         title = NSLocalizedString("Bond", comment: "")
+        // The name is drawn by the brand header inside the list (see
+        // `BrandHeaderView`), which also carries the settings gear — so the two
+        // sit on one row instead of the gear floating in the navigation bar. The
+        // bar's own copy of the title is suppressed here: `.never` so no large
+        // title, an empty `titleView` so no inline one either, leaving the name
+        // to appear exactly once. `title` is still set so a pushed screen's back
+        // button refers to 「有備而來」.
         navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.largeTitleDisplayMode = .never
+        navigationItem.titleView = UIView()
         // different title for tabBarItem needs to be set after setting title (avoid being overwritten)
         tabBarItem = UITabBarItem(title: NSLocalizedString("Home", comment: ""),
                                   image: UIImage(systemName: "house.fill"), selectedImage: nil)
-        // Settings left the tab bar and now lives in the top-right of both tabs
-        // (see `SceneDelegate`). Built by `UseViewController` so the two tabs draw
-        // the identical control and label it the same way.
-        navigationItem.rightBarButtonItem = UseViewController.makeSettingsButton(
-            target: self, action: #selector(presentSettings))
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
 
         configureDataSource()
@@ -350,7 +364,16 @@ class HomeViewController: UICollectionViewController {
             guard indexPath.section < sections.count else { return }
             headerView.configure(title: sections[indexPath.section].title, forTextStyle: .title2)
         }
+        let brandRegistration = UICollectionView.SupplementaryRegistration<BrandHeaderView>(
+            elementKind: BrandHeaderView.elementKind
+        ) { [weak self] headerView, _, _ in
+            headerView.configure(title: NSLocalizedString("Bond", comment: ""))
+            headerView.onSettingsTapped = { self?.presentSettings() }
+        }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+            if kind == BrandHeaderView.elementKind {
+                return collectionView.dequeueConfiguredReusableSupplementary(using: brandRegistration, for: indexPath)
+            }
             if kind == UICollectionView.elementKindSectionHeader {
                 return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
             }
@@ -502,5 +525,84 @@ private class CustomHeaderView: UICollectionReusableView {
     func configure(title: String, forTextStyle style: UIFont.TextStyle) {
         titleLabel.text = title
         titleLabel.font = .preferredFont(forTextStyle: style)
+    }
+}
+
+/// The big 「有備而來」 title and the settings gear, side by side, as the list's
+/// top boundary header.
+///
+/// The gear used to be a `navigationItem.rightBarButtonItem`. On iOS 26 that
+/// parks it in a rounded capsule pinned high in the navigation bar, a clear gap
+/// above the large title — the app's name and its one global control landed on
+/// different lines with nothing tying them together. Here they share one row,
+/// the gear trailing-aligned to the name it belongs beside, and both scroll
+/// with the list rather than one floating apart from it.
+///
+/// Shared by the 「首頁」 and 「使用」 tabs, which each install it as their list's
+/// top boundary supplementary so both draw the identical title-and-gear row.
+final class BrandHeaderView: UICollectionReusableView {
+    /// The boundary-supplementary element kind both tabs register it under.
+    static let elementKind = "brand-header"
+
+    private let titleLabel = UILabel()
+    private let settingsButton = UIButton(type: .system)
+    /// Set by the data source: a reusable view cannot reach the view controller
+    /// to present Settings on its own.
+    var onSettingsTapped: (() -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
+    }
+
+    private func setupView() {
+        // A bold 34pt face run through the large-title metrics — the weight and
+        // size UIKit would itself have drawn as the navigation bar's large
+        // title, so moving the name into the list changes where it sits, not how
+        // it looks. `adjustsFontForContentSizeCategory` keeps it scaling.
+        let largeTitle = UIFont.systemFont(ofSize: 34, weight: .bold)
+        titleLabel.font = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: largeTitle)
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.numberOfLines = 0
+        titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let gear = UIImage(systemName: "gearshape",
+                           withConfiguration: UIImage.SymbolConfiguration(textStyle: .title2))
+        settingsButton.setImage(gear, for: .normal)
+        settingsButton.accessibilityLabel = NSLocalizedString("Settings", comment: "")
+        // The gear keeps its intrinsic width and never squeezes the title.
+        settingsButton.setContentHuggingPriority(.required, for: .horizontal)
+        settingsButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, settingsButton])
+        stack.axis = .horizontal
+        stack.alignment = .center
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        // Pinned to the layout-margins guide so the title's leading edge lines
+        // up with the inset-grouped card groups below and the gear sits at the
+        // same trailing margin the cards respect.
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8)
+        ])
+    }
+
+    func configure(title: String) {
+        titleLabel.text = title
+    }
+
+    @objc private func settingsTapped() {
+        onSettingsTapped?()
     }
 }

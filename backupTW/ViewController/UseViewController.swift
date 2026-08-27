@@ -172,6 +172,16 @@ class UseViewController: UICollectionViewController {
         var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         config.headerMode = .supplementary
         let layout = UICollectionViewCompositionalLayout.list(using: config)
+        // The big 「使用」 title and the settings gear ride the list's top
+        // boundary header, the same shared row 「首頁」 uses, instead of the gear
+        // floating in the navigation bar. See `BrandHeaderView`.
+        let brand = NSCollectionLayoutBoundarySupplementaryItem(
+            layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
+                                               heightDimension: .estimated(52)),
+            elementKind: BrandHeaderView.elementKind, alignment: .top)
+        let layoutConfig = UICollectionViewCompositionalLayoutConfiguration()
+        layoutConfig.boundarySupplementaryItems = [brand]
+        layout.configuration = layoutConfig
         super.init(collectionViewLayout: layout)
     }
 
@@ -183,15 +193,17 @@ class UseViewController: UICollectionViewController {
         super.viewDidLoad()
 
         title = NSLocalizedString("Use", comment: "")
+        // The name and the settings gear are drawn together by the brand header
+        // inside the list (see `BrandHeaderView`), so the bar's own title is
+        // suppressed here — `.never` for no large title, an empty `titleView`
+        // for no inline one — leaving 「使用」 to appear once, on the gear's row.
+        // `title` stays set so a pushed screen's back button still refers to it.
         navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.largeTitleDisplayMode = .never
+        navigationItem.titleView = UIView()
         // The tab bar item is set by `SceneDelegate`, not here: a `tabBarItem` set
         // in `viewDidLoad` does not show until the tab is first selected, and this
         // is the second tab, whose view is not loaded at launch.
-        // Settings moved off the tab bar into the top-right of both tabs; see
-        // `SceneDelegate`. Each tab installs its own gear so Settings is one tap
-        // away wherever the person is.
-        navigationItem.rightBarButtonItem = Self.makeSettingsButton(target: self,
-                                                                    action: #selector(presentSettings))
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
 
         configureDataSource()
@@ -204,15 +216,6 @@ class UseViewController: UICollectionViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         applySnapshot()
-    }
-
-    /// The gear both tabs put in the top-right. Factored out so 「首頁」 and
-    /// 「使用」 build the identical control and label it the same way.
-    static func makeSettingsButton(target: Any?, action: Selector) -> UIBarButtonItem {
-        let item = UIBarButtonItem(image: UIImage(systemName: "gearshape"),
-                                   style: .plain, target: target, action: action)
-        item.accessibilityLabel = NSLocalizedString("Settings", comment: "")
-        return item
     }
 
     /// Presents Settings modally, wrapped in its own navigation controller with a
@@ -259,7 +262,16 @@ class UseViewController: UICollectionViewController {
             guard indexPath.section < sections.count else { return }
             headerView.configure(title: sections[indexPath.section].title, forTextStyle: .title2)
         }
+        let brandRegistration = UICollectionView.SupplementaryRegistration<BrandHeaderView>(
+            elementKind: BrandHeaderView.elementKind
+        ) { [weak self] headerView, _, _ in
+            headerView.configure(title: NSLocalizedString("Use", comment: ""))
+            headerView.onSettingsTapped = { self?.presentSettings() }
+        }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+            if kind == BrandHeaderView.elementKind {
+                return collectionView.dequeueConfiguredReusableSupplementary(using: brandRegistration, for: indexPath)
+            }
             if kind == UICollectionView.elementKindSectionHeader {
                 return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
             }
