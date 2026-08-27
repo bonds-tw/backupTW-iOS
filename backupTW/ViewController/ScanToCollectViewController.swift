@@ -35,7 +35,11 @@ enum ScanToCollect {
 
         let scanner = QRScanningViewController(
             title: NSLocalizedString("Scan a card's QR", comment: "collect by scan"),
-            prompt: NSLocalizedString("Point the camera at the QR from 數位憑證皮夾.", comment: "")
+            prompt: NSLocalizedString("Point the camera at the QR from 數位憑證皮夾.", comment: ""),
+            // A dense offer — a driving licence's — would not scan off another
+            // screen; picking a screenshot of the same code decodes it at full
+            // fidelity through the same path.
+            allowsPhotoImport: true
         ) { [weak navigationController] scanned in
             guard !latch.fired else { return .stop }
             guard let link = try? CredentialOfferLink.parse(scanned: scanned) else {

@@ -4,6 +4,7 @@
 //
 
 import AVFoundation
+import PhotosUI
 import UIKit
 
 /// A camera that reads QR codes and hands the strings to whoever pushed it.
@@ -55,6 +56,12 @@ final class QRScanningViewController: UIViewController {
 
     private let prompt: String
 
+    /// Whether to offer "import from Photos" alongside the live camera. On for the
+    /// single-code collect flow, where a dense offer scanned off another screen is
+    /// the measured failure; off for the multi-frame presentation flows, where one
+    /// still picture cannot stand in for a carousel of frames.
+    private let allowsPhotoImport: Bool
+
     private let session = AVCaptureSession()
     /// `startRunning` blocks — hundreds of milliseconds on a cold camera — so it
     /// never happens on the main queue. Configuration is serialised onto the same
@@ -75,9 +82,12 @@ final class QRScanningViewController: UIViewController {
     private let unavailableLabel = UILabel()
     private let settingsButton = UIButton(type: .system)
 
-    init(title: String, prompt: String, onScan: @escaping (String) -> Decision) {
+    init(title: String, prompt: String,
+         allowsPhotoImport: Bool = false,
+         onScan: @escaping (String) -> Decision) {
         self.prompt = prompt
         self.onScan = onScan
+        self.allowsPhotoImport = allowsPhotoImport
         super.init(nibName: nil, bundle: nil)
         self.title = title
     }
@@ -90,6 +100,13 @@ final class QRScanningViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         buildInterface()
+        if allowsPhotoImport {
+            let button = UIBarButtonItem(image: UIImage(systemName: "photo.on.rectangle"),
+                                         style: .plain, target: self,
+                                         action: #selector(importFromPhotos))
+            button.accessibilityLabel = NSLocalizedString("Choose a code from Photos", comment: "")
+            navigationItem.rightBarButtonItem = button
+        }
         // The camera is *not* started here. Configuration is driven from
         // `viewWillAppear`, which is the only callback that fires again after an
         // appearance the user began and then abandoned — see below.
@@ -257,6 +274,41 @@ final class QRScanningViewController: UIViewController {
         UIApplication.shared.open(url)
     }
 
+    // MARK: - Import from Photos
+
+    /// `PHPickerViewController` reads the one chosen image out of process, so it
+    /// needs no photo-library permission and sees nothing else in the library.
+    @objc private func importFromPhotos() {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    /// The result of decoding a picked image, applied on the main queue.
+    ///
+    /// `nil` means the picture held no QR at all; a decoded string is handed to
+    /// the very same `onScan` the camera calls, so a picked offer collects exactly
+    /// as a scanned one would and a picked non-offer says so instead of silently
+    /// doing nothing — a still image, unlike a video frame, gets one shot.
+    private func handleImported(_ payload: String?) {
+        guard let payload else {
+            statusLabel.text = NSLocalizedString("No QR code was found in that image.", comment: "")
+            banner.isHidden = false
+            return
+        }
+        switch onScan(payload) {
+        case .stop:
+            stop()
+        case .keepScanning(let status):
+            statusLabel.text = status
+                ?? NSLocalizedString("That image's QR code is not a card to collect.", comment: "")
+            banner.isHidden = false
+        }
+    }
+
     // MARK: - Camera
 
     /// Runs at most once per instance; `QRScannerLifecycle` guarantees it.
@@ -373,6 +425,24 @@ final class QRScanningViewController: UIViewController {
 
         showPreview()
         return true
+    }
+}
+
+// MARK: - Import from Photos
+
+extension QRScanningViewController: PHPickerViewControllerDelegate {
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard let provider = results.first?.itemProvider,
+              provider.canLoadObject(ofClass: UIImage.self) else {
+            handleImported(nil)
+            return
+        }
+        provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+            let payload = (object as? UIImage)?.cgImage
+                .flatMap(QRImageDecoder.firstQRPayload(in:))
+            DispatchQueue.main.async { self?.handleImported(payload) }
+        }
     }
 }
 

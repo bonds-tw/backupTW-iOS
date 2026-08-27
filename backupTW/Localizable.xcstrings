@@ -6209,6 +6209,36 @@
           }
         }
       }
+    },
+    "Choose a code from Photos": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從相簿選 QR"
+          }
+        }
+      }
+    },
+    "No QR code was found in that image.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張圖片裡找不到 QR code。"
+          }
+        }
+      }
+    },
+    "That image's QR code is not a card to collect.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張圖片的 QR code 不是可領取的卡片。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
