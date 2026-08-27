@@ -30,16 +30,14 @@ enum OID4VPResponseError: Error, Equatable {
 
 /// Builds and sends the response to an `OID4VPRequest`.
 ///
-/// # The two deviations this deliberately reproduces
+/// # The deviation this deliberately reproduces
 ///
-/// Both measured against production, both load-bearing, both commented so a
-/// later reader does not "fix" them into breaking interop (see
-/// `docs/twdiw-integration-plan.md` §一.H.2 / §三 M5.4):
+/// The whole token and submission are built to the official app's own source
+/// (`moda-gov-tw/TWDIW-official-app`, `APP/APPSDK/lib/openid_vc_vp.dart`) — see
+/// `buildVPToken` and `presentationSubmission` for the field-by-field match.
+/// The one non-obvious spelling worth flagging at the type level:
 ///
-/// 1. **`aud` is prefixed with `redirect_uri:`.** The verifier checks the token's
-///    audience against `redirect_uri:<response_uri>`, literally — the prefix is
-///    part of the string, not a description of it. Sign over exactly that.
-/// 2. **The VP claim uses `context`, not `@context`.** Measured: the official
+/// 1. **The VP claim uses `context`, not `@context`.** Measured: the official
 ///    verifier does no JSON-LD expansion and reads the presentation by the
 ///    literal key `context`, which is what the official app emits. Sending a
 ///    spec-correct `@context` would hand it a document missing the `context`
@@ -130,26 +128,52 @@ struct OID4VPResponder {
 
     // MARK: - Token
 
+    /// Built field-for-field to the official app's own token
+    /// (`moda-gov-tw/TWDIW-official-app`, `openid_vc_vp.dart` `generateVPKx`),
+    /// which is the thing the verifier is known to accept. The M5.4 notes that
+    /// preceded that source were wrong on three counts, all corrected here:
+    ///
+    /// - **`aud` is the verifier's `client_id` verbatim** — a `did:key`, no
+    ///   `redirect_uri:` prefix. (The prefix belongs to a different client-id
+    ///   scheme; TWDIW authenticates the request by the DID's key, so the DID is
+    ///   the audience.)
+    /// - **the key rides in the header as `jwk`**, not as a `kid` DID, so the
+    ///   verifier reads it from the token rather than resolving the DID.
+    /// - **`vp.context` is `…/2018/credentials/v1`.** The key spelling is still
+    ///   `context`, not `@context` — that part the notes had right — but the URL
+    ///   the official app emits is the v1 one.
+    ///
+    /// `sub`/`nbf`/`exp`/`jti` are present because the official token carries
+    /// them; `jti` is a fresh URN rather than the official app's hardcoded moda
+    /// URL, which is not ours to send.
     func buildVPToken(request: OID4VPRequest,
                       presented: String,
                       holderKey: DeviceKey) throws -> String {
         let holderDID = try JWKDIDKey.did(fromP256PublicKeyX963: holderKey.publicKeyX963)
-        let header: [String: Any] = ["typ": "JWT", "alg": "ES256", "kid": holderDID]
+        // x963 is `0x04 || X || Y`; drop the tag, split the 64 coordinate bytes.
+        let coordinates = holderKey.publicKeyX963.dropFirst()
+        let jwk: [String: Any] = [
+            "kty": "EC",
+            "crv": "P-256",
+            "x": Data(coordinates.prefix(32)).base64URLEncodedString(),
+            "y": Data(coordinates.dropFirst(32)).base64URLEncodedString(),
+        ]
+        let header: [String: Any] = ["typ": "JWT", "alg": "ES256", "jwk": jwk]
+        let issued = Int(now().timeIntervalSince1970)
         let vp: [String: Any] = [
-            // `context`, not `@context` — see the type doc. The value is a
-            // conventional VCDM context; it is not JSON-LD-expanded by the
-            // verifier, so what matters is the key spelling, not this URL.
-            "context": ["https://www.w3.org/ns/credentials/v2"],
+            "context": ["https://www.w3.org/2018/credentials/v1"],
             "type": ["VerifiablePresentation"],
             "verifiableCredential": [presented],
         ]
         let payload: [String: Any] = [
+            "sub": holderDID,
+            "aud": request.clientID,
             "iss": holderDID,
-            // The `redirect_uri:` prefix is part of the audience string the
-            // verifier checks, literally — not a description of it.
-            "aud": "redirect_uri:" + request.responseURI,
-            "nonce": request.nonce,
+            "nbf": issued,
             "vp": vp,
+            "exp": issued + 60 * 60 * 24 * 30,
+            "nonce": request.nonce,
+            "jti": "urn:uuid:" + UUID().uuidString.lowercased(),
         ]
         let signingInput = try Self.base64URL(header) + "." + Self.base64URL(payload)
         let signature = try holderKey.signature(for: Data(signingInput.utf8))
@@ -159,21 +183,24 @@ struct OID4VPResponder {
     /// The DIF presentation submission naming which descriptor this token
     /// answers and where the credential sits inside it.
     ///
-    /// The descriptor is **nested**, because the token is. `vp_token` is a
+    /// The descriptor is **nested and repeats its id**, matched to the official
+    /// app's own builder (`moda-gov-tw/TWDIW-official-app`,
+    /// `APP/APPSDK/lib/openid_vc_vp.dart` `generateVPKx`). The token is a
     /// `VerifiablePresentation` JWT whose credential sits at
-    /// `$.vp.verifiableCredential[0]`, not at the root — so the top of the map
-    /// describes the presentation (`jwt_vp`, `path: "$"`) and `path_nested`
-    /// reaches down to the credential (`vc+sd-jwt`). The earlier flat form —
-    /// `vc+sd-jwt` at `$`, claiming the root *is* the bare credential —
-    /// contradicted the token it accompanied, and the verifier rejected it:
-    /// measured on device 2026-08-27,
-    /// `{"code":2012,"message":"invalid presentation_submission: invalid
-    /// presentation_submission schema"}`.
+    /// `$.vp.verifiableCredential[0]`, so the top describes the presentation
+    /// (`jwt_vp`, `path: "$"`) and `path_nested` reaches the credential —
+    /// carrying **the same `id`** (the verifier's own check reads "descriptor_map
+    /// id is not the same for each level of nesting", `PresentationSubmissionValidator.java`)
+    /// and the format **`jwt_vc`**, not `vc+sd-jwt`.
+    ///
+    /// The two earlier forms were both refused as an invalid schema (code 2012,
+    /// device 2026-08-27): the flat `vc+sd-jwt`-at-`$`, and the nested form whose
+    /// `path_nested` omitted the `id` the verifier's schema requires.
     func presentationSubmission(for request: OID4VPRequest) -> [String: Any] {
         [
-            // A stable id derived from the exchange rather than random, so the
-            // same request builds the same submission — nothing here needs to be
-            // unpredictable, and a test can assert on it.
+            // A stable id derived from the exchange rather than random, so a test
+            // can assert on it. The verifier requires only a non-empty string;
+            // the official app happens to use a UUID, which this need not copy.
             "id": "submission-" + request.state,
             "definition_id": request.definitionID,
             "descriptor_map": [
@@ -181,11 +208,9 @@ struct OID4VPResponder {
                     "id": request.inputDescriptorID,
                     "format": "jwt_vp",
                     "path": "$",
-                    // TWDIW cards are SD-JWT on the wire despite the metadata's
-                    // `jwt_vc_json` (docs/upstream-reports.md), so the nested
-                    // credential is named `vc+sd-jwt`.
                     "path_nested": [
-                        "format": "vc+sd-jwt",
+                        "id": request.inputDescriptorID,
+                        "format": "jwt_vc",
                         "path": "$.vp.verifiableCredential[0]",
                     ],
                 ],
@@ -220,7 +245,16 @@ struct OID4VPResponder {
         guard let http = response as? HTTPURLResponse else { throw OID4VPResponseError.network }
         guard (200..<300).contains(http.statusCode) else {
             // Keep the verifier's own words so a refusal can be read, not guessed.
-            let body = String(data: data, encoding: .utf8)
+            var body = String(data: data, encoding: .utf8)
+            #if DEBUG
+            // Also carry what we sent, so a schema refusal shows both sides — the
+            // submission the verifier rejected and its reason — in one alert. The
+            // fastest way to tell a stale build from a wrong guess.
+            if let sent = try? JSONSerialization.data(withJSONObject: submission),
+               let sentString = String(data: sent, encoding: .utf8) {
+                body = "sent=" + sentString + "  ||  " + (body ?? "")
+            }
+            #endif
             throw OID4VPResponseError.badStatus(http.statusCode, body: body)
         }
         return http.statusCode

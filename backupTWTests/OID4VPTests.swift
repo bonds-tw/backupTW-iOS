@@ -281,7 +281,7 @@ struct OID4VPResponseTests {
         #expect(presentedCard.serialized.hasPrefix(String(credential.serialized.prefix(while: { $0 != "~" }))))
     }
 
-    @Test func theVPTokenSaysExactlyWhatM54Requires() throws {
+    @Test func theVPTokenMatchesTheOfficialBuilder() throws {
         let request = try seedCardAndRequest()
         let responder = makeResponder()
         let key = try keyring.entries().first { !$0.isLegacy }
@@ -297,20 +297,31 @@ struct OID4VPResponseTests {
         let payloadData = try #require(Data(base64URLEncoded: parts[1]))
         let payload = try #require(try JSONSerialization.jsonObject(with: payloadData) as? [String: Any])
 
-        // The `redirect_uri:` prefix is literal.
-        #expect(payload["aud"] as? String == "redirect_uri:" + Self.responseURI)
+        // aud is the verifier's client_id verbatim — a did:key, no prefix.
+        #expect(payload["aud"] as? String == request.clientID)
+        #expect((payload["aud"] as? String)?.hasPrefix("redirect_uri:") == false)
         #expect(payload["nonce"] as? String == "N-1")
+        let holderDID = try JWKDIDKey.did(fromP256PublicKeyX963: holderKey.publicKeyX963)
+        #expect(payload["sub"] as? String == holderDID)
+        #expect(payload["iss"] as? String == holderDID)
+        #expect(payload["nbf"] != nil)
+        #expect(payload["exp"] != nil)
+        #expect((payload["jti"] as? String)?.isEmpty == false)
+
         let vp = try #require(payload["vp"] as? [String: Any])
-        // The typo is copied, and the spec-correct key is absent.
-        #expect(vp["context"] != nil)
+        // The key spelling is `context` (not `@context`), the value the v1 URL.
+        #expect((vp["context"] as? [String]) == ["https://www.w3.org/2018/credentials/v1"])
         #expect(vp["@context"] == nil)
         #expect((vp["type"] as? [String]) == ["VerifiablePresentation"])
 
-        // The holder key really signed it.
+        // The key rides in the header as a JWK, not a kid, and it really signed.
         let headerData = try #require(Data(base64URLEncoded: parts[0]))
         let header = try #require(try JSONSerialization.jsonObject(with: headerData) as? [String: Any])
-        let kid = try #require(header["kid"] as? String)
-        let holderPub = try JWKDIDKey.p256PublicKey(fromDID: kid)
+        #expect(header["kid"] == nil)
+        let jwk = try #require(header["jwk"] as? [String: Any])
+        #expect(jwk["crv"] as? String == "P-256")
+        #expect(jwk["kty"] as? String == "EC")
+        let holderPub = try P256.Signing.PublicKey(x963Representation: holderKey.publicKeyX963)
         let sigData = try #require(Data(base64URLEncoded: parts[2]))
         let sig = try P256.Signing.ECDSASignature(rawRepresentation: sigData)
         #expect(holderPub.isValidSignature(sig, for: Data("\(parts[0]).\(parts[1])".utf8)))
@@ -324,19 +335,24 @@ struct OID4VPResponseTests {
         }
     }
 
-    /// The submission is nested to match the VP-JWT it accompanies: `jwt_vp` at
-    /// the root, the credential reached through `path_nested`. The earlier flat
-    /// `vc+sd-jwt`-at-`$` form was refused as an invalid schema by the official
-    /// verifier (code 2012, device 2026-08-27).
-    @Test func theSubmissionIsNestedToMatchTheVPJWT() throws {
+    /// The submission matches the official app's own builder
+    /// (`moda-gov-tw/TWDIW-official-app`, `openid_vc_vp.dart`): `jwt_vp` at the
+    /// root, and a `path_nested` that **repeats the id** and names the credential
+    /// `jwt_vc`. The verifier's schema requires the nested id (its own check reads
+    /// "descriptor_map id is not the same for each level of nesting"); the two
+    /// earlier forms — flat `vc+sd-jwt`, and a nested form missing the id — were
+    /// both refused with code 2012 (device 2026-08-27).
+    @Test func theSubmissionMatchesTheOfficialBuilder() throws {
         let request = try seedCardAndRequest()
         let submission = makeResponder().presentationSubmission(for: request)
         let map = try #require(submission["descriptor_map"] as? [[String: Any]])
         let descriptor = try #require(map.first)
+        let id = try #require(descriptor["id"] as? String)
         #expect(descriptor["format"] as? String == "jwt_vp")
         #expect(descriptor["path"] as? String == "$")
         let nested = try #require(descriptor["path_nested"] as? [String: Any])
-        #expect(nested["format"] as? String == "vc+sd-jwt")
+        #expect(nested["id"] as? String == id)          // same id at the nested level
+        #expect(nested["format"] as? String == "jwt_vc")
         #expect(nested["path"] as? String == "$.vp.verifiableCredential[0]")
         #expect(submission["definition_id"] as? String == Self.cardType)
     }

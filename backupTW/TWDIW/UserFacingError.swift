@@ -118,7 +118,7 @@ enum UserFacingError {
             // A development build shows what the verifier actually said, so a
             // refusal can be read off its own words — the same lever that
             // settled the collection 400. Compiled out of Release entirely.
-            if let body, !body.isEmpty { return base + "\n\n[verifier] " + String(body.prefix(500)) }
+            if let body, !body.isEmpty { return base + "\n\n[debug] " + String(body.prefix(900)) }
             #endif
             return base
         }
