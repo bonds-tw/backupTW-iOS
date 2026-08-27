@@ -247,17 +247,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         let window = UIWindow(windowScene: windowScene)
 
-        // Creating the tab bar
+        // Creating the tab bar. Two tabs: 「首頁」 (what you hold) and 「使用」
+        // (what you can do). Settings is no longer a tab — it moved to a gear in
+        // the top-right of both, presented modally, so the tab bar carries only
+        // the two halves of the wallet's day-to-day and the actions have a home of
+        // their own rather than trailing the cards on the first screen.
         let tabBarController = UITabBarController()
         let homeViewController = HomeViewController()
-        let settingsViewController = SettingsViewController()
-        settingsViewController.tabBarItem = UITabBarItem(
-            title: NSLocalizedString("Settings", comment: ""),
-            image: UIImage(systemName: "gearshape.fill"),
+        let useViewController = UseViewController()
+        // Set here, not in `UseViewController.viewDidLoad`, for the same reason
+        // the old Settings tab was: a `tabBarItem` set in `viewDidLoad` does not
+        // appear until that tab is first selected, because a non-selected tab's
+        // view is not loaded yet. The first tab (Home) gets away with setting its
+        // own in `viewDidLoad` only because it loads at launch. `qrcode.viewfinder`
+        // reads as a document shown as a scannable code — what this tab is for.
+        useViewController.tabBarItem = UITabBarItem(
+            title: NSLocalizedString("Use", comment: ""),
+            image: UIImage(systemName: "qrcode.viewfinder"),
             selectedImage: nil)
         tabBarController.viewControllers = [
             UINavigationController(rootViewController: homeViewController),
-            UINavigationController(rootViewController: settingsViewController)
+            UINavigationController(rootViewController: useViewController)
         ]
 
         window.rootViewController = tabBarController

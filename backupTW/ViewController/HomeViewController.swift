@@ -21,12 +21,6 @@ class HomeViewController: UICollectionViewController {
     /// `SettingsViewController` documents, arrived at from the other direction.
     private enum Row {
         static let backUp = NSLocalizedString("Back up my national ID", comment: "")
-        static let collect = NSLocalizedString("Add a card by scanning", comment: "")
-        static let presentOnline = NSLocalizedString("Present a card to a verifier", comment: "")
-        static let present = NSLocalizedString("Show my document", comment: "")
-        static let verify = NSLocalizedString("Check someone else's document", comment: "")
-        static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
-        static let compare = NSLocalizedString("What each of these cards is worth", comment: "")
 
         // The guide rows a card group shows when it holds nothing. They are
         // verbs wearing a noun's clothes: each stands in an empty card group and,
@@ -81,7 +75,7 @@ class HomeViewController: UICollectionViewController {
         let rows = (try? CredentialStore()).map { CardInventory.rows(from: $0) }
         cardRows = Dictionary((rows ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
-        // # Why the home screen now separates nouns from verbs
+        // # Why the home screen shows only what the wallet holds
         //
         // Every card the phone holds and every button used to live in one
         // 「My cards」 section — `rows.map(item(for:)) + [refresh, collect,
@@ -92,12 +86,14 @@ class HomeViewController: UICollectionViewController {
         // built from — had no structural place. MyData in particular appeared
         // nowhere as a source, only hidden inside the 「back up」 action.
         //
-        // So the card groups (nouns) come first, one per source with its own
-        // header, each showing its cards or — when it holds none — a guide row
-        // that says so and leads to the flow that would fill it. The actions
-        // (verbs) follow in their own section. A source with nothing in it is
-        // still shown, so all three of the wallet's targets stand on the home
-        // screen as peers rather than one being reachable only through a button.
+        // The nouns and verbs were first split into sections of one screen; now
+        // they are split across two tabs. This screen keeps the nouns — one card
+        // group per source, each showing its cards or, when it holds none, a
+        // guide row that says so and leads to the flow that would fill it. The
+        // verbs (collect, present online, compare, show offline, check others)
+        // moved to `UseViewController`, the 「使用」 tab. A source with nothing in
+        // it is still shown, so all three of the wallet's targets stand here as
+        // peers rather than one being reachable only through a button.
         //
         // `nil` still means 「the store would not open」, a different thing from
         // an empty group, and it is threaded to each group so none of them
@@ -111,14 +107,10 @@ class HomeViewController: UICollectionViewController {
         // The row itself already says 「this version does not recognise this
         // card」, so the header claims nothing the row then has to walk back.
         let government = rows?.filter { $0.source == .twdiw || $0.source == .unrecognised }
-        let hasAnyCard = !(rows ?? []).isEmpty
 
         return [nationalIDSection(cards: selfIssued),
                 governmentSection(cards: government),
-                myDataSection(),
-                actionsSection(hasAnyCard: hasAnyCard),
-                offlineSection(hasDocument: rows?.contains { $0.source == .selfIssued } ?? false,
-                               storeIsReadable: rows != nil)]
+                myDataSection()]
     }
 
     /// The national ID this app builds — the one document it issues, kept with
@@ -221,58 +213,6 @@ class HomeViewController: UICollectionViewController {
         ])
     }
 
-    /// The verbs, taken out of the card lists and put in one place.
-    ///
-    /// `collect`, `presentOnline` and `compare` used to trail the cards inside
-    /// 「My cards」, where a button and a held card were the same kind of row.
-    /// Here they are what they are: things to do, not things you hold.
-    ///
-    /// `presentOnline` and `compare` appear only once at least one card exists,
-    /// which is the gating the single-section version already had (`!rows.isEmpty`):
-    /// there is nothing to present online, and nothing for the comparison to be
-    /// about, on a phone that holds no card. `collect` is unconditional — a fresh
-    /// install scanning a government offer first is a real path.
-    private func actionsSection(hasAnyCard: Bool) -> Section {
-        let title = "⚙️ " + NSLocalizedString("Things you can do", comment: "home section")
-
-        // Collecting an official card by scanning its QR. Present whether or not
-        // a self-issued document exists — the official flow (「皮夾夥伴卡」) is
-        // independent of MyData, and a fresh install collecting a government card
-        // first is a real path. This is the entry the wallet was missing: the
-        // scanner otherwise only opened for presentation and verification, so an
-        // official credential-offer QR had nowhere to be pointed.
-        let collect = Item(image: UIImage(systemName: "qrcode.viewfinder")?
-                            .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
-                           title: Row.collect,
-                           secondaryText: NSLocalizedString(
-                            "Point the camera at a QR from 數位憑證皮夾 to add its card.", comment: ""))
-
-        guard hasAnyCard else {
-            return Section(title: title, items: [collect])
-        }
-
-        // Presenting an official card online — the mirror of collecting one, and
-        // the wallet's whole point next to it: scan the verifier's request, then
-        // choose which of the asked-for fields to actually reveal. Shown only
-        // once there is a card to present.
-        let presentOnline = Item(image: UIImage(systemName: "person.badge.shield.checkmark")?
-                                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
-                                 title: Row.presentOnline,
-                                 secondaryText: NSLocalizedString(
-                                    "Scan a verifier's QR and choose exactly what to show.", comment: ""))
-
-        // The row that carries the milestone's argument onto the screen people
-        // actually open. Last, because the comparison only means anything to
-        // somebody who has just seen that they hold more than one kind of thing.
-        let compare = Item(image: UIImage(systemName: "list.bullet.rectangle")?
-                            .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
-                           title: Row.compare,
-                           secondaryText: NSLocalizedString(
-                            "What a checker can rely on, and what none of them can establish.", comment: ""))
-
-        return Section(title: title, items: [collect, presentOnline, compare])
-    }
-
     /// The one row both card groups show when the store itself would not open.
     ///
     /// Shared so the national ID group and the government group say the same true
@@ -318,92 +258,6 @@ class HomeViewController: UICollectionViewController {
                     identifier: row.id)
     }
 
-    /// # Why this takes the document state
-    ///
-    /// It used to be a constant, so 「出示我的證件」 promised 「掃描查驗者的條碼
-    /// 並回應」 on a phone with nothing stored — and the screen it opens is 600pt
-    /// of empty with no button on it. That is the most expensive empty state in
-    /// the app, because the place it is discovered is in front of a checker.
-    ///
-    /// The row is not hidden. Hiding it would make the app look like it cannot
-    /// do the thing it is for, and this screen's job is to say what this phone
-    /// can do *right now* — which is what the neighbouring `proofRowSubtitle()`
-    /// already does for the checking files.
-    private func offlineSection(hasDocument: Bool, storeIsReadable: Bool = true) -> Section {
-        // Both halves live on the home screen rather than one of them being
-        // buried in Settings. The whitepaper's §5.3 scenarios are a 里長, a
-        // volunteer, a border desk — people who are checking documents as their
-        // task, not adjusting a preference — and the two roles swap between the
-        // same two phones within a minute of each other.
-        Section(title: "📶 " + NSLocalizedString("Offline check", comment: ""), items: [
-            Item(image: UIImage(systemName: "qrcode")?
-                    .withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
-                 title: Row.present,
-                 // Neutral when the store would not open. 「There is nothing on
-                 // this phone to show yet」 is an unconditional statement of fact
-                 // about the reader's own phone, and in that state it is false.
-                 secondaryText: !storeIsReadable
-                    ? NSLocalizedString("This phone's cards cannot be read right now.", comment: "")
-                    : hasDocument
-                    ? NSLocalizedString("Answer a checker's code. Neither phone needs a network.", comment: "")
-                    : NSLocalizedString("Add your ID first, then you can show it to a checker.", comment: "")),
-            Item(image: UIImage(systemName: "checkmark.shield")?
-                    .withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
-                 title: Row.verify,
-                 secondaryText: NSLocalizedString("Scan someone's document to check it is genuine — no network needed.", comment: "")),
-            // The proof half of the checker's job, next to the credential half
-            // rather than in Settings, for the reason above: the 里長 and the
-            // border desk are doing one task, and which kind of thing they were
-            // handed is not their problem to route.
-            Item(image: UIImage(systemName: "eye.slash")?
-                    .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
-                 title: Row.verifyProof,
-                 secondaryText: Self.proofRowSubtitle())
-        ])
-    }
-
-    /// Whether this phone can actually check a proof, said on the row itself.
-    ///
-    /// The generic sentence sent people into the screen to find out; the state
-    /// was knowable from here. Both variants state a *local* fact — files
-    /// present or files missing — and neither implies anything about any proof
-    /// being valid: readiness is not a verdict, so no tick, no colour.
-    ///
-    /// Keyed to `ZKVerifyingKeyAssets.all` — the exact set the destination
-    /// screen's `ZKPackageVerifier` gates on — and not to
-    /// `CircuitAssets.required`, which this first checked. The review that
-    /// caught it: `required` is the *prover's* set (proving keys + revocation
-    /// snapshot), so a phone whose verifying keys were derived but whose
-    /// proving keys were reclaimed would read 「尚未下載」 on a row that opens a
-    /// screen that works. A readiness sentence keyed to a different screen's
-    /// prerequisites is a sentence about nothing.
-    private static func proofRowSubtitle() -> String {
-        // One copy of the question, in `ZKVerifyingKeyAssets`. It lived here, so
-        // the screen that actually checks proofs could not ask it.
-        if ZKCheckingAvailability.current.canCheck {
-            return NSLocalizedString("Verify a zero-knowledge proof. The checking files are on this phone.", comment: "")
-        }
-        // 「not downloaded **yet**」 is a promise, and in a shipping build it is
-        // permanently false.
-        //
-        // The only entry point that downloads these files sits behind
-        // `ZKProofRunAssembly.makeSigner`, which returns nil in a release build
-        // — so 「yet」 describes a future that this binary cannot reach. The
-        // person who pays for that sentence is the one on the other phone, who
-        // spends twenty seconds sending a proof of their identity to a device
-        // that was never able to check it.
-        //
-        // The right fix is upstream and is written down: **downloading and
-        // signing should not be the same gate**, because a checker needs the
-        // verifying keys and does not need to sign anything. Until then the row
-        // says which of the two situations this actually is.
-        // The two situations are told apart by `ZKCheckingAvailability` now, so
-        // this row and the checking screen cannot drift into different tenses.
-        return ZKCheckingAvailability.current == .notDownloadedYet
-            ? NSLocalizedString("Verify a zero-knowledge proof. The first time, it downloads the checking files (about 950 MB).", comment: "")
-            : NSLocalizedString("Verify a zero-knowledge proof. This version cannot download the checking files.", comment: "")
-    }
-
     init() {
         var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         config.headerMode = .supplementary
@@ -423,10 +277,30 @@ class HomeViewController: UICollectionViewController {
         // different title for tabBarItem needs to be set after setting title (avoid being overwritten)
         tabBarItem = UITabBarItem(title: NSLocalizedString("Home", comment: ""),
                                   image: UIImage(systemName: "house.fill"), selectedImage: nil)
+        // Settings left the tab bar and now lives in the top-right of both tabs
+        // (see `SceneDelegate`). Built by `UseViewController` so the two tabs draw
+        // the identical control and label it the same way.
+        navigationItem.rightBarButtonItem = UseViewController.makeSettingsButton(
+            target: self, action: #selector(presentSettings))
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
 
         configureDataSource()
         applySnapshot()
+    }
+
+    /// Presents Settings modally, wrapped in a navigation controller with a
+    /// 「完成」 close button — Settings is no longer a tab, so it needs a way back.
+    @objc private func presentSettings() {
+        let settings = SettingsViewController()
+        let nav = UINavigationController(rootViewController: settings)
+        settings.navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: NSLocalizedString("Done", comment: ""), style: .done,
+            target: self, action: #selector(dismissPresentedSettings))
+        present(nav, animated: true)
+    }
+
+    @objc private func dismissPresentedSettings() {
+        dismiss(animated: true)
     }
 
     /// Reapplied on every appearance, not just at load.
@@ -511,8 +385,6 @@ extension HomeViewController {
         }
 
         switch item.title {
-        case Row.compare:
-            navigationController?.pushViewController(CapabilityViewController(), animated: true)
         // The MyData vault guide opens the same flow as 「back up」: the one thing
         // MyData does in this build is fetch the household record to build the
         // national ID. Routed here rather than given a screen of its own, because
@@ -523,19 +395,13 @@ extension HomeViewController {
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .fullScreen
             present(nav, animated: true)
-        // The empty-government-group guide and the collect action are the same
-        // intention, so they reach the same scanner. Kept as one case rather than
-        // a title alias so each row keeps its own wording.
-        case Row.collect, Row.governmentEmpty:
+        // The empty-government-group guide starts the same scanner the 「使用」
+        // tab's collect action does. It stays on the home screen because it is
+        // not a general action but an inline CTA for *this empty group* — an empty
+        // government group and 「add a government card」 are the same intention
+        // seen from two sides.
+        case Row.governmentEmpty:
             ScanToCollect.begin(on: navigationController)
-        case Row.presentOnline:
-            ScanToPresent.begin(on: navigationController)
-        case Row.present:
-            navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
-        case Row.verify:
-            navigationController?.pushViewController(VerifierViewController(), animated: true)
-        case Row.verifyProof:
-            navigationController?.pushViewController(ZKVerifyViewController(), animated: true)
         default:
             break
         }
