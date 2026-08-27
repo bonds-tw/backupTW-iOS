@@ -74,4 +74,44 @@ struct DemoOfferGateReproTests {
             Issue.record("gate 2 refused: \(refusal) — credentialIssuer=\(offer.credentialIssuer)")
         }
     }
+
+    /// The exact string the demo getcard QR encodes for the driving-licence
+    /// card, decoded off `demo.wallet.gov.tw/getcard` on 2026-08-27. The QR does
+    /// not carry the deep link — it carries the relay page that wraps it, with
+    /// the deep link base64url-encoded in `deeplink`. This is why the imported
+    /// driving-licence code read as "not a card to collect": a plain `https` URL.
+    static let getcardRelayURL = "https://frontend-uat.wallet.gov.tw/api/moda/vcqrcode?mode=vc01&deeplink=bW9kYWRpZ2l0YWx3YWxsZXQ6Ly9jcmVkZW50aWFsX29mZmVyPw0KY3JlZGVudGlhbF9vZmZlcl91cmk9aHR0cHMlM0ElMkYlMkZpc3N1ZXItb2lkNHZjaS53YWxsZXQuZ292LnR3JTJGYXBpJTJGaXNzdWVyJTJGMDAwMDAwMDAlMkZjcmVkZW50aWFsLW9mZmVyLW9iamVjdCUzRm5vbmNlJTNENTA1MzViODItYzIzMC00ZDliLWI3NjktNzMxY2ZiZjYxMTg5JTI2c3ViJTNENGYxZTIxYmZjZWY2ODU5YTlkOGJiYTc1YjIzYjI1ZWY4YThmNjJiOWJjNWFjMDY0ZDA4OTY1MTI2NA"
+
+    @Test func theGetcardRelayURLUnwrapsToTheOffer() throws {
+        let link = try CredentialOfferLink.parse(scanned: Self.getcardRelayURL)
+        guard case .byReference(let fetchURL) = link else {
+            Issue.record("parsed to \(link), not byReference")
+            return
+        }
+        #expect(fetchURL.contains("issuer-oid4vci.wallet.gov.tw"))
+        #expect(fetchURL.contains("credential-offer-object"))
+        // The relay wrapper is gone; what remains is the real fetch URL, whose
+        // host still faces gate 1.
+        #expect(!fetchURL.contains("vcqrcode"))
+    }
+
+    @Test func theUnwrappedRelayOfferPassesGate1() throws {
+        guard case .byReference(let fetchURL) = try CredentialOfferLink.parse(scanned: Self.getcardRelayURL) else {
+            Issue.record("not byReference"); return
+        }
+        guard case .allowed = IssuerAuthorization.authorise(fetchURL: fetchURL, against: [.sandboxDemo]) else {
+            Issue.record("gate 1 refused the unwrapped fetch URL"); return
+        }
+    }
+
+    /// A relay-shaped URL with no `deeplink`, and an unrelated web link, are both
+    /// still refused — unwrapping only fires on the real page carrying a payload.
+    @Test func anHTTPSURLThatIsNotARelayIsStillRefused() {
+        #expect(throws: CredentialOfferError.self) {
+            _ = try CredentialOfferLink.parse(scanned: "https://frontend-uat.wallet.gov.tw/api/moda/vcqrcode?mode=vc01")
+        }
+        #expect(throws: CredentialOfferError.self) {
+            _ = try CredentialOfferLink.parse(scanned: "https://example.com/whatever")
+        }
+    }
 }

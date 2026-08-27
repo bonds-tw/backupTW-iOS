@@ -80,7 +80,52 @@ enum CredentialOfferLink: Equatable {
         guard let url = URL(string: cleaned) else {
             throw CredentialOfferError.notACredentialOffer
         }
+        // Unwrap the TWDIW relay page. Decoded off `demo.wallet.gov.tw/getcard`
+        // on 2026-08-27, the demo cards' QR does not carry the deep link — it
+        // carries a link to `frontend*.wallet.gov.tw/api/moda/vcqrcode?…
+        // &deeplink=<base64url of the deep link>`, the page a phone bounces
+        // through on its way to the wallet. Scanned by a third-party app that
+        // page is just an `https` URL, so the card read as "not an offer" and
+        // would not collect. Its `deeplink` parameter is the real thing; decode
+        // it and parse that. The official 皮夾夥伴卡 encodes its deep link
+        // directly and never reaches here. Nothing is trusted that the gates do
+        // not re-check — the `credential_offer_uri` host inside still faces
+        // gate 1 before any request leaves the device.
+        if let deeplink = relayDeeplink(inside: url) {
+            return try parse(scanned: deeplink)
+        }
         return try parse(url)
+    }
+
+    /// The real deep link a TWDIW `vcqrcode` relay URL wraps, or `nil` if this is
+    /// not that page.
+    ///
+    /// The inner deep link uses a custom scheme (`modadigitalwallet`), so it does
+    /// not satisfy the `http(s)` guard on a second pass — the single unwrap in
+    /// `parse(scanned:)` cannot loop.
+    private static func relayDeeplink(inside url: URL) -> String? {
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
+              let host = url.host?.lowercased(), host.hasSuffix(".wallet.gov.tw"),
+              url.path.contains("vcqrcode"),
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let encoded = components.queryItems?.first(where: {
+                  $0.name.trimmingCharacters(in: .whitespacesAndNewlines) == "deeplink"
+              })?.value,
+              let data = base64URLDecoded(encoded),
+              let deeplink = String(data: data, encoding: .utf8)
+        else { return nil }
+        return deeplink
+    }
+
+    /// base64url (RFC 4648 §5) decoding: `-_` for `+/`, and padding that the URL
+    /// form usually omits, restored before the standard decoder is asked.
+    private static func base64URLDecoded(_ string: String) -> Data? {
+        var s = string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let remainder = s.count % 4
+        if remainder > 0 { s += String(repeating: "=", count: 4 - remainder) }
+        return Data(base64Encoded: s)
     }
 
     /// Reads a link, or says exactly why not.
