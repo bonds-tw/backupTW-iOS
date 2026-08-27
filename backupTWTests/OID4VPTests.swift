@@ -324,6 +324,23 @@ struct OID4VPResponseTests {
         }
     }
 
+    /// The submission is nested to match the VP-JWT it accompanies: `jwt_vp` at
+    /// the root, the credential reached through `path_nested`. The earlier flat
+    /// `vc+sd-jwt`-at-`$` form was refused as an invalid schema by the official
+    /// verifier (code 2012, device 2026-08-27).
+    @Test func theSubmissionIsNestedToMatchTheVPJWT() throws {
+        let request = try seedCardAndRequest()
+        let submission = makeResponder().presentationSubmission(for: request)
+        let map = try #require(submission["descriptor_map"] as? [[String: Any]])
+        let descriptor = try #require(map.first)
+        #expect(descriptor["format"] as? String == "jwt_vp")
+        #expect(descriptor["path"] as? String == "$")
+        let nested = try #require(descriptor["path_nested"] as? [String: Any])
+        #expect(nested["format"] as? String == "vc+sd-jwt")
+        #expect(nested["path"] as? String == "$.vp.verifiableCredential[0]")
+        #expect(submission["definition_id"] as? String == Self.cardType)
+    }
+
     @Test func aFullResponsePostsTheTokenBack() async throws {
         OID4VPStubURLProtocol.reset()
         defer { OID4VPStubURLProtocol.reset() }

@@ -158,6 +158,17 @@ struct OID4VPResponder {
 
     /// The DIF presentation submission naming which descriptor this token
     /// answers and where the credential sits inside it.
+    ///
+    /// The descriptor is **nested**, because the token is. `vp_token` is a
+    /// `VerifiablePresentation` JWT whose credential sits at
+    /// `$.vp.verifiableCredential[0]`, not at the root — so the top of the map
+    /// describes the presentation (`jwt_vp`, `path: "$"`) and `path_nested`
+    /// reaches down to the credential (`vc+sd-jwt`). The earlier flat form —
+    /// `vc+sd-jwt` at `$`, claiming the root *is* the bare credential —
+    /// contradicted the token it accompanied, and the verifier rejected it:
+    /// measured on device 2026-08-27,
+    /// `{"code":2012,"message":"invalid presentation_submission: invalid
+    /// presentation_submission schema"}`.
     func presentationSubmission(for request: OID4VPRequest) -> [String: Any] {
         [
             // A stable id derived from the exchange rather than random, so the
@@ -168,12 +179,15 @@ struct OID4VPResponder {
             "descriptor_map": [
                 [
                     "id": request.inputDescriptorID,
-                    // TWDIW cards are SD-JWT on the wire despite the metadata's
-                    // `jwt_vc_json`. Sent as `vc+sd-jwt`; ⚠️待實測確認 the
-                    // verifier accepts this exact token — measured requests do
-                    // not pin the response format.
-                    "format": "vc+sd-jwt",
+                    "format": "jwt_vp",
                     "path": "$",
+                    // TWDIW cards are SD-JWT on the wire despite the metadata's
+                    // `jwt_vc_json` (docs/upstream-reports.md), so the nested
+                    // credential is named `vc+sd-jwt`.
+                    "path_nested": [
+                        "format": "vc+sd-jwt",
+                        "path": "$.vp.verifiableCredential[0]",
+                    ],
                 ],
             ],
         ]
