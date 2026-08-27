@@ -87,19 +87,32 @@ struct OID4VCICollectionReceipt: Equatable {
 ///
 /// # client_id
 ///
-/// Defaults to `tw.bonds.backupTW` — deliberately not `moda_dw`. The token
-/// endpoint verifying that string is an echo (§一.B), so sending the official
-/// app's value would prove nothing and claim someone else's name. Sending our
-/// own is the measurement: accepted means "this field has no discriminating
-/// power" (report upstream), refused means "a third-party wallet cannot state
-/// its own name" (also report upstream). Either way the string must be true.
+/// `moda_dw`, because the token endpoint looks the code up by the **pair**
+/// `(client_id, pre_authorized_code)` — and the code was stored against
+/// `moda_dw` when it was minted, that value being the `aud` of an ID Token the
+/// issuer signs *for itself* during the offer (denkeni's manual, §一.B;
+/// `CredentialIssuer.java:225` writes it, `:1196` looks it up). A wallet that
+/// sends any other `client_id` is asking for a code that store has never heard
+/// of.
+///
+/// Measured end-to-end on `demo.wallet.gov.tw` 2026-08-27, the earlier
+/// unanswered question in §三 M5.2 now settled: `tw.bonds.backupTW` → HTTP 400
+/// `{"resp_code":11007,"error":"invalid_grant","resp_message":"Pre-authorized_code
+/// not found"}`; `moda_dw`, everything else identical → HTTP 200 with an
+/// `access_token` and `c_nonce`. So the value is not chosen, it is dictated by
+/// where the issuer filed the code, and it is the same for the official app and
+/// for us. That the field therefore authenticates no wallet at all is the thing
+/// worth reporting upstream — not a reason to send a value the store cannot
+/// match. The proof JWT's `iss` is this same string, which is right: `:1741`
+/// checks the proof's `iss` only against the `client_id` the access token
+/// remembers, so the two must agree.
 struct OID4VCICollector {
 
     let session: URLSession
     let trustList: [TWDIWIssuer]
     let keyring: HolderKeyring
     let store: CredentialStoring
-    var clientID = "tw.bonds.backupTW"
+    var clientID = "moda_dw"
     var now: () -> Date = Date.init
 
     /// The whole flow: gates, token, proof, credential, verification, store.

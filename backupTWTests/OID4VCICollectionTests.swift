@@ -297,7 +297,12 @@ struct OID4VCICollectionTests {
 
     // MARK: The measurement
 
-    @Test func theTokenRequestStatesOurOwnNameNotTheOfficialApps() async throws {
+    /// The token endpoint looks the code up by `(client_id, pre_authorized_code)`
+    /// and the code is filed under `moda_dw` when minted, so that is the only
+    /// value that finds it. Measured end-to-end 2026-08-27: our bundle id got
+    /// `11007 Pre-authorized_code not found`; `moda_dw` got a 200 with an
+    /// access token (see `OID4VCICollector`'s client_id note).
+    @Test func theTokenRequestSendsTheClientIDTheCodeIsFiledUnder() async throws {
         OID4VCIStubURLProtocol.reset()
         defer { OID4VCIStubURLProtocol.reset() }
         installHappyRoutesThroughToken(credentialStatus: 500)
@@ -310,8 +315,7 @@ struct OID4VCICollectionTests {
             $0.url.absoluteString.hasSuffix("/token")
         })
         let form = String(data: token.body, encoding: .utf8) ?? ""
-        #expect(form.contains("client_id=tw.bonds.backupTW"))
-        #expect(!form.contains("moda_dw"))
+        #expect(form.contains("client_id=moda_dw"))
         #expect(form.contains("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code"))
         #expect(form.contains("pre-authorized_code=CODE-1"))
     }
@@ -346,7 +350,9 @@ struct OID4VCICollectionTests {
 
         let payloadData = try #require(Data(base64URLEncoded: parts[1]))
         let payload = try #require(try JSONSerialization.jsonObject(with: payloadData) as? [String: Any])
-        #expect(payload["iss"] as? String == "tw.bonds.backupTW")
+        // The issuer checks the proof's `iss` only against the client_id the
+        // access token remembers (denkeni §一.B, `:1741`), so it is `moda_dw`.
+        #expect(payload["iss"] as? String == "moda_dw")
         // Trailing slash measured off the deployment; without it the proof
         // is refused (docs/twdiw-integration-plan.md §三 M5.2 step 4).
         #expect(payload["aud"] as? String == Self.issuerIdentifier + "/")
@@ -402,7 +408,7 @@ struct OID4VCICollectionTests {
         let receipt = try await makeCollector().collect(from: offerLink())
 
         #expect(receipt.storedID == Self.configurationID)
-        #expect(receipt.acceptedClientID == "tw.bonds.backupTW")
+        #expect(receipt.acceptedClientID == "moda_dw")
         let stored = try #require(try store.load(id: Self.configurationID))
         #expect(StoredCardSource.source(of: stored) == .twdiw)
         // Exactly one key was created, and the stored card names it.
