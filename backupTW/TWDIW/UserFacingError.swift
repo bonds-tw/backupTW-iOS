@@ -110,10 +110,17 @@ enum UserFacingError {
         case .network:
             return NSLocalizedString("Could not reach the verifier. Check your connection and try again.",
                                      comment: "vp response error: network")
-        case .badStatus(let code):
-            return String(format: NSLocalizedString(
+        case .badStatus(let code, let body):
+            let base = String(format: NSLocalizedString(
                 "Presenting did not succeed (the verifier's system returned %d). Ask for a fresh QR code and try again.",
                 comment: "vp response error: bad status"), code)
+            #if DEBUG
+            // A development build shows what the verifier actually said, so a
+            // refusal can be read off its own words — the same lever that
+            // settled the collection 400. Compiled out of Release entirely.
+            if let body, !body.isEmpty { return base + "\n\n[verifier] " + String(body.prefix(500)) }
+            #endif
+            return base
         }
     }
 

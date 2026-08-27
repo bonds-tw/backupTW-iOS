@@ -20,7 +20,12 @@ enum OID4VPResponseError: Error, Equatable {
     /// is the card's own — never `DeviceKey.defaultTag`.
     case holderKeyUnavailable
     case network
-    case badStatus(Int)
+    /// The verifier refused the posted token. `body` is what it said — captured
+    /// so a refusal can be diagnosed the way the collection 400 was, off the
+    /// server's own words rather than a guess about the format. Surfaced to the
+    /// holder only in DEBUG; a shipped wallet shows the number, not the verifier's
+    /// raw reply.
+    case badStatus(Int, body: String?)
 }
 
 /// Builds and sends the response to an `OID4VPRequest`.
@@ -194,12 +199,15 @@ struct OID4VPResponder {
             ("state", state),
         ]).utf8)
 
+        let data: Data
         let response: URLResponse
-        do { (_, response) = try await session.data(for: request) }
+        do { (data, response) = try await session.data(for: request) }
         catch { throw OID4VPResponseError.network }
         guard let http = response as? HTTPURLResponse else { throw OID4VPResponseError.network }
         guard (200..<300).contains(http.statusCode) else {
-            throw OID4VPResponseError.badStatus(http.statusCode)
+            // Keep the verifier's own words so a refusal can be read, not guessed.
+            let body = String(data: data, encoding: .utf8)
+            throw OID4VPResponseError.badStatus(http.statusCode, body: body)
         }
         return http.statusCode
     }

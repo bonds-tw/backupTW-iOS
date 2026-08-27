@@ -36,7 +36,7 @@ struct PresentationUserFacingErrorTests {
     @Test func everyResponseErrorBecomesASentence() {
         let errors: [OID4VPResponseError] = [
             .noMatchingCredential, .requestedClaimNotAvailable("name"),
-            .holderKeyUnavailable, .network, .badStatus(400),
+            .holderKeyUnavailable, .network, .badStatus(400, body: nil),
         ]
         for error in errors {
             #expect(isClean(UserFacingError.presentationMessage(for: error)),
@@ -47,7 +47,7 @@ struct PresentationUserFacingErrorTests {
     /// The bad-status number is kept for a person to quote to a helpdesk — it is
     /// information, not an implementation detail, the same as collection's.
     @Test func theBadStatusNumberIsKept() {
-        #expect(UserFacingError.presentationMessage(for: OID4VPResponseError.badStatus(503)).contains("503"))
+        #expect(UserFacingError.presentationMessage(for: OID4VPResponseError.badStatus(503, body: nil)).contains("503"))
         #expect(UserFacingError.presentationMessage(for: OID4VPRequestError.badStatus(404)).contains("404"))
     }
 
