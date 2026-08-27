@@ -53,6 +53,35 @@ enum UserFacingError {
         }
     }
 
+    /// A message for a failure while resolving a static card-application QR — the
+    /// step that turns 「要申請的卡」 into the issuer page a holder finishes on,
+    /// before any webview opens.
+    static func cardApplicationMessage(for error: Error) -> String {
+        switch error {
+        case let e as ModaServiceURLResolverError: return message(for: e)
+        default:
+            return NSLocalizedString("Opening this card's application did not work. Please try again.",
+                                     comment: "card application error: unknown")
+        }
+    }
+
+    private static func message(for error: ModaServiceURLResolverError) -> String {
+        switch error {
+        case .network:
+            return NSLocalizedString("Could not reach the card service. Check your connection and try again.",
+                                     comment: "card application error: network")
+        case .badStatus(let code, _):
+            // The body is captured on the error for the log; the holder sees the
+            // number they could quote, not the server's raw reply.
+            return String(format: NSLocalizedString(
+                "The card service could not open this application (it returned %d). Please try again later.",
+                comment: "card application error: bad status"), code)
+        case .malformedResponse, .badURL:
+            return NSLocalizedString("This card's application could not be opened, so nothing was started.",
+                                     comment: "card application error: malformed")
+        }
+    }
+
     /// A message for any error reaching the presentation flow — reading the
     /// verifier's request, or sending the answer.
     static func presentationMessage(for error: Error) -> String {

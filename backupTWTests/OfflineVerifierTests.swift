@@ -1345,6 +1345,21 @@ struct OfflineVerifierNetworkTests {
             // host passed the trust gate. Fetches a signed ask, publishes
             // nothing.
             "TWDIW/OID4VPRequestFetcher.swift",
+            // Static card-application resolve: GETs the 201i endpoint on
+            // `frontend.wallet.gov.tw` to turn a scanned 「要申請的卡」 QR into the
+            // issuer page URL, on an explicit scan. Fetches which card is being
+            // applied for; publishes nothing, mints nothing. The deep link the
+            // resolved page later returns still passes `IssuerAuthorization`'s
+            // gates before a credential is issued. Caught by this scan on the
+            // commit that introduced it — the list working.
+            "TWDIW/ModaServiceURLResolver.swift",
+            // The embedded issuer web view where a holder finishes an application
+            // the card cannot hand over up front (電信卡 verifies the line, 駕照驗證卡
+            // logs in to 監理服務網). A browser is a network client by definition,
+            // like `MyDataWebViewController`. Nothing it shows or returns is
+            // trusted to issue: the `modadigitalwallet://credential_offer` deep
+            // link it hands back goes through the same gates as a scanned offer.
+            "ViewController/WebCollectViewController.swift",
         ]
 
         // The same list as the single-file test, plus `import Network`. Not
