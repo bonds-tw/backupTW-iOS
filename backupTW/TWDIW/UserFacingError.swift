@@ -53,6 +53,70 @@ enum UserFacingError {
         }
     }
 
+    /// A message for any error reaching the presentation flow — reading the
+    /// verifier's request, or sending the answer.
+    static func presentationMessage(for error: Error) -> String {
+        switch error {
+        case let e as OID4VPRequestError: return message(for: e)
+        case let e as OID4VPResponseError: return message(for: e)
+        case let e as TrustListFetcherError: return message(for: e)
+        default:
+            return NSLocalizedString("Presenting did not work. Please try again.",
+                                     comment: "presentation error: unknown")
+        }
+    }
+
+    // MARK: - Presentation request
+
+    private static func message(for error: OID4VPRequestError) -> String {
+        switch error {
+        case .notAnAuthorizeLink:
+            return NSLocalizedString("This QR code is not a request to present a credential.",
+                                     comment: "vp request error: not an authorize link")
+        case .responseURINotTrusted, .requestURINotTrusted:
+            return NSLocalizedString("This request points to an address the app does not trust, so nothing was presented.",
+                                     comment: "vp request error: untrusted host")
+        case .unsupportedResponseMode:
+            return NSLocalizedString("This way of presenting is not supported yet.",
+                                     comment: "vp request error: unsupported mode")
+        case .network:
+            return NSLocalizedString("Could not reach the verifier. Check your connection and try again.",
+                                     comment: "vp request error: network")
+        case .badStatus(let code):
+            return String(format: NSLocalizedString(
+                "Could not read the verifier's request (it returned %d). Ask for a fresh QR code and try again.",
+                comment: "vp request error: bad status"), code)
+        case .malformedRequestObject, .clientIDNotAResolvableDID, .signatureInvalid, .missingField:
+            // All mean the same to a person: the request could not be trusted,
+            // so — as with the issuer gate — nothing of theirs was signed or sent.
+            return NSLocalizedString("The verifier's request could not be verified, so nothing was presented — for your safety.",
+                                     comment: "vp request error: unverifiable")
+        }
+    }
+
+    // MARK: - Presentation response
+
+    private static func message(for error: OID4VPResponseError) -> String {
+        switch error {
+        case .noMatchingCredential:
+            return NSLocalizedString("Your wallet has no credential of the kind this verifier asked for.",
+                                     comment: "vp response error: no matching card")
+        case .requestedClaimNotAvailable:
+            return NSLocalizedString("One of the chosen fields is not on the card, so nothing was presented.",
+                                     comment: "vp response error: claim not available")
+        case .holderKeyUnavailable:
+            return NSLocalizedString("This phone could not find the card's key, so it could not be presented.",
+                                     comment: "vp response error: key")
+        case .network:
+            return NSLocalizedString("Could not reach the verifier. Check your connection and try again.",
+                                     comment: "vp response error: network")
+        case .badStatus(let code):
+            return String(format: NSLocalizedString(
+                "Presenting did not succeed (the verifier's system returned %d). Ask for a fresh QR code and try again.",
+                comment: "vp response error: bad status"), code)
+        }
+    }
+
     // MARK: - Collection
 
     private static func message(for error: OID4VCICollectionError) -> String {

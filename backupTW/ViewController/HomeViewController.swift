@@ -22,6 +22,7 @@ class HomeViewController: UICollectionViewController {
     private enum Row {
         static let backUp = NSLocalizedString("Back up my national ID", comment: "")
         static let collect = NSLocalizedString("Add a card by scanning", comment: "")
+        static let presentOnline = NSLocalizedString("Present a card to a verifier", comment: "")
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
@@ -153,7 +154,18 @@ class HomeViewController: UICollectionViewController {
                            secondaryText: NSLocalizedString(
                             "What a checker can rely on, and what none of them can establish.", comment: ""))
 
-        return Section(title: title, items: rows.map(item(for:)) + [refresh, collect, compare])
+        // Presenting an official card online — the mirror of collecting one, and
+        // the wallet's whole point next to it: scan the verifier's request, then
+        // choose which of the asked-for fields to actually reveal. Shown only
+        // once there is a card to present; a self-issued document is not a TWDIW
+        // credential and would find no match, so this leads with the cards that can.
+        let presentOnline = Item(image: UIImage(systemName: "person.badge.shield.checkmark")?
+                                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+                                 title: Row.presentOnline,
+                                 secondaryText: NSLocalizedString(
+                                    "Scan a verifier's QR and choose exactly what to show.", comment: ""))
+
+        return Section(title: title, items: rows.map(item(for:)) + [refresh, collect, presentOnline, compare])
     }
 
     private func item(for row: CardInventoryRow) -> Item {
@@ -382,6 +394,8 @@ extension HomeViewController {
             present(nav, animated: true)
         case Row.collect:
             ScanToCollect.begin(on: navigationController)
+        case Row.presentOnline:
+            ScanToPresent.begin(on: navigationController)
         case Row.present:
             navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
         case Row.verify:

@@ -48,6 +48,22 @@ enum OID4VPAuthorizeLink: Equatable {
 
     private static let schemes: Set<String> = ["openid4vp", "modadigitalwallet"]
 
+    /// Reads the link from a **scanned string**, tolerating the framing a QR
+    /// carries. The credential-offer deep link was measured to embed a CR+LF
+    /// after its `?`; the authorize form shares the scheme and host convention,
+    /// so it is normalised the same way — bytes off a camera are not a URL the OS
+    /// built. See `CredentialOfferLink.parse(scanned:)`.
+    static func parse(scanned: String) throws -> OID4VPAuthorizeLink {
+        let cleaned = scanned
+            .replacingOccurrences(of: "\r", with: "")
+            .replacingOccurrences(of: "\n", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        guard let url = URL(string: cleaned) else {
+            throw OID4VPRequestError.notAnAuthorizeLink
+        }
+        return try parse(url)
+    }
+
     /// Reads the link. Like `CredentialOfferLink`, this only says which form it
     /// is; it does not fetch, verify, or trust anything.
     static func parse(_ url: URL) throws -> OID4VPAuthorizeLink {

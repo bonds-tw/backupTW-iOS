@@ -6239,6 +6239,256 @@
           }
         }
       }
+    },
+    "Presenting did not work. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示沒有成功。請再試一次。"
+          }
+        }
+      }
+    },
+    "This QR code is not a request to present a credential.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR code 不是查驗方的出示要求。"
+          }
+        }
+      }
+    },
+    "This request points to an address the app does not trust, so nothing was presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個要求指向 app 不信任的位址，所以沒有出示任何資料。"
+          }
+        }
+      }
+    },
+    "This way of presenting is not supported yet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這種出示方式目前還不支援。"
+          }
+        }
+      }
+    },
+    "Could not reach the verifier. Check your connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上查驗方。請檢查連線後再試一次。"
+          }
+        }
+      }
+    },
+    "Could not read the verifier's request (it returned %d). Ask for a fresh QR code and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取查驗方的要求（回應 %d）。請對方重新產生 QR code 再試一次。"
+          }
+        }
+      }
+    },
+    "The verifier's request could not be verified, so nothing was presented — for your safety.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方的要求無法驗證，為了你的安全，沒有出示任何資料。"
+          }
+        }
+      }
+    },
+    "Your wallet has no credential of the kind this verifier asked for.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的皮夾裡沒有查驗方要的那種證件。"
+          }
+        }
+      }
+    },
+    "One of the chosen fields is not on the card, so nothing was presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你選的欄位其中一個這張卡沒有，所以沒有出示。"
+          }
+        }
+      }
+    },
+    "This phone could not find the card's key, so it could not be presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機找不到這張卡的金鑰，無法出示。"
+          }
+        }
+      }
+    },
+    "Presenting did not succeed (the verifier's system returned %d). Ask for a fresh QR code and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示沒有成功（查驗方系統回應 %d）。請對方重新產生 QR code 再試一次。"
+          }
+        }
+      }
+    },
+    "Presented. The verifier has your answer.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已出示。查驗方收到你的回覆了。"
+          }
+        }
+      }
+    },
+    "Present a credential": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示證件"
+          }
+        }
+      }
+    },
+    "Present": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示"
+          }
+        }
+      }
+    },
+    "A verifier is asking to see these. Turn off anything you would rather not show.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方要求看這些資料。不想給的可以關掉。"
+          }
+        }
+      }
+    },
+    "What you leave off is never sent. The verifier can still check that the rest was issued by the official issuer and not changed.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你關掉的欄位不會被送出。查驗方仍能確認其餘欄位是官方發行、未被竄改的。"
+          }
+        }
+      }
+    },
+    "National ID number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身分證統一編號"
+          }
+        }
+      }
+    },
+    "Last 3 digits of phone number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手機號碼末三碼"
+          }
+        }
+      }
+    },
+    "Licence type": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "駕照種類"
+          }
+        }
+      }
+    },
+    "Control number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管轄編號"
+          }
+        }
+      }
+    },
+    "Date of issue": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發證日期"
+          }
+        }
+      }
+    },
+    "Scan a verifier's QR": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描查驗方的 QR"
+          }
+        }
+      }
+    },
+    "Point the camera at the QR the verifier is showing.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把相機對準查驗方出示的 QR。"
+          }
+        }
+      }
+    },
+    "Present a card to a verifier": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示證件給查驗方"
+          }
+        }
+      }
+    },
+    "Scan a verifier's QR and choose exactly what to show.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃查驗方的 QR，自己決定給哪些欄位。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
