@@ -92,16 +92,16 @@ class UseViewController: UICollectionViewController {
 
         // Applying for a telecom 門號電子卡. Unconditional like `collect` — it is a
         // way to *get* a first card, so gating it on already holding one would hide
-        // it from exactly the fresh install it is for. The subtitle warns up front
-        // that verification happens in the carrier's own app over mobile data (Wi-Fi
-        // usually has to be off), and that the finished offer returns here on its
-        // own — the piece that only works because `modadigitalwallet://` is now
-        // registered.
+        // it from exactly the fresh install it is for. The subtitle is one plain
+        // line: the carrier's app does the checking and the card returns here on
+        // its own. The Wi-Fi-off step and the remove-the-official-app requirement
+        // are real but belong to the carrier's own prompts and to one-time setup,
+        // not to a row that has to read at a glance.
         let applyTelecom = Item(image: UIImage(systemName: "antenna.radiowaves.left.and.right")?
                                     .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
                                 title: Row.applyTelecom,
                                 secondaryText: NSLocalizedString(
-                                    "Opens your carrier's phone-number check — follow its steps (you usually need Wi-Fi off, on mobile data). When it finishes it returns here to add the card. For this to route back, remove the official 數位憑證皮夾 app.", comment: ""))
+                                    "Verify your number in your carrier's app; the card returns here.", comment: ""))
 
         guard hasAnyCard else {
             return Section(title: title, items: [collect, applyTelecom])

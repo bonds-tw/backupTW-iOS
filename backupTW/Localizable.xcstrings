@@ -6859,6 +6859,26 @@
           }
         }
       }
+    },
+    "Apply for a phone-number card": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "申請電信門號卡"
+          }
+        }
+      }
+    },
+    "Verify your number in your carrier's app; the card returns here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳電信商 app 驗證門號,完成後自動返回領卡"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
