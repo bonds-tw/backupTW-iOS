@@ -60,19 +60,25 @@ struct NationalIDCard: Hashable {
     /// When set, the card is an empty-state invitation rather than a real
     /// document: the grid and the red number are replaced by this prompt.
     let placeholderMessage: String?
+    /// Where this card's trust comes from, drawn as a small line above the field
+    /// grid. For the self-issued ID this is 「行動自然人憑證 · 本人自簽」 — the honest
+    /// statement that nobody vouches for it but the holder. Empty to draw nothing.
+    let trustSource: String
 
     init(title: String,
          holderName: String,
          fields: [WalletCardField] = [],
          idLabel: String? = nil,
          idValueMasked: String? = nil,
-         placeholderMessage: String? = nil) {
+         placeholderMessage: String? = nil,
+         trustSource: String = "") {
         self.title = title
         self.holderName = holderName
         self.fields = fields
         self.idLabel = idLabel
         self.idValueMasked = idValueMasked
         self.placeholderMessage = placeholderMessage
+        self.trustSource = trustSource
     }
 }
 
@@ -92,6 +98,10 @@ struct CredentialCard: Hashable {
     let holderName: String?
     /// The card's primary number, already masked (never a full ID or 門號).
     let primaryMasked: String?
+    /// Where this card's trust comes from — for a government card, the curated
+    /// 「數位發展部信任清單」 that let it into the wallet. Drawn as a small line
+    /// above the foot fields. Empty to draw nothing.
+    let trustSource: String
     let leftField: WalletCardField?
     let rightField: WalletCardField?
     let tint: WalletCardTint
@@ -353,8 +363,26 @@ final class WalletCardView: UIView {
                                               valueFont: .systemFont(ofSize: 13, weight: .semibold)))
         }
         add(grid)
+        // Trust source above the grid: on the paper ID it reads
+        // 「行動自然人憑證 · 本人自簽」 — the honest note that this document vouches
+        // for itself. Grey rather than ink, so it stays quieter than the name.
+        // A tighter gap than the tinted cards, since the paper face is the
+        // vertically tightest of the three.
+        let gridTop: NSLayoutConstraint
+        if !card.trustSource.isEmpty {
+            let trust = makeTrustLine(card.trustSource, color: label)
+            add(trust)
+            NSLayoutConstraint.activate([
+                trust.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 8),
+                trust.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: faceContainer.trailingAnchor, constant: -18),
+            ])
+            gridTop = grid.topAnchor.constraint(equalTo: trust.bottomAnchor, constant: 7)
+        } else {
+            gridTop = grid.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 11)
+        }
         NSLayoutConstraint.activate([
-            grid.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 11),
+            gridTop,
             grid.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
             grid.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -18),
         ])
@@ -491,6 +519,23 @@ final class WalletCardView: UIView {
         }
         add(footStack)
 
+        // The trust-source line sits just above the foot fields — the first thing
+        // read below the number, saying who vouches for the card. Drawn only when
+        // there is a source to name.
+        var midBottom: NSLayoutConstraint
+        if !card.trustSource.isEmpty {
+            let trust = makeTrustLine(card.trustSource, color: white)
+            add(trust)
+            NSLayoutConstraint.activate([
+                trust.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: faceContainer.trailingAnchor, constant: -21),
+                trust.bottomAnchor.constraint(equalTo: footStack.topAnchor, constant: -8),
+            ])
+            midBottom = midStack.bottomAnchor.constraint(equalTo: trust.topAnchor, constant: -10)
+        } else {
+            midBottom = midStack.bottomAnchor.constraint(equalTo: footStack.topAnchor, constant: -14)
+        }
+
         NSLayoutConstraint.activate([
             topStack.topAnchor.constraint(equalTo: faceContainer.topAnchor, constant: 19),
             topStack.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
@@ -498,7 +543,7 @@ final class WalletCardView: UIView {
 
             midStack.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
             midStack.trailingAnchor.constraint(lessThanOrEqualTo: faceContainer.trailingAnchor, constant: -21),
-            midStack.bottomAnchor.constraint(equalTo: footStack.topAnchor, constant: -14),
+            midBottom,
 
             footStack.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
             footStack.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -21),
@@ -638,6 +683,28 @@ final class WalletCardView: UIView {
     private func setDiagonalGradient() {
         backgroundLayer.startPoint = CGPoint(x: 0.1, y: 0.0)
         backgroundLayer.endPoint = CGPoint(x: 0.85, y: 1.0)
+    }
+
+    /// The 「信任來源 · <值>」 line: a small, quiet label word and the source value,
+    /// on one line. The prefix is the fainter of the two — it is chrome; the value
+    /// is what the reader wants. `color` is the card's ink (white on tinted cards,
+    /// a warm grey on the paper ID); the prefix is drawn at a lower alpha of it.
+    private func makeTrustLine(_ value: String, color: UIColor) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 1
+        label.lineBreakMode = .byTruncatingTail
+        let prefix = NSLocalizedString("Trust source", comment: "wallet card: where a card's trust comes from")
+        let text = NSMutableAttributedString(
+            string: prefix + "  ",
+            attributes: [.font: UIFont.systemFont(ofSize: 8.5, weight: .semibold),
+                         .foregroundColor: color.withAlphaComponent(0.55),
+                         .kern: 0.8])
+        text.append(NSAttributedString(
+            string: value,
+            attributes: [.font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+                         .foregroundColor: color.withAlphaComponent(0.85)]))
+        label.attributedText = text
+        return label
     }
 
     private func makeLabel(_ text: String, font: UIFont, color: UIColor) -> UILabel {

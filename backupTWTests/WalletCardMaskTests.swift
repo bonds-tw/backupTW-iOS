@@ -68,6 +68,41 @@ struct WalletCardMaskTests {
         #expect(middle.allSatisfy { $0 == WalletCardMask.dot })
     }
 
+    // MARK: - Name masking (surname kept, the rest hidden)
+
+    @Test("a three-character name keeps the surname and masks the given name")
+    func threeCharacterName() {
+        #expect(WalletCardMask.maskedName("王小明") == "王〇〇")
+    }
+
+    @Test("a two-character name keeps the surname and masks the one given character")
+    func twoCharacterName() {
+        #expect(WalletCardMask.maskedName("王明") == "王〇")
+    }
+
+    @Test("a single-character name is masked entirely, never shown whole")
+    func singleCharacterName() {
+        // Keeping "the first character" of a one-character name would be keeping
+        // all of it — so it is masked instead, the same invariant `masked` keeps.
+        #expect(WalletCardMask.maskedName("王") == "〇")
+    }
+
+    @Test("an empty name stays empty")
+    func emptyName() {
+        #expect(WalletCardMask.maskedName("") == "")
+    }
+
+    @Test("a longer name keeps only the surname")
+    func longerName() {
+        // A compound surname is not special-cased: only the first character is
+        // kept. Over-masking a name is a cosmetic loss; showing one whole is not.
+        #expect(WalletCardMask.maskedName("歐陽宜蓁") == "歐〇〇〇")
+        let masked = WalletCardMask.maskedName("陳筱玲")
+        #expect(masked == "陳〇〇")
+        #expect(!masked.contains("筱"))
+        #expect(!masked.contains("玲"))
+    }
+
     // MARK: - Which keys are sensitive
 
     @Test(arguments: ["id_number", "unifiedNo", "nationalId", "roc_birthday",

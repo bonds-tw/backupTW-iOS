@@ -54,8 +54,12 @@ enum WalletCardFactory {
         let claims = Dictionary(stored.claims.map { ($0.key, $0.value) },
                                 uniquingKeysWith: { first, _ in first })
 
-        // Name: shown in full. Sanitised, never masked.
-        let holder = claims["name"].map { UntrustedText.value($0).text } ?? ""
+        // Name: masked to the surname on the face (王小明 → 王〇〇). The full name
+        // is only on the detail screen, behind its existing reveal — the same
+        // rule the 統一編號 has always followed, now extended to the name because
+        // the home screen is the over-the-shoulder surface. Sanitised before
+        // masking so a bidi override cannot rearrange the masked result.
+        let holder = claims["name"].map { WalletCardMask.maskedName(UntrustedText.value($0).text) } ?? ""
 
         var fields: [WalletCardField] = []
         if let nationality = claims["nationality"], !nationality.isEmpty {
@@ -74,7 +78,11 @@ enum WalletCardFactory {
             holderName: holder,
             fields: fields,
             idLabel: idMasked == nil ? nil : StoredNationalID.label(for: "unifiedNo"),
-            idValueMasked: idMasked))
+            idValueMasked: idMasked,
+            // Self-issued: nobody vouches for it but the holder, and the card
+            // says so plainly rather than borrowing a trust-list's authority.
+            trustSource: NSLocalizedString("行動自然人憑證 · 本人自簽",
+                                           comment: "national id card trust source: self-signed")))
     }
 
     // MARK: - Government / collected credential
@@ -121,25 +129,33 @@ enum WalletCardFactory {
                                now: Date = Date()) -> CredentialCard {
         let claims = credential.disclosedClaims
 
+        // Name: masked to the surname on the face (陳筱玲 → 陳〇〇). Full name only
+        // on the detail screen — the home screen is the over-the-shoulder surface.
         let holder = claims.first { $0.name.lowercased() == "name" }
-            .map { UntrustedText.value($0.value).text }
+            .map { WalletCardMask.maskedName(UntrustedText.value($0.value).text) }
 
         // The primary number: the first disclosed claim that names a sensitive
         // identifier, masked. Never shown in full on this surface.
         let primary = claims.first { WalletCardMask.isSensitiveKey($0.name) }
             .map { masked(UntrustedText.value($0.value).text) }
 
-        let kind = UntrustedText.value(CardInventory.readableType(credential.credentialType)).text
+        // A curated readable name for the issuer, kind, and trust source. Safe to
+        // key off the type: this card is already in the store, so it has already
+        // passed both trust gates and its issuer is already vouched for — the
+        // directory only puts a readable name to it. See `IssuerDirectory`.
+        let descriptor = IssuerDirectory.describe(credentialType: credential.credentialType,
+                                                  issuerDID: credential.issuerDID)
 
         return CredentialCard(
-            kind: kind,
+            kind: descriptor.cardKind,
             kindEnglish: nil,
-            // Offline this app has no friendly name for an issuer, so it shows
-            // the issuer's own identifier rather than inventing one. Sanitised;
-            // the view truncates it.
-            issuer: UntrustedText.value(credential.issuerDID).text,
+            // The curated friendly issuer name (交通部公路局, 台灣大哥大, …), or —
+            // for a card this app has no curated name for — the truncated issuer
+            // DID, honest rather than invented. Sanitised.
+            issuer: UntrustedText.value(descriptor.issuerName).text,
             holderName: holder,
             primaryMasked: primary,
+            trustSource: UntrustedText.value(descriptor.trustSource).text,
             leftField: WalletCardField(
                 label: NSLocalizedString("Valid until", comment: "wallet card foot"),
                 value: validityText(credential.expires, now: now)),

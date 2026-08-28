@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ (expired)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（已過期）"
+          }
+        }
+      }
+    },
     "%@ already on this device": {
       "localizations": {
         "zh-Hant": {
@@ -58,6 +68,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · 有效到 %@"
+          }
+        }
+      }
+    },
+    "%@ — expired": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — 已過期"
           }
         }
       }
@@ -211,6 +231,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "已儲存的憑證損毀，無法讀取。"
+          }
+        }
+      }
+    },
+    "A verifier is asking to see these. Turn off anything you would rather not show.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方要求看這些資料。不想給的可以關掉。"
           }
         }
       }
@@ -401,6 +431,16 @@
         }
       }
     },
+    "Apply for a phone-number card": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "申請電信門號卡"
+          }
+        }
+      }
+    },
     "Ask the other person to scan this": {
       "localizations": {
         "zh-Hant": {
@@ -582,6 +622,16 @@
         }
       }
     },
+    "Card type": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "卡片種類"
+          }
+        }
+      }
+    },
     "Certificate chain": {
       "localizations": {
         "zh-Hant": {
@@ -734,6 +784,16 @@
         }
       }
     },
+    "Checked on this phone, with no network. The issuer's own key signed these fields.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在這支手機上、不需連線完成驗證。這些欄位是由發卡者自己的金鑰所簽。"
+          }
+        }
+      }
+    },
     "Checking what's already downloaded…": {
       "localizations": {
         "zh-Hant": {
@@ -750,6 +810,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "查驗中…"
+          }
+        }
+      }
+    },
+    "Choose a code from Photos": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從相簿選 QR"
           }
         }
       }
@@ -845,6 +915,16 @@
         }
       }
     },
+    "Control number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管轄編號"
+          }
+        }
+      }
+    },
     "Copied": {
       "localizations": {
         "zh-Hant": {
@@ -885,12 +965,32 @@
         }
       }
     },
+    "Could not reach the verifier. Check your connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上查驗方。請檢查連線後再試一次。"
+          }
+        }
+      }
+    },
     "Could not read": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "無法讀取"
+          }
+        }
+      }
+    },
+    "Could not read the verifier's request (it returned %d). Ask for a fresh QR code and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取查驗方的要求（回應 %d）。請對方重新產生 QR code 再試一次。"
           }
         }
       }
@@ -991,6 +1091,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "出生年月日"
+          }
+        }
+      }
+    },
+    "Date of issue": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發證日期"
           }
         }
       }
@@ -1378,6 +1488,16 @@
         }
       }
     },
+    "Government wallet cards": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "政府皮夾卡片"
+          }
+        }
+      }
+    },
     "Had turned 18 when issued": {
       "localizations": {
         "zh-Hant": {
@@ -1530,12 +1650,32 @@
         }
       }
     },
+    "Issued by": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡者"
+          }
+        }
+      }
+    },
     "Issued by a government body through 數位憑證皮夾, and collected over the network.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "由政府機關透過數位憑證皮夾發行，領卡走網路。"
+          }
+        }
+      }
+    },
+    "Issuer's signature": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡者簽章"
           }
         }
       }
@@ -1686,6 +1826,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "繼續"
+          }
+        }
+      }
+    },
+    "Last 3 digits of phone number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手機號碼末三碼"
+          }
+        }
+      }
+    },
+    "Licence type": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "駕照種類"
           }
         }
       }
@@ -1845,12 +2005,42 @@
         }
       }
     },
+    "MyData vault": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 資料保險箱"
+          }
+        }
+      }
+    },
     "Name": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "姓名"
+          }
+        }
+      }
+    },
+    "National ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "國民身分證"
+          }
+        }
+      }
+    },
+    "National ID number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身分證統一編號"
           }
         }
       }
@@ -1882,6 +2072,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "否"
+          }
+        }
+      }
+    },
+    "No QR code was found in that image.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張圖片裡找不到 QR code。"
           }
         }
       }
@@ -1932,6 +2132,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "不需下載 · 在這支手機上佔用 %@"
+          }
+        }
+      }
+    },
+    "No expiry": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無期限"
+          }
+        }
+      }
+    },
+    "No expiry date is given on this card.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片沒有標示到期日。"
+          }
+        }
+      }
+    },
+    "No government cards yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有政府皮夾卡片"
           }
         }
       }
@@ -2056,6 +2286,16 @@
         }
       }
     },
+    "Not shown. Whether this card was cancelled can only be known online, and the list that would say so is vouched for by nothing this phone can check offline. A signed card is not the same as one that is still valid.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法顯示。這張卡片是否已被撤銷只能連線才會知道,而載明撤銷與否的清單,沒有任何這支手機能離線查證的東西為它背書。已簽章的卡片,不等於仍然有效的卡片。"
+          }
+        }
+      }
+    },
     "Not started": {
       "localizations": {
         "zh-Hant": {
@@ -2102,6 +2342,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "沒有殘留"
+          }
+        }
+      }
+    },
+    "Nothing stored from MyData yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 目前沒有存放資料"
+          }
+        }
+      }
+    },
+    "Nothing stored here": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前沒有存放資料"
           }
         }
       }
@@ -2197,12 +2457,32 @@
         }
       }
     },
+    "One of the chosen fields is not on the card, so nothing was presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你選的欄位其中一個這張卡沒有，所以沒有出示。"
+          }
+        }
+      }
+    },
     "One of the two devices has the wrong time. Check that both have date and time set automatically, then show it again.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "兩支裝置其中一支的時間不準。請兩邊都確認「日期與時間」設為自動，再出示一次。"
+          }
+        }
+      }
+    },
+    "Online": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "線上"
           }
         }
       }
@@ -2307,6 +2587,16 @@
         }
       }
     },
+    "Point the camera at the QR the verifier is showing.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把相機對準查驗方出示的 QR。"
+          }
+        }
+      }
+    },
     "Point the camera at the checker's phone.": {
       "extractionState": "manual",
       "localizations": {
@@ -2354,6 +2644,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "準備驗證檔案"
+          }
+        }
+      }
+    },
+    "Present": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示"
+          }
+        }
+      }
+    },
+    "Present a card to a verifier": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示證件給查驗方"
+          }
+        }
+      }
+    },
+    "Present a credential": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示證件"
+          }
+        }
+      }
+    },
+    "Presented. The verifier has your answer.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已出示。查驗方收到你的回覆了。"
+          }
+        }
+      }
+    },
+    "Presenting did not succeed (the verifier's system returned %d). Ask for a fresh QR code and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示沒有成功（查驗方系統回應 %d）。請對方重新產生 QR code 再試一次。"
+          }
+        }
+      }
+    },
+    "Presenting did not work. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示沒有成功。請再試一次。"
           }
         }
       }
@@ -2575,6 +2925,16 @@
         }
       }
     },
+    "Republic of China National ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中華民國國民身分證"
+          }
+        }
+      }
+    },
     "Required files": {
       "localizations": {
         "zh-Hant": {
@@ -2647,12 +3007,42 @@
         }
       }
     },
+    "Scan a QR from 數位憑證皮夾 to add a card issued by a government body.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描數位憑證皮夾的 QR，加入由政府機關核發的卡片。"
+          }
+        }
+      }
+    },
     "Scan a card's QR": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "掃描卡片 QR"
+          }
+        }
+      }
+    },
+    "Scan a verifier's QR": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描查驗方的 QR"
+          }
+        }
+      }
+    },
+    "Scan a verifier's QR and choose exactly what to show.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃查驗方的 QR，自己決定給哪些欄位。"
           }
         }
       }
@@ -2706,6 +3096,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "掃這個碼只是告訴對方的手機要把證明送到哪裡。它不是一次性亂數——那份證明在你要求之前就已經產生好了，所以沒有任何機制阻止同一份證明日後再被送一次。"
+          }
+        }
+      }
+    },
+    "Sealed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已封存"
           }
         }
       }
@@ -3245,6 +3645,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "那個碼是較新版本的 App 產生的，請先更新這個 App。"
+          }
+        }
+      }
+    },
+    "That image's QR code is not a card to collect.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張圖片的 QR code 不是可領取的卡片。"
           }
         }
       }
@@ -3993,6 +4403,16 @@
         }
       }
     },
+    "The stored file is not complete enough to read. It is most likely damaged.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存檔不完整,無法讀取,很可能已毀損。"
+          }
+        }
+      }
+    },
     "The three things people ask this app to prove, and which of them come with a limit.": {
       "localizations": {
         "zh-Hant": {
@@ -4039,6 +4459,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "伺服器上的驗證檔案與這個版本的 App 預期的不符。請更新 App 後再試。"
+          }
+        }
+      }
+    },
+    "The verifier's request could not be verified, so nothing was presented — for your safety.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方的要求無法驗證，為了你的安全，沒有出示任何資料。"
           }
         }
       }
@@ -4163,6 +4593,16 @@
         }
       }
     },
+    "These are personal details from the card. Check who can see your screen.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些是卡片上的個人資料。請留意誰能看到你的螢幕。"
+          }
+        }
+      }
+    },
     "These are the plain documents your credentials came from. Deleting your credentials would not remove them.": {
       "localizations": {
         "zh-Hant": {
@@ -4245,6 +4685,16 @@
         }
       }
     },
+    "Things you can do": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以進行的操作"
+          }
+        }
+      }
+    },
     "Third Party Software License": {
       "localizations": {
         "zh-Hant": {
@@ -4261,6 +4711,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這個 QR code 不是可以領取的卡片。"
+          }
+        }
+      }
+    },
+    "This QR code is not a request to present a credential.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR code 不是查驗方的出示要求。"
           }
         }
       }
@@ -4375,12 +4835,62 @@
         }
       }
     },
+    "This build could not turn the issuer's identifier into a key to check the card with.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本版本無法從發卡者的識別碼取得用來驗證這張卡片的金鑰。"
+          }
+        }
+      }
+    },
     "This build has no credentials for the digital certificate service, so it can't request a signature.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "這個版本沒有內政部的 SP 憑據，無法送出簽章請求。"
+          }
+        }
+      }
+    },
+    "This card": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片"
+          }
+        }
+      }
+    },
+    "This card carries no cancellation list, so whether it was cancelled cannot be known from the card itself.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片沒有附撤銷清單,因此無法從卡片本身得知它是否已被撤銷。"
+          }
+        }
+      }
+    },
+    "This card commits to its fields using a method this version does not support (%@).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片用來承諾欄位的方式不是本版本支援的(%@)。"
+          }
+        }
+      }
+    },
+    "This card could not be opened": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法開啟這張卡片"
           }
         }
       }
@@ -4401,6 +4911,106 @@
           "stringUnit": {
             "state": "translated",
             "value": "這張卡沒辦法讀取或檢查。"
+          }
+        }
+      }
+    },
+    "This card could not be read right now.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在讀不到這張卡。"
+          }
+        }
+      }
+    },
+    "This card could not be read right now. It may be that the phone is locked, or the stored file is damaged.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在無法讀取這張卡片。可能是手機已鎖定,或存檔已毀損。"
+          }
+        }
+      }
+    },
+    "This card could not be read, and this build cannot tell why.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取這張卡片,而這個版本無法判斷原因。"
+          }
+        }
+      }
+    },
+    "This card discloses no fields.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片沒有揭露任何欄位。"
+          }
+        }
+      }
+    },
+    "This card includes a field the issuer never signed for, so it is not shown. A card that could add one could claim anything.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片包含一個發卡者從未簽章承諾的欄位,因此不予顯示。能自行加入欄位的卡片可以聲稱任何內容。"
+          }
+        }
+      }
+    },
+    "This card is in a format this version does not recognise (%@).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片的格式是本版本無法辨識的(%@)。"
+          }
+        }
+      }
+    },
+    "This card is missing something it needs to be read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片缺少讀取所需的內容。"
+          }
+        }
+      }
+    },
+    "This card is no longer stored on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片已不在這支手機上。"
+          }
+        }
+      }
+    },
+    "This card is signed in a way this version does not accept (%@).": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片的簽章方式不是本版本接受的(%@)。"
+          }
+        }
+      }
+    },
+    "This card's signature did not check out. The stored file may be damaged, or it may not have been signed by the issuer it names — this build cannot tell which.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡片的簽章沒有通過驗證。存檔可能已毀損,也可能不是它所標示的發卡者簽的——這個版本無法分辨是哪一種。"
           }
         }
       }
@@ -5032,6 +5642,16 @@
         }
       }
     },
+    "This phone could not find the card's key, so it could not be presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機找不到這張卡的金鑰，無法出示。"
+          }
+        }
+      }
+    },
     "This phone could not make itself discoverable (%@).": {
       "localizations": {
         "zh-Hant": {
@@ -5098,6 +5718,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "目前讀不到這支手機上的卡片。"
+          }
+        }
+      }
+    },
+    "This phone's cards cannot be read right now. Anything saved here is still saved.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在無法讀取這支手機上的卡片。已存的內容仍在。"
           }
         }
       }
@@ -5332,6 +5962,16 @@
         }
       }
     },
+    "This request points to an address the app does not trust, so nothing was presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個要求指向 app 不信任的位址，所以沒有出示任何資料。"
+          }
+        }
+      }
+    },
     "This takes a while and uses a lot of memory.": {
       "localizations": {
         "zh-Hant": {
@@ -5442,12 +6082,32 @@
         }
       }
     },
+    "This version of the app cannot recognise this card.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法辨識這張卡。"
+          }
+        }
+      }
+    },
     "This version of the app does not recognise this card's format.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "這個版本認不得這張卡的格式。"
+          }
+        }
+      }
+    },
+    "This way of presenting is not supported yet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這種出示方式目前還不支援。"
           }
         }
       }
@@ -5518,6 +6178,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "安裝後總大小"
+          }
+        }
+      }
+    },
+    "Trust source": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信任來源"
           }
         }
       }
@@ -5593,12 +6263,42 @@
         }
       }
     },
+    "Use": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用"
+          }
+        }
+      }
+    },
     "Valid Document": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "正式證件"
+          }
+        }
+      }
+    },
+    "Valid from": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生效日"
+          }
+        }
+      }
+    },
+    "Valid until": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有效至"
           }
         }
       }
@@ -5659,6 +6359,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "驗證一份零知識證明。這個版本無法下載驗證檔。"
+          }
+        }
+      }
+    },
+    "Verify your number in your carrier's app; the card returns here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳電信商 app 驗證門號,完成後自動返回領卡"
           }
         }
       }
@@ -5730,6 +6440,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "收到的東西不是這個 App 讀得懂的證明。"
+          }
+        }
+      }
+    },
+    "What can be confirmed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以確認的部分"
           }
         }
       }
@@ -5877,12 +6597,32 @@
         }
       }
     },
+    "What you leave off is never sent. The verifier can still check that the rest was issued by the official issuer and not changed.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你關掉的欄位不會被送出。查驗方仍能確認其餘欄位是官方發行、未被竄改的。"
+          }
+        }
+      }
+    },
     "Whether it has been cancelled can only be known online, and the list that says so is vouched for by nothing this phone can check offline.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "它有沒有被註銷只有連上網才知道，而說明這件事的那份清單，沒有任何這支手機離線查得動的東西替它背書。"
+          }
+        }
+      }
+    },
+    "Whether it was cancelled": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "是否已被撤銷"
           }
         }
       }
@@ -5934,6 +6674,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "有"
+          }
+        }
+      }
+    },
+    "You have not backed up your national ID yet. Build it from your MyData record — the control below starts it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你還沒有備份國民身分證。用你的 MyData 戶籍資料建立一份——下方的按鈕可以開始。"
           }
         }
       }
@@ -6068,6 +6818,16 @@
         }
       }
     },
+    "Your household record is fetched through MyData only to build your national ID, then erased — nothing is kept here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的戶籍資料只透過 MyData 取得、用來建立國民身分證，之後即刪除——這裡不會保存任何資料。"
+          }
+        }
+      }
+    },
     "Your identity documents would be copied into every iCloud backup.": {
       "localizations": {
         "zh-Hant": {
@@ -6149,6 +6909,16 @@
         }
       }
     },
+    "Your wallet has no credential of the kind this verifier asked for.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的皮夾裡沒有查驗方要的那種證件。"
+          }
+        }
+      }
+    },
     "Zero-knowledge proof": {
       "localizations": {
         "zh-Hant": {
@@ -6206,766 +6976,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "內政部需要這個號碼才能把簽章請求推送到你的手機。它只會送給內政部，不會送到別的地方，這個 App 也不會保存它——但內政部會留下你提出過要求、以及是哪個服務要求的紀錄。"
-          }
-        }
-      }
-    },
-    "Choose a code from Photos": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "從相簿選 QR"
-          }
-        }
-      }
-    },
-    "No QR code was found in that image.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張圖片裡找不到 QR code。"
-          }
-        }
-      }
-    },
-    "That image's QR code is not a card to collect.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張圖片的 QR code 不是可領取的卡片。"
-          }
-        }
-      }
-    },
-    "Presenting did not work. Please try again.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出示沒有成功。請再試一次。"
-          }
-        }
-      }
-    },
-    "This QR code is not a request to present a credential.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這個 QR code 不是查驗方的出示要求。"
-          }
-        }
-      }
-    },
-    "This request points to an address the app does not trust, so nothing was presented.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這個要求指向 app 不信任的位址，所以沒有出示任何資料。"
-          }
-        }
-      }
-    },
-    "This way of presenting is not supported yet.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這種出示方式目前還不支援。"
-          }
-        }
-      }
-    },
-    "Could not reach the verifier. Check your connection and try again.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法連上查驗方。請檢查連線後再試一次。"
-          }
-        }
-      }
-    },
-    "Could not read the verifier's request (it returned %d). Ask for a fresh QR code and try again.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法讀取查驗方的要求（回應 %d）。請對方重新產生 QR code 再試一次。"
-          }
-        }
-      }
-    },
-    "The verifier's request could not be verified, so nothing was presented — for your safety.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查驗方的要求無法驗證，為了你的安全，沒有出示任何資料。"
-          }
-        }
-      }
-    },
-    "Your wallet has no credential of the kind this verifier asked for.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你的皮夾裡沒有查驗方要的那種證件。"
-          }
-        }
-      }
-    },
-    "One of the chosen fields is not on the card, so nothing was presented.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你選的欄位其中一個這張卡沒有，所以沒有出示。"
-          }
-        }
-      }
-    },
-    "This phone could not find the card's key, so it could not be presented.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這支手機找不到這張卡的金鑰，無法出示。"
-          }
-        }
-      }
-    },
-    "Presenting did not succeed (the verifier's system returned %d). Ask for a fresh QR code and try again.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出示沒有成功（查驗方系統回應 %d）。請對方重新產生 QR code 再試一次。"
-          }
-        }
-      }
-    },
-    "Presented. The verifier has your answer.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已出示。查驗方收到你的回覆了。"
-          }
-        }
-      }
-    },
-    "Present a credential": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出示證件"
-          }
-        }
-      }
-    },
-    "Present": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出示"
-          }
-        }
-      }
-    },
-    "A verifier is asking to see these. Turn off anything you would rather not show.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查驗方要求看這些資料。不想給的可以關掉。"
-          }
-        }
-      }
-    },
-    "What you leave off is never sent. The verifier can still check that the rest was issued by the official issuer and not changed.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你關掉的欄位不會被送出。查驗方仍能確認其餘欄位是官方發行、未被竄改的。"
-          }
-        }
-      }
-    },
-    "National ID number": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "身分證統一編號"
-          }
-        }
-      }
-    },
-    "Last 3 digits of phone number": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "手機號碼末三碼"
-          }
-        }
-      }
-    },
-    "Licence type": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "駕照種類"
-          }
-        }
-      }
-    },
-    "Control number": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "管轄編號"
-          }
-        }
-      }
-    },
-    "Date of issue": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "發證日期"
-          }
-        }
-      }
-    },
-    "Scan a verifier's QR": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "掃描查驗方的 QR"
-          }
-        }
-      }
-    },
-    "Point the camera at the QR the verifier is showing.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "把相機對準查驗方出示的 QR。"
-          }
-        }
-      }
-    },
-    "Present a card to a verifier": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "出示證件給查驗方"
-          }
-        }
-      }
-    },
-    "Scan a verifier's QR and choose exactly what to show.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "掃查驗方的 QR，自己決定給哪些欄位。"
-          }
-        }
-      }
-    },
-    "This phone's cards cannot be read right now. Anything saved here is still saved.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在無法讀取這支手機上的卡片。已存的內容仍在。"
-          }
-        }
-      }
-    },
-    "This card could not be read right now. It may be that the phone is locked, or the stored file is damaged.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在無法讀取這張卡片。可能是手機已鎖定,或存檔已毀損。"
-          }
-        }
-      }
-    },
-    "This card is no longer stored on this phone.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片已不在這支手機上。"
-          }
-        }
-      }
-    },
-    "This card could not be read, and this build cannot tell why.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法讀取這張卡片,而這個版本無法判斷原因。"
-          }
-        }
-      }
-    },
-    "The stored file is not complete enough to read. It is most likely damaged.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "存檔不完整,無法讀取,很可能已毀損。"
-          }
-        }
-      }
-    },
-    "This card is signed in a way this version does not accept (%@).": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片的簽章方式不是本版本接受的(%@)。"
-          }
-        }
-      }
-    },
-    "This card is in a format this version does not recognise (%@).": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片的格式是本版本無法辨識的(%@)。"
-          }
-        }
-      }
-    },
-    "This card commits to its fields using a method this version does not support (%@).": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片用來承諾欄位的方式不是本版本支援的(%@)。"
-          }
-        }
-      }
-    },
-    "This card is missing something it needs to be read.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片缺少讀取所需的內容。"
-          }
-        }
-      }
-    },
-    "This build could not turn the issuer's identifier into a key to check the card with.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本版本無法從發卡者的識別碼取得用來驗證這張卡片的金鑰。"
-          }
-        }
-      }
-    },
-    "This card's signature did not check out. The stored file may be damaged, or it may not have been signed by the issuer it names — this build cannot tell which.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片的簽章沒有通過驗證。存檔可能已毀損,也可能不是它所標示的發卡者簽的——這個版本無法分辨是哪一種。"
-          }
-        }
-      }
-    },
-    "This card includes a field the issuer never signed for, so it is not shown. A card that could add one could claim anything.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片包含一個發卡者從未簽章承諾的欄位,因此不予顯示。能自行加入欄位的卡片可以聲稱任何內容。"
-          }
-        }
-      }
-    },
-    "This card could not be opened": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法開啟這張卡片"
-          }
-        }
-      }
-    },
-    "Card type": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "卡片種類"
-          }
-        }
-      }
-    },
-    "Issued by": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "發卡者"
-          }
-        }
-      }
-    },
-    "Valid from": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "生效日"
-          }
-        }
-      }
-    },
-    "This card": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片"
-          }
-        }
-      }
-    },
-    "What can be confirmed": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "可以確認的部分"
-          }
-        }
-      }
-    },
-    "Issuer's signature": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "發卡者簽章"
-          }
-        }
-      }
-    },
-    "Checked on this phone, with no network. The issuer's own key signed these fields.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已在這支手機上、不需連線完成驗證。這些欄位是由發卡者自己的金鑰所簽。"
-          }
-        }
-      }
-    },
-    "Whether it was cancelled": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "是否已被撤銷"
-          }
-        }
-      }
-    },
-    "This card carries no cancellation list, so whether it was cancelled cannot be known from the card itself.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片沒有附撤銷清單,因此無法從卡片本身得知它是否已被撤銷。"
-          }
-        }
-      }
-    },
-    "Not shown. Whether this card was cancelled can only be known online, and the list that would say so is vouched for by nothing this phone can check offline. A signed card is not the same as one that is still valid.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法顯示。這張卡片是否已被撤銷只能連線才會知道,而載明撤銷與否的清單,沒有任何這支手機能離線查證的東西為它背書。已簽章的卡片,不等於仍然有效的卡片。"
-          }
-        }
-      }
-    },
-    "This card discloses no fields.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片沒有揭露任何欄位。"
-          }
-        }
-      }
-    },
-    "These are personal details from the card. Check who can see your screen.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這些是卡片上的個人資料。請留意誰能看到你的螢幕。"
-          }
-        }
-      }
-    },
-    "No expiry date is given on this card.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這張卡片沒有標示到期日。"
-          }
-        }
-      }
-    },
-    "%@ — expired": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ — 已過期"
-          }
-        }
-      }
-    },
-    "National ID": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "國民身分證"
-          }
-        }
-      }
-    },
-    "Government wallet cards": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "政府皮夾卡片"
-          }
-        }
-      }
-    },
-    "MyData vault": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MyData 資料保險箱"
-          }
-        }
-      }
-    },
-    "Things you can do": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "可以進行的操作"
-          }
-        }
-      }
-    },
-    "No government cards yet": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "還沒有政府皮夾卡片"
-          }
-        }
-      }
-    },
-    "Nothing stored from MyData yet": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MyData 目前沒有存放資料"
-          }
-        }
-      }
-    },
-    "Scan a QR from 數位憑證皮夾 to add a card issued by a government body.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "掃描數位憑證皮夾的 QR，加入由政府機關核發的卡片。"
-          }
-        }
-      }
-    },
-    "Your household record is fetched through MyData only to build your national ID, then erased — nothing is kept here.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你的戶籍資料只透過 MyData 取得、用來建立國民身分證，之後即刪除——這裡不會保存任何資料。"
-          }
-        }
-      }
-    },
-    "Use": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用"
-          }
-        }
-      }
-    },
-    "Online": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "線上"
-          }
-        }
-      }
-    },
-    "Apply for a phone-number card": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "申請電信門號卡"
-          }
-        }
-      }
-    },
-    "Verify your number in your carrier's app; the card returns here.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "跳電信商 app 驗證門號,完成後自動返回領卡"
-          }
-        }
-      }
-    },
-    "Republic of China National ID": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中華民國國民身分證"
-          }
-        }
-      }
-    },
-    "You have not backed up your national ID yet. Build it from your MyData record — the control below starts it.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你還沒有備份國民身分證。用你的 MyData 戶籍資料建立一份——下方的按鈕可以開始。"
-          }
-        }
-      }
-    },
-    "This version of the app cannot recognise this card.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這個版本無法辨識這張卡。"
-          }
-        }
-      }
-    },
-    "This card could not be read right now.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在讀不到這張卡。"
-          }
-        }
-      }
-    },
-    "Valid until": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "有效至"
-          }
-        }
-      }
-    },
-    "No expiry": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無期限"
-          }
-        }
-      }
-    },
-    "%@ (expired)": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@（已過期）"
-          }
-        }
-      }
-    },
-    "Nothing stored here": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目前沒有存放資料"
-          }
-        }
-      }
-    },
-    "Sealed": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已封存"
           }
         }
       }

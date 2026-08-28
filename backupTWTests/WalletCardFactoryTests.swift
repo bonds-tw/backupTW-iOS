@@ -32,12 +32,17 @@ struct WalletCardFactoryTests {
             return
         }
 
-        #expect(card.holderName == "王小明")
+        // The name is masked to the surname on the face; the full name lives
+        // only behind the detail screen's reveal.
+        #expect(card.holderName == "王〇〇")
         #expect(card.idValueMasked == "A1●●●●●●●9")
+        // Self-issued cards say plainly that only the holder vouches for them.
+        #expect(card.trustSource == "行動自然人憑證 · 本人自簽")
 
-        // The full number, and the full birthdate, are nowhere on the face.
+        // The full number, full name, and full birthdate are nowhere on the face.
         let everything = Self.allStrings(of: card)
         #expect(!everything.contains("A123456789"), "the full 統一編號 reached the card face")
+        #expect(!everything.contains("王小明"), "the full name reached the card face")
         #expect(!everything.contains("0800101"), "the full birthdate reached the card face")
     }
 
@@ -71,16 +76,20 @@ struct WalletCardFactoryTests {
             return
         }
 
-        // TWDIW's own published sample person.
-        #expect(card.holderName == "陳筱玲")
+        // TWDIW's own published sample person — masked to the surname on the face.
+        #expect(card.holderName == "陳〇〇")
         #expect(card.primaryMasked == WalletCardMask.masked("A234567890"))
 
         let everything = Self.allStrings(of: card)
-        for leak in ["A234567890", "0570605"] {
+        for leak in ["A234567890", "0570605", "陳筱玲"] {
             #expect(!everything.contains(leak), "a full disclosed value reached the card face: \(leak)")
         }
-        // The kind is the readable type, which a wallet is supposed to show.
+        // The demo fixture is a sandbox card, so it is named honestly as one
+        // rather than dressed up as a real 公路局 licence, and its kind stays the
+        // readable-ised type.
         #expect(card.kind == CardInventory.readableType(TWDIWFixture.credentialType))
+        #expect(card.issuer == "沙盒系統")
+        #expect(card.trustSource == "沙盒/測試")
     }
 
     /// A driving licence is tinted green; the tint is chosen from the type, and
@@ -144,7 +153,7 @@ struct WalletCardFactoryTests {
     /// Every display string on a national ID face, for a leak check.
     private static func allStrings(of card: NationalIDCard) -> String {
         var parts = [card.title, card.holderName, card.idLabel ?? "", card.idValueMasked ?? "",
-                     card.placeholderMessage ?? ""]
+                     card.placeholderMessage ?? "", card.trustSource]
         parts += card.fields.flatMap { [$0.label, $0.value] }
         return parts.joined(separator: "\u{1}")
     }
@@ -152,7 +161,7 @@ struct WalletCardFactoryTests {
     /// Every display string on a credential face, for a leak check.
     private static func allStrings(of card: CredentialCard) -> String {
         var parts = [card.kind, card.kindEnglish ?? "", card.issuer,
-                     card.holderName ?? "", card.primaryMasked ?? ""]
+                     card.holderName ?? "", card.primaryMasked ?? "", card.trustSource]
         parts += [card.leftField, card.rightField].compactMap { $0 }.flatMap { [$0.label, $0.value] }
         return parts.joined(separator: "\u{1}")
     }
