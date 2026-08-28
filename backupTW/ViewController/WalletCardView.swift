@@ -275,25 +275,17 @@ final class WalletCardView: UIView {
             faceContainer.topAnchor.constraint(equalTo: topAnchor),
             faceContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
-        // The perspective the flip is projected through. On the container's
-        // sublayerTransform (not on the tilt transform) so `flipNode`'s rotation
-        // always has depth, independent of the tilt — which is forced flat while a
-        // flip runs.
-        var perspective = CATransform3DIdentity
-        perspective.m34 = -1.0 / 900.0
-        faceContainer.layer.sublayerTransform = perspective
-
-        // flipNode and the two faces carry live 3D transforms, so they are laid out
-        // by hand in `layoutSubviews` (a view whose frame Auto Layout sets cannot
-        // also carry a persistent transform).
+        // flipNode holds both faces; the flip is a `UIView.transition` on it (see
+        // `setFlipped`), which supplies its own perspective and swaps the two faces
+        // by their `isHidden`, so neither face needs a persistent 3D transform.
         faceContainer.addSubview(flipNode)
 
         configureFace(frontFace)
         flipNode.addSubview(frontFace)
         configureFace(backFace)
-        // Pre-rotate the back 180° about Y: combined with flipNode's π at rest-flipped
-        // it reads upright, and single-sidedness hides it the rest of the time.
-        backFace.layer.transform = CATransform3DMakeRotation(.pi, 0, 1, 0)
+        // The back starts hidden and non-interactive; `setFlipped` reveals it with a
+        // flip transition that hides the front in the same move.
+        backFace.isHidden = true
         backFace.isUserInteractionEnabled = false // only while it faces the viewer
         flipNode.addSubview(backFace)
 
@@ -327,15 +319,14 @@ final class WalletCardView: UIView {
         backFace.layer.addSublayer(backBackgroundLayer)
     }
 
-    /// The shared setup for both faces: rounded, clipped, and single-sided so the
-    /// reverse of each is never drawn when the card is turned.
+    /// The shared setup for both faces: rounded and clipped. The flip transition
+    /// swaps them by `isHidden`, so neither needs single-sidedness.
     private func configureFace(_ face: UIView) {
         face.translatesAutoresizingMaskIntoConstraints = true
         face.backgroundColor = .clear
         face.layer.cornerRadius = Self.cornerRadius
         face.layer.cornerCurve = .continuous
         face.clipsToBounds = true
-        face.layer.isDoubleSided = false
     }
 
     static let cornerRadius: CGFloat = 20
@@ -437,40 +428,40 @@ final class WalletCardView: UIView {
 
     // MARK: Phase 2b — flip to the back
 
-    /// Turns the card to its back (`flipped`) or front, over ~0.5s. The rotation
-    /// is `flipNode`'s alone; the tilt on `faceContainer` is a separate transform,
-    /// so the two never touch each other's matrix.
+    /// Turns the card to its back (`flipped`) or front over ~0.5s, using UIKit's
+    /// built-in flip transition on `flipNode`. `.showHideTransitionViews` makes the
+    /// transition drive the swap through each face's `isHidden` rather than adding
+    /// or removing it: the front hides and the back shows in the same flip, with
+    /// UIKit rendering both sides upright (the earlier hand-rolled 3D rotation left
+    /// the reverse face mirrored, because per-layer back-face culling is unreliable
+    /// for a face full of sublayers).
     ///
     /// Turning to the back settles the tilt home and, via the `isFlipped` guard in
-    /// `applyTilt`, pauses it for as long as the back shows — the two effects share
-    /// one perspective and cannot both drive it at once. The back only takes
-    /// touches while it faces the viewer; otherwise its (undrawn) button would
-    /// still swallow taps meant for the front.
+    /// `applyTilt`, pauses it for as long as the back shows — otherwise a tilt on
+    /// `faceContainer` would fight the transition. The back only takes touches while
+    /// it faces the viewer; otherwise its button would swallow taps meant for the
+    /// front.
     func setFlipped(_ flipped: Bool, animated: Bool) {
         guard flipped != isFlipped else { return }
         isFlipped = flipped
         backFace.isUserInteractionEnabled = flipped
         if flipped { resetTilt() }
 
-        let target = CATransform3DMakeRotation(flipped ? .pi : 0, 0, 1, 0)
-        // A full Y-axis card spin is exactly the large, ambient motion Reduce
-        // Motion asks us to drop — so cut straight to the other face when it is on.
-        // The state above (isFlipped, back interactivity, tilt reset) still happens;
-        // only the tween is skipped, matching `applyTilt`'s own Reduce-Motion guard.
+        let swapFaces = {
+            self.frontFace.isHidden = flipped
+            self.backFace.isHidden = !flipped
+        }
+        // A full card spin is exactly the large, ambient motion Reduce Motion asks
+        // us to drop — so cut straight to the other face when it is on. The state
+        // above still changes; only the flip tween is skipped.
         if animated && !UIAccessibility.isReduceMotionEnabled {
-            let turn = CABasicAnimation(keyPath: "transform")
-            turn.fromValue = flipNode.layer.presentation()?.transform ?? flipNode.layer.transform
-            turn.toValue = target
-            turn.duration = 0.5
-            turn.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            flipNode.layer.transform = target
-            flipNode.layer.add(turn, forKey: "flip")
+            let direction: UIView.AnimationOptions = flipped ? .transitionFlipFromRight
+                                                             : .transitionFlipFromLeft
+            UIView.transition(with: flipNode, duration: 0.5,
+                              options: [direction, .showHideTransitionViews],
+                              animations: swapFaces)
         } else {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            flipNode.layer.removeAnimation(forKey: "flip")
-            flipNode.layer.transform = target
-            CATransaction.commit()
+            swapFaces()
         }
     }
 
@@ -509,25 +500,6 @@ final class WalletCardView: UIView {
             aspectRatio = 1.585
             buildUnreadable(message)
         }
-
-        // `isDoubleSided = false` on a face's *own* layer does not reach its
-        // sublayers — the gradients, guilloché, and text labels keep drawing when
-        // the face turns away, which is exactly why a flip showed a mirrored front
-        // instead of the back. Make every layer under each face single-sided, so a
-        // face turned from the viewer draws nothing at all and only the face toward
-        // the viewer is seen. Re-run each configure, since the content (and its
-        // layers) is rebuilt above.
-        Self.makeSingleSided(frontFace)
-        Self.makeSingleSided(backFace)
-    }
-
-    /// Sets `isDoubleSided = false` on a view's layer and every descendant layer.
-    private static func makeSingleSided(_ view: UIView) {
-        func walk(_ layer: CALayer) {
-            layer.isDoubleSided = false
-            layer.sublayers?.forEach(walk)
-        }
-        walk(view.layer)
     }
 
     private func add(_ view: UIView) {
@@ -940,13 +912,15 @@ final class WalletCardView: UIView {
         hasBackContent = true
         // Issuer first (who it is from), then every disclosed field, then the
         // validity window — the same facts the front carries, laid out to read.
+        // Issuer, then the disclosable fields. The front foot already carries
+        // `leftField`/`rightField` (效期 / 類別) and the trust source, so the back
+        // does not repeat them — that keeps the rows from crowding the trust line
+        // and detail button off the bottom of a 226pt card.
         var rows: [WalletCardField] = [
             WalletCardField(label: NSLocalizedString("Issuer", comment: "wallet card back"),
                             value: card.issuer),
         ]
         rows.append(contentsOf: card.backFields)
-        if let left = card.leftField { rows.append(left) }
-        if let right = card.rightField { rows.append(right) }
 
         layoutBack(backgroundColors: card.tint.gradientColors,
                    borderColor: nil,
