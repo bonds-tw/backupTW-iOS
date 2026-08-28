@@ -64,6 +64,13 @@ struct NationalIDCard: Hashable {
     /// grid. For the self-issued ID this is 「行動自然人憑證 · 本人自簽」 — the honest
     /// statement that nobody vouches for it but the holder. Empty to draw nothing.
     let trustSource: String
+    /// The fuller, **still fully masked** field list shown on the flip side (Phase
+    /// 2b). Empty on the placeholder and the stored-but-unreadable faces, which is
+    /// exactly what marks them as not flippable — there is nothing behind them to
+    /// turn to. Every value here has already been through `WalletCardMask`, so the
+    /// same iron rule the front keeps holds on the back: no full sensitive value
+    /// ever reaches this glanceable surface, only the detail screen.
+    let backFields: [WalletCardField]
 
     init(title: String,
          holderName: String,
@@ -71,7 +78,8 @@ struct NationalIDCard: Hashable {
          idLabel: String? = nil,
          idValueMasked: String? = nil,
          placeholderMessage: String? = nil,
-         trustSource: String = "") {
+         trustSource: String = "",
+         backFields: [WalletCardField] = []) {
         self.title = title
         self.holderName = holderName
         self.fields = fields
@@ -79,6 +87,7 @@ struct NationalIDCard: Hashable {
         self.idValueMasked = idValueMasked
         self.placeholderMessage = placeholderMessage
         self.trustSource = trustSource
+        self.backFields = backFields
     }
 }
 
@@ -105,6 +114,11 @@ struct CredentialCard: Hashable {
     let leftField: WalletCardField?
     let rightField: WalletCardField?
     let tint: WalletCardTint
+    /// The disclosed fields shown on the flip side (Phase 2b), **all masked** by
+    /// the factory — the same disclosure list the card carries, put in front of
+    /// the holder without ever spelling a full number or name out. Never empty for
+    /// a real credential face, so a credential is always flippable.
+    let backFields: [WalletCardField]
 }
 
 /// The 石墨 MyData 資料保險箱 face: a lock in a tinted tile, a status dot, and the
@@ -169,13 +183,34 @@ enum WalletCardTint: Hashable {
 /// Draws one `WalletCardContent`. Rebuilds its subviews on each `configure`.
 final class WalletCardView: UIView {
 
-    /// The node a Phase 2 flip transform will rotate; all face art and text live
-    /// inside it. Kept as one layer boundary now so the flip has a single thing
-    /// to animate later.
+    /// # The two transforms, kept on two nodes
+    ///
+    /// `faceContainer` bears the **gyroscope tilt** (`applyTilt`), exactly as in
+    /// Phase 2a. It no longer holds the art directly; it holds `flipNode`, and its
+    /// `sublayerTransform` carries the perspective the flip is projected through —
+    /// kept here rather than on the tilt transform so the flip reads as 3D at every
+    /// tilt, including flat (which is what the tilt is forced to while a flip runs).
     private let faceContainer = UIView()
+
+    /// The node that bears the **flip** (rotateY 0↔π), and nothing else. Sitting
+    /// inside `faceContainer`, it is projected through that container's perspective
+    /// and leans with the tilt for free — the two transforms compose instead of
+    /// fighting because they live on different layers.
+    private let flipNode = UIView()
+
+    /// The front of the card: all the Phase 1/2a art and text. Rounded, clipped,
+    /// and single-sided so its reverse is never drawn when the card is turned.
+    private let frontFace = UIView()
+
+    /// The back of the card: the masked field list and the detail button. Pre-
+    /// rotated 180° about Y and single-sided, so it reads upright exactly when
+    /// `flipNode` has turned to π and is hidden the rest of the time.
+    private let backFace = UIView()
 
     /// The card's background art (gradient / paper). Redrawn per content.
     private let backgroundLayer = CAGradientLayer()
+    /// The back face's own background art, in the same visual language, quieter.
+    private let backBackgroundLayer = CAGradientLayer()
     /// The baked-in top-right highlight for tinted cards.
     private let highlightLayer = CAGradientLayer()
 
@@ -194,7 +229,23 @@ final class WalletCardView: UIView {
     /// The current content's aspect ratio, so the cell can size to it.
     private(set) var aspectRatio: CGFloat = 1.585
 
+    /// Whether this card has a flip side worth turning to — true only for the
+    /// credential and the real (loaded) national ID faces. The placeholder, the
+    /// vault, and the unreadable faces leave it false, which is what tells the
+    /// home screen not to flip them.
+    private(set) var hasBackContent = false
+
+    /// Whether the back is currently showing. While true, `applyTilt` is a no-op:
+    /// tilt and flip share one perspective, and running both at once makes the
+    /// face fight itself.
+    private(set) var isFlipped = false
+
+    /// Called when the back's 「view / manage details」 button is tapped. The home
+    /// screen wires this to the existing detail routing.
+    var onDetailTapped: (() -> Void)?
+
     private var contentSubviews: [UIView] = []
+    private var backContentSubviews: [UIView] = []
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -213,9 +264,9 @@ final class WalletCardView: UIView {
         layer.shadowRadius = 22
         layer.shadowOffset = CGSize(width: 0, height: 14)
 
-        faceContainer.layer.cornerRadius = Self.cornerRadius
-        faceContainer.layer.cornerCurve = .continuous
-        faceContainer.clipsToBounds = true
+        // faceContainer does not clip: the flipping faces inside it must be free to
+        // lean out in 3D without being sheared off at the rounded edge. It is pinned
+        // to the card; the rounded corners live on each face instead.
         faceContainer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(faceContainer)
         NSLayoutConstraint.activate([
@@ -224,19 +275,42 @@ final class WalletCardView: UIView {
             faceContainer.topAnchor.constraint(equalTo: topAnchor),
             faceContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+        // The perspective the flip is projected through. On the container's
+        // sublayerTransform (not on the tilt transform) so `flipNode`'s rotation
+        // always has depth, independent of the tilt — which is forced flat while a
+        // flip runs.
+        var perspective = CATransform3DIdentity
+        perspective.m34 = -1.0 / 900.0
+        faceContainer.layer.sublayerTransform = perspective
 
+        // flipNode and the two faces carry live 3D transforms, so they are laid out
+        // by hand in `layoutSubviews` (a view whose frame Auto Layout sets cannot
+        // also carry a persistent transform).
+        faceContainer.addSubview(flipNode)
+
+        configureFace(frontFace)
+        flipNode.addSubview(frontFace)
+        configureFace(backFace)
+        // Pre-rotate the back 180° about Y: combined with flipNode's π at rest-flipped
+        // it reads upright, and single-sidedness hides it the rest of the time.
+        backFace.layer.transform = CATransform3DMakeRotation(.pi, 0, 1, 0)
+        backFace.isUserInteractionEnabled = false // only while it faces the viewer
+        flipNode.addSubview(backFace)
+
+        // Front art, in the z-order the design needs: gradient, baked highlight,
+        // guilloché, then the sheen above the art and below the text `add` puts on top.
         backgroundLayer.needsDisplayOnBoundsChange = true
-        faceContainer.layer.addSublayer(backgroundLayer)
-        faceContainer.layer.addSublayer(highlightLayer)
+        frontFace.layer.addSublayer(backgroundLayer)
+        frontFace.layer.addSublayer(highlightLayer)
 
         guilloche.translatesAutoresizingMaskIntoConstraints = false
         guilloche.isUserInteractionEnabled = false
-        faceContainer.addSubview(guilloche)
+        frontFace.addSubview(guilloche)
         NSLayoutConstraint.activate([
-            guilloche.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor),
-            guilloche.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor),
-            guilloche.topAnchor.constraint(equalTo: faceContainer.topAnchor),
-            guilloche.bottomAnchor.constraint(equalTo: faceContainer.bottomAnchor),
+            guilloche.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor),
+            guilloche.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor),
+            guilloche.topAnchor.constraint(equalTo: frontFace.topAnchor),
+            guilloche.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor),
         ])
 
         // The Phase 2 sheen. Its resting position is a faint fixed glint near the
@@ -247,7 +321,21 @@ final class WalletCardView: UIView {
         shineLayer.endPoint = Self.shineRestEnd
         shineLayer.colors = [UIColor(white: 1, alpha: 0.12).cgColor,
                              UIColor(white: 1, alpha: 0).cgColor]
-        faceContainer.layer.addSublayer(shineLayer)
+        frontFace.layer.addSublayer(shineLayer)
+
+        backBackgroundLayer.needsDisplayOnBoundsChange = true
+        backFace.layer.addSublayer(backBackgroundLayer)
+    }
+
+    /// The shared setup for both faces: rounded, clipped, and single-sided so the
+    /// reverse of each is never drawn when the card is turned.
+    private func configureFace(_ face: UIView) {
+        face.translatesAutoresizingMaskIntoConstraints = true
+        face.backgroundColor = .clear
+        face.layer.cornerRadius = Self.cornerRadius
+        face.layer.cornerCurve = .continuous
+        face.clipsToBounds = true
+        face.layer.isDoubleSided = false
     }
 
     static let cornerRadius: CGFloat = 20
@@ -272,9 +360,23 @@ final class WalletCardView: UIView {
         super.layoutSubviews()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        backgroundLayer.frame = faceContainer.bounds
-        highlightLayer.frame = faceContainer.bounds
-        shineLayer.frame = faceContainer.bounds
+        let size = bounds.size
+        let centre = CGPoint(x: size.width / 2, y: size.height / 2)
+        // flipNode and backFace carry live 3D transforms, so they are placed by
+        // transform-independent bounds + position rather than `frame`, which is
+        // undefined under a non-identity transform. frontFace's transform is always
+        // identity, so its `frame` is safe and drives its Auto Layout children.
+        flipNode.bounds = CGRect(origin: .zero, size: size)
+        flipNode.center = centre
+        frontFace.frame = CGRect(origin: .zero, size: size)
+        // View-level bounds/center (not layer.*) so backFace's Auto Layout children
+        // re-lay-out when the card resizes; both setters are transform-independent.
+        backFace.bounds = CGRect(origin: .zero, size: size)
+        backFace.center = centre
+        backgroundLayer.frame = frontFace.bounds
+        highlightLayer.frame = frontFace.bounds
+        shineLayer.frame = frontFace.bounds
+        backBackgroundLayer.frame = CGRect(origin: .zero, size: size)
         layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: Self.cornerRadius).cgPath
         CATransaction.commit()
     }
@@ -297,6 +399,10 @@ final class WalletCardView: UIView {
         // Belt-and-suspenders: the coordinator already refuses to start under
         // Reduce Motion, but a card must never animate itself if that is on.
         guard !UIAccessibility.isReduceMotionEnabled else { return }
+        // While the back is showing, the flip owns the perspective; a tilt applied
+        // on top of it would tear the turning face apart. Tilt resumes on the next
+        // motion update once the card is back to its front.
+        guard !isFlipped else { return }
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -329,19 +435,73 @@ final class WalletCardView: UIView {
         CATransaction.commit()
     }
 
+    // MARK: Phase 2b — flip to the back
+
+    /// Turns the card to its back (`flipped`) or front, over ~0.5s. The rotation
+    /// is `flipNode`'s alone; the tilt on `faceContainer` is a separate transform,
+    /// so the two never touch each other's matrix.
+    ///
+    /// Turning to the back settles the tilt home and, via the `isFlipped` guard in
+    /// `applyTilt`, pauses it for as long as the back shows — the two effects share
+    /// one perspective and cannot both drive it at once. The back only takes
+    /// touches while it faces the viewer; otherwise its (undrawn) button would
+    /// still swallow taps meant for the front.
+    func setFlipped(_ flipped: Bool, animated: Bool) {
+        guard flipped != isFlipped else { return }
+        isFlipped = flipped
+        backFace.isUserInteractionEnabled = flipped
+        if flipped { resetTilt() }
+
+        let target = CATransform3DMakeRotation(flipped ? .pi : 0, 0, 1, 0)
+        // A full Y-axis card spin is exactly the large, ambient motion Reduce
+        // Motion asks us to drop — so cut straight to the other face when it is on.
+        // The state above (isFlipped, back interactivity, tilt reset) still happens;
+        // only the tween is skipped, matching `applyTilt`'s own Reduce-Motion guard.
+        if animated && !UIAccessibility.isReduceMotionEnabled {
+            let turn = CABasicAnimation(keyPath: "transform")
+            turn.fromValue = flipNode.layer.presentation()?.transform ?? flipNode.layer.transform
+            turn.toValue = target
+            turn.duration = 0.5
+            turn.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            flipNode.layer.transform = target
+            flipNode.layer.add(turn, forKey: "flip")
+        } else {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            flipNode.layer.removeAnimation(forKey: "flip")
+            flipNode.layer.transform = target
+            CATransaction.commit()
+        }
+    }
+
+    @objc private func detailButtonTapped() {
+        onDetailTapped?()
+    }
+
     // MARK: Configuration
 
     func configure(_ content: WalletCardContent) {
+        // A reused view must show its front and drop the previous card's back before
+        // the new front is built — `prepareForReuse` also resets flip, this guards
+        // the direct-reconfigure path.
+        setFlipped(false, animated: false)
         contentSubviews.forEach { $0.removeFromSuperview() }
         contentSubviews.removeAll()
+        backContentSubviews.forEach { $0.removeFromSuperview() }
+        backContentSubviews.removeAll()
+        hasBackContent = false
+        backBackgroundLayer.colors = nil
+        backFace.layer.borderWidth = 0
 
         switch content {
         case .nationalID(let card):
             aspectRatio = 1.585
             buildNationalID(card)
+            buildNationalIDBack(card)
         case .credential(let card):
             aspectRatio = 1.585
             buildCredential(card)
+            buildCredentialBack(card)
         case .vault(let card):
             aspectRatio = 1.9
             buildVault(card)
@@ -353,8 +513,14 @@ final class WalletCardView: UIView {
 
     private func add(_ view: UIView) {
         view.translatesAutoresizingMaskIntoConstraints = false
-        faceContainer.addSubview(view)
+        frontFace.addSubview(view)
         contentSubviews.append(view)
+    }
+
+    private func addBack(_ view: UIView) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        backFace.addSubview(view)
+        backContentSubviews.append(view)
     }
 
     // MARK: National ID (米色實體身分證)
@@ -366,8 +532,8 @@ final class WalletCardView: UIView {
                                   UIColor(red: 0xec/255, green: 0xea/255, blue: 0xdb/255, alpha: 1).cgColor]
         setDiagonalGradient()
         highlightLayer.colors = []
-        faceContainer.layer.borderWidth = 1
-        faceContainer.layer.borderColor = UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16).cgColor
+        frontFace.layer.borderWidth = 1
+        frontFace.layer.borderColor = UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16).cgColor
         guilloche.isHidden = false
         shineLayer.opacity = 0.5
 
@@ -389,12 +555,12 @@ final class WalletCardView: UIView {
         add(titleHair)
 
         NSLayoutConstraint.activate([
-            titleRow.topAnchor.constraint(equalTo: faceContainer.topAnchor, constant: 15),
-            titleRow.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
-            titleRow.trailingAnchor.constraint(lessThanOrEqualTo: faceContainer.trailingAnchor, constant: -18),
+            titleRow.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 15),
+            titleRow.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+            titleRow.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
             titleHair.topAnchor.constraint(equalTo: titleRow.bottomAnchor, constant: 9),
-            titleHair.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
-            titleHair.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -18),
+            titleHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+            titleHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
         ])
 
         if let message = card.placeholderMessage {
@@ -406,9 +572,9 @@ final class WalletCardView: UIView {
             add(prompt)
             NSLayoutConstraint.activate([
                 prompt.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 16),
-                prompt.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
-                prompt.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -18),
-                prompt.bottomAnchor.constraint(lessThanOrEqualTo: faceContainer.bottomAnchor, constant: -16),
+                prompt.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+                prompt.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                prompt.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -16),
             ])
             return
         }
@@ -442,8 +608,8 @@ final class WalletCardView: UIView {
             add(trust)
             NSLayoutConstraint.activate([
                 trust.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 8),
-                trust.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: faceContainer.trailingAnchor, constant: -18),
+                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
             ])
             gridTop = grid.topAnchor.constraint(equalTo: trust.bottomAnchor, constant: 7)
         } else {
@@ -451,8 +617,8 @@ final class WalletCardView: UIView {
         }
         NSLayoutConstraint.activate([
             gridTop,
-            grid.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
-            grid.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -18),
+            grid.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+            grid.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
         ])
 
         // Red 統一編號 footer: top hairline, right-aligned, monospaced.
@@ -471,15 +637,15 @@ final class WalletCardView: UIView {
             uidRow.alignment = .firstBaseline
             add(uidRow)
             NSLayoutConstraint.activate([
-                uidHair.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 18),
-                uidHair.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -18),
+                uidHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+                uidHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
                 uidHair.bottomAnchor.constraint(equalTo: uidRow.topAnchor, constant: -9),
-                uidRow.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -18),
-                uidRow.bottomAnchor.constraint(equalTo: faceContainer.bottomAnchor, constant: -14),
+                uidRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                uidRow.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -14),
                 uidRow.topAnchor.constraint(greaterThanOrEqualTo: grid.bottomAnchor, constant: 8),
             ])
         } else {
-            grid.bottomAnchor.constraint(lessThanOrEqualTo: faceContainer.bottomAnchor, constant: -14).isActive = true
+            grid.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -14).isActive = true
         }
     }
 
@@ -525,7 +691,7 @@ final class WalletCardView: UIView {
         highlightLayer.endPoint = CGPoint(x: 0.1, y: 0.6)
         highlightLayer.colors = [card.tint.highlightColor.cgColor,
                                  card.tint.highlightColor.withAlphaComponent(0).cgColor]
-        faceContainer.layer.borderWidth = 0
+        frontFace.layer.borderWidth = 0
         guilloche.isHidden = true
         shineLayer.opacity = 0.9
 
@@ -595,8 +761,8 @@ final class WalletCardView: UIView {
             let trust = makeTrustLine(card.trustSource, color: white)
             add(trust)
             NSLayoutConstraint.activate([
-                trust.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: faceContainer.trailingAnchor, constant: -21),
+                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -21),
                 trust.bottomAnchor.constraint(equalTo: footStack.topAnchor, constant: -8),
             ])
             midBottom = midStack.bottomAnchor.constraint(equalTo: trust.topAnchor, constant: -10)
@@ -605,17 +771,17 @@ final class WalletCardView: UIView {
         }
 
         NSLayoutConstraint.activate([
-            topStack.topAnchor.constraint(equalTo: faceContainer.topAnchor, constant: 19),
-            topStack.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
-            topStack.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -21),
+            topStack.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 19),
+            topStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
+            topStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -21),
 
-            midStack.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
-            midStack.trailingAnchor.constraint(lessThanOrEqualTo: faceContainer.trailingAnchor, constant: -21),
+            midStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
+            midStack.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -21),
             midBottom,
 
-            footStack.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 21),
-            footStack.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -21),
-            footStack.bottomAnchor.constraint(equalTo: faceContainer.bottomAnchor, constant: -18),
+            footStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
+            footStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -21),
+            footStack.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -18),
         ])
         if footStack.arrangedSubviews.isEmpty {
             // No foot fields: let the middle sit against the bottom padding.
@@ -644,8 +810,8 @@ final class WalletCardView: UIView {
         backgroundLayer.colors = WalletCardTint.neutral.gradientColors
         setDiagonalGradient()
         highlightLayer.colors = []
-        faceContainer.layer.borderWidth = 1
-        faceContainer.layer.borderColor = UIColor(white: 1, alpha: 0.06).cgColor
+        frontFace.layer.borderWidth = 1
+        frontFace.layer.borderColor = UIColor(white: 1, alpha: 0.06).cgColor
         guilloche.isHidden = true
         shineLayer.opacity = 0.6
 
@@ -699,16 +865,16 @@ final class WalletCardView: UIView {
         add(message)
 
         NSLayoutConstraint.activate([
-            lockTile.topAnchor.constraint(equalTo: faceContainer.topAnchor, constant: 20),
-            lockTile.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 22),
+            lockTile.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 20),
+            lockTile.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
             statusRow.centerYAnchor.constraint(equalTo: lockTile.centerYAnchor),
-            statusRow.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -22),
+            statusRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
 
-            message.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 22),
-            message.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -22),
-            message.bottomAnchor.constraint(equalTo: faceContainer.bottomAnchor, constant: -20),
-            title.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 22),
-            title.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -22),
+            message.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
+            message.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
+            message.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
+            title.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
+            title.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
             title.bottomAnchor.constraint(equalTo: message.topAnchor, constant: -6),
             title.topAnchor.constraint(greaterThanOrEqualTo: lockTile.bottomAnchor, constant: 12),
         ])
@@ -720,8 +886,8 @@ final class WalletCardView: UIView {
         backgroundLayer.colors = WalletCardTint.neutral.gradientColors
         setDiagonalGradient()
         highlightLayer.colors = []
-        faceContainer.layer.borderWidth = 1
-        faceContainer.layer.borderColor = UIColor(white: 1, alpha: 0.06).cgColor
+        frontFace.layer.borderWidth = 1
+        frontFace.layer.borderColor = UIColor(white: 1, alpha: 0.06).cgColor
         guilloche.isHidden = true
         shineLayer.opacity = 0.3
 
@@ -734,15 +900,182 @@ final class WalletCardView: UIView {
         label.numberOfLines = 0
         add(label)
         NSLayoutConstraint.activate([
-            icon.topAnchor.constraint(equalTo: faceContainer.topAnchor, constant: 20),
-            icon.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 22),
+            icon.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 20),
+            icon.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
             icon.widthAnchor.constraint(equalToConstant: 26),
             icon.heightAnchor.constraint(equalToConstant: 26),
-            label.leadingAnchor.constraint(equalTo: faceContainer.leadingAnchor, constant: 22),
-            label.trailingAnchor.constraint(equalTo: faceContainer.trailingAnchor, constant: -22),
+            label.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
+            label.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
             label.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: 12),
-            label.bottomAnchor.constraint(lessThanOrEqualTo: faceContainer.bottomAnchor, constant: -20),
+            label.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -20),
         ])
+    }
+
+    // MARK: Back faces (Phase 2b)
+
+    /// The credential's flip side: its tint carried over (quieter), the disclosed
+    /// fields — every one masked by the factory — listed under a small heading,
+    /// and the detail button. `backFields` is never empty for a real credential,
+    /// so this always makes the card flippable.
+    private func buildCredentialBack(_ card: CredentialCard) {
+        hasBackContent = true
+        // Issuer first (who it is from), then every disclosed field, then the
+        // validity window — the same facts the front carries, laid out to read.
+        var rows: [WalletCardField] = [
+            WalletCardField(label: NSLocalizedString("Issuer", comment: "wallet card back"),
+                            value: card.issuer),
+        ]
+        rows.append(contentsOf: card.backFields)
+        if let left = card.leftField { rows.append(left) }
+        if let right = card.rightField { rows.append(right) }
+
+        layoutBack(backgroundColors: card.tint.gradientColors,
+                   borderColor: nil,
+                   heading: backHeading(card.kind),
+                   rows: rows,
+                   trustSource: card.trustSource,
+                   ink: .white,
+                   labelColor: UIColor(white: 1, alpha: 0.6),
+                   buttonFill: UIColor(white: 1, alpha: 0.16),
+                   buttonTextColor: .white)
+    }
+
+    /// The national ID's flip side: the paper visual, quieter, with the fuller
+    /// masked field list the front had no room for. Built only when the factory
+    /// gave real `backFields` — the placeholder and stored-but-unreadable faces
+    /// pass none, so they stay unflippable.
+    private func buildNationalIDBack(_ card: NationalIDCard) {
+        guard !card.backFields.isEmpty else { return }
+        hasBackContent = true
+        let paperTop = UIColor(red: 0xf7/255, green: 0xf5/255, blue: 0xea/255, alpha: 1).cgColor
+        let paperBottom = UIColor(red: 0xe8/255, green: 0xe6/255, blue: 0xd6/255, alpha: 1).cgColor
+        let ink = UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 1)
+        let label = UIColor(red: 0x5b/255, green: 0x55/255, blue: 0x45/255, alpha: 1)
+
+        layoutBack(backgroundColors: [paperTop, paperBottom],
+                   borderColor: UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16).cgColor,
+                   heading: backHeading(NSLocalizedString("National ID", comment: "wallet card back kind")),
+                   rows: card.backFields,
+                   trustSource: card.trustSource,
+                   ink: ink,
+                   labelColor: label,
+                   buttonFill: UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 0.08),
+                   buttonTextColor: ink)
+    }
+
+    /// The 「可揭露欄位 · <卡別>」 heading both backs share.
+    private func backHeading(_ kind: String) -> String {
+        String(format: NSLocalizedString("Fields you can disclose · %@",
+                                         comment: "wallet card back heading"), kind)
+    }
+
+    /// Lays out the shared furniture of a back face: heading, the masked rows, the
+    /// trust line, and the detail button pinned to the foot. This method only
+    /// positions strings — every value in `rows` is already masked by the factory,
+    /// which is where the no-full-value rule is kept and tested.
+    private func layoutBack(backgroundColors: [CGColor], borderColor: CGColor?,
+                            heading: String, rows: [WalletCardField], trustSource: String,
+                            ink: UIColor, labelColor: UIColor,
+                            buttonFill: UIColor, buttonTextColor: UIColor) {
+        backBackgroundLayer.colors = backgroundColors
+        backBackgroundLayer.startPoint = CGPoint(x: 0.1, y: 0.0)
+        backBackgroundLayer.endPoint = CGPoint(x: 0.85, y: 1.0)
+        backFace.layer.borderWidth = borderColor == nil ? 0 : 1
+        backFace.layer.borderColor = borderColor
+
+        let head = UILabel()
+        head.attributedText = NSAttributedString(
+            string: heading,
+            attributes: [.font: UIFont.systemFont(ofSize: 9.5, weight: .semibold),
+                         .foregroundColor: labelColor, .kern: 1])
+        head.numberOfLines = 1
+        head.lineBreakMode = .byTruncatingTail
+        addBack(head)
+
+        let grid = UIStackView()
+        grid.axis = .vertical
+        grid.spacing = 6
+        grid.alignment = .fill
+        for row in rows { grid.addArrangedSubview(makeBackRow(row, label: labelColor, ink: ink)) }
+        addBack(grid)
+
+        let button = makeDetailButton(fill: buttonFill, textColor: buttonTextColor)
+        addBack(button)
+
+        var constraints: [NSLayoutConstraint] = [
+            head.topAnchor.constraint(equalTo: backFace.topAnchor, constant: 15),
+            head.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
+            head.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+            grid.topAnchor.constraint(equalTo: head.bottomAnchor, constant: 11),
+            grid.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
+            grid.trailingAnchor.constraint(equalTo: backFace.trailingAnchor, constant: -18),
+            button.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
+            button.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+            button.bottomAnchor.constraint(equalTo: backFace.bottomAnchor, constant: -14),
+        ]
+        // The trust line, when there is a source, sits between the grid and the
+        // button; otherwise the grid runs straight to the button.
+        if !trustSource.isEmpty {
+            let trust = makeTrustLine(trustSource, color: ink)
+            addBack(trust)
+            constraints += [
+                trust.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+                trust.bottomAnchor.constraint(equalTo: button.topAnchor, constant: -8),
+                grid.bottomAnchor.constraint(lessThanOrEqualTo: trust.topAnchor, constant: -8),
+            ]
+        } else {
+            constraints.append(grid.bottomAnchor.constraint(lessThanOrEqualTo: button.topAnchor, constant: -10))
+        }
+        NSLayoutConstraint.activate(constraints)
+    }
+
+    /// A 「label　value」 row for a back face, the label at a fixed width so values
+    /// align. The value shrinks rather than wraps — it is already a short masked
+    /// token, never a paragraph.
+    private func makeBackRow(_ field: WalletCardField, label: UIColor, ink: UIColor) -> UIView {
+        let labelView = makeLabel(field.label, font: .systemFont(ofSize: 10.5), color: label)
+        labelView.setContentHuggingPriority(.required, for: .horizontal)
+        labelView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        labelView.widthAnchor.constraint(greaterThanOrEqualToConstant: 92).isActive = true
+
+        let valueView = makeLabel(field.value, font: .systemFont(ofSize: 12.5, weight: .semibold), color: ink)
+        valueView.numberOfLines = 1
+        valueView.adjustsFontSizeToFitWidth = true
+        valueView.minimumScaleFactor = 0.7
+        valueView.lineBreakMode = .byTruncatingTail
+        valueView.textAlignment = .right
+
+        let row = UIStackView(arrangedSubviews: [labelView, valueView])
+        row.axis = .horizontal
+        row.spacing = 10
+        row.alignment = .firstBaseline
+        return row
+    }
+
+    /// The 「查看／管理詳情 →」 button. Its tap runs `onDetailTapped`, which the home
+    /// screen routes to the same detail screens tapping the card used to open —
+    /// detail is now reached from here rather than from the front.
+    private func makeDetailButton(fill: UIColor, textColor: UIColor) -> UIButton {
+        var config = UIButton.Configuration.plain()
+        config.title = NSLocalizedString("View / manage details", comment: "wallet card back CTA")
+        config.image = UIImage(systemName: "chevron.right",
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold))
+        config.imagePlacement = .trailing
+        config.imagePadding = 6
+        config.baseForegroundColor = textColor
+        config.background.backgroundColor = fill
+        config.background.cornerRadius = 12
+        config.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 14, bottom: 9, trailing: 12)
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var out = incoming
+            out.font = .systemFont(ofSize: 12, weight: .semibold)
+            return out
+        }
+        let button = UIButton(configuration: config)
+        button.contentHorizontalAlignment = .leading
+        button.addTarget(self, action: #selector(detailButtonTapped), for: .touchUpInside)
+        return button
     }
 
     // MARK: Helpers

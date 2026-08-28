@@ -82,7 +82,46 @@ enum WalletCardFactory {
             // Self-issued: nobody vouches for it but the holder, and the card
             // says so plainly rather than borrowing a trust-list's authority.
             trustSource: NSLocalizedString("行動自然人憑證 · 本人自簽",
-                                           comment: "national id card trust source: self-signed")))
+                                           comment: "national id card trust source: self-signed"),
+            // The flip side. It shows the fuller field list the front had no room
+            // for — name, 統一編號, 出生, 戶籍地 — but **every one masked**, because
+            // the back is the same over-the-shoulder surface the front is. The
+            // 戶籍地址 is the reason this cannot lean on `isSensitiveKey` alone
+            // (that set names identifier *numbers*, not an address), so
+            // `backFieldValue` masks it explicitly.
+            backFields: nationalIDBackFields(stored: stored)))
+    }
+
+    /// The masked field list for the national ID's flip side, read in the order a
+    /// person reads an ID: who it is about, then the numbers, then where. Built
+    /// from what the stored document actually carries, so a card missing a field
+    /// simply omits its row rather than showing a blank.
+    private static func nationalIDBackFields(stored: StoredNationalID) -> [WalletCardField] {
+        let byKey = Dictionary(stored.claims.map { ($0.key, $0.value) },
+                               uniquingKeysWith: { first, _ in first })
+        var back: [WalletCardField] = []
+        func append(_ key: String) {
+            guard let raw = byKey[key], !raw.isEmpty else { return }
+            back.append(WalletCardField(label: StoredNationalID.label(for: key),
+                                        value: backFieldValue(key: key, raw: raw)))
+        }
+        append("name")
+        append("unifiedNo")
+        append("birthdate")
+        append("nationality")           // not sensitive: shown, sanitised
+        append("addressOfHousehold")    // sensitive: masked by `backFieldValue`
+        if let age = byKey[AgePredicate.claimName], !age.isEmpty {
+            back.append(WalletCardField(
+                label: StoredNationalID.label(for: AgePredicate.claimName),
+                value: StoredNationalID.displayValue(for: AgePredicate.claimName,
+                                                     value: UntrustedText.value(age).text)))
+        }
+        // 發證日 — a date, not a personal fact, so shown as-is. `createdDescription`
+        // already sanitises the raw string on the failed-parse path.
+        back.append(WalletCardField(
+            label: NSLocalizedString("Issued", comment: "national id back: issuance date"),
+            value: stored.createdDescription()))
+        return back
     }
 
     // MARK: - Government / collected credential
@@ -163,7 +202,60 @@ enum WalletCardFactory {
                 label: NSLocalizedString("Valid from", comment: "wallet card foot"),
                 value: Self.dateFormatter.string(from: credential.notBefore)),
             tint: tint(forCredentialType: credential.credentialType,
-                       issuer: credential.issuerDID))
+                       issuer: credential.issuerDID),
+            // The flip side lists every disclosed claim, each masked. It reuses
+            // the same `backFieldValue` rule as the national ID: a name to its
+            // surname, an identifier / phone / birthdate / address to dots, and a
+            // plain non-sensitive field shown as-is. The full values stay behind
+            // the detail screen's reveal — see `credentialFaceMasksTheIdentifier`
+            // and its back-face sibling test.
+            backFields: claims.map {
+                WalletCardField(label: claimLabel($0.name),
+                                value: backFieldValue(key: $0.name, raw: $0.value))
+            })
+    }
+
+    /// Masks one claim value for a flip-side row. The one place the back's promise
+    /// is kept, mirroring the front's `masked` / `maskedName` split:
+    ///
+    ///   - a **name** (the key is or contains 「name / 姓名」) → surname kept, rest 〇.
+    ///   - an **identifier, phone, birthdate, passport, or address** → dotted by
+    ///     `WalletCardMask.masked`. Address is checked here on top of
+    ///     `isSensitiveKey`, which only names identifier *numbers* — a 戶籍地址 is
+    ///     every bit as identifying and must never appear in full.
+    ///   - anything else (nationality, a status flag) → shown, only sanitised.
+    ///
+    /// Errs toward masking, as the whole file does: an over-masked ordinary field
+    /// is a cosmetic loss; an un-masked address or number is the failure this
+    /// exists to prevent.
+    static func backFieldValue(key: String, raw: String) -> String {
+        let text = UntrustedText.value(raw).text
+        let lowered = key.lowercased()
+        if lowered == "name" || lowered.contains("name") || key.contains("姓名") {
+            return WalletCardMask.maskedName(text)
+        }
+        let addressNeedles = ["address", "addr", "戶籍", "住址", "地址", "location"]
+        if WalletCardMask.isSensitiveKey(key) || addressNeedles.contains(where: lowered.contains) {
+            return WalletCardMask.masked(text)
+        }
+        return text
+    }
+
+    /// A readable label for a disclosed credential claim key, falling back to the
+    /// sanitised key itself when this app has no curated name for it — the honest
+    /// thing, never an invented label.
+    private static func claimLabel(_ key: String) -> String {
+        switch key.lowercased() {
+        case "name": return NSLocalizedString("Name", comment: "credential back field")
+        case "id_number", "idnumber": return NSLocalizedString("ID number", comment: "credential back field")
+        case "roc_birthday", "birthday", "birthdate", "dob":
+            return NSLocalizedString("Date of birth", comment: "credential back field")
+        case "license_number", "licence_number":
+            return NSLocalizedString("Licence number", comment: "credential back field")
+        case "msisdn", "mobile", "phone", "phone_number":
+            return NSLocalizedString("Mobile number", comment: "credential back field")
+        default: return UntrustedText.value(key).text
+        }
     }
 
     // MARK: - MyData vault

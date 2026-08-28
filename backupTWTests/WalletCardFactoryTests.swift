@@ -46,6 +46,54 @@ struct WalletCardFactoryTests {
         #expect(!everything.contains("0800101"), "the full birthdate reached the card face")
     }
 
+    /// The flip side lists the fuller field set — including the 戶籍地址 the front
+    /// never shows — and every one of those values is masked. This is the back's
+    /// sibling to `nationalIDFaceMasksTheUnifiedNumber`: the same over-the-shoulder
+    /// surface, the same iron rule, now for the field that `isSensitiveKey` does
+    /// not name (an address is not an identifier *number*).
+    @Test func nationalIDBackMasksEveryField() throws {
+        let store = FactoryStore()
+        try store.save(jws: Self.selfIssuedJWS(name: "王小明",
+                                               unifiedNo: "A123456789",
+                                               birthdate: "0800101",
+                                               nationality: "中華民國",
+                                               addressOfHousehold: "臺北市中正區重慶南路一段122號"),
+                       id: StoredNationalID.credentialID)
+        let row = CardInventoryRow(id: StoredNationalID.credentialID, source: .selfIssued,
+                                   capability: .selfIssued, title: "x", detail: "y", state: .usable)
+
+        let content = WalletCardFactory.nationalIDContent(row: row, store: store)
+        guard case let .nationalID(card) = content else {
+            Issue.record("self-issued row did not become a national ID face: \(content)")
+            return
+        }
+
+        // A real back exists (this is what makes the card flippable) and carries
+        // the household address row the front omits.
+        #expect(!card.backFields.isEmpty, "a stored national ID must have a flip side")
+        let backValues = card.backFields.map(\.value).joined(separator: "\u{1}")
+        #expect(backValues.contains("〇"), "the name on the back must be masked")
+
+        // No full sensitive value — number, name, birthdate, or the full household
+        // address — anywhere on the card, front or back.
+        let everything = Self.allStrings(of: card)
+        for leak in ["A123456789", "王小明", "0800101", "臺北市中正區重慶南路一段122號"] {
+            #expect(!everything.contains(leak), "a full sensitive value reached the card: \(leak)")
+        }
+    }
+
+    /// With no self-issued document, the face is the invite-to-create card: a
+    /// title and a prompt, no number. It has no flip side, which is what keeps it
+    /// tapping through to onboarding rather than turning.
+    @Test func nationalIDPlaceholderHasNoBack() {
+        guard case let .nationalID(card) =
+                WalletCardFactory.nationalIDContent(row: nil, store: FactoryStore()) else {
+            Issue.record("expected a placeholder national ID face")
+            return
+        }
+        #expect(card.backFields.isEmpty)
+    }
+
     /// With no self-issued document, the face is the invite-to-create card: a
     /// title and a prompt, no number.
     @Test func nationalIDPlaceholderWhenNothingStored() {
@@ -90,6 +138,38 @@ struct WalletCardFactoryTests {
         #expect(card.kind == "駕照電子卡")
         #expect(card.issuer == "沙盒系統")
         #expect(card.trustSource == "沙盒/測試")
+    }
+
+    /// The credential's flip side lists every disclosed claim, and not one of them
+    /// appears in full — the same leak check as the front, now over the back's
+    /// fuller list. Sibling to `credentialFaceMasksTheIdentifier`.
+    @Test func credentialBackMasksEveryDisclosedClaim() throws {
+        let store = FactoryStore()
+        let fixture = TWDIWFixture()
+        try store.save(jws: fixture.serialized, id: "licence")
+        let row = CardInventoryRow(id: "licence", source: .twdiw, capability: .twdiw,
+                                   title: "x", detail: "y", state: .usable)
+
+        let content = WalletCardFactory.credentialContent(row: row, store: store)
+        guard case let .credential(card) = content else {
+            Issue.record("a well-formed licence did not become a credential face: \(content)")
+            return
+        }
+
+        // A real credential is always flippable: it has a back listing its
+        // disclosed fields (name, id_number, roc_birthday from the fixture).
+        #expect(!card.backFields.isEmpty, "a credential must have a flip side")
+
+        let everything = Self.allStrings(of: card)
+        for leak in ["A234567890", "0570605", "陳筱玲"] {
+            #expect(!everything.contains(leak),
+                    "a full disclosed value reached the card face (front or back): \(leak)")
+        }
+        // The masked forms *are* present on the back, so it is showing the fields,
+        // just never in the clear.
+        let backValues = card.backFields.map(\.value).joined(separator: "\u{1}")
+        #expect(backValues.contains(WalletCardMask.masked("A234567890")))
+        #expect(backValues.contains("陳〇〇"))
     }
 
     /// A driving licence is tinted green; the tint is chosen from the type, and
@@ -150,19 +230,23 @@ struct WalletCardFactoryTests {
 
     // MARK: - Fixtures
 
-    /// Every display string on a national ID face, for a leak check.
+    /// Every display string on a national ID face — **front and back** — so a leak
+    /// check covers the flip side too, which shows the fuller field list.
     private static func allStrings(of card: NationalIDCard) -> String {
         var parts = [card.title, card.holderName, card.idLabel ?? "", card.idValueMasked ?? "",
                      card.placeholderMessage ?? "", card.trustSource]
         parts += card.fields.flatMap { [$0.label, $0.value] }
+        parts += card.backFields.flatMap { [$0.label, $0.value] }
         return parts.joined(separator: "\u{1}")
     }
 
-    /// Every display string on a credential face, for a leak check.
+    /// Every display string on a credential face — **front and back** — for a leak
+    /// check that includes the flip side's disclosed-field list.
     private static func allStrings(of card: CredentialCard) -> String {
         var parts = [card.kind, card.kindEnglish ?? "", card.issuer,
                      card.holderName ?? "", card.primaryMasked ?? "", card.trustSource]
         parts += [card.leftField, card.rightField].compactMap { $0 }.flatMap { [$0.label, $0.value] }
+        parts += card.backFields.flatMap { [$0.label, $0.value] }
         return parts.joined(separator: "\u{1}")
     }
 
@@ -170,14 +254,17 @@ struct WalletCardFactoryTests {
     /// JWS whose payload is the `VerifiableCredential`. The signature is not
     /// checked on the holder's own read path, so a placeholder segment is fine.
     private static func selfIssuedJWS(name: String, unifiedNo: String,
-                                      birthdate: String, nationality: String) -> String {
+                                      birthdate: String, nationality: String,
+                                      addressOfHousehold: String? = nil) -> String {
+        var subject = ["id": "did:key:zTest", "name": name, "unifiedNo": unifiedNo,
+                       "birthdate": birthdate, "nationality": nationality]
+        if let addressOfHousehold { subject["addressOfHousehold"] = addressOfHousehold }
         let credential = VerifiableCredential(
             context: [.url(VerifiableCredential.credentialsV2Context)],
             type: [VerifiableCredential.baseType, VerifiableCredential.nationalIDType],
             issuer: "did:key:zTest",
             validFrom: "2026-01-01T00:00:00Z",
-            credentialSubject: ["id": "did:key:zTest", "name": name, "unifiedNo": unifiedNo,
-                                "birthdate": birthdate, "nationality": nationality],
+            credentialSubject: subject,
             sd: nil)
         let payload = (try? JSONEncoder().encode(credential)) ?? Data()
         return "e30." + VerifiableCredential.base64URLEncoded(payload) + ".sig"

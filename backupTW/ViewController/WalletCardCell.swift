@@ -61,6 +61,28 @@ final class WalletCardCell: UICollectionViewCell {
         cardView.resetTilt()
     }
 
+    // MARK: - Phase 2b passthrough (flip)
+    //
+    // The flip lives on the card's `flipNode`, a different layer again from both
+    // the press spring and the tilt, so all three compose. The card zeroes and
+    // pauses its own tilt while the back shows.
+
+    /// Whether this card has a back worth turning to — the home screen asks before
+    /// choosing flip over tap-through.
+    var canFlip: Bool { cardView.hasBackContent }
+
+    var isFlipped: Bool { cardView.isFlipped }
+
+    func toggleFlip() {
+        cardView.setFlipped(!cardView.isFlipped, animated: true)
+    }
+
+    /// Wired by the home screen to the back's 「view / manage details」 button.
+    var onDetailTapped: (() -> Void)? {
+        get { cardView.onDetailTapped }
+        set { cardView.onDetailTapped = newValue }
+    }
+
     // MARK: - Press feedback
     //
     // A card is a tappable object, so it acknowledges the finger: a small spring
@@ -97,8 +119,11 @@ final class WalletCardCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         cardView.transform = .identity
-        // A reused cell must not carry the previous card's tilt into its new
-        // content, so clear the 3D transform as well as the press affine.
+        // A reused cell must show its front and carry neither the previous card's
+        // flip nor its tilt into new content: reset the flip first (so it lands on
+        // the front without animating), then clear the 3D tilt and press affine.
+        cardView.setFlipped(false, animated: false)
         cardView.resetTilt()
+        cardView.onDetailTapped = nil
     }
 }

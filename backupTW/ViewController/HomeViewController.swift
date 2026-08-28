@@ -337,8 +337,19 @@ class HomeViewController: UICollectionViewController {
 
     private func configureDataSource() {
         let cardRegistration = UICollectionView.CellRegistration<WalletCardCell, WalletCardContent> {
-            cell, _, content in
+            [weak self] cell, _, content in
             cell.configure(content)
+            // The back's 「查看／管理詳情」 button opens the same detail screen a tap
+            // used to. Resolved through the live indexPath at tap time, never a
+            // captured one, so a reused cell routes to whatever card it now shows.
+            cell.onDetailTapped = { [weak self, weak cell] in
+                guard let self, let cell,
+                      let indexPath = self.collectionView.indexPath(for: cell),
+                      let item = self.dataSource.itemIdentifier(for: indexPath),
+                      case .card(let id, _) = item,
+                      let card = self.cardRows[id] else { return }
+                self.open(card)
+            }
         }
         let controlRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, ControlRow> {
             cell, _, row in
@@ -419,8 +430,20 @@ extension HomeViewController {
 
         switch item {
         case .card(let id, _):
-            // A stored card opens its own contents, keyed by id — two government
-            // cards share a title, so title-matching would open the wrong one.
+            // A flippable card (credential, real national ID) turns to show its
+            // masked fields rather than pushing detail; detail is reached from the
+            // back's own button. `setFlipped` settles this cell's tilt as it turns,
+            // so the flip is not fought by the gyroscope. A second tap on the back
+            // (anywhere but the button) turns it back.
+            if let cell = collectionView.cellForItem(at: indexPath) as? WalletCardCell,
+               cell.canFlip {
+                cell.toggleFlip()
+                return
+            }
+            // Not flippable. A stored card opens its own contents, keyed by id —
+            // two government cards share a title, so title-matching would open the
+            // wrong one. (This path now carries the unreadable stored faces, whose
+            // `open` shows the honest 「could not be read」 alert.)
             if let card = cardRows[id] {
                 open(card)
             } else if id == CardID.nationalIDPlaceholder || id == CardID.vault {
