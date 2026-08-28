@@ -78,13 +78,19 @@ enum IssuerDirectory {
         // reach them.
         let sandboxNeedles = ["sandbox", "demo", "example"]
         if sandboxNeedles.contains(where: { type.contains($0) || issuer.contains($0) }) {
+            // 沙盒系統 is the honest issuer, but the card's *kind* still reads for
+            // what it is — a sandbox driving licence is a 駕照電子卡 issued by
+            // 沙盒系統, not a card of unknown kind. Falls back to the readable type
+            // when the inner kind is not one this table names.
             return IssuerDescriptor(issuerName: "沙盒系統",
-                                    cardKind: readableKind,
+                                    cardKind: friendlyKind(type) ?? readableKind,
                                     trustSource: "沙盒/測試")
         }
 
-        // Driving licence → 交通部公路局.
-        if ["drivinglicense", "driving", "駕照"].contains(where: type.contains) {
+        // Driving licence → 交通部公路局. Both spellings production issues under:
+        // `drivinglicense` (the demo fixture) and `driverlicense` (the live 公路局
+        // card, e.g. `2-16-886-101-…_driverlicense_car_1211`).
+        if ["drivinglicense", "driverlicense", "driving", "driver", "駕照"].contains(where: type.contains) {
             return IssuerDescriptor(issuerName: "交通部公路局",
                                     cardKind: "駕照電子卡",
                                     trustSource: modaTrustList)
@@ -104,11 +110,11 @@ enum IssuerDirectory {
             return telecom("中華電信")
         }
 
-        // 數位發展部 partner card (e.g. the official partner card). After the
+        // 數位發展部 partner card (type carries `wallet_partner`). After the
         // carriers so a telecom type is not swallowed by a stray `moda`.
-        if ["moda", "partner"].contains(where: type.contains) {
+        if ["wallet_partner", "partner", "moda"].contains(where: type.contains) {
             return IssuerDescriptor(issuerName: "數位發展部",
-                                    cardKind: readableKind,
+                                    cardKind: "夥伴卡",
                                     trustSource: modaTrustList)
         }
 
@@ -122,6 +128,23 @@ enum IssuerDirectory {
 
     private static func telecom(_ name: String) -> IssuerDescriptor {
         IssuerDescriptor(issuerName: name, cardKind: "門號電子卡", trustSource: modaTrustList)
+    }
+
+    /// A human-readable card kind from the type substring, or `nil` when this
+    /// table has no curated name. Used for sandbox cards — which keep 沙盒系統 as
+    /// the issuer but still name their kind (a demo 駕照 is a 駕照電子卡) — and
+    /// nowhere else, since the real-issuer branches state their own kind directly.
+    private static func friendlyKind(_ lowercasedType: String) -> String? {
+        if ["drivinglicense", "driverlicense", "driving", "driver", "駕照"].contains(where: lowercasedType.contains) {
+            return "駕照電子卡"
+        }
+        if ["twmdiwvc", "twm", "fet", "chtme", "cht", "門號", "telecom"].contains(where: lowercasedType.contains) {
+            return "門號電子卡"
+        }
+        if ["wallet_partner", "partner"].contains(where: lowercasedType.contains) {
+            return "夥伴卡"
+        }
+        return nil
     }
 
     /// A `did:key` shortened to something a card face can show without a name to

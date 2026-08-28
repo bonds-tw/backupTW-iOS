@@ -33,7 +33,13 @@ private let sampleVCList = Data("""
 }
 """.utf8)
 
-@Suite("電信門號卡目錄")
+// `.serialized`: the two `fetch` tests drive the stub through its **static**
+// state (status / responseBody), so running them in parallel raced — one test's
+// 503/"maintenance" reply was read by the other, which had set 200. Serialising
+// the suite makes each fetch test own the stub for its duration. (The pure-parse
+// tests do not touch that state, but serialising the whole suite is the simplest
+// guarantee and these tests are cheap.)
+@Suite("電信門號卡目錄", .serialized)
 struct TelecomCardCatalogTests {
 
     /// The heart of the feature: the three carrier cards come back, in order, with

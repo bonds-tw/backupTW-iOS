@@ -58,12 +58,25 @@ struct IssuerDirectoryTests {
         }
     }
 
-    @Test("a 數位發展部 partner card is named as 數發部, kind readable-ised")
+    /// The live 公路局 card's type spells it `driverlicense` (not `drivinglicense`),
+    /// e.g. `2-16-886-101-20003-20008-20082_driverlicense_car_1211`. It must map
+    /// to 交通部公路局 / 駕照電子卡, not fall through to the unknown DID fallback.
+    @Test("the live driverlicense card maps to 公路局")
+    func liveDriverLicence() {
+        let d = IssuerDirectory.describe(
+            credentialType: "2-16-886-101-20003-20008-20082_driverlicense_car_1211",
+            issuerDID: "did:key:zReal")
+        #expect(d.issuerName == "交通部公路局")
+        #expect(d.cardKind == "駕照電子卡")
+        #expect(d.trustSource == "數位發展部信任清單")
+    }
+
+    @Test("a 數位發展部 partner card is named as 數發部, kind 夥伴卡")
     func modaPartner() {
         let d = IssuerDirectory.describe(credentialType: "60000001_moda_partner_202504251418",
                                          issuerDID: "did:key:zReal")
         #expect(d.issuerName == "數位發展部")
-        #expect(d.cardKind == CardInventory.readableType("60000001_moda_partner_202504251418"))
+        #expect(d.cardKind == "夥伴卡")
         #expect(d.trustSource == "數位發展部信任清單")
     }
 
@@ -76,7 +89,9 @@ struct IssuerDirectoryTests {
         let type = "00000000_demo_drivinglicense_202504251418"
         let d = IssuerDirectory.describe(credentialType: type, issuerDID: "did:key:zTest")
         #expect(d.issuerName == "沙盒系統")
-        #expect(d.cardKind == CardInventory.readableType(type))
+        // Issuer is honestly the sandbox, but the kind still reads for what the
+        // card is — a demo 駕照 is a 駕照電子卡.
+        #expect(d.cardKind == "駕照電子卡")
         #expect(d.trustSource == "沙盒/測試")
     }
 

@@ -84,10 +84,10 @@ struct WalletCardFactoryTests {
         for leak in ["A234567890", "0570605", "陳筱玲"] {
             #expect(!everything.contains(leak), "a full disclosed value reached the card face: \(leak)")
         }
-        // The demo fixture is a sandbox card, so it is named honestly as one
-        // rather than dressed up as a real 公路局 licence, and its kind stays the
-        // readable-ised type.
-        #expect(card.kind == CardInventory.readableType(TWDIWFixture.credentialType))
+        // The demo fixture is a sandbox card, so its issuer is named honestly as
+        // 沙盒系統 rather than dressed up as a real 公路局 licence — but its kind
+        // still reads for what it is, a 駕照電子卡.
+        #expect(card.kind == "駕照電子卡")
         #expect(card.issuer == "沙盒系統")
         #expect(card.trustSource == "沙盒/測試")
     }
