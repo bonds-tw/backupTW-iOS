@@ -320,6 +320,9 @@ private final class FailingStore: CredentialStoring, @unchecked Sendable {
     func save(jws: String, id: String) throws {}
     func load(id: String) throws -> String? { nil }
     func allIDs() throws -> [String] { [] }
+    // Unused by this suite (which exercises the whole-wallet `deleteAll` reset);
+    // a no-op keeps the conformance without a second failure path to reason about.
+    func delete(id: String) throws {}
 
     func deleteAll() throws {
         let backing = try? DeviceKey.storedKeyBacking(tag: keyTag)

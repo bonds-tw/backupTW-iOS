@@ -53,6 +53,21 @@ enum UserFacingError {
         }
     }
 
+    /// A message for a failure while removing one stored card at the holder's
+    /// request from the home screen.
+    ///
+    /// `CredentialStore.delete` throws in two shapes and neither is the holder's
+    /// doing: an unusable identifier (a programming error) or a filesystem error
+    /// (most often the volume being busy or full). What matters to the person is
+    /// the same in both cases and is the one thing this says: the card is still
+    /// on the phone, so they do not walk away believing it is gone. No type name,
+    /// what-happened then what-to-do — the contract every message here keeps.
+    static func deletionMessage(for error: Error) -> String {
+        NSLocalizedString(
+            "This card could not be removed, so it is still on this phone. This most often means the phone's storage is busy or full — try again in a moment.",
+            comment: "card deletion error")
+    }
+
     /// A message for a failure while resolving a static card-application QR — the
     /// step that turns 「要申請的卡」 into the issuer page a holder finishes on,
     /// before any webview opens.

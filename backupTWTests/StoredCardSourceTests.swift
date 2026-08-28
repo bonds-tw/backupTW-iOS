@@ -100,5 +100,6 @@ private final class InMemoryCredentialStore: CredentialStoring, @unchecked Senda
     func save(jws: String, id: String) throws { items[id] = jws }
     func load(id: String) throws -> String? { items[id] }
     func allIDs() throws -> [String] { items.keys.sorted() }
+    func delete(id: String) throws { items.removeValue(forKey: id) }
     func deleteAll() throws { items.removeAll() }
 }

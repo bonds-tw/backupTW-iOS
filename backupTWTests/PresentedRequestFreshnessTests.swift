@@ -176,6 +176,7 @@ struct PresentedRequestFreshnessTests {
         func save(jws: String, id: String) throws {}
         func load(id: String) throws -> String? { nil }
         func allIDs() throws -> [String] { ["urn:test:credential"] }
+        func delete(id: String) throws {}
         func deleteAll() throws {}
     }
 }

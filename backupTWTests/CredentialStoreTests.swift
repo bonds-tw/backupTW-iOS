@@ -138,6 +138,86 @@ final class CredentialStoreTests: Sendable {
         #expect(try store.allIDs().isEmpty)
     }
 
+    // MARK: - delete(id:)
+
+    /// The property that separates this from `deleteAll`: removing one card must
+    /// leave every other card exactly where it was. A holder clearing a stray
+    /// demo card cannot be made to lose their national ID beside it.
+    @Test func deleteRemovesOnlyTheNamedCredential() throws {
+        try store.save(jws: "national.credential.signature", id: "nationalID")
+        try store.save(jws: "license.credential.signature", id: "driverLicense")
+
+        try store.delete(id: "driverLicense")
+
+        #expect(try store.load(id: "driverLicense") == nil)
+        // The other card is untouched — same bytes, still listed.
+        #expect(try store.load(id: "nationalID") == "national.credential.signature")
+        #expect(try store.allIDs() == ["nationalID"])
+        // Exactly one file remains: the deleted card left no residue and the
+        // survivor was not rewritten.
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).count == 1)
+    }
+
+    /// A deleted card stops being listed and stops loading — the two questions the
+    /// home screen asks after a delete.
+    @Test func deleteMakesAllIDsAndLoadForgetTheCredential() throws {
+        try store.save(jws: Self.sampleJWS, id: "nationalID")
+        #expect(try store.allIDs() == ["nationalID"])
+
+        try store.delete(id: "nationalID")
+
+        #expect(try store.allIDs().isEmpty)
+        #expect(try store.load(id: "nationalID") == nil)
+    }
+
+    /// Idempotent by contract: deleting an id with no file is success, not an
+    /// error. A card already gone — removed on another screen, or a double tap —
+    /// must read as 「it is gone」, which is what was asked.
+    @Test func deletingAnIdentifierThatWasNeverSavedDoesNotThrow() throws {
+        // Never-saved, and — to prove it is not merely emptiness that is tolerated
+        // — a second real card present that must survive the no-op.
+        try store.save(jws: Self.sampleJWS, id: "nationalID")
+
+        try store.delete(id: "neverSaved")
+
+        #expect(try store.allIDs() == ["nationalID"])
+    }
+
+    @Test func deletingFromAnEmptyStoreSucceeds() throws {
+        try store.delete(id: "nationalID")
+        #expect(try store.allIDs().isEmpty)
+    }
+
+    /// Deleting once then again is the same as deleting once — the second call
+    /// meets an absent file and treats it as done.
+    @Test func deletingTheSameCredentialTwiceIsHarmless() throws {
+        try store.save(jws: Self.sampleJWS, id: "nationalID")
+
+        try store.delete(id: "nationalID")
+        try store.delete(id: "nationalID")
+
+        #expect(try store.load(id: "nationalID") == nil)
+    }
+
+    /// `delete` addresses the exact file `save` wrote, through the same
+    /// hex-encoding, so an identifier that is not usable as a file name fails at
+    /// the call site rather than removing something unexpected.
+    @Test func deleteRejectsAnEmptyIdentifier() {
+        #expect(throws: CredentialStoreError.invalidIdentifier) {
+            try self.store.delete(id: "")
+        }
+    }
+
+    /// The store must keep working after a single delete, exactly as after
+    /// `deleteAll` — the same identifier can be saved again.
+    @Test func theStoreIsStillUsableAfterASingleDelete() throws {
+        try store.save(jws: "first", id: "nationalID")
+        try store.delete(id: "nationalID")
+        try store.save(jws: "second", id: "nationalID")
+
+        #expect(try store.load(id: "nationalID") == "second")
+    }
+
     // MARK: - Hostile identifiers
 
     /// None of these may produce a file outside `directory`, and all of them

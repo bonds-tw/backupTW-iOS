@@ -175,5 +175,6 @@ private final class InventoryStore: CredentialStoring, @unchecked Sendable {
     }
     func load(id: String) throws -> String? { items[id] }
     func allIDs() throws -> [String] { order }
+    func delete(id: String) throws { order.removeAll { $0 == id }; items.removeValue(forKey: id) }
     func deleteAll() throws { order.removeAll(); items.removeAll() }
 }

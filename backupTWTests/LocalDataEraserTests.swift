@@ -285,6 +285,7 @@ final class LocalDataEraserTests: @unchecked Sendable {
         func save(jws: String, id: String) throws { throw Failure() }
         func load(id: String) throws -> String? { throw Failure() }
         func allIDs() throws -> [String] { throw Failure() }
+        func delete(id: String) throws { throw Failure() }
         func deleteAll() throws { throw Failure() }
     }
 

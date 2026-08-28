@@ -65,7 +65,11 @@ class HomeViewController: UICollectionViewController {
     /// two unreadable faces say the same words under different sections, so each
     /// carries its own id. This is the same duplicate-identity trap the old row
     /// list documented at length.
-    private enum CardID {
+    /// Not `private`, so the delete-eligibility rule (`deletableCard(forCardID:in:)`)
+    /// can be exercised against these exact synthetic ids in a test without a
+    /// window — the ids that must *never* be deletable are the ones this enum
+    /// names.
+    enum CardID {
         static let nationalIDPlaceholder = "national-id.placeholder"
         static let vault = "mydata.vault"
         static func unreadableStore(in group: String) -> String { "unreadable-store.\(group)" }
@@ -434,6 +438,111 @@ extension HomeViewController {
             case .governmentEmpty:
                 ScanToCollect.begin(on: navigationController)
             }
+        }
+    }
+
+    // MARK: - Delete one card
+
+    /// A long-press context menu, offered **only** on a face that stands for a
+    /// real stored credential.
+    ///
+    /// The eligibility rule is `deletableCard(forCardID:in:)` and it is the same
+    /// keying the tap router already trusts: a card is deletable exactly when its
+    /// id is one `CardInventory` produced from a stored file — every government
+    /// card, the self-issued national ID, and a card that is listed-but-unreadable
+    /// under its real id. The synthetic faces (the invite-to-create ID, the
+    /// MyData vault, the two 「storage would not open」 panels) carry ids this map
+    /// never contains, so they get no menu — there is no single file behind them
+    /// to remove, and a delete that fell through to `deleteAll` would take every
+    /// card. A `.control` row is not a `.card` at all and returns here too.
+    override func collectionView(_ collectionView: UICollectionView,
+                                 contextMenuConfigurationForItemAt indexPath: IndexPath,
+                                 point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let item = dataSource.itemIdentifier(for: indexPath),
+              case .card(let id, _) = item,
+              let card = Self.deletableCard(forCardID: id, in: cardRows) else { return nil }
+
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            let delete = UIAction(
+                title: NSLocalizedString("Delete card", comment: "card context menu, destructive"),
+                image: UIImage(systemName: "trash"),
+                attributes: .destructive) { [weak self] _ in
+                    self?.confirmDelete(card)
+                }
+            return UIMenu(title: "", children: [delete])
+        }
+    }
+
+    /// The stored card a 「刪除卡片」 action on `id` would remove, or nil when the
+    /// face is not a deletable stored credential.
+    ///
+    /// A single documented seam so the menu and its test ask the identical
+    /// question. It is deliberately the same `cardRows` lookup as the tap router:
+    /// there is one definition of 「this face is a stored card」 in this screen and
+    /// both the thing that opens a card and the thing that deletes one read it.
+    static func deletableCard(forCardID id: String,
+                              in cardRows: [String: CardInventoryRow]) -> CardInventoryRow? {
+        cardRows[id]
+    }
+
+    /// A destructive operation is never one tap. This confirmation names the card
+    /// and says what recovery, if any, exists — a national ID can be rebuilt from
+    /// MyData, a government card re-collected from 數位憑證皮夾 — so a holder who
+    /// pressed 「刪除卡片」 by mistake, or does not realise the card is retrievable,
+    /// finds out before the file is gone rather than after.
+    private func confirmDelete(_ card: CardInventoryRow) {
+        // Keyed on the canonical national-ID id, not `source`: a national ID that
+        // is stored but currently unreadable resolves to `.unrecognised`, and it
+        // should still get the 「rebuild through MyData」 wording rather than the
+        // government 「re-collect from 數位憑證皮夾」 one.
+        let message = card.id == StoredNationalID.credentialID
+            ? NSLocalizedString(
+                "This card will be removed from this phone. You can build your national ID again later through Taiwan's MyData service.",
+                comment: "delete confirmation, self-issued national ID")
+            : NSLocalizedString(
+                "This card will be removed from this phone. You can collect it again from 數位憑證皮夾.",
+                comment: "delete confirmation, government wallet card")
+
+        let alert = UIAlertController(
+            title: NSLocalizedString("Delete this card?", comment: "delete confirmation title"),
+            message: message,
+            preferredStyle: .alert)
+        // `.destructive` on the confirm, `.cancel` last so the safe choice is the
+        // one under the thumb — the same shape the identity-reset confirmation uses.
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Delete", comment: "delete confirmation, confirm"),
+            style: .destructive) { [weak self] _ in
+                self?.performDelete(card)
+            })
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Cancel", comment: "delete confirmation, cancel"),
+            style: .cancel))
+        present(alert, animated: true)
+    }
+
+    /// Removes exactly this card, then rebuilds the list so it disappears.
+    ///
+    /// A fresh `CredentialStore()` for the one call, matching every other write
+    /// on this screen — the store is stateless between operations and holds a
+    /// lock for the duration of each. `delete(id:)`, never `deleteAll()`: the
+    /// scope is this one id and the rest of the wallet stays put.
+    ///
+    /// A failure is surfaced, not swallowed. If the file could not be removed the
+    /// card is still on the phone, so the holder is told in the app's
+    /// `UserFacingError` voice rather than being shown a list the delete silently
+    /// failed to change — a pretend success here would be a lie about where an
+    /// identity document is.
+    private func performDelete(_ card: CardInventoryRow) {
+        do {
+            try CredentialStore().delete(id: card.id)
+            applySnapshot()
+        } catch {
+            let alert = UIAlertController(
+                title: NSLocalizedString("The card was not deleted", comment: "delete failure title"),
+                message: UserFacingError.deletionMessage(for: error),
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .cancel))
+            present(alert, animated: true)
         }
     }
 

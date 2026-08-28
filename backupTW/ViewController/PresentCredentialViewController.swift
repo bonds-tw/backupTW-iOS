@@ -1321,6 +1321,11 @@ struct EmptyCredentialStore: CredentialStoring {
     func save(jws: String, id: String) throws { throw CredentialStoreError.invalidIdentifier }
     func load(id: String) throws -> String? { nil }
     func allIDs() throws -> [String] { [] }
+    // The store never opened, so it holds nothing to remove — a delete of
+    // "nothing" is trivially the idempotent success `delete` promises. This does
+    // not reach the home screen's delete path, which constructs a real
+    // `CredentialStore()`; it is here only to satisfy the protocol.
+    func delete(id: String) throws {}
     func deleteAll() throws {}
 }
 

@@ -31,6 +31,20 @@ protocol CredentialStoring {
     func load(id: String) throws -> String?
     func allIDs() throws -> [String]
 
+    /// Removes exactly one credential — the one `id` maps to — and nothing else.
+    ///
+    /// This is the single-card counterpart to `deleteAll`, and the difference is
+    /// the whole point: a holder clearing one stray demo card must not lose the
+    /// national ID sitting beside it. So this unlinks one file; every other
+    /// credential, and the directory itself, is left exactly as it was.
+    ///
+    /// Idempotent by contract: deleting an `id` with no file on disk is a
+    /// success, not an error. The home screen answers a delete by re-reading the
+    /// store, so a card already gone (removed on another screen, or tapped
+    /// twice) should read as 「it is gone」, which is what the holder asked for —
+    /// not as a failure about a state that already matches the request.
+    func delete(id: String) throws
+
     /// Empties the store. Scope is exactly the credentials: the device signing
     /// key is untouched, so credentials issued after this are issued under the
     /// same `did:key` as the ones removed. To become a different holder, see
@@ -208,6 +222,43 @@ final class CredentialStore: CredentialStoring, @unchecked Sendable {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         return attributes[.protectionKey] as? FileProtectionType
+    }
+
+    /// Removes the one credential named by `id`, and only that one.
+    ///
+    /// Emphatically not `deleteAll`: that unlinks the whole directory, this
+    /// unlinks a single hex-named file inside it. A second stored card is a
+    /// different file with a different name, so it is untouched — the failure
+    /// this method is written against is deleting the wrong card, or every card,
+    /// when the holder asked to remove one.
+    ///
+    /// The identifier is put through the same `fileURL(for:)` as save and load,
+    /// so a delete addresses exactly the file a save wrote — never a sanitised
+    /// alias of it — and a malformed identifier fails at the call site rather
+    /// than removing something unexpected.
+    ///
+    /// Idempotent: a genuinely absent file is the outcome delete promises, so it
+    /// is reported as success. Anything else — a locked volume, a permissions
+    /// error — is rethrown, exactly as `load` rethrows everything that is not a
+    /// truly missing file, because a caller that heard 「done」 for a delete that
+    /// did not happen would tell the holder a card was gone while it sat on the
+    /// phone. What actually makes the bytes unrecoverable is the same as in
+    /// `deleteAll`: unlinking the file discards the per-file key its Data
+    /// Protection contents were sealed under.
+    func delete(id: String) throws {
+        let url = try fileURL(for: id)
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            // Already absent is success, not failure — see the contract on
+            // `CredentialStoring.delete`. Only this one code is swallowed; every
+            // other error propagates so it can never masquerade as a completed
+            // deletion.
+        }
     }
 
     /// Removes every credential. Deliberately *not* an identity reset — this
