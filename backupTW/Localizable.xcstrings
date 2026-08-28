@@ -6879,6 +6879,96 @@
           }
         }
       }
+    },
+    "Republic of China National ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中華民國國民身分證"
+          }
+        }
+      }
+    },
+    "You have not backed up your national ID yet. Build it from your MyData record — the control below starts it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你還沒有備份國民身分證。用你的 MyData 戶籍資料建立一份——下方的按鈕可以開始。"
+          }
+        }
+      }
+    },
+    "This version of the app cannot recognise this card.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本無法辨識這張卡。"
+          }
+        }
+      }
+    },
+    "This card could not be read right now.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在讀不到這張卡。"
+          }
+        }
+      }
+    },
+    "Valid until": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有效至"
+          }
+        }
+      }
+    },
+    "No expiry": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無期限"
+          }
+        }
+      }
+    },
+    "%@ (expired)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（已過期）"
+          }
+        }
+      }
+    },
+    "Nothing stored here": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前沒有存放資料"
+          }
+        }
+      }
+    },
+    "Sealed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已封存"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
