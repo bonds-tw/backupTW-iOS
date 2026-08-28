@@ -11,6 +11,18 @@ class HomeViewController: UICollectionViewController {
 
     private var dataSource: UICollectionViewDiffableDataSource<HomeSection, HomeItem>!
 
+    /// The single device-motion source that drives every visible card's sheen and
+    /// micro-tilt. Owned here (strong) and fed to the cards through a closure that
+    /// captures `self` weakly, so there is no cycle. Runs only while this screen is
+    /// on-screen — see `viewWillAppear` / `viewWillDisappear`.
+    private let motionCoordinator = WalletMotionCoordinator()
+
+    /// Whether Home is the on-screen view. It tells 「backgrounded while Home
+    /// showed」 (resume the sheen on return) apart from 「backgrounded while
+    /// Settings or a detail covered Home」 (do not) — a distinction the foreground
+    /// notification cannot make on its own, unlike `viewWillAppear`.
+    private var isHomeVisible = false
+
     /// A section of the home screen, identified by a stable id so its header and
     /// its place survive a rebuild even as its cards change.
     private struct HomeSection: Hashable {
@@ -233,6 +245,41 @@ class HomeViewController: UICollectionViewController {
 
         configureDataSource()
         applySnapshot()
+
+        // Weak self: the coordinator is a stored property of this controller, so a
+        // strong capture here would be a retain cycle. Each tilt is fanned out to
+        // whichever cards are currently visible.
+        motionCoordinator.onTilt = { [weak self] x, y in
+            self?.applyTiltToVisibleCards(x: x, y: y)
+        }
+
+        // `viewWillDisappear` does not fire when the app is backgrounded, so the
+        // sensor would otherwise stay 「started」 across a background. Stop it on
+        // background, resume on foreground — but only if Home is actually showing,
+        // since the foreground notification cannot tell that by itself. The detail
+        // screens observe the same notification for the same reason.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification, object: nil)
+    }
+
+    @objc private func appDidEnterBackground() {
+        motionCoordinator.stop()
+    }
+
+    @objc private func appWillEnterForeground() {
+        if isHomeVisible { motionCoordinator.start() }
+    }
+
+    /// Pushes one motion update to every on-screen card. Cheap: a bounded walk of
+    /// visible cells, each forwarding to a per-frame layer update.
+    private func applyTiltToVisibleCards(x: CGFloat, y: CGFloat) {
+        for case let cell as WalletCardCell in collectionView.visibleCells {
+            cell.applyTilt(x: x, y: y)
+        }
     }
 
     /// Presents Settings modally with a 「完成」 close button — Settings is no
@@ -243,6 +290,12 @@ class HomeViewController: UICollectionViewController {
         settings.navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: NSLocalizedString("Done", comment: ""), style: .done,
             target: self, action: #selector(dismissPresentedSettings))
+        // Full screen, not the default `.pageSheet`. A sheet leaves this
+        // controller in the hierarchy, so `viewWillDisappear` never fires and the
+        // gyroscope would keep streaming to the dimmed cards behind it. Full
+        // screen fires appear/disappear cleanly — the same choice
+        // `presentMyDataOnboard` already makes — so the sheen stops with the sheet.
+        nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
     }
 
@@ -256,6 +309,24 @@ class HomeViewController: UICollectionViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         applySnapshot()
+        isHomeVisible = true
+        // Start the sheen only while this screen is showing. Idempotent, and a
+        // no-op on hardware without a gyroscope or under Reduce Motion.
+        motionCoordinator.start()
+    }
+
+    /// Stop the sensor the moment this screen is covered or left — a Settings
+    /// modal, a pushed detail, or switching tabs. Nothing should keep updating
+    /// cards nobody can see, and the sensor should not stay draining power. The
+    /// now-hidden cards are settled back to flat so they are not frozen mid-tilt
+    /// when the screen returns.
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        isHomeVisible = false
+        motionCoordinator.stop()
+        for case let cell as WalletCardCell in collectionView.visibleCells {
+            cell.resetTilt()
+        }
     }
 
     // MARK: - Data source

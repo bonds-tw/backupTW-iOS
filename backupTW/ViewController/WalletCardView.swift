@@ -239,16 +239,34 @@ final class WalletCardView: UIView {
             guilloche.bottomAnchor.constraint(equalTo: faceContainer.bottomAnchor),
         ])
 
-        // The Phase 2 sheen, static for now: a faint fixed glint near the top.
+        // The Phase 2 sheen. Its resting position is a faint fixed glint near the
+        // top; CoreMotion slides it around this rest point in `applyTilt`, and
+        // `resetTilt` brings it home. Rest points are named so both places agree.
         shineLayer.type = .radial
-        shineLayer.startPoint = CGPoint(x: 0.3, y: 0.15)
-        shineLayer.endPoint = CGPoint(x: 1.1, y: 1.0)
+        shineLayer.startPoint = Self.shineRestStart
+        shineLayer.endPoint = Self.shineRestEnd
         shineLayer.colors = [UIColor(white: 1, alpha: 0.12).cgColor,
                              UIColor(white: 1, alpha: 0).cgColor]
         faceContainer.layer.addSublayer(shineLayer)
     }
 
     static let cornerRadius: CGFloat = 20
+
+    // MARK: Phase 2a — motion tuning
+
+    /// The radial sheen's resting centre and radius-defining end point. The tilt
+    /// translates both by the same delta, so the highlight moves as one rigid
+    /// blob rather than smearing.
+    private static let shineRestStart = CGPoint(x: 0.3, y: 0.15)
+    private static let shineRestEnd = CGPoint(x: 1.1, y: 1.0)
+
+    /// How far, in unit-square terms, the sheen slides at full tilt. Deliberately
+    /// small — a light passing over the card, not a spotlight swinging across it.
+    private static let shineTravel: CGFloat = 0.22
+
+    /// The peak 3D rotation of the face at full tilt. 6° reads as depth without
+    /// tipping into gimmick or revealing the clipped card edges.
+    private static let maxTiltAngle: CGFloat = 6 * .pi / 180
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -258,6 +276,56 @@ final class WalletCardView: UIView {
         highlightLayer.frame = faceContainer.bounds
         shineLayer.frame = faceContainer.bounds
         layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: Self.cornerRadius).cgPath
+        CATransaction.commit()
+    }
+
+    // MARK: Phase 2a — gyroscope sheen + micro-tilt
+
+    /// Applies a live tilt from `WalletMotionCoordinator`. `x` and `y` are in
+    /// [-1, 1]: x from device roll (left/right), y from pitch (toward/away).
+    ///
+    /// Two things move together, both with implicit animation off so each of the
+    /// ~60 updates a second lands as a single cheap frame rather than queuing a
+    /// pile of quarter-second layer animations that would stutter:
+    ///   • the radial sheen slides opposite the tilt, as a fixed light would
+    ///     appear to sweep across a card turned under it;
+    ///   • `faceContainer` takes a small perspective rotation, so the whole face
+    ///     — art, sheen and text as one node — leans with the phone.
+    /// Nothing is rebuilt or re-laid-out here; this is pure per-frame value
+    /// updates on layers that already exist.
+    func applyTilt(x: CGFloat, y: CGFloat) {
+        // Belt-and-suspenders: the coordinator already refuses to start under
+        // Reduce Motion, but a card must never animate itself if that is on.
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        let dx = x * Self.shineTravel
+        let dy = y * Self.shineTravel
+        shineLayer.startPoint = CGPoint(x: Self.shineRestStart.x + dx,
+                                        y: Self.shineRestStart.y + dy)
+        shineLayer.endPoint = CGPoint(x: Self.shineRestEnd.x + dx,
+                                      y: Self.shineRestEnd.y + dy)
+
+        var transform = CATransform3DIdentity
+        transform.m34 = -1.0 / 700.0 // perspective; nearer edge grows, far shrinks
+        transform = CATransform3DRotate(transform, x * Self.maxTiltAngle, 0, 1, 0)
+        transform = CATransform3DRotate(transform, -y * Self.maxTiltAngle, 1, 0, 0)
+        faceContainer.layer.transform = transform
+
+        CATransaction.commit()
+    }
+
+    /// Returns the face to flat and the sheen to its rest point, with a short
+    /// settle so releasing (leaving the screen, or losing the sensor) reads as
+    /// the card coming to rest rather than snapping.
+    func resetTilt() {
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.3)
+        shineLayer.startPoint = Self.shineRestStart
+        shineLayer.endPoint = Self.shineRestEnd
+        faceContainer.layer.transform = CATransform3DIdentity
         CATransaction.commit()
     }
 

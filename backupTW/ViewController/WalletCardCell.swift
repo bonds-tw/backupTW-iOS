@@ -46,6 +46,21 @@ final class WalletCardCell: UICollectionViewCell {
         aspectConstraint = constraint
     }
 
+    // MARK: - Phase 2a passthrough (gyroscope tilt)
+    //
+    // The home screen owns the one motion stream and fans each update out to its
+    // visible cells; the cell just forwards to its card. The press spring
+    // (`cardView.transform`, affine) and the tilt (`faceContainer.layer.transform`,
+    // 3D) live on different layers, so they compose without fighting.
+
+    func applyTilt(x: CGFloat, y: CGFloat) {
+        cardView.applyTilt(x: x, y: y)
+    }
+
+    func resetTilt() {
+        cardView.resetTilt()
+    }
+
     // MARK: - Press feedback
     //
     // A card is a tappable object, so it acknowledges the finger: a small spring
@@ -82,5 +97,8 @@ final class WalletCardCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         cardView.transform = .identity
+        // A reused cell must not carry the previous card's tilt into its new
+        // content, so clear the 3D transform as well as the press affine.
+        cardView.resetTilt()
     }
 }
