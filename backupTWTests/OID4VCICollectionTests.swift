@@ -57,6 +57,22 @@ struct CredentialOfferTests {
             fetchURL: "https://issuer-oid4vci.wallet.gov.tw/api/issuer/00000000/offer"))
     }
 
+    /// The inbound OS-routed telecom offer, carrying the CR+LF the official deep
+    /// link frames after `credential_offer?`, still reads — because `SceneDelegate`
+    /// routes inbound URLs through `parse(scanned:)`, not the raw `parse(url)`.
+    ///
+    /// This is the telecom feature's load-bearing path: the carrier app returns
+    /// `modadigitalwallet://credential_offer?…` by OS scheme routing, and the raw
+    /// `URL` parser would read the query name as `\r\ncredential_offer_uri`, miss
+    /// the offer, and silently drop the card. The `scanned:` form strips the
+    /// framing first, so the offer is recovered.
+    @Test func theInboundOfficialDeepLinkWithCRLFFramingStillReads() throws {
+        let framed = "modadigitalwallet://credential_offer?\r\ncredential_offer_uri=https%3A%2F%2Fissuer-oid4vci.wallet.gov.tw%2Fapi%2Fissuer%2F00000000%2Foffer"
+        let parsed = try CredentialOfferLink.parse(scanned: framed)
+        #expect(parsed == .byReference(
+            fetchURL: "https://issuer-oid4vci.wallet.gov.tw/api/issuer/00000000/offer"))
+    }
+
     /// `modadigitalwallet://` with anything other than `credential_offer` in the
     /// host position is not one — the host word carries meaning in this scheme.
     @Test func theOfficialSchemeWithAWrongHostIsRefused() {

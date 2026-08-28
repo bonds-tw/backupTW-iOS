@@ -26,6 +26,32 @@
 				<string>openid-credential-offer</string>
 			</array>
 		</dict>
+		<!-- modadigitalwallet:// — 台灣數位憑證皮夾 官方 App 的自訂 scheme.
+		     This REVERSES the earlier deliberate decision NOT to register it
+		     (documented in TWDIW/CredentialOffer.swift). Why register it now:
+		     the telecom 門號電子卡 flow finishes inside the carrier's own app,
+		     which hands the credential offer back only as
+		     modadigitalwallet://credential_offer?credential_offer_uri=… — the OS
+		     routes that to whichever app registers the scheme, so unless we
+		     register it we never receive the offer and the card can never be
+		     collected. The trust gates still protect us: an inbound offer under
+		     this scheme goes through exactly the same CredentialOfferLink.parse →
+		     CredentialCollection → IssuerAuthorization two gates as any other, so
+		     an untrusted issuer is still refused. The cost: we now share this
+		     scheme with the official app, and iOS leaves routing undefined when
+		     both are installed — so for reliable delivery the official 皮夾 app
+		     must be removed. This is stated in the user-facing entry that opens
+		     the flow (UseViewController「申請電信門號卡」). -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>tw.bonds.backupTW.modadigitalwallet</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>modadigitalwallet</string>
+			</array>
+		</dict>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

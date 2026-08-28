@@ -287,7 +287,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         for context in URLContexts {
             let url = context.url
-            if let link = try? CredentialOfferLink.parse(url) {
+            // Parse via the tolerant `scanned:` form, not `parse(url)` directly.
+            // This is the path the telecom flow depends on: the carrier app hands
+            // the offer back as `modadigitalwallet://credential_offer?…`, and the
+            // official deep link measured on device frames it with a CR+LF right
+            // after `credential_offer?` (see `CredentialOffer` parse notes). Only
+            // `parse(scanned:)` strips that framing before forming the URL; feeding
+            // the raw `URL` to `parse(url)` would read the query name as
+            // `\r\ncredential_offer_uri`, miss the offer, and drop the card to the
+            // FidO router — the same silent non-collection the scanned path fixed.
+            if let link = try? CredentialOfferLink.parse(scanned: url.absoluteString) {
                 collectCredential(from: link)
                 continue
             }

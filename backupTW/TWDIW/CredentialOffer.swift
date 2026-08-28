@@ -50,11 +50,17 @@ enum CredentialOfferLink: Equatable {
     /// - `modadigitalwallet` is 台灣數位憑證皮夾 官方 App 的自訂 scheme, measured
     ///   off `demo.wallet.gov.tw` on 2026-08-26: the deep link reads
     ///   `modadigitalwallet://credential_offer?credential_offer_uri=…`. It is
-    ///   **understood but not registered** — registering it would fight the
-    ///   official app for the same deep link, whose resolution iOS leaves
-    ///   undefined. So a `modadigitalwallet` URL only reaches this parser when
-    ///   the holder brought it in another way (a scanned QR, a paste), never by
-    ///   the OS routing a tap to us.
+    ///   **now registered** (`Info.plist`), reversing an earlier decision not to.
+    ///   The telecom 門號電子卡 flow finishes inside the carrier's own app, which
+    ///   hands the offer back only under this scheme, so without registering it
+    ///   the OS never routes the offer to us and the card can never be collected.
+    ///   The cost is that we share the scheme with the official app and iOS
+    ///   leaves routing undefined when both are installed — see the note on the
+    ///   `Info.plist` entry and the user-facing 「申請電信門號卡」 row. Whether an
+    ///   offer arrives by the OS routing a scheme tap, a scanned QR, or a paste,
+    ///   it goes through this parser and both `IssuerAuthorization` gates the
+    ///   same way, so registration widens *how* an offer can reach the gates,
+    ///   never whether it must pass them.
     private static let offerSchemes: Set<String> = ["openid-credential-offer", "modadigitalwallet"]
 
     /// Reads a link from a **scanned string**, tolerating the framing a QR

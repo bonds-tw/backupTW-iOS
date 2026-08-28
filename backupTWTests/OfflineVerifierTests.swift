@@ -1353,6 +1353,15 @@ struct OfflineVerifierNetworkTests {
             // gates before a credential is issued. Caught by this scan on the
             // commit that introduced it — the list working.
             "TWDIW/ModaServiceURLResolver.swift",
+            // The 「申請新卡」 catalogue fetch: GETs the apply/vcList endpoint on
+            // `frontend.wallet.gov.tw` to list which telecom 門號電子卡 a holder can
+            // start, on an explicit tap. Fetches which cards exist; publishes
+            // nothing, mints nothing. The carrier's own app later returns the
+            // `modadigitalwallet://credential_offer` deep link, which still passes
+            // `IssuerAuthorization`'s gates. Nothing here runs while a document is
+            // being checked. Caught by this scan on the commit that introduced it —
+            // the list working.
+            "TWDIW/TelecomCardCatalog.swift",
             // The embedded issuer web view where a holder finishes an application
             // the card cannot hand over up front (電信卡 verifies the line, 駕照驗證卡
             // logs in to 監理服務網). A browser is a network client by definition,

@@ -65,6 +65,35 @@ enum UserFacingError {
         }
     }
 
+    /// A message for a failure while loading the 「申請新卡」 catalogue — the step
+    /// that lists which telecom 門號電子卡 a holder can start, before any carrier
+    /// app opens.
+    static func telecomCatalogMessage(for error: Error) -> String {
+        switch error {
+        case let e as TelecomCardCatalogError: return message(for: e)
+        default:
+            return NSLocalizedString("Loading the list of phone-number cards did not work. Please try again.",
+                                     comment: "telecom catalog error: unknown")
+        }
+    }
+
+    private static func message(for error: TelecomCardCatalogError) -> String {
+        switch error {
+        case .network:
+            return NSLocalizedString("Could not reach the card service. Check your connection and try again.",
+                                     comment: "telecom catalog error: network")
+        case .badStatus(let code, _):
+            // The body is captured on the error for the log; the holder sees the
+            // number they could quote, not the server's raw reply.
+            return String(format: NSLocalizedString(
+                "The card service could not list the cards (it returned %d). Please try again later.",
+                comment: "telecom catalog error: bad status"), code)
+        case .malformedResponse, .badURL:
+            return NSLocalizedString("The list of phone-number cards could not be read, so nothing was started.",
+                                     comment: "telecom catalog error: malformed")
+        }
+    }
+
     private static func message(for error: ModaServiceURLResolverError) -> String {
         switch error {
         case .network:

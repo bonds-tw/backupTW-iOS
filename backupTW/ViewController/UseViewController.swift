@@ -35,6 +35,7 @@ class UseViewController: UICollectionViewController {
     /// section above a row can never silently repoint it.
     private enum Row {
         static let collect = NSLocalizedString("Add a card by scanning", comment: "")
+        static let applyTelecom = NSLocalizedString("Apply for a phone-number card", comment: "")
         static let presentOnline = NSLocalizedString("Present a card to a verifier", comment: "")
         static let compare = NSLocalizedString("What each of these cards is worth", comment: "")
         static let present = NSLocalizedString("Show my document", comment: "")
@@ -89,8 +90,21 @@ class UseViewController: UICollectionViewController {
                            secondaryText: NSLocalizedString(
                             "Point the camera at a QR from 數位憑證皮夾 to add its card.", comment: ""))
 
+        // Applying for a telecom 門號電子卡. Unconditional like `collect` — it is a
+        // way to *get* a first card, so gating it on already holding one would hide
+        // it from exactly the fresh install it is for. The subtitle warns up front
+        // that verification happens in the carrier's own app over mobile data (Wi-Fi
+        // usually has to be off), and that the finished offer returns here on its
+        // own — the piece that only works because `modadigitalwallet://` is now
+        // registered.
+        let applyTelecom = Item(image: UIImage(systemName: "antenna.radiowaves.left.and.right")?
+                                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+                                title: Row.applyTelecom,
+                                secondaryText: NSLocalizedString(
+                                    "Opens your carrier's phone-number check — follow its steps (you usually need Wi-Fi off, on mobile data). When it finishes it returns here to add the card. For this to route back, remove the official 數位憑證皮夾 app.", comment: ""))
+
         guard hasAnyCard else {
-            return Section(title: title, items: [collect])
+            return Section(title: title, items: [collect, applyTelecom])
         }
 
         // Presenting an official card online — scan the verifier's request, then
@@ -111,7 +125,7 @@ class UseViewController: UICollectionViewController {
                            secondaryText: NSLocalizedString(
                             "What a checker can rely on, and what none of them can establish.", comment: ""))
 
-        return Section(title: title, items: [collect, presentOnline, compare])
+        return Section(title: title, items: [collect, applyTelecom, presentOnline, compare])
     }
 
     /// The offline half of the wallet: showing your own document to a checker,
@@ -233,6 +247,81 @@ class UseViewController: UICollectionViewController {
         dismiss(animated: true)
     }
 
+    /// Fetches the telecom 門號電子卡 catalogue and opens the carrier's application.
+    ///
+    /// This is an「申請新卡」action, so it is deliberately *not* the embedded
+    /// `WebCollectViewController` path (that is for cards the wallet finishes
+    /// inside an in-app webview). A telecom card is `type == 1` — its number
+    /// check runs in the carrier's own app over mobile data — so the entry URL is
+    /// handed to the OS with `UIApplication.shared.open`. When the carrier is done
+    /// it returns a `modadigitalwallet://credential_offer` deep link, which the
+    /// scene delegate routes through both `IssuerAuthorization` gates like any
+    /// other offer.
+    ///
+    /// - Parameter anchorCell: the tapped row, used only as the iPad popover
+    ///   anchor so the action sheet does not crash on a regular-width layout. Nil
+    ///   is tolerated — the presentation falls back to the view's centre.
+    private func applyTelecomCard(anchorCell: UICollectionViewCell?) {
+        Task { @MainActor in
+            let cards: [TelecomCard]
+            do {
+                cards = try await TelecomCardCatalog.fetch()
+            } catch {
+                presentTelecomAlert(title: NSLocalizedString("Apply for a phone-number card", comment: ""),
+                                    message: UserFacingError.telecomCatalogMessage(for: error))
+                return
+            }
+
+            guard !cards.isEmpty else {
+                // A reachable, well-formed catalogue that simply lists no telecom
+                // card right now — a real state (a maintenance window, a rename),
+                // said plainly rather than as an error.
+                presentTelecomAlert(title: NSLocalizedString("Apply for a phone-number card", comment: ""),
+                                    message: NSLocalizedString(
+                                        "No phone-number cards are available to apply for right now. Please try again later.", comment: ""))
+                return
+            }
+
+            let sheet = UIAlertController(
+                title: NSLocalizedString("Which carrier?", comment: "telecom apply chooser title"),
+                message: NSLocalizedString(
+                    "Choose your mobile carrier. Its app opens to verify the number on your line.", comment: ""),
+                preferredStyle: .actionSheet)
+            for card in cards {
+                sheet.addAction(UIAlertAction(title: card.name, style: .default) { _ in
+                    guard let url = URL(string: card.issuerServiceUrl) else { return }
+                    // `type == 1` → external open. The completion form is used
+                    // because the bare `open(_:)` would resolve to the awaitable
+                    // overload inside a closure that returns Void.
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                })
+            }
+            sheet.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+            // iPad presents an action sheet in a popover, which crashes without a
+            // source. Anchor on the tapped row when it is still on screen, else the
+            // view's centre — never an unset source.
+            if let popover = sheet.popoverPresentationController {
+                if let anchorCell {
+                    popover.sourceView = anchorCell
+                    popover.sourceRect = anchorCell.bounds
+                } else {
+                    popover.sourceView = view
+                    popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+                    popover.permittedArrowDirections = []
+                }
+            }
+            present(sheet, animated: true)
+        }
+    }
+
+    /// A plain one-button alert for the telecom apply flow's failures and empty
+    /// states, in the same shape the collection alert uses.
+    private func presentTelecomAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+        present(alert, animated: true)
+    }
+
     private func configureDataSource() {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
             var content = cell.defaultContentConfiguration()
@@ -302,6 +391,12 @@ extension UseViewController {
         switch item.title {
         case Row.collect:
             ScanToCollect.begin(on: navigationController)
+        case Row.applyTelecom:
+            // The row that needs no card: it *starts* an application. The source
+            // cell is captured for the action sheet's iPad popover anchor before
+            // the await, because the collection view may recompose while the
+            // catalogue is fetched.
+            applyTelecomCard(anchorCell: collectionView.cellForItem(at: indexPath))
         case Row.presentOnline:
             ScanToPresent.begin(on: navigationController)
         case Row.compare:
