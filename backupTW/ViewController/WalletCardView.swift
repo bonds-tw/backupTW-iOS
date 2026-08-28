@@ -509,6 +509,25 @@ final class WalletCardView: UIView {
             aspectRatio = 1.585
             buildUnreadable(message)
         }
+
+        // `isDoubleSided = false` on a face's *own* layer does not reach its
+        // sublayers — the gradients, guilloché, and text labels keep drawing when
+        // the face turns away, which is exactly why a flip showed a mirrored front
+        // instead of the back. Make every layer under each face single-sided, so a
+        // face turned from the viewer draws nothing at all and only the face toward
+        // the viewer is seen. Re-run each configure, since the content (and its
+        // layers) is rebuilt above.
+        Self.makeSingleSided(frontFace)
+        Self.makeSingleSided(backFace)
+    }
+
+    /// Sets `isDoubleSided = false` on a view's layer and every descendant layer.
+    private static func makeSingleSided(_ view: UIView) {
+        func walk(_ layer: CALayer) {
+            layer.isDoubleSided = false
+            layer.sublayers?.forEach(walk)
+        }
+        walk(view.layer)
     }
 
     private func add(_ view: UIView) {
