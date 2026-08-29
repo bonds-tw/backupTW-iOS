@@ -66,7 +66,7 @@ class HomeViewController: UICollectionViewController {
     /// `NSObject`-hashable in a way that is a trap to lean on inside a diffable
     /// item identity.
     private struct ControlRow: Hashable {
-        enum Kind: Hashable { case backup, governmentEmpty }
+        enum Kind: Hashable { case backup, governmentEmpty, importMyData }
         let id: String
         let kind: Kind
         let title: String
@@ -78,6 +78,7 @@ class HomeViewController: UICollectionViewController {
     private enum Row {
         static let backUp = NSLocalizedString("Back up my national ID", comment: "")
         static let governmentEmpty = NSLocalizedString("No government cards yet", comment: "home card group empty state")
+        static let importMyData = NSLocalizedString("Import a MyData document", comment: "vault import row")
     }
 
     /// Synthetic card identifiers — cards that do not stand for a stored
@@ -119,15 +120,19 @@ class HomeViewController: UICollectionViewController {
         let rows = store.map { CardInventory.rows(from: $0) }
         cardRows = Dictionary((rows ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
+        // Self-issued splits two ways: the national ID (its own section, one card)
+        // and MyData vault documents (財力/勞保/學歷…), which go to the vault.
         let selfIssued = rows?.filter { $0.source == .selfIssued }
+        let nationalID = selfIssued?.filter { !MyDataDocumentRegistry.isVaultDocument(id: $0.id) }
+        let vaultDocs = selfIssued?.filter { MyDataDocumentRegistry.isVaultDocument(id: $0.id) }
         // Unrecognised cards ride with the government group, as the old list did:
         // this app mints exactly one self-issued document, so a blob matching
         // neither shape is likelier collected than ours gone wrong.
         let government = rows?.filter { $0.source == .twdiw || $0.source == .unrecognised }
 
-        return [nationalIDSection(rows: selfIssued, store: store),
+        return [nationalIDSection(rows: nationalID, store: store),
                 governmentSection(rows: government, store: store),
-                myDataSection()]
+                myDataSection(rows: vaultDocs, store: store)]
     }
 
     /// The national ID this app builds, kept with the 「更新備份」 control that
@@ -206,10 +211,27 @@ class HomeViewController: UICollectionViewController {
     /// the household record is fetched to build the national ID and erased
     /// straight after (see `MyDataScratch`). The vault card says that plainly
     /// rather than showing a vault that will always be empty with no word on why.
-    private func myDataSection() -> (HomeSection, [HomeItem]) {
+    private func myDataSection(rows: [CardInventoryRow]?,
+                               store: CredentialStoring?) -> (HomeSection, [HomeItem]) {
         let section = HomeSection(id: "mydata",
                                   title: "🗂️ " + NSLocalizedString("MyData vault", comment: "home card group"))
-        return (section, [.card(id: CardID.vault, content: WalletCardFactory.vaultContent())])
+        var items: [HomeItem] = []
+        // Held vault documents first, each as its own card face.
+        for row in rows ?? [] {
+            items.append(.card(id: row.id,
+                               content: WalletCardFactory.vaultDocumentContent(row: row, store: store)))
+        }
+        // The empty-state 「Sealed / nothing here」 card only when the vault is empty.
+        if items.isEmpty {
+            items.append(.card(id: CardID.vault, content: WalletCardFactory.vaultContent()))
+        }
+        // The way in: import another document from MyData.
+        items.append(.control(ControlRow(
+            id: "control.import-mydata", kind: .importMyData,
+            title: Row.importMyData,
+            subtitle: NSLocalizedString("Bring a financial, insurance, or academic document in from MyData.",
+                                        comment: "vault import subtitle"))))
+        return (section, items)
     }
 
     /// The one sentence both card groups show when the store itself would not
@@ -536,6 +558,9 @@ class HomeViewController: UICollectionViewController {
             case .governmentEmpty:
                 content.image = UIImage(systemName: "qrcode.viewfinder")?
                     .withTintColor(.systemGray, renderingMode: .alwaysOriginal)
+            case .importMyData:
+                content.image = UIImage(systemName: "tray.and.arrow.down.fill")?
+                    .withTintColor(.tintColor, renderingMode: .alwaysOriginal)
             }
             cell.contentConfiguration = content
             var background = UIBackgroundConfiguration.listGroupedCell()
@@ -652,8 +677,48 @@ extension HomeViewController {
                 presentMyDataOnboard()
             case .governmentEmpty:
                 ScanToCollect.begin(on: navigationController)
+            case .importMyData:
+                presentImportPicker()
             }
         }
+    }
+
+    /// The way into the vault: pick a MyData document type to import. Each type's
+    /// actual fetch is wired once its MyData item path is known and tested on-device
+    /// (see `MyDataDocumentType.myDataItemPath`); until then, choosing one explains
+    /// that plainly rather than opening a flow that cannot complete.
+    private func presentImportPicker() {
+        let sheet = UIAlertController(
+            title: NSLocalizedString("Import from MyData", comment: "vault import picker title"),
+            message: NSLocalizedString("Choose a document to bring in from Taiwan's MyData service.", comment: ""),
+            preferredStyle: .actionSheet)
+        for type in MyDataDocumentRegistry.vaultDocuments {
+            sheet.addAction(UIAlertAction(title: type.title, style: .default) { [weak self] _ in
+                self?.beginImport(of: type)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        sheet.popoverPresentationController?.sourceView = view
+        sheet.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.maxY - 40, width: 1, height: 1)
+        present(sheet, animated: true)
+    }
+
+    private func beginImport(of type: MyDataDocumentType) {
+        guard type.myDataItemPath != nil else {
+            // The generic fetch/issue pipeline is in place; this document is waiting
+            // on its MyData item path (discovered on a real account) and on-device
+            // testing before it can be fetched.
+            let alert = UIAlertController(
+                title: type.title,
+                message: NSLocalizedString("This document's MyData import is still being wired up. It will open here once its MyData path is confirmed.", comment: ""),
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+            present(alert, animated: true)
+            return
+        }
+        // A wired document would run the generic MyData fetch → self-issue → store
+        // flow here (the same path the national ID uses, parameterised by `type`).
+        presentMyDataOnboard()
     }
 
     // MARK: - Delete one card

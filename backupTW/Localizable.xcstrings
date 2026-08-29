@@ -318,6 +318,16 @@
         }
       }
     },
+    "Academic qualification": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "學歷證明"
+          }
+        }
+      }
+    },
     "Add a card by scanning": {
       "localizations": {
         "zh-Hant": {
@@ -592,6 +602,16 @@
         }
       }
     },
+    "Bring a financial, insurance, or academic document in from MyData.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從 MyData 匯入財力、保險或學歷等文件。"
+          }
+        }
+      }
+    },
     "Built on this phone from your MyData record, and signed with your digital certificate.": {
       "localizations": {
         "zh-Hant": {
@@ -850,6 +870,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "從相簿選 QR"
+          }
+        }
+      }
+    },
+    "Choose a document to bring in from Taiwan's MyData service.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇要從台灣 MyData 服務匯入的文件。"
           }
         }
       }
@@ -1678,6 +1708,26 @@
         }
       }
     },
+    "Health insurance record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "健保投保資料"
+          }
+        }
+      }
+    },
+    "Held by you · from MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自持・來源 MyData"
+          }
+        }
+      }
+    },
     "Hidden while this app is not in front": {
       "comment": "App switcher privacy cover",
       "localizations": {
@@ -1790,6 +1840,26 @@
         }
       }
     },
+    "Import a MyData document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入 MyData 文件"
+          }
+        }
+      }
+    },
+    "Import from MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從 MyData 匯入"
+          }
+        }
+      }
+    },
     "In this version": {
       "localizations": {
         "zh-Hant": {
@@ -1806,6 +1876,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "包含身分證字號與戶籍地址。先確認旁邊有沒有人看得到螢幕。"
+          }
+        }
+      }
+    },
+    "Income / financial proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "財力／所得證明"
           }
         }
       }
@@ -2016,6 +2096,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "繼續"
+          }
+        }
+      }
+    },
+    "Labor insurance record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "勞保投保資料"
           }
         }
       }
@@ -3396,6 +3486,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "自我檢查"
+          }
+        }
+      }
+    },
+    "Self-held": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自持"
           }
         }
       }
@@ -5886,6 +5986,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "簽署這份證件的人，與證件所描述的人不是同一位。"
+          }
+        }
+      }
+    },
+    "This document's MyData import is still being wired up. It will open here once its MyData path is confirmed.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份文件的 MyData 匯入還在建置中。等 MyData 路徑確認後就會在這裡開放。"
           }
         }
       }

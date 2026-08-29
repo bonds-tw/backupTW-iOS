@@ -120,6 +120,18 @@ enum CardInventory {
     }
 
     private static func selfIssuedRow(id: String, store: CredentialStoring) -> CardInventoryRow {
+        // A vault document — any registered self-issued document that is not the
+        // national ID — carries its document-type title and is routed to the
+        // 資料保險箱 by the home screen (via `MyDataDocumentRegistry.isVaultDocument`),
+        // rather than the national-ID section, which only ever shows one card.
+        if MyDataDocumentRegistry.isVaultDocument(id: id),
+           let type = MyDataDocumentRegistry.lookup(id: id) {
+            return CardInventoryRow(
+                id: id, source: .selfIssued, capability: .selfIssued,
+                title: type.title,
+                detail: NSLocalizedString("Held by you · from MyData", comment: "vault document origin"),
+                state: .usable)
+        }
         // `StoredNationalID.load` is keyed to the one canonical identifier, so a
         // second self-issued document — which nothing creates today — gets the
         // kind's own sentence rather than a count belonging to another card.

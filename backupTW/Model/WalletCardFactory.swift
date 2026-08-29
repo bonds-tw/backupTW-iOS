@@ -270,6 +270,23 @@ enum WalletCardFactory {
             status: NSLocalizedString("Sealed", comment: "vault card status")))
     }
 
+    /// A held MyData vault document, drawn as a graphite credential face. It is
+    /// 「self-held」 — wrapped from MyData data by this phone, not signed by the
+    /// agency — so it is badged as such and never dressed up as agency-issued.
+    static func vaultDocumentContent(row: CardInventoryRow, store: CredentialStoring?) -> WalletCardContent {
+        .credential(CredentialCard(
+            kind: row.title,
+            kindEnglish: nil,
+            issuer: NSLocalizedString("Held by you · from MyData", comment: "vault document issuer line"),
+            holderName: nil,
+            primaryMasked: nil,
+            trustSource: NSLocalizedString("Self-held", comment: "vault document trust source"),
+            leftField: nil,
+            rightField: nil,
+            tint: .neutral,
+            backFields: []))
+    }
+
     // MARK: - Tint selection (a colour is not a claim)
 
     /// Picks a stable colour for a credential from its kind. This is the one
