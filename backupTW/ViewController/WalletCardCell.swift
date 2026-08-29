@@ -66,11 +66,15 @@ final class WalletCardCell: UICollectionViewCell {
         stackPeekHeight = height
         let isPeek = height != nil
         bottomConstraint?.isActive = !isPeek
-        // A peek clips the full-height card to a short strip; round the clip on all
-        // corners (the card's own rounding only covers the top two).
+        // A peek clips the full-height card to a short strip, rounded ONLY at the top
+        // — its bottom edge is straight, so the card reads as continuing down under
+        // the card stacked over it (Apple-Wallet tuck), not a standalone rounded pill.
         contentView.clipsToBounds = isPeek
         contentView.layer.cornerRadius = isPeek ? WalletCardView.cornerRadius : 0
         contentView.layer.cornerCurve = .continuous
+        contentView.layer.maskedCorners = isPeek
+            ? [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+            : [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         // Never clip the cell itself — a peek's drop shadow has to spill past the
         // cell onto the card beneath it, which is what makes the stack read as
         // physically tucked (Apple-Wallet style) rather than a spaced list.
@@ -90,10 +94,14 @@ final class WalletCardCell: UICollectionViewCell {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Shape a peek's shadow to the visible strip, not the full (clipped) card.
+        // Shape a peek's shadow to the visible strip — rounded top, straight bottom,
+        // matching the clip — so the shadow reads as a card edge tucking under, not a
+        // pill floating above.
         layer.shadowPath = stackPeekHeight == nil ? nil
             : UIBezierPath(roundedRect: contentView.bounds,
-                           cornerRadius: WalletCardView.cornerRadius).cgPath
+                           byRoundingCorners: [.topLeft, .topRight],
+                           cornerRadii: CGSize(width: WalletCardView.cornerRadius,
+                                               height: WalletCardView.cornerRadius)).cgPath
     }
 
     override func preferredLayoutAttributesFitting(
