@@ -107,6 +107,44 @@ final class MyDataScratch: Sendable {
         return try Data(contentsOf: pdf)
     }
 
+#if DEBUG
+    /// A **structure-only** description of a download that would not process — for
+    /// working out what shape a non-national-ID MyData file arrives in. It reports
+    /// the magic bytes, the byte size, and (for a zip) the *extensions* of the
+    /// entries and their sizes. It deliberately reveals **no filename** (a name can
+    /// carry a person's name) and **no content** (never a field, never a line of a
+    /// document). DEBUG builds only; the release path shows the generic message.
+    func debugArchiveShape(ofArchiveAt archive: URL) -> String {
+        guard let data = try? Data(contentsOf: archive) else { return "unreadable (no bytes)" }
+        let magic = Array(data.prefix(4))
+        let hex = magic.map { String(format: "%02x", $0) }.joined()
+        let kind: String
+        if magic.starts(with: [0x50, 0x4B]) { kind = "zip" }
+        else if magic.starts(with: [0x25, 0x50, 0x44, 0x46]) { kind = "pdf" }
+        else if magic.starts(with: [0x1f, 0x8b]) { kind = "gzip" }
+        else if magic.first == 0x7b || magic.first == 0x5b { kind = "json?" }
+        else { kind = "other(0x\(hex))" }
+        var out = "size=\(data.count)B kind=\(kind)"
+        guard kind == "zip" else { return out }
+        do {
+            let dest = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try Self.createProtectedDirectory(at: dest)
+            try Zip.unzipFile(archive, destination: dest, overwrite: true, password: nil)
+            let entries = try FileManager.default.contentsOfDirectory(
+                at: dest, includingPropertiesForKeys: [.fileSizeKey])
+            let shapes = entries.map { url -> String in
+                let ext = url.pathExtension.lowercased()
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? -1
+                return "\(ext.isEmpty ? "(none)" : ext):\(size)B"
+            }.sorted()
+            out += " entries=[\(shapes.joined(separator: ", "))]"
+        } catch {
+            out += " unzip-failed=\(error)"
+        }
+        return out
+    }
+#endif
+
     // MARK: - Cleanup
 
     /// Deletes the zip, the directory it unpacked into and the PDF, in one blow.

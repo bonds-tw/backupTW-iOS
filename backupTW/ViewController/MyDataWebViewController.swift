@@ -181,16 +181,36 @@ extension MyDataWebViewController : WKDownloadDelegate {
         // unpacked directory or the PDF on disk.
         defer { discardDownloadedFiles() }
 
-        guard
-            let archiveURL = archiveURL,
-            let pdfData = try? scratch.pdfData(fromArchiveAt: archiveURL),
-            // From `Data`, not from the URL: the document keeps working after the
-            // file is deleted, which is what lets the purge happen now rather than
-            // after the user has typed their ID number into the alert below.
-            let pdf = PDFDocument(data: pdfData),
-            pdf.isEncrypted
-        else {
-            presentAlert(message: NSLocalizedString("Successfully downloaded but processing error", comment: ""))
+        guard let archiveURL else {
+            presentProcessingError(detail: nil)
+            return
+        }
+
+        // From `Data`, not from the URL: the document keeps working after the file
+        // is deleted, which is what lets the purge happen now rather than after the
+        // user has typed their ID number into the alert below.
+        let pdfData: Data
+        do {
+            pdfData = try scratch.pdfData(fromArchiveAt: archiveURL)
+        } catch {
+            // The national ID arrives as a PDF inside a zip. A vault document that
+            // arrives in some other shape (not a zip, or a zip of a CSV) lands here;
+            // on DEBUG we say which shape — structure only, never content — so its
+            // own handling can be written.
+            var detail: String?
+            #if DEBUG
+            detail = "pdfData: \(error) · " + scratch.debugArchiveShape(ofArchiveAt: archiveURL)
+            #endif
+            presentProcessingError(detail: detail)
+            return
+        }
+
+        guard let pdf = PDFDocument(data: pdfData) else {
+            var detail: String?
+            #if DEBUG
+            detail = "archive held a non-PDF (\(pdfData.count)B)"
+            #endif
+            presentProcessingError(detail: detail)
             return
         }
 
@@ -209,8 +229,33 @@ extension MyDataWebViewController : WKDownloadDelegate {
         // Only the scan result is kept — four values that describe the envelope.
         // No page text, no field, nothing from the document itself.
         PDFSignatureScan.record(PDFSignatureScan.scan(pdfData))
-        // dealing with the encrypted PDF
-        unzipWithPassword(of: pdf, didFail: false)
+
+        if pdf.isEncrypted {
+            // National ID (and any document delivered encrypted): unlock with the
+            // ID number, then parse.
+            unzipWithPassword(of: pdf, didFail: false)
+        } else if let model = parseUnencryptedPDF(pdf) {
+            // Some MyData documents deliver an *unencrypted* PDF — parse it straight
+            // away, no password prompt.
+            completion(model)
+            dismiss(animated: true)
+        } else {
+            // Unencrypted, but the national-ID-shaped parser found none of its
+            // fields — i.e. a different document whose own parser does not exist yet.
+            var detail: String?
+            #if DEBUG
+            detail = "unencrypted PDF, parse=nil, pages=\(pdf.pageCount)"
+            #endif
+            presentProcessingError(detail: detail)
+        }
+    }
+
+    /// The download completed but the bytes were not the national-ID shape. Release
+    /// builds show only the plain message; DEBUG builds append a structure-only
+    /// detail (never a field value) so a new document's format can be identified.
+    private func presentProcessingError(detail: String?) {
+        let base = NSLocalizedString("Successfully downloaded but processing error", comment: "")
+        presentAlert(message: detail.map { "\(base)\n\n[DEBUG] \($0)" } ?? base)
     }
 
     /// Drops the whole scratch directory and forgets what was in it.
@@ -271,7 +316,13 @@ extension MyDataWebViewController : WKDownloadDelegate {
                         self.completion(nationalIDModel)
                         self.dismiss(animated: true)
                     } else {
-                        self.presentAlert(message: NSLocalizedString("Successfully downloaded but processing error", comment: ""))
+                        // Unlocked, but not the national-ID layout — an encrypted
+                        // document whose own parser does not exist yet.
+                        var detail: String?
+                        #if DEBUG
+                        detail = "decrypted PDF, parse=nil, pages=\(pdf.pageCount)"
+                        #endif
+                        self.presentProcessingError(detail: detail)
                     }
                 } else {
                     self.unzipWithPassword(of: pdf, didFail: true)
