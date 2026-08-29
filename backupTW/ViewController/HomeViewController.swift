@@ -362,27 +362,32 @@ class HomeViewController: UICollectionViewController {
     /// (full-height) card to just the header (see `WalletCardCell.setStackPeek`).
     private static func collapsedStackSection(cardCount: Int,
                                               environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
+        // A custom group does NOT honour the section's horizontal contentInsets for
+        // its item frames — they came out full-bleed, wider than every other card.
+        // So the 16pt side margin is put into the item frames by hand (x = inset,
+        // width = container − 2·inset) and the section's horizontal insets are left
+        // at 0, matching the normal one-per-row cards exactly.
         let inset: CGFloat = 16
-        let contentWidth = environment.container.effectiveContentSize.width - inset * 2
-        let cardHeight = contentWidth / credentialAspect
+        let cardWidth = environment.container.effectiveContentSize.width - inset * 2
+        let cardHeight = cardWidth / credentialAspect
         let totalHeight = cardHeight + CGFloat(cardCount - 1) * (stackPeekHeight + stackGap)
         let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
                                                heightDimension: .absolute(totalHeight))
         let group = NSCollectionLayoutGroup.custom(layoutSize: groupSize) { env in
-            let w = env.container.effectiveContentSize.width
+            let w = env.container.effectiveContentSize.width - inset * 2
             let h = w / credentialAspect
             return (0..<cardCount).map { i in
                 if i == 0 {
                     return NSCollectionLayoutGroupCustomItem(
-                        frame: CGRect(x: 0, y: 0, width: w, height: h), zIndex: cardCount)
+                        frame: CGRect(x: inset, y: 0, width: w, height: h), zIndex: cardCount)
                 }
                 let y = h + stackGap + CGFloat(i - 1) * (stackPeekHeight + stackGap)
                 return NSCollectionLayoutGroupCustomItem(
-                    frame: CGRect(x: 0, y: y, width: w, height: stackPeekHeight), zIndex: cardCount - i)
+                    frame: CGRect(x: inset, y: y, width: w, height: stackPeekHeight), zIndex: cardCount - i)
             }
         }
         let section = NSCollectionLayoutSection(group: group)
-        section.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: inset, bottom: 16, trailing: inset)
+        section.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 0, bottom: 16, trailing: 0)
         section.boundarySupplementaryItems = [groupHeader()]
         return section
     }
