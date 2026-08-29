@@ -41,6 +41,7 @@ class UseViewController: UICollectionViewController {
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
+        static let minimalDisclosure = NSLocalizedString("Minimal disclosure", comment: "ZK proof screen title")
     }
 
     /// Recomputed on every appearance, not stored once at init.
@@ -70,7 +71,23 @@ class UseViewController: UICollectionViewController {
 
         return [onlineSection(hasAnyCard: hasAnyCard),
                 offlineSection(hasDocument: rows?.contains { $0.source == .selfIssued } ?? false,
-                               storeIsReadable: rows != nil)]
+                               storeIsReadable: rows != nil),
+                experimentalSection()]
+    }
+
+    /// 「實驗中」 — the verification tracks still being built, gathered here in 使用
+    /// rather than hidden in Settings. Today: the zero-knowledge minimal-disclosure
+    /// proof (make one). The subtitle states a local capability fact, keyed to the
+    /// same `CredentialIssuanceAssembly.isAvailable` the proof screen gates on.
+    private func experimentalSection() -> Section {
+        Section(title: "🧪 " + NSLocalizedString("Experimental", comment: "use section"), items: [
+            Item(image: UIImage(systemName: "eye.slash")?
+                    .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
+                 title: Row.minimalDisclosure,
+                 secondaryText: CredentialIssuanceAssembly.isAvailable
+                    ? NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.", comment: "")
+                    : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: ""))
+        ])
     }
 
     /// The online verbs: collecting an official card, presenting one to a
@@ -399,6 +416,8 @@ extension UseViewController {
             navigationController?.pushViewController(VerifierViewController(), animated: true)
         case Row.verifyProof:
             navigationController?.pushViewController(ZKVerifyViewController(), animated: true)
+        case Row.minimalDisclosure:
+            navigationController?.pushViewController(ZKProofViewController(), animated: true)
         default:
             break
         }

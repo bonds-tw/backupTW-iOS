@@ -88,34 +88,9 @@ class SettingsViewController: UICollectionViewController {
                  title: Row.eraseEverything,
                  secondaryText: NSLocalizedString("Removes your credentials, the documents they came from, and the key that identifies you.", comment: ""))
         ]),
-        // Its own section rather than a row under Data and Privacy, because it
-        // is the only control in the app that downloads close to two gigabytes,
-        // and burying it next to "erase everything" invites the tap that was
-        // meant for the row above.
-        Section(title: NSLocalizedString("Experimental", comment: ""), items: [
-            Item(image: UIImage(systemName: "eye.slash")?.withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
-                 title: Row.minimalDisclosure,
-                 // 「Needs a large one-time download」 is an instruction, and in
-                 // a shipped build there is no way to follow it — the only path
-                 // that downloads sits behind `ZKProofRunAssembly.makeSigner`,
-                 // nil in release. Same split as the home row's subtitle and the
-                 // checking screen, asked of the same two flags.
-                 // ⚠️ **Not 「a valid 自然人憑證」.** The proof establishes who
-                 // issued the certificate; it establishes nothing about today.
-                 // `ProofCaveat.certificateExpiryNotProven` exists for the sole
-                 // purpose of saying so — 「This proves who issued the
-                 // certificate, not that it is still valid today」 — and the
-                 // circuit has no date field at all to make it otherwise.
-                 //
-                 // Four places claimed 「valid」: these two branches, this
-                 // screen's own About title, and the TW FidO signing hint. All
-                 // four are the same sentence, so all four move together; fixing
-                 // one would be the sixth repeat of 「a recommendation with two
-                 // halves, one half done, recorded as closed」.
-                 secondaryText: CredentialIssuanceAssembly.isAvailable
-                    ? NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.", comment: "")
-                    : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: ""))
-        ])
+        // 「Experimental」 (the zero-knowledge minimal-disclosure proof) now lives in
+        // the 使用 tab's 🧪 實驗中 section, next to the other verification verbs,
+        // rather than alone in Settings — so it is no longer a section here.
         ]
     }
 
@@ -206,8 +181,6 @@ extension SettingsViewController {
             navigationController?.pushViewController(DiagnosticsViewController(), animated: true)
         case Row.eraseEverything:
             confirmEraseEverything(from: indexPath)
-        case Row.minimalDisclosure:
-            navigationController?.pushViewController(ZKProofViewController(), animated: true)
         default:
             break
         }
