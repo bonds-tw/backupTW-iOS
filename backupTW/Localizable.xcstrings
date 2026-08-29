@@ -124,6 +124,16 @@
         }
       }
     },
+    "%d organisations on 數位發展部信任清單. A card is only accepted if its issuer is on this list.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "數位發展部信任清單上有 %d 個機構。只有發卡者在這份清單上的卡片才會被接受。"
+          }
+        }
+      }
+    },
     "%llu ms": {
       "localizations": {
         "zh-Hant": {
@@ -324,6 +334,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "先加入你的身分證，就能出示給別人查驗。"
+          }
+        }
+      }
+    },
+    "Address": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地址"
           }
         }
       }
@@ -628,6 +648,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "卡片種類"
+          }
+        }
+      }
+    },
+    "Carrier": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "電信業者"
           }
         }
       }
@@ -1497,6 +1527,16 @@
         }
       }
     },
+    "Field guide": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "欄位對照表"
+          }
+        }
+      }
+    },
     "Field named by their document: “%@”": {
       "comment": "Heading for a disclosed field whose name this build does not know",
       "localizations": {
@@ -1564,6 +1604,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "完整細節與限制"
+          }
+        }
+      }
+    },
+    "Gender": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "性別"
           }
         }
       }
@@ -1685,6 +1735,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "戶籍地址"
+          }
+        }
+      }
+    },
+    "How other issuers' field names map to the words this app shows. Unknown fields are shown as the issuer named them, never as this app's own word.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他發卡者的欄位名稱如何對應到本 App 顯示的用語。未知欄位會以發卡者命名的原樣顯示,不會當成本 App 自己的用語。"
           }
         }
       }
@@ -2038,6 +2098,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "載入門號卡清單失敗，請再試一次。"
+          }
+        }
+      }
+    },
+    "Loading the trust list…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在載入信任清單…"
           }
         }
       }
@@ -3798,6 +3868,16 @@
         }
       }
     },
+    "Tax ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統一編號"
+          }
+        }
+      }
+    },
     "That a registered issuing body signed these fields, and which body it was.": {
       "localizations": {
         "zh-Hant": {
@@ -4375,6 +4455,16 @@
         }
       }
     },
+    "The issuers this app trusts, and how their fields are named.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本 App 信任的發卡者,以及他們的欄位如何命名。"
+          }
+        }
+      }
+    },
     "The large checking files have not been downloaded to this phone yet, so a proof sent here cannot be checked.": {
       "localizations": {
         "zh-Hant": {
@@ -4669,6 +4759,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "人們會要求這個 App 證明的三件事，以及其中哪些附帶限制。"
+          }
+        }
+      }
+    },
+    "The trust list could not be loaded. Check your connection and reopen this screen.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法載入信任清單。請檢查網路連線後重新開啟此頁。"
           }
         }
       }
@@ -6482,6 +6582,26 @@
         }
       }
     },
+    "Trust": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信任"
+          }
+        }
+      }
+    },
+    "Trust list": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信任清單"
+          }
+        }
+      }
+    },
     "Trust source": {
       "localizations": {
         "zh-Hant": {
@@ -6609,6 +6729,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "有效至"
+          }
+        }
+      }
+    },
+    "Vehicle class": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "車輛類別"
           }
         }
       }

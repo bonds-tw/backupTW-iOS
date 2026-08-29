@@ -219,7 +219,37 @@ struct StoredNationalID: Equatable {
             // statement about today, and on a credential issued years ago the
             // false case would then be a lie by omission of its own timestamp.
             return NSLocalizedString("Had turned 18 when issued", comment: "")
-        default: return key
+        default: break
         }
+        // Keys from *other* issuers' cards (government, telecom) — the ones this
+        // app did not mint. Matched case-insensitively against the curated table
+        // below (the same one 設定 › 信任 › 欄位對照表 lists), so 「id_number」 reads as
+        // 身分證字號 rather than a raw machine key. Anything not in the table still
+        // falls through to the key itself, which `ClaimLabel` frames as 「declared by
+        // their document」 rather than this app's own word.
+        let lowered = key.lowercased()
+        if let hit = fieldLabelTable.first(where: { $0.keys.contains(lowered) }) {
+            return hit.label
+        }
+        return key
     }
+
+    /// Curated 「other issuers' machine key → the app's own words」 table, matched
+    /// case-insensitively and **exactly** (not by substring, so a key that merely
+    /// contains one of these is not mislabelled). Shown in 設定 › 信任 › 欄位對照表 and
+    /// used by `label(for:)`; the sample key is the first of each row.
+    static let fieldLabelTable: [(keys: [String], label: String)] = [
+        (["id_number", "idnumber", "national_id", "nationalid"], NSLocalizedString("ID number", comment: "field label")),
+        (["name", "full_name", "fullname"], NSLocalizedString("Name", comment: "field label")),
+        (["address", "addr", "住址", "地址", "戶籍地址"], NSLocalizedString("Address", comment: "field label")),
+        (["birthday", "birthdate", "roc_birthday", "dob", "dateofbirth"], NSLocalizedString("Date of birth", comment: "field label")),
+        (["gender", "sex"], NSLocalizedString("Gender", comment: "field label")),
+        (["nationality"], NSLocalizedString("Nationality", comment: "field label")),
+        (["license_number", "licence_number", "licenseno", "licence_no"], NSLocalizedString("Licence number", comment: "field label")),
+        (["vehicle_type", "car_type", "license_class", "class"], NSLocalizedString("Vehicle class", comment: "field label")),
+        (["msisdn", "mobile", "phone", "phone_number", "mobile_number"], NSLocalizedString("Mobile number", comment: "field label")),
+        (["carrier", "telecom", "operator"], NSLocalizedString("Carrier", comment: "field label")),
+        (["issue_date", "issuedate", "valid_from", "validfrom"], NSLocalizedString("Valid from", comment: "field label")),
+        (["expiry", "expiration", "valid_until", "validuntil", "expires"], NSLocalizedString("Valid until", comment: "field label")),
+    ]
 }

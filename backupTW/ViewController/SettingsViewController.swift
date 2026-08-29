@@ -33,6 +33,7 @@ class SettingsViewController: UICollectionViewController {
         static let minimalDisclosure = NSLocalizedString("Minimal disclosure", comment: "ZK proof screen title")
         static let capabilities = NSLocalizedString("What this app can prove", comment: "")
         static let updateBackup = NSLocalizedString("Update my ID backup", comment: "settings, self-issued national ID")
+        static let trust = NSLocalizedString("Trust", comment: "settings row / screen: trust")
     }
 
     /// A national ID is stored, so its backup can be refreshed. Home shows the
@@ -69,6 +70,11 @@ class SettingsViewController: UICollectionViewController {
         }
         return [
         Section(title: NSLocalizedString("Support and About", comment: ""), items: support),
+        Section(title: Row.trust, items: [
+            Item(image: UIImage(systemName: "checkmark.shield.fill")?.withTintColor(.systemGreen, renderingMode: .alwaysOriginal),
+                 title: Row.trust,
+                 secondaryText: NSLocalizedString("The issuers this app trusts, and how their fields are named.", comment: ""))
+        ]),
         // `LocalDataEraser` has existed with no caller: the promise that a user
         // can remove their identity from the phone was implemented but
         // unreachable. This is the control that makes it true.
@@ -190,6 +196,8 @@ extension SettingsViewController {
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .fullScreen
             present(nav, animated: true)
+        case Row.trust:
+            navigationController?.pushViewController(TrustCenterViewController(), animated: true)
         case Row.license:
             navigationController?.pushViewController(LicenseViewController(), animated: true)
         case Row.capabilities:
