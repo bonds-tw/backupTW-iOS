@@ -11,6 +11,11 @@ class HomeViewController: UICollectionViewController {
 
     private var dataSource: UICollectionViewDiffableDataSource<HomeSection, HomeItem>!
 
+    /// Opens the credential store each `buildContent`. Production returns the real
+    /// on-disk `CredentialStore`; injectable so a test can seed an in-memory store
+    /// and drive the home screen (stack included) without touching the device store.
+    private let makeStore: () -> CredentialStoring?
+
     /// The single device-motion source that drives every visible card's sheen and
     /// micro-tilt. Owned here (strong) and fed to the cards through a closure that
     /// captures `self` weakly, so there is no cycle. Runs only while this screen is
@@ -22,6 +27,22 @@ class HomeViewController: UICollectionViewController {
     /// Settings or a detail covered Home」 (do not) — a distinction the foreground
     /// notification cannot make on its own, unlike `viewWillAppear`.
     private var isHomeVisible = false
+
+    /// Phase 2c 疊卡. The government group collapses to a stack — the first card
+    /// full, the rest peeking their headers — whenever it holds two or more cards.
+    /// A tap on the stack expands it to the full list (and a tap on the header
+    /// collapses it again); `false` is the resting, collapsed state.
+    private var isGovernmentStackExpanded = false
+
+    /// The stable id of the government group, shared by the section builder, the
+    /// stack layout, and the tap routing so they always mean the same section.
+    private static let governmentSectionID = "government"
+    /// The height of a peeking (non-hero) card in the collapsed stack — enough for
+    /// its kind and issuer header to read.
+    private static let stackPeekHeight: CGFloat = 56
+    /// Every collapsed-stack card is a 數位憑證皮夾 credential face, so its height is
+    /// its width over this one aspect ratio.
+    private static let credentialAspect: CGFloat = 1.585
 
     /// A section of the home screen, identified by a stable id so its header and
     /// its place survive a rebuild even as its cards change.
@@ -93,7 +114,7 @@ class HomeViewController: UICollectionViewController {
     /// to each group so none reports 「you hold nothing」 for a phone that could
     /// not be read.
     private func buildContent() -> [(HomeSection, [HomeItem])] {
-        let store = try? CredentialStore()
+        let store = makeStore()
         let rows = store.map { CardInventory.rows(from: $0) }
         cardRows = Dictionary((rows ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
@@ -194,7 +215,8 @@ class HomeViewController: UICollectionViewController {
 
     // MARK: - Setup
 
-    init() {
+    init(makeStore: @escaping () -> CredentialStoring? = { try? CredentialStore() }) {
+        self.makeStore = makeStore
         super.init(collectionViewLayout: UICollectionViewLayout())
         collectionView.collectionViewLayout = makeLayout()
     }
@@ -208,20 +230,11 @@ class HomeViewController: UICollectionViewController {
     /// boundary supplementary. Not `.list` any more — cards need their own
     /// height and no list separators — but the two headers are preserved exactly.
     private func makeLayout() -> UICollectionViewLayout {
-        let layout = UICollectionViewCompositionalLayout { _, _ in
-            let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
-                                                  heightDimension: .estimated(220))
-            let item = NSCollectionLayoutItem(layoutSize: itemSize)
-            let group = NSCollectionLayoutGroup.vertical(layoutSize: itemSize, subitems: [item])
-            let section = NSCollectionLayoutSection(group: group)
-            section.interGroupSpacing = 12
-            section.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16)
-            let header = NSCollectionLayoutBoundarySupplementaryItem(
-                layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
-                                                   heightDimension: .estimated(38)),
-                elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
-            section.boundarySupplementaryItems = [header]
-            return section
+        let layout = UICollectionViewCompositionalLayout { [weak self] index, environment in
+            if let self, let count = self.collapsedStackCardCount(atSectionIndex: index) {
+                return Self.collapsedStackSection(cardCount: count, environment: environment)
+            }
+            return Self.normalCardSection()
         }
         let brand = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
@@ -231,6 +244,145 @@ class HomeViewController: UICollectionViewController {
         layoutConfig.boundarySupplementaryItems = [brand]
         layout.configuration = layoutConfig
         return layout
+    }
+
+    /// If the section at `index` is the government group, currently collapsed, and
+    /// holds two or more cards, returns that card count — the signal to lay it out
+    /// as a stack. `nil` in every other case (use the normal one-per-row layout):
+    /// a single card, an empty-state control, the unreadable face, or an already
+    /// expanded stack.
+    private func collapsedStackCardCount(atSectionIndex index: Int) -> Int? {
+        guard !isGovernmentStackExpanded, dataSource != nil else { return nil }
+        let snapshot = dataSource.snapshot()
+        let sections = snapshot.sectionIdentifiers
+        guard index < sections.count, sections[index].id == Self.governmentSectionID else { return nil }
+        let cardCount = snapshot.itemIdentifiers(inSection: sections[index]).filter {
+            if case .card = $0 { return true } else { return false }
+        }.count
+        return cardCount >= 2 ? cardCount : nil
+    }
+
+    /// Whether the government group holds two or more cards — the condition for the
+    /// stack (and its header chevron) to exist at all, whether it is currently
+    /// collapsed or expanded. `collapsedStackCardCount` answers the narrower
+    /// 「and collapsed right now」 the layout asks.
+    private func governmentIsStackable() -> Bool {
+        governmentCardItems(in: dataSource.snapshot()).count >= 2
+    }
+
+    /// The `.card` items in the government group, in order — the ones the stack
+    /// lays out and the ones a toggle must reconfigure so their peek/full mode
+    /// tracks the new state.
+    private func governmentCardItems(in snapshot: NSDiffableDataSourceSnapshot<HomeSection, HomeItem>) -> [HomeItem] {
+        guard let section = snapshot.sectionIdentifiers.first(where: { $0.id == Self.governmentSectionID })
+        else { return [] }
+        return snapshot.itemIdentifiers(inSection: section).filter {
+            if case .card = $0 { return true } else { return false }
+        }
+    }
+
+    /// Opens or closes the government 疊卡. Reconfigures the government cards so each
+    /// cell's peek/full mode is recomputed by the cell provider, then swaps in a
+    /// fresh layout (which reads the new state) with an animated transition — the
+    /// stack springs open to the full list, or the list gathers back into a stack.
+    func setGovernmentStackExpanded(_ expanded: Bool, animated: Bool = true) {
+        guard expanded != isGovernmentStackExpanded, dataSource != nil else { return }
+        isGovernmentStackExpanded = expanded
+
+        var snapshot = dataSource.snapshot()
+        let cards = governmentCardItems(in: snapshot)
+        guard !cards.isEmpty else { return }
+        snapshot.reconfigureItems(cards)
+        dataSource.apply(snapshot, animatingDifferences: false)
+
+        collectionView.setCollectionViewLayout(makeLayout(), animated: animated)
+        // The layout swap repositions the live header without re-running its
+        // registration, so the chevron and its VoiceOver label would otherwise lag
+        // the new state — push it on directly.
+        refreshGovernmentHeader()
+    }
+
+    /// Sets a section header's 疊卡 disclosure: a chevron + header-tap toggle for a
+    /// stackable government group (pointing the way the current state implies), and
+    /// nothing at all for any other header. The single source of truth shared by
+    /// the header registration and `refreshGovernmentHeader`.
+    private func configureDisclosure(on header: CustomHeaderView, sectionID: String) {
+        guard sectionID == Self.governmentSectionID, governmentIsStackable() else {
+            header.setDisclosure(expanded: nil)   // also clears onTap
+            return
+        }
+        header.setDisclosure(expanded: isGovernmentStackExpanded)
+        header.onTap = { [weak self] in
+            guard let self else { return }
+            self.setGovernmentStackExpanded(!self.isGovernmentStackExpanded)
+        }
+    }
+
+    /// Pushes the government group's current disclosure state onto its live header.
+    /// A stack toggle and a content rebuild both reposition that header without
+    /// re-dequeuing it, so its chevron/label must be refreshed by hand or it lags
+    /// the state (and, after a delete to one card, keeps a stale, live chevron).
+    private func refreshGovernmentHeader() {
+        guard dataSource != nil,
+              let index = dataSource.snapshot().sectionIdentifiers
+                  .firstIndex(where: { $0.id == Self.governmentSectionID }),
+              let header = collectionView.supplementaryView(
+                  forElementKind: UICollectionView.elementKindSectionHeader,
+                  at: IndexPath(item: 0, section: index)) as? CustomHeaderView
+        else { return }
+        configureDisclosure(on: header, sectionID: Self.governmentSectionID)
+    }
+
+    /// The normal one-card-per-row section: a self-sizing full-width item, 12pt
+    /// gaps, and the group header.
+    private static func normalCardSection() -> NSCollectionLayoutSection {
+        let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
+                                              heightDimension: .estimated(220))
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+        let group = NSCollectionLayoutGroup.vertical(layoutSize: itemSize, subitems: [item])
+        let section = NSCollectionLayoutSection(group: group)
+        section.interGroupSpacing = 12
+        section.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16)
+        section.boundarySupplementaryItems = [groupHeader()]
+        return section
+    }
+
+    /// The collapsed 疊卡 section: the first card at full height, each later card a
+    /// `stackPeekHeight` header strip stacked below it. Laid out by hand because the
+    /// cards overlap the normal flow's one-per-row rule; the peek cells clip their
+    /// (full-height) card to just the header (see `WalletCardCell.setStackPeek`).
+    private static func collapsedStackSection(cardCount: Int,
+                                              environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
+        let inset: CGFloat = 16
+        let contentWidth = environment.container.effectiveContentSize.width - inset * 2
+        let cardHeight = contentWidth / credentialAspect
+        let totalHeight = cardHeight + CGFloat(cardCount - 1) * stackPeekHeight
+        let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
+                                               heightDimension: .absolute(totalHeight))
+        let group = NSCollectionLayoutGroup.custom(layoutSize: groupSize) { env in
+            let w = env.container.effectiveContentSize.width
+            let h = w / credentialAspect
+            return (0..<cardCount).map { i in
+                if i == 0 {
+                    return NSCollectionLayoutGroupCustomItem(
+                        frame: CGRect(x: 0, y: 0, width: w, height: h), zIndex: cardCount)
+                }
+                let y = h + CGFloat(i - 1) * stackPeekHeight
+                return NSCollectionLayoutGroupCustomItem(
+                    frame: CGRect(x: 0, y: y, width: w, height: stackPeekHeight), zIndex: cardCount - i)
+            }
+        }
+        let section = NSCollectionLayoutSection(group: group)
+        section.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: inset, bottom: 16, trailing: inset)
+        section.boundarySupplementaryItems = [groupHeader()]
+        return section
+    }
+
+    private static func groupHeader() -> NSCollectionLayoutBoundarySupplementaryItem {
+        NSCollectionLayoutBoundarySupplementaryItem(
+            layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
+                                               heightDimension: .estimated(38)),
+            elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
     }
 
     override func viewDidLoad() {
@@ -337,8 +489,17 @@ class HomeViewController: UICollectionViewController {
 
     private func configureDataSource() {
         let cardRegistration = UICollectionView.CellRegistration<WalletCardCell, WalletCardContent> {
-            [weak self] cell, _, content in
+            [weak self] cell, indexPath, content in
             cell.configure(content)
+            // Collapsed 疊卡: every card past the hero (item 0) shows only its
+            // header strip. Expanded, or outside the government stack, it is a full
+            // card. Recomputed each dequeue so a toggle reconfigures cleanly.
+            if let self, self.collapsedStackCardCount(atSectionIndex: indexPath.section) != nil,
+               indexPath.item > 0 {
+                cell.setStackPeek(Self.stackPeekHeight)
+            } else {
+                cell.setStackPeek(nil)
+            }
             // The back's 「查看／管理詳情」 button opens the same detail screen a tap
             // used to. Resolved through the live indexPath at tap time, never a
             // captured one, so a reused cell routes to whatever card it now shows.
@@ -388,10 +549,17 @@ class HomeViewController: UICollectionViewController {
         let headerRegistration = UICollectionView.SupplementaryRegistration<CustomHeaderView>(
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] headerView, _, indexPath in
-            guard let dataSource = self?.dataSource else { return }
+            guard let self, let dataSource = self.dataSource else { return }
             let sections = dataSource.snapshot().sectionIdentifiers
-            guard indexPath.section < sections.count else { return }
+            guard indexPath.section < sections.count else {
+                headerView.setDisclosure(expanded: nil)
+                return
+            }
             headerView.configure(title: sections[indexPath.section].title, forTextStyle: .title2)
+            // The government group gets a disclosure chevron and a header-tap toggle
+            // for its 疊卡, but only when it holds enough cards to stack; every other
+            // header (and a one-card government group) shows none.
+            self.configureDisclosure(on: headerView, sectionID: sections[indexPath.section].id)
         }
         let brandRegistration = UICollectionView.SupplementaryRegistration<BrandHeaderView>(
             elementKind: BrandHeaderView.elementKind
@@ -417,6 +585,14 @@ class HomeViewController: UICollectionViewController {
             snapshot.appendItems(items, toSection: section)
         }
         dataSource.apply(snapshot, animatingDifferences: true)
+        // A group that is no longer stackable returns to the resting collapsed
+        // state, so a later repopulation (a card scanned back in) defaults to
+        // collapsed rather than inheriting a stale 「expanded」 from before it
+        // dropped below two cards.
+        if !governmentIsStackable() { isGovernmentStackExpanded = false }
+        // The header persists across a rebuild without its registration re-running,
+        // so push the current disclosure state (or none) onto it directly.
+        refreshGovernmentHeader()
     }
 }
 
@@ -430,6 +606,13 @@ extension HomeViewController {
 
         switch item {
         case .card(let id, _):
+            // Collapsed 疊卡: a tap anywhere on the stack opens it — expand to the
+            // full list rather than flip the tapped card. Once expanded, a tap is
+            // the flip below; the header chevron collapses it again.
+            if collapsedStackCardCount(atSectionIndex: indexPath.section) != nil {
+                setGovernmentStackExpanded(true)
+                return
+            }
             // A flippable card (credential, real national ID) turns to show its
             // masked fields rather than pushing detail; detail is reached from the
             // back's own button. `setFlipped` settles this cell's tilt as it turns,
@@ -620,6 +803,11 @@ extension HomeViewController {
 
 private class CustomHeaderView: UICollectionReusableView {
     private let titleLabel = UILabel()
+    /// The 疊卡 disclosure control: a chevron pointing down when the stack is
+    /// collapsed and up when it is expanded, hidden entirely for sections that do
+    /// not stack. When shown, a tap anywhere on the header runs `onTap`.
+    private let chevron = UIImageView()
+    var onTap: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -639,18 +827,48 @@ private class CustomHeaderView: UICollectionReusableView {
         titleLabel.numberOfLines = 0
         titleLabel.adjustsFontForContentSizeCategory = true
         addSubview(titleLabel)
+
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        chevron.tintColor = .secondaryLabel
+        chevron.contentMode = .scaleAspectFit
+        chevron.setContentHuggingPriority(.required, for: .horizontal)
+        chevron.isHidden = true
+        addSubview(chevron)
+
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: layoutMarginsGuide.trailingAnchor),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: chevron.leadingAnchor, constant: -8),
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            titleLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6)
+            titleLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
+            chevron.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
+            chevron.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
         ])
+
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(headerTapped)))
     }
+
+    @objc private func headerTapped() { onTap?() }
 
     func configure(title: String, forTextStyle style: UIFont.TextStyle) {
         titleLabel.text = title
         titleLabel.font = .preferredFont(forTextStyle: style)
+    }
+
+    /// `expanded == nil` hides the chevron (a non-stacking section); otherwise it
+    /// points up when the stack is open and down when it is collapsed. Reset on
+    /// every reuse, so a recycled header never keeps a stale chevron or callback.
+    func setDisclosure(expanded: Bool?) {
+        guard let expanded else {
+            chevron.isHidden = true
+            onTap = nil
+            return
+        }
+        chevron.isHidden = false
+        chevron.image = UIImage(systemName: expanded ? "chevron.up" : "chevron.down")
+        chevron.accessibilityLabel = expanded
+            ? NSLocalizedString("Collapse", comment: "stack disclosure")
+            : NSLocalizedString("Expand", comment: "stack disclosure")
     }
 }
 
