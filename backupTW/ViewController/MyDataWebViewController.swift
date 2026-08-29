@@ -27,6 +27,12 @@ class MyDataWebViewController : UIViewController {
     private lazy var webview: WKWebView = {
         let webview = WKWebView()
         webview.navigationDelegate = self
+        // The identity-verification step (TWCA 自然人憑證 middleware, and the idpaas
+        // libraries behind it) drives the user with native `alert()` — dozens of
+        // call sites across twcaCryptoLib / CheckAndLoad / r_common. WKWebView shows
+        // none of those without a `WKUIDelegate`, so the flow silently freezes at
+        // 「請選擇身分驗證」. This is what lets those panels appear.
+        webview.uiDelegate = self
         webview.allowsBackForwardNavigationGestures = true
         return webview
     }()
@@ -287,5 +293,73 @@ extension MyDataWebViewController : WKDownloadDelegate {
             return nil
         }
         return NationalIDModel.parse(fromPDFText: pdfText)
+    }
+}
+
+// MARK: - JavaScript dialogs (WKUIDelegate)
+
+/// The MyData 身分驗證 flow speaks to the user through native `alert()` /
+/// `confirm()` / `prompt()`. WKWebView presents none of these unless the host
+/// implements `WKUIDelegate` — and a `confirm`/`prompt` that never returns leaves
+/// the page's JavaScript blocked. So every panel is bridged to a `UIAlertController`,
+/// and the golden rule is that each completion handler is called **exactly once**:
+/// on the button tap, or immediately if there is nowhere to present.
+extension MyDataWebViewController: WKUIDelegate {
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo) async {
+        await withCheckedContinuation { continuation in
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default) { _ in
+                continuation.resume()
+            })
+            presentDialog(alert) { continuation.resume() }
+        }
+    }
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+                continuation.resume(returning: false)
+            })
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default) { _ in
+                continuation.resume(returning: true)
+            })
+            // No presenter → the safe default for a confirm is「no」.
+            presentDialog(alert) { continuation.resume(returning: false) }
+        }
+    }
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptTextInputPanelWithPrompt prompt: String,
+                 defaultText: String?,
+                 initiatedByFrame frame: WKFrameInfo) async -> String? {
+        await withCheckedContinuation { continuation in
+            let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+            alert.addTextField { $0.text = defaultText }
+            alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+                continuation.resume(returning: nil)
+            })
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default) { [weak alert] _ in
+                continuation.resume(returning: alert?.textFields?.first?.text)
+            })
+            presentDialog(alert) { continuation.resume(returning: defaultText) }
+        }
+    }
+
+    /// Presents on the topmost controller — the download-password alert can already
+    /// be up — and, if there is genuinely nowhere to present, runs `fallback` so the
+    /// web content is never left waiting on a handler that will not be called.
+    private func presentDialog(_ alert: UIAlertController, fallback: @escaping () -> Void) {
+        guard viewIfLoaded?.window != nil else { fallback(); return }
+        var presenter: UIViewController = self
+        while let next = presenter.presentedViewController, !next.isBeingDismissed {
+            presenter = next
+        }
+        presenter.present(alert, animated: true)
     }
 }
