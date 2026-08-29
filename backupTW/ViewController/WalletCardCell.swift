@@ -68,6 +68,11 @@ final class WalletCardCell: UICollectionViewCell {
         bottomConstraint?.isActive = !isPeek
         contentView.clipsToBounds = isPeek
         clipsToBounds = isPeek
+        // A peek clips the full-height card to a short strip. Round the clip on all
+        // corners (the card's own rounding only covers the top two) so it reads as a
+        // card tucked below the hero, not the hero sliced off with a hard edge.
+        contentView.layer.cornerRadius = isPeek ? WalletCardView.cornerRadius : 0
+        contentView.layer.cornerCurve = .continuous
     }
 
     override func preferredLayoutAttributesFitting(

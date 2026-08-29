@@ -39,7 +39,10 @@ class HomeViewController: UICollectionViewController {
     private static let governmentSectionID = "government"
     /// The height of a peeking (non-hero) card in the collapsed stack — enough for
     /// its kind and issuer header to read.
-    private static let stackPeekHeight: CGFloat = 56
+    private static let stackPeekHeight: CGFloat = 66
+    /// The gap between stacked cards, so a peek reads as its own card tucked below
+    /// rather than the hero sliced off at the bottom.
+    private static let stackGap: CGFloat = 8
     /// Every collapsed-stack card is a 數位憑證皮夾 credential face, so its height is
     /// its width over this one aspect ratio.
     private static let credentialAspect: CGFloat = 1.585
@@ -356,7 +359,7 @@ class HomeViewController: UICollectionViewController {
         let inset: CGFloat = 16
         let contentWidth = environment.container.effectiveContentSize.width - inset * 2
         let cardHeight = contentWidth / credentialAspect
-        let totalHeight = cardHeight + CGFloat(cardCount - 1) * stackPeekHeight
+        let totalHeight = cardHeight + CGFloat(cardCount - 1) * (stackPeekHeight + stackGap)
         let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
                                                heightDimension: .absolute(totalHeight))
         let group = NSCollectionLayoutGroup.custom(layoutSize: groupSize) { env in
@@ -367,7 +370,7 @@ class HomeViewController: UICollectionViewController {
                     return NSCollectionLayoutGroupCustomItem(
                         frame: CGRect(x: 0, y: 0, width: w, height: h), zIndex: cardCount)
                 }
-                let y = h + CGFloat(i - 1) * stackPeekHeight
+                let y = h + stackGap + CGFloat(i - 1) * (stackPeekHeight + stackGap)
                 return NSCollectionLayoutGroupCustomItem(
                     frame: CGRect(x: 0, y: y, width: w, height: stackPeekHeight), zIndex: cardCount - i)
             }
