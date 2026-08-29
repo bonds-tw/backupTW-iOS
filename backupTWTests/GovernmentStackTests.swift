@@ -66,8 +66,8 @@ struct GovernmentStackTests {
     @Test func collapsedStackShowsAFullHeroAndPeekingRest() throws {
         let (controller, _) = home(try seeded(3))
         #expect(try cardHeight(controller, item: 0) > 200)          // hero: full card
-        #expect(abs(try cardHeight(controller, item: 1) - 74) < 1)  // peek: 66pt header strip
-        #expect(abs(try cardHeight(controller, item: 2) - 74) < 1)
+        #expect(abs(try cardHeight(controller, item: 1) - 60) < 1)  // peek: 66pt header strip
+        #expect(abs(try cardHeight(controller, item: 2) - 60) < 1)
     }
 
     @Test func aSingleGovernmentCardDoesNotStack() throws {
@@ -106,6 +106,6 @@ struct GovernmentStackTests {
         controller.viewWillAppear(false)
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         window.layoutIfNeeded()
-        #expect(abs(try cardHeight(controller, item: 1) - 74) < 1)  // collapsed again
+        #expect(abs(try cardHeight(controller, item: 1) - 60) < 1)  // collapsed again
     }
 }

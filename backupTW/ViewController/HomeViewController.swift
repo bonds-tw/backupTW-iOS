@@ -37,14 +37,10 @@ class HomeViewController: UICollectionViewController {
     /// The stable id of the government group, shared by the section builder, the
     /// stack layout, and the tap routing so they always mean the same section.
     private static let governmentSectionID = "government"
-    /// The height of a peeking (non-hero) card in the collapsed stack — enough for
-    /// its kind and issuer header to read once the card above tucks over its top.
-    private static let stackPeekHeight: CGFloat = 74
-    /// Cards overlap by this much (negative gap): each peek tucks under the card
-    /// above it, so the stack reads as a physical pile with shadowed layers rather
-    /// than a spaced list. Kept smaller than the header's top margin so the kind
-    /// and issuer still clear the card above.
-    private static let stackGap: CGFloat = -12
+    /// How much of each peeking card's top shows — a sliver (一角) with its name,
+    /// Apple-Wallet style. The full 「hero」 card sits at the bottom of the stack and
+    /// the peeks fan up above it, each casting a shadow onto the card below.
+    private static let stackPeekHeight: CGFloat = 60
     /// Every collapsed-stack card is a 數位憑證皮夾 credential face, so its height is
     /// its width over this one aspect ratio.
     private static let credentialAspect: CGFloat = 1.585
@@ -370,20 +366,26 @@ class HomeViewController: UICollectionViewController {
         let inset: CGFloat = 16
         let cardWidth = environment.container.effectiveContentSize.width - inset * 2
         let cardHeight = cardWidth / credentialAspect
-        let totalHeight = cardHeight + CGFloat(cardCount - 1) * (stackPeekHeight + stackGap)
+        let peek = stackPeekHeight
+        let totalHeight = cardHeight + CGFloat(cardCount - 1) * peek
         let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
                                                heightDimension: .absolute(totalHeight))
+        // Apple-Wallet order: the hero (first card) is full at the BOTTOM; every
+        // later card fans up above it as a `peek`-tall sliver showing its name, item
+        // 1 highest. Each peek has a higher zIndex than the card below, so its shadow
+        // falls onto that card and the pile reads as physically tucked.
         let group = NSCollectionLayoutGroup.custom(layoutSize: groupSize) { env in
             let w = env.container.effectiveContentSize.width - inset * 2
             let h = w / credentialAspect
             return (0..<cardCount).map { i in
                 if i == 0 {
                     return NSCollectionLayoutGroupCustomItem(
-                        frame: CGRect(x: inset, y: 0, width: w, height: h), zIndex: cardCount)
+                        frame: CGRect(x: inset, y: CGFloat(cardCount - 1) * peek, width: w, height: h),
+                        zIndex: 0)
                 }
-                let y = h + stackGap + CGFloat(i - 1) * (stackPeekHeight + stackGap)
                 return NSCollectionLayoutGroupCustomItem(
-                    frame: CGRect(x: inset, y: y, width: w, height: stackPeekHeight), zIndex: cardCount - i)
+                    frame: CGRect(x: inset, y: CGFloat(i - 1) * peek, width: w, height: peek),
+                    zIndex: cardCount - i)
             }
         }
         let section = NSCollectionLayoutSection(group: group)
@@ -441,7 +443,7 @@ class HomeViewController: UICollectionViewController {
     }
 
     @objc private func appWillEnterForeground() {
-        if isHomeVisible { motionCoordinator.start() }
+        // 陀螺儀傾斜已停用,前景不再啟動感測器。
     }
 
     /// Pushes one motion update to every on-screen card. Cheap: a bounded walk of
@@ -480,9 +482,8 @@ class HomeViewController: UICollectionViewController {
         super.viewWillAppear(animated)
         applySnapshot()
         isHomeVisible = true
-        // Start the sheen only while this screen is showing. Idempotent, and a
-        // no-op on hardware without a gyroscope or under Reduce Motion.
-        motionCoordinator.start()
+        // 陀螺儀傾斜/反光已依使用者要求停用,讓卡片平整、完整呈現形狀——不再啟動感測器。
+        // (WalletMotionCoordinator 與 applyTilt 保留但不觸發,方便日後恢復。)
     }
 
     /// Stop the sensor the moment this screen is covered or left — a Settings
