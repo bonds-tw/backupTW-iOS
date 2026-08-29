@@ -116,16 +116,10 @@ class UseViewController: UICollectionViewController {
                                  secondaryText: NSLocalizedString(
                                     "Scan a verifier's QR and choose exactly what to show.", comment: ""))
 
-        // What a checker can rely on across the cards, and what none of them can
-        // establish. Last, because the comparison only means something to someone
-        // who already holds more than one kind of thing.
-        let compare = Item(image: UIImage(systemName: "list.bullet.rectangle")?
-                            .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
-                           title: Row.compare,
-                           secondaryText: NSLocalizedString(
-                            "What a checker can rely on, and what none of them can establish.", comment: ""))
-
-        return Section(title: title, items: [collect, applyTelecom, presentOnline, compare])
+        // 「每張卡值多少」 (the card-capability comparison) is not a verb, and it
+        // duplicates Settings › 支援與關於 › 「這個 App 能證明什麼」, which opens the
+        // same screen — so it no longer sits among the 使用 actions.
+        return Section(title: title, items: [collect, applyTelecom, presentOnline])
     }
 
     /// The offline half of the wallet: showing your own document to a checker,
@@ -399,8 +393,6 @@ extension UseViewController {
             applyTelecomCard(anchorCell: collectionView.cellForItem(at: indexPath))
         case Row.presentOnline:
             ScanToPresent.begin(on: navigationController)
-        case Row.compare:
-            navigationController?.pushViewController(CapabilityViewController(), animated: true)
         case Row.present:
             navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
         case Row.verify:

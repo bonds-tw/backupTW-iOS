@@ -161,14 +161,18 @@ class HomeViewController: UICollectionViewController {
                                content: WalletCardFactory.nationalIDContent(row: nil, store: store)))
         }
 
+        // The backup control lives on Home only until a document exists — there its
+        // job is the create invitation. Once the ID is stored, refreshing the backup
+        // is rare housekeeping, so it moves to Settings (「更新我的身分證備份」) and
+        // stops taking a slot on the main screen.
         let hasOwnDocument = !rows.isEmpty
-        let subtitle: String = !CredentialIssuanceAssembly.isAvailable
-            ? NSLocalizedString("This version cannot create a document.", comment: "")
-            : hasOwnDocument
-                ? NSLocalizedString("Fetch it again and replace what's stored.", comment: "")
+        if !hasOwnDocument {
+            let subtitle = !CredentialIssuanceAssembly.isAvailable
+                ? NSLocalizedString("This version cannot create a document.", comment: "")
                 : NSLocalizedString("with Taiwan's official MyData service", comment: "")
-        items.append(.control(ControlRow(id: "control.backup", kind: .backup,
-                                         title: Row.backUp, subtitle: subtitle)))
+            items.append(.control(ControlRow(id: "control.backup", kind: .backup,
+                                             title: Row.backUp, subtitle: subtitle)))
+        }
         return (section, items)
     }
 
@@ -399,8 +403,8 @@ class HomeViewController: UICollectionViewController {
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.titleView = UIView()
-        tabBarItem = UITabBarItem(title: NSLocalizedString("Home", comment: ""),
-                                  image: UIImage(systemName: "house.fill"), selectedImage: nil)
+        tabBarItem = UITabBarItem(title: NSLocalizedString("Documents", comment: "tab bar: the cards you hold"),
+                                  image: UIImage(systemName: "person.text.rectangle.fill"), selectedImage: nil)
 
         configureDataSource()
         applySnapshot()

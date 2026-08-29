@@ -32,13 +32,23 @@ class SettingsViewController: UICollectionViewController {
         static let eraseEverything = NSLocalizedString("Erase all local data", comment: "")
         static let minimalDisclosure = NSLocalizedString("Minimal disclosure", comment: "ZK proof screen title")
         static let capabilities = NSLocalizedString("What this app can prove", comment: "")
+        static let updateBackup = NSLocalizedString("Update my ID backup", comment: "settings, self-issued national ID")
     }
 
-    private let sections = [
-        Section(title: NSLocalizedString("Support and About", comment: ""), items: [
+    /// A national ID is stored, so its backup can be refreshed. Home shows the
+    /// 「create」 invitation only while empty; once a document exists, refreshing it
+    /// is rare housekeeping and lives here instead (per the card-exists → Settings
+    /// rule).
+    private var hasStoredNationalID: Bool {
+        guard let store = try? CredentialStore() else { return false }
+        return CardInventory.rows(from: store).contains { $0.source == .selfIssued }
+    }
+
+    private var sections: [Section] {
+        var support: [Item] = [
             Item(image: UIImage(systemName: "info.circle.fill")?.withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
                  title: NSLocalizedString("About Bond", comment: ""),
-                 secondaryText: versionString),
+                 secondaryText: Self.versionString),
             // `PresentationScenario` documents itself as the table 「the screen
             // renders」 — and had no screen. Same defect as `LocalDataEraser`
             // below: implemented, unreachable, and therefore a promise the
@@ -49,7 +59,16 @@ class SettingsViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "doc.text"),
                  title: Row.license,
                  secondaryText: NSLocalizedString("Third Party Software License", comment: ""))
-        ]),
+        ]
+        if hasStoredNationalID {
+            support.insert(
+                Item(image: UIImage(systemName: "arrow.clockwise")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+                     title: Row.updateBackup,
+                     secondaryText: NSLocalizedString("Fetch it again from Taiwan's MyData service and replace what's stored.", comment: "")),
+                at: 0)
+        }
+        return [
+        Section(title: NSLocalizedString("Support and About", comment: ""), items: support),
         // `LocalDataEraser` has existed with no caller: the promise that a user
         // can remove their identity from the phone was implemented but
         // unreachable. This is the control that makes it true.
@@ -91,7 +110,8 @@ class SettingsViewController: UICollectionViewController {
                     ? NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.", comment: "")
                     : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: ""))
         ])
-    ]
+        ]
+    }
 
     init() {
         var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
@@ -165,6 +185,11 @@ extension SettingsViewController {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
         switch item.title {
+        case Row.updateBackup:
+            let vc = MyDataOnboardViewController()
+            let nav = UINavigationController(rootViewController: vc)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
         case Row.license:
             navigationController?.pushViewController(LicenseViewController(), animated: true)
         case Row.capabilities:

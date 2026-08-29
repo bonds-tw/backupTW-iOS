@@ -1235,6 +1235,16 @@
         }
       }
     },
+    "Documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證件"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "zh-Hant": {
@@ -1473,6 +1483,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新抓一次，取代目前存的這份。"
+          }
+        }
+      }
+    },
+    "Fetch it again from Taiwan's MyData service and replace what's stored.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從台灣 MyData 服務重新抓取,取代目前存的這份。"
           }
         }
       }
@@ -6539,6 +6559,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "解壓縮失敗（密碼錯誤），請輸入正確的身分證字號。"
+          }
+        }
+      }
+    },
+    "Update my ID backup": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新我的身分證備份"
           }
         }
       }
