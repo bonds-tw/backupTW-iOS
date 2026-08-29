@@ -18,28 +18,17 @@ final class WalletCardCell: UICollectionViewCell {
     /// The height constraint driven by the current content's aspect ratio, so a
     /// flatter vault card is shorter than the 1.585 credential cards.
     private var aspectConstraint: NSLayoutConstraint?
-    /// Pins the card to the cell's bottom in the normal (self-sizing) mode. In the
-    /// collapsed-stack **peek** mode it is deactivated so the card keeps its full
-    /// aspect height, pinned to the top, and overflows a short cell that clips it —
-    /// leaving only the card's header (kind + issuer) showing.
-    private var bottomConstraint: NSLayoutConstraint?
-
-    /// A collapsed-stack peek shows only the card's header strip. `nil` in the
-    /// normal full-card mode.
-    private(set) var stackPeekHeight: CGFloat?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         cardView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(cardView)
-        let bottom = cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         NSLayoutConstraint.activate([
             cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             cardView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            bottom,
+            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
-        bottomConstraint = bottom
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -55,62 +44,6 @@ final class WalletCardCell: UICollectionViewCell {
         constraint.priority = .required - 1
         constraint.isActive = true
         aspectConstraint = constraint
-    }
-
-    /// Switches the cell between the normal full-card mode (`nil`) and a
-    /// collapsed-stack peek that shows only a `height`-tall header strip. In peek
-    /// mode the bottom pin is released so the card keeps its full aspect height and
-    /// the (layout-sized) cell clips it; a peek is not tappable-to-flip, so the
-    /// press spring is left alone but the home screen routes its tap to expand.
-    func setStackPeek(_ height: CGFloat?) {
-        stackPeekHeight = height
-        let isPeek = height != nil
-        bottomConstraint?.isActive = !isPeek
-        // A peek clips the full-height card to a short strip, rounded ONLY at the top
-        // — its bottom edge is straight, so the card reads as continuing down under
-        // the card stacked over it (Apple-Wallet tuck), not a standalone rounded pill.
-        contentView.clipsToBounds = isPeek
-        contentView.layer.cornerRadius = isPeek ? WalletCardView.cornerRadius : 0
-        contentView.layer.cornerCurve = .continuous
-        contentView.layer.maskedCorners = isPeek
-            ? [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-            : [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        // Never clip the cell itself — a peek's drop shadow has to spill past the
-        // cell onto the card beneath it, which is what makes the stack read as
-        // physically tucked (Apple-Wallet style) rather than a spaced list.
-        clipsToBounds = false
-        if isPeek {
-            // The card's own shadow is clipped away with its body, so the cell casts
-            // the shadow that tucks this strip under the card above.
-            layer.shadowColor = UIColor.black.cgColor
-            layer.shadowOpacity = 0.22
-            layer.shadowRadius = 5
-            layer.shadowOffset = CGSize(width: 0, height: 2)
-        } else {
-            layer.shadowOpacity = 0
-        }
-        setNeedsLayout()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // Shape a peek's shadow to the visible strip — rounded top, straight bottom,
-        // matching the clip — so the shadow reads as a card edge tucking under, not a
-        // pill floating above.
-        layer.shadowPath = stackPeekHeight == nil ? nil
-            : UIBezierPath(roundedRect: contentView.bounds,
-                           byRoundingCorners: [.topLeft, .topRight],
-                           cornerRadii: CGSize(width: WalletCardView.cornerRadius,
-                                               height: WalletCardView.cornerRadius)).cgPath
-    }
-
-    override func preferredLayoutAttributesFitting(
-        _ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
-        // A collapsed-stack peek takes exactly the height its layout item gives it
-        // — the full-height card overflows and is clipped — so it must not self-size
-        // up to the whole card. The normal full card keeps self-sizing.
-        if stackPeekHeight != nil { return layoutAttributes }
-        return super.preferredLayoutAttributesFitting(layoutAttributes)
     }
 
     // MARK: - Phase 2a passthrough (gyroscope tilt)
@@ -185,7 +118,6 @@ final class WalletCardCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        setStackPeek(nil)   // back to a full, self-sizing card
         cardView.transform = .identity
         // A reused cell must show its front and carry neither the previous card's
         // flip nor its tilt into new content: reset the flip first (so it lands on

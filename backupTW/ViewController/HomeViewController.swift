@@ -352,10 +352,11 @@ class HomeViewController: UICollectionViewController {
         return section
     }
 
-    /// The collapsed 疊卡 section: the first card at full height, each later card a
-    /// `stackPeekHeight` header strip stacked below it. Laid out by hand because the
-    /// cards overlap the normal flow's one-per-row rule; the peek cells clip their
-    /// (full-height) card to just the header (see `WalletCardCell.setStackPeek`).
+    /// The collapsed 疊卡 section: full rounded cards laid out by hand so they
+    /// overlap Apple-Wallet style — the hero at the bottom in front, each card above
+    /// tucked behind and offset up by `stackPeekHeight`, so only its rounded top
+    /// (a sliver with its name) shows. No clipping; the lower card covers the body
+    /// of the one above.
     private static func collapsedStackSection(cardCount: Int,
                                               environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
         // A custom group does NOT honour the section's horizontal contentInsets for
@@ -366,26 +367,25 @@ class HomeViewController: UICollectionViewController {
         let inset: CGFloat = 16
         let cardWidth = environment.container.effectiveContentSize.width - inset * 2
         let cardHeight = cardWidth / credentialAspect
-        let peek = stackPeekHeight
+        let peek = stackPeekHeight    // visible sliver of each stacked card's top
         let totalHeight = cardHeight + CGFloat(cardCount - 1) * peek
         let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
                                                heightDimension: .absolute(totalHeight))
-        // Apple-Wallet order: the hero (first card) is full at the BOTTOM; every
-        // later card fans up above it as a `peek`-tall sliver showing its name, item
-        // 1 highest. Each peek has a higher zIndex than the card below, so its shadow
-        // falls onto that card and the pile reads as physically tucked.
+        // Apple-Wallet stack: every card is a FULL rounded card, and they overlap so
+        // a lower card covers the body of the card above it — leaving only that
+        // card's rounded top (a `peek`-tall sliver with its name) showing. No
+        // clipping: the hero (first card) sits at the BOTTOM, fully visible and in
+        // front (highest zIndex); each card above is behind the one below it, so its
+        // bottom corners are hidden and its body fills behind the lower card's
+        // rounded top — no notch, no pill.
         let group = NSCollectionLayoutGroup.custom(layoutSize: groupSize) { env in
             let w = env.container.effectiveContentSize.width - inset * 2
             let h = w / credentialAspect
             return (0..<cardCount).map { i in
-                if i == 0 {
-                    return NSCollectionLayoutGroupCustomItem(
-                        frame: CGRect(x: inset, y: CGFloat(cardCount - 1) * peek, width: w, height: h),
-                        zIndex: 0)
-                }
+                let y = i == 0 ? CGFloat(cardCount - 1) * peek : CGFloat(i - 1) * peek
+                let z = i == 0 ? cardCount : i   // hero in front; each lower card in front of the one above
                 return NSCollectionLayoutGroupCustomItem(
-                    frame: CGRect(x: inset, y: CGFloat(i - 1) * peek, width: w, height: peek),
-                    zIndex: cardCount - i)
+                    frame: CGRect(x: inset, y: y, width: w, height: h), zIndex: z)
             }
         }
         let section = NSCollectionLayoutSection(group: group)
@@ -504,17 +504,11 @@ class HomeViewController: UICollectionViewController {
 
     private func configureDataSource() {
         let cardRegistration = UICollectionView.CellRegistration<WalletCardCell, WalletCardContent> {
-            [weak self] cell, indexPath, content in
+            [weak self] cell, _, content in
             cell.configure(content)
-            // Collapsed 疊卡: every card past the hero (item 0) shows only its
-            // header strip. Expanded, or outside the government stack, it is a full
-            // card. Recomputed each dequeue so a toggle reconfigures cleanly.
-            if let self, self.collapsedStackCardCount(atSectionIndex: indexPath.section) != nil,
-               indexPath.item > 0 {
-                cell.setStackPeek(Self.stackPeekHeight)
-            } else {
-                cell.setStackPeek(nil)
-            }
+            // Collapsed 疊卡 vs expanded is a pure layout difference now (the custom
+            // group overlaps full cards) — the cell itself is always a full card, so
+            // nothing per-cell to switch here.
             // The back's 「查看／管理詳情」 button opens the same detail screen a tap
             // used to. Resolved through the live indexPath at tap time, never a
             // captured one, so a reused cell routes to whatever card it now shows.

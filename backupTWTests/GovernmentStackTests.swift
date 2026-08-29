@@ -4,9 +4,9 @@
 //
 //  Phase 2c 疊卡. Drives the home screen against an in-memory store (injected, so
 //  the device store is never touched) and reads the collection view's layout
-//  attributes to assert the collapsed stack geometry, the tap→expand and
-//  header→collapse toggle, and — the two review fixes — that the resting state
-//  resets when the group drops below two cards.
+//  attributes to assert the collapsed stack (full cards overlapping, hero tucked at
+//  the bottom), the tap→expand toggle, and — the two review fixes — that the resting
+//  state resets when the group drops below two cards.
 //
 
 import Foundation
@@ -48,7 +48,7 @@ struct GovernmentStackTests {
 
     private func home(_ store: SeededStore) -> (HomeViewController, UIWindow) {
         let controller = HomeViewController(makeStore: { store })
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 900))
         window.rootViewController = UINavigationController(rootViewController: controller)
         window.isHidden = false
         controller.loadViewIfNeeded()
@@ -58,31 +58,45 @@ struct GovernmentStackTests {
         return (controller, window)
     }
 
-    private func cardHeight(_ controller: HomeViewController, item: Int) throws -> CGFloat {
+    private func frame(_ controller: HomeViewController, item: Int) throws -> CGRect {
         try #require(controller.collectionView.layoutAttributesForItem(
-            at: IndexPath(item: item, section: Self.governmentSection))?.frame.height)
+            at: IndexPath(item: item, section: Self.governmentSection))?.frame)
     }
 
-    @Test func collapsedStackShowsAFullHeroAndPeekingRest() throws {
+    @Test func collapsedStackTucksTheHeroUnderFullOverlappingCards() throws {
         let (controller, _) = home(try seeded(3))
-        #expect(try cardHeight(controller, item: 0) > 200)          // hero: full card
-        #expect(abs(try cardHeight(controller, item: 1) - 60) < 1)  // peek: 66pt header strip
-        #expect(abs(try cardHeight(controller, item: 2) - 60) < 1)
+        let hero = try frame(controller, item: 0)
+        let peek1 = try frame(controller, item: 1)
+        let peek2 = try frame(controller, item: 2)
+        // Every card is a FULL card (same height), not a clipped strip.
+        #expect(hero.height > 200)
+        #expect(abs(peek1.height - hero.height) < 1)
+        #expect(abs(peek2.height - hero.height) < 1)
+        // The hero sits at the BOTTOM of the pile (largest minY) and the cards
+        // overlap — the hero starts well before a peek ends.
+        #expect(hero.minY > peek1.minY)
+        #expect(hero.minY > peek2.minY)
+        #expect(peek1.maxY > hero.minY)                     // overlap, not a spaced list
+        #expect(hero.minY - peek1.minY < hero.height)       // compact: tucked, not one-per-row
     }
 
     @Test func aSingleGovernmentCardDoesNotStack() throws {
         let (controller, _) = home(try seeded(1))
-        #expect(try cardHeight(controller, item: 0) > 200)          // one full card, no peek
+        #expect(try frame(controller, item: 0).height > 200)
     }
 
-    @Test func tappingTheCollapsedStackExpandsItToFullCards() throws {
+    @Test func tappingTheCollapsedStackExpandsToSpacedCards() throws {
         let (controller, window) = home(try seeded(3))
-        // Collapsed, a tap anywhere on the stack expands rather than flips.
         controller.collectionView(controller.collectionView,
                                   didSelectItemAt: IndexPath(item: 0, section: Self.governmentSection))
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
         window.layoutIfNeeded()
-        #expect(try cardHeight(controller, item: 1) > 200)          // now a full card
+        let hero = try frame(controller, item: 0)
+        let peek1 = try frame(controller, item: 1)
+        // Expanded: the first card is back on top and the second is below it with a
+        // gap — no overlap.
+        #expect(hero.minY < peek1.minY)
+        #expect(peek1.minY >= hero.maxY)
     }
 
     @Test func restingStateResetsWhenTheGroupDropsBelowTwoCards() throws {
@@ -92,7 +106,7 @@ struct GovernmentStackTests {
         controller.setGovernmentStackExpanded(true, animated: false)
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         window.layoutIfNeeded()
-        #expect(try cardHeight(controller, item: 1) > 200)          // expanded
+        #expect(try frame(controller, item: 0).minY < frame(controller, item: 1).minY)  // expanded
 
         // Drop to one card and rebuild: no longer stackable.
         try fill(store, count: 1)
@@ -101,11 +115,11 @@ struct GovernmentStackTests {
         window.layoutIfNeeded()
 
         // Repopulate to three and rebuild: because the resting state reset, the
-        // group renders collapsed again rather than inheriting the stale expansion.
+        // group is collapsed again — hero tucked below the peeks.
         try fill(store, count: 3)
         controller.viewWillAppear(false)
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         window.layoutIfNeeded()
-        #expect(abs(try cardHeight(controller, item: 1) - 60) < 1)  // collapsed again
+        #expect(try frame(controller, item: 0).minY > frame(controller, item: 1).minY)  // collapsed again
     }
 }
