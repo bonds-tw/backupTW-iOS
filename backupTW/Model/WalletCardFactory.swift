@@ -77,7 +77,10 @@ enum WalletCardFactory {
             title: title,
             holderName: holder,
             fields: fields,
-            idLabel: idMasked == nil ? nil : StoredNationalID.label(for: "unifiedNo"),
+            // The card face reproduces the physical 國民身分證, which prints
+            // 「統一編號」 — kept verbatim here even though the field label elsewhere
+            // (detail, 對照表) now reads 「身分證字號」, the word people use.
+            idLabel: idMasked == nil ? nil : NSLocalizedString("Unified number", comment: "national ID card face footer, matches the physical card"),
             idValueMasked: idMasked,
             // Self-issued: nobody vouches for it but the holder, and the card
             // says so plainly rather than borrowing a trust-list's authority.

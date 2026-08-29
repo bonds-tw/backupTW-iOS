@@ -1804,7 +1804,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "統一編號"
+            "value": "身分證字號"
           }
         }
       }
@@ -6754,6 +6754,16 @@
       }
     },
     "Unified No.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統一編號"
+          }
+        }
+      }
+    },
+    "Unified number": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
