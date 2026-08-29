@@ -296,8 +296,10 @@ final class GovernmentCardViewController: UICollectionViewController {
                             title: NSLocalizedString("This card", comment: ""),
                             rows: aboutRows))
 
-        // MARK: What this check did and did not establish. The honest core.
-        groups.append(Group(
+        // MARK: What this check did and did not establish. The honest core. Built
+        // here but appended below the disclosed fields, so the page reads
+        // 這張卡片 → 欄位 → 可以確認的部分.
+        let trustGroup = Group(
             id: "trust",
             title: NSLocalizedString("What can be confirmed", comment: ""),
             rows: [
@@ -325,7 +327,7 @@ final class GovernmentCardViewController: UICollectionViewController {
                             "Not shown. Whether this card was cancelled can only be known online, and the list that would say so is vouched for by nothing this phone can check offline. A signed card is not the same as one that is still valid.",
                             comment: ""),
                     isSensitive: false, isAction: false)
-            ]))
+            ])
 
         // MARK: The disclosed fields, behind the same one tap as the holder's
         // own ID — the situation that makes them sensitive is identical.
@@ -363,6 +365,9 @@ final class GovernmentCardViewController: UICollectionViewController {
                     isSensitive: false, isAction: true)
             ]))
         }
+
+        // 「可以確認的部分」 last: 這張卡片 → 欄位 → 可以確認的部分.
+        groups.append(trustGroup)
 
         return groups
     }

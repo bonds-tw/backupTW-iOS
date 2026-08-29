@@ -38,11 +38,13 @@ class HomeViewController: UICollectionViewController {
     /// stack layout, and the tap routing so they always mean the same section.
     private static let governmentSectionID = "government"
     /// The height of a peeking (non-hero) card in the collapsed stack — enough for
-    /// its kind and issuer header to read.
-    private static let stackPeekHeight: CGFloat = 66
-    /// The gap between stacked cards, so a peek reads as its own card tucked below
-    /// rather than the hero sliced off at the bottom.
-    private static let stackGap: CGFloat = 8
+    /// its kind and issuer header to read once the card above tucks over its top.
+    private static let stackPeekHeight: CGFloat = 74
+    /// Cards overlap by this much (negative gap): each peek tucks under the card
+    /// above it, so the stack reads as a physical pile with shadowed layers rather
+    /// than a spaced list. Kept smaller than the header's top margin so the kind
+    /// and issuer still clear the card above.
+    private static let stackGap: CGFloat = -12
     /// Every collapsed-stack card is a 數位憑證皮夾 credential face, so its height is
     /// its width over this one aspect ratio.
     private static let credentialAspect: CGFloat = 1.585

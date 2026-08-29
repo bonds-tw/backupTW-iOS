@@ -66,13 +66,34 @@ final class WalletCardCell: UICollectionViewCell {
         stackPeekHeight = height
         let isPeek = height != nil
         bottomConstraint?.isActive = !isPeek
+        // A peek clips the full-height card to a short strip; round the clip on all
+        // corners (the card's own rounding only covers the top two).
         contentView.clipsToBounds = isPeek
-        clipsToBounds = isPeek
-        // A peek clips the full-height card to a short strip. Round the clip on all
-        // corners (the card's own rounding only covers the top two) so it reads as a
-        // card tucked below the hero, not the hero sliced off with a hard edge.
         contentView.layer.cornerRadius = isPeek ? WalletCardView.cornerRadius : 0
         contentView.layer.cornerCurve = .continuous
+        // Never clip the cell itself — a peek's drop shadow has to spill past the
+        // cell onto the card beneath it, which is what makes the stack read as
+        // physically tucked (Apple-Wallet style) rather than a spaced list.
+        clipsToBounds = false
+        if isPeek {
+            // The card's own shadow is clipped away with its body, so the cell casts
+            // the shadow that tucks this strip under the card above.
+            layer.shadowColor = UIColor.black.cgColor
+            layer.shadowOpacity = 0.22
+            layer.shadowRadius = 5
+            layer.shadowOffset = CGSize(width: 0, height: 2)
+        } else {
+            layer.shadowOpacity = 0
+        }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Shape a peek's shadow to the visible strip, not the full (clipped) card.
+        layer.shadowPath = stackPeekHeight == nil ? nil
+            : UIBezierPath(roundedRect: contentView.bounds,
+                           cornerRadius: WalletCardView.cornerRadius).cgPath
     }
 
     override func preferredLayoutAttributesFitting(
