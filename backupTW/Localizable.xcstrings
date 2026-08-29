@@ -2295,6 +2295,16 @@
         }
       }
     },
+    "Mobile number (last 3)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手機末三碼"
+          }
+        }
+      }
+    },
     "My cards": {
       "localizations": {
         "zh-Hant": {
@@ -5912,6 +5922,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這份證件的簽章方式本 App 無法查驗。"
+          }
+        }
+      }
+    },
+    "This document isn't available through Taiwan's MyData service, so it can't be imported here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份文件不在台灣 MyData 平台上，因此無法在這裡匯入。"
           }
         }
       }

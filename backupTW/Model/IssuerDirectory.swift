@@ -151,9 +151,9 @@ enum IssuerDirectory {
     /// put to it — head and tail kept, the long multibase middle elided. The
     /// point is only legibility; the full DID is on the detail screen.
     private static func truncatedDID(_ did: String) -> String {
-        let sanitised = UntrustedText.value(did).text
-        let characters = Array(sanitised)
-        guard characters.count > 24 else { return sanitised }
-        return String(characters.prefix(16)) + "…" + String(characters.suffix(6))
+        // Head and tail kept, the long multibase middle elided — the shared helper
+        // every DID display routes through, so `did:key:z6Mk…AbCd` reads the same
+        // way here as on the trust list and the card face.
+        return WalletCardMask.middleEllipsis(UntrustedText.value(did).text)
     }
 }

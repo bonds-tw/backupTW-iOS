@@ -246,10 +246,17 @@ struct StoredNationalID: Equatable {
         (["gender", "sex"], NSLocalizedString("Gender", comment: "field label")),
         (["nationality"], NSLocalizedString("Nationality", comment: "field label")),
         (["license_number", "licence_number", "licenseno", "licence_no"], NSLocalizedString("Licence number", comment: "field label")),
-        (["vehicle_type", "car_type", "license_class", "class"], NSLocalizedString("Vehicle class", comment: "field label")),
+        (["controlnumber", "control_number"], NSLocalizedString("Control number", comment: "field label; the driving-licence 管轄編號")),
+        // The real 公路局 driving-licence disclosed a bare `type` for the vehicle
+        // class (value 「普通小型車」). It is generic enough to collide in theory,
+        // but the driving licence is the only card in this ecosystem that carries
+        // it, and a reader is far better served by 車輛類別 than the raw key.
+        (["vehicle_type", "car_type", "license_class", "class", "type"], NSLocalizedString("Vehicle class", comment: "field label")),
         (["msisdn", "mobile", "phone", "phone_number", "mobile_number"], NSLocalizedString("Mobile number", comment: "field label")),
+        (["phone_number_last3", "phonel3"], NSLocalizedString("Mobile number (last 3)", comment: "field label; convenience-store pickup card")),
         (["carrier", "telecom", "operator"], NSLocalizedString("Carrier", comment: "field label")),
-        (["issue_date", "issuedate", "valid_from", "validfrom"], NSLocalizedString("Valid from", comment: "field label")),
-        (["expiry", "expiration", "valid_until", "validuntil", "expires"], NSLocalizedString("Valid until", comment: "field label")),
+        // `gDate` is the driving-licence issue date (民國 date, e.g. 1020701).
+        (["issue_date", "issuedate", "valid_from", "validfrom", "gdate"], NSLocalizedString("Valid from", comment: "field label")),
+        (["expiry", "expiration", "valid_until", "validuntil", "expires", "expiry_date"], NSLocalizedString("Valid until", comment: "field label")),
     ]
 }

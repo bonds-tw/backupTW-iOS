@@ -94,6 +94,20 @@ enum WalletCardMask {
         return String(characters.prefix(1)) + String(repeating: nameDot, count: count - 1)
     }
 
+    /// Shortens a long, unreadable string for display by eliding the **middle**,
+    /// keeping the head and — the point of it — the **tail**. A `did:key` is the
+    /// case this exists for: `did:key:z6Mk…AbCd` lets a reader recognise both the
+    /// method prefix and the distinguishing last characters. Unlike `masked`, the
+    /// middle is an ellipsis, not dots: a DID is a public identifier, so this is
+    /// legibility, not secrecy. Strings no longer than `leading + trailing` are
+    /// returned whole (there is nothing to gain by eliding them). Counted in
+    /// `Character` so multibyte content is measured the way a reader sees it.
+    static func middleEllipsis(_ raw: String, leading: Int = 16, trailing: Int = 6) -> String {
+        let characters = Array(raw)
+        guard characters.count > leading + trailing else { return raw }
+        return String(characters.prefix(leading)) + "…" + String(characters.suffix(trailing))
+    }
+
     /// Whether a claim key names a sensitive *identifier* — the value picked as a
     /// card's primary number and run through `masked`. Names are deliberately
     /// *not* here: a name is not an identifier number, and it has its own

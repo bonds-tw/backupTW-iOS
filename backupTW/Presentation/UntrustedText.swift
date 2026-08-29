@@ -191,6 +191,20 @@ enum ClaimLabel: Equatable {
         // this app's own word — see `declaredByTheDocument`.
         return shared == term ? .declaredByTheDocument(.term(term)) : .known(shared)
     }
+
+    /// The heading a screen draws: the app's own word when the term is known, and
+    /// the document's own term framed as *theirs* when it is not. Both the card
+    /// back and the detail page render through this, so a field never reads one way
+    /// on the card and another on the screen behind it.
+    var heading: String {
+        switch self {
+        case .known(let name):
+            return name
+        case .declaredByTheDocument(let quoted):
+            return String(format: NSLocalizedString("Field named by their document: “%@”", comment: ""),
+                          quoted.text)
+        }
+    }
 }
 
 /// One row of the disclosed-fields list, with both halves already sanitized.

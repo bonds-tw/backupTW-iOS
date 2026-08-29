@@ -83,11 +83,11 @@ struct GovernmentCardViewControllerTests {
     /// document's own key, quoted inside the app's sentence — not given a
     /// Chinese label invented for it. The raw term survives into the heading.
     @Test func anUnknownFieldQuotesTheDocumentsOwnKey() {
-        let heading = GovernmentCardViewController.fieldHeading(for: "controlnumber")
-        #expect(heading.contains("controlnumber"))
+        let heading = GovernmentCardViewController.fieldHeading(for: "restrictioncode")
+        #expect(heading.contains("restrictioncode"))
         // And it is not simply the raw key masquerading as an app-authored
         // label: the app's framing is wrapped around it.
-        #expect(heading != "controlnumber")
+        #expect(heading != "restrictioncode")
     }
 
     // MARK: - The screen itself

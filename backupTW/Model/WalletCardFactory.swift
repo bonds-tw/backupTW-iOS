@@ -245,21 +245,14 @@ enum WalletCardFactory {
         return text
     }
 
-    /// A readable label for a disclosed credential claim key, falling back to the
-    /// sanitised key itself when this app has no curated name for it — the honest
-    /// thing, never an invented label.
+    /// A readable label for a disclosed credential claim key. Delegates to the same
+    /// `ClaimLabel` table the detail page uses — so the card back and the screen
+    /// behind it name a field the same way, and every key the detail page knows a
+    /// Chinese word for (地址, 車輛類別, 電信業者, …) reads that way on the back too,
+    /// instead of the raw machine key this once fell through to. Unknown keys stay
+    /// framed as the document's own term, never an invented label.
     private static func claimLabel(_ key: String) -> String {
-        switch key.lowercased() {
-        case "name": return NSLocalizedString("Name", comment: "credential back field")
-        case "id_number", "idnumber": return NSLocalizedString("ID number", comment: "credential back field")
-        case "roc_birthday", "birthday", "birthdate", "dob":
-            return NSLocalizedString("Date of birth", comment: "credential back field")
-        case "license_number", "licence_number":
-            return NSLocalizedString("Licence number", comment: "credential back field")
-        case "msisdn", "mobile", "phone", "phone_number":
-            return NSLocalizedString("Mobile number", comment: "credential back field")
-        default: return UntrustedText.value(key).text
-        }
+        ClaimLabel.label(for: key).heading
     }
 
     // MARK: - MyData vault

@@ -104,8 +104,10 @@ final class TrustCenterViewController: UICollectionViewController {
                     format: NSLocalizedString("%d organisations on 數位發展部信任清單. A card is only accepted if its issuer is on this list.", comment: ""),
                     issuers.count))])
                 snapshot.appendItems(issuers.map {
-                    let did = String($0.did.suffix(12))
-                    let detail = $0.taxID.isEmpty ? "…\(did)" : "\(NSLocalizedString("Tax ID", comment: "")) \($0.taxID) · …\(did)"
+                    // Head+tail so the did:key prefix and the distinguishing last
+                    // characters both show (did:key:z6Mk…AbCd), not a tail-only slice.
+                    let did = WalletCardMask.middleEllipsis($0.did)
+                    let detail = $0.taxID.isEmpty ? did : "\(NSLocalizedString("Tax ID", comment: "")) \($0.taxID) · \(did)"
                     return .issuer(did: $0.did, name: $0.displayName.isEmpty ? $0.displayNameEnglish : $0.displayName, detail: detail)
                 })
             }

@@ -61,6 +61,24 @@ struct WalletCardMaskTests {
         #expect(WalletCardMask.masked("") == "")
     }
 
+    // MARK: - Middle-ellipsis (DID display: head AND tail kept)
+
+    @Test("a long DID keeps its head and — the point — its tail")
+    func middleEllipsisKeepsBothEnds() {
+        let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+        let shown = WalletCardMask.middleEllipsis(did)
+        #expect(shown.hasPrefix("did:key:z6Mk"))          // the method + start survives
+        #expect(shown.hasSuffix(String(did.suffix(6))))   // the distinguishing tail survives
+        #expect(shown.contains("…"))
+        #expect(shown.count < did.count)
+    }
+
+    @Test("a string no longer than head+tail is returned whole")
+    func middleEllipsisLeavesShortStringsWhole() {
+        #expect(WalletCardMask.middleEllipsis("did:key:short") == "did:key:short")
+        #expect(WalletCardMask.middleEllipsis("") == "")
+    }
+
     @Test("the middle is always fully hidden for a long value")
     func middleIsFullyHidden() {
         let masked = WalletCardMask.masked("A234567890")

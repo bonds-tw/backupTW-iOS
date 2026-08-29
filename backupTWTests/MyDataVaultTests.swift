@@ -30,6 +30,18 @@ struct FieldLabelDirectoryTests {
         #expect(StoredNationalID.label(for: "license_number") == NSLocalizedString("Licence number", comment: ""))
     }
 
+    @Test func mapsTheRealGovernmentCardKeys() {
+        // The keys the actual 公路局 driving licence and the 便利商店取貨 card
+        // disclose — the ones a reader was seeing raw before they were curated.
+        #expect(StoredNationalID.label(for: "type") == NSLocalizedString("Vehicle class", comment: ""))
+        #expect(StoredNationalID.label(for: "controlnumber") == NSLocalizedString("Control number", comment: ""))
+        #expect(StoredNationalID.label(for: "gDate") == NSLocalizedString("Valid from", comment: ""))
+        #expect(StoredNationalID.label(for: "expiry_date") == NSLocalizedString("Valid until", comment: ""))
+        #expect(StoredNationalID.label(for: "Phone_number_last3") == NSLocalizedString("Mobile number (last 3)", comment: ""))
+        // Adding `controlnumber` must not have disturbed the licence number.
+        #expect(StoredNationalID.label(for: "license_number") == NSLocalizedString("Licence number", comment: ""))
+    }
+
     @Test func nationalIDsOwnExactKeysStillWin() {
         #expect(StoredNationalID.label(for: "unifiedNo") == NSLocalizedString("ID number", comment: ""))
         #expect(StoredNationalID.label(for: "addressOfHousehold") == NSLocalizedString("Household address", comment: ""))
@@ -58,8 +70,16 @@ struct MyDataDocumentRegistryTests {
     @Test func looksUpByIdAndVcType() {
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.vcType == "IncomeCredential")
         #expect(MyDataDocumentRegistry.lookup(vcType: "NationalIDCredential")?.id == StoredNationalID.credentialID)
-        #expect(MyDataDocumentRegistry.nationalID.myDataItemPath != nil)   // the one wired document
-        #expect(MyDataDocumentRegistry.vaultDocuments.allSatisfy { $0.myDataItemPath == nil }) // not yet wired
+        #expect(MyDataDocumentRegistry.nationalID.myDataItemPath != nil)
+    }
+
+    @Test func vaultDocumentsAreWiredToTheirRealMyDataItems() {
+        // Discovered on mydata.nat.gov.tw itself; income / labor insurance / health
+        // insurance now resolve to real items, academic has no MyData counterpart.
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.myDataItemPath == "personal/detail/API.syWqjr4flJ")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-labor-insurance")?.myDataItemPath == "personal/detail/API.UZQkKbsOpz")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-health-insurance")?.myDataItemPath == "personal/detail/API.zH584wn59r")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-academic")?.myDataItemPath == nil)
     }
 }
 

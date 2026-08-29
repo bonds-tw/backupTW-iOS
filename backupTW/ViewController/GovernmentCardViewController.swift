@@ -415,13 +415,7 @@ final class GovernmentCardViewController: UICollectionViewController {
     /// (`controlnumber`, `gDate`) is shown honestly as the document's own key
     /// rather than given a Chinese label this app invented for it.
     static func fieldHeading(for term: String) -> String {
-        switch ClaimLabel.label(for: term) {
-        case .known(let name):
-            return name
-        case .declaredByTheDocument(let quoted):
-            return String(format: NSLocalizedString("Field named by their document: “%@”", comment: ""),
-                          quoted.text)
-        }
+        ClaimLabel.label(for: term).heading
     }
 
     // MARK: - Collection

@@ -31,8 +31,13 @@ class MyDataWebViewController : UIViewController {
         return webview
     }()
     private let completion: ((NationalIDModel) -> Void)
+    /// Which MyData item to open, e.g. `personal/detail/API.idPhotoRev` for the
+    /// national ID or `personal/detail/API.syWqjr4flJ` for the income record. The
+    /// fetch/auth machinery is identical across items — only the entry URL differs.
+    private let itemPath: String
 
-    init(completion: @escaping ((NationalIDModel) -> Void)) {
+    init(itemPath: String, completion: @escaping ((NationalIDModel) -> Void)) {
+        self.itemPath = itemPath
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
     }
@@ -90,7 +95,7 @@ class MyDataWebViewController : UIViewController {
     }
 
     private func reloadWebViewToMobilemoica() {
-        let urlString = "https://mydata.nat.gov.tw/personal/detail/API.idPhotoRev"
+        let urlString = "https://mydata.nat.gov.tw/\(itemPath)"
         let url = URL(string: urlString)!
         webview.load(URLRequest(url: url))
     }

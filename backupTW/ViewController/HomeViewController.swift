@@ -684,10 +684,11 @@ extension HomeViewController {
     }
 
     /// The way into the vault: pick a MyData document type to import. Choosing one
-    /// runs the same in-app MyData fetch the national ID uses (行動自然人憑證 →
-    /// the household record) and stores the result under that document's id, so it
-    /// lands in the vault. Per-document MyData paths replace the shared one as each
-    /// is discovered on a real account (see `MyDataDocumentType.myDataItemPath`).
+    /// opens that document's own MyData item (see `MyDataDocumentType.myDataItemPath`,
+    /// discovered on mydata.nat.gov.tw) and fetches it in-app through 行動自然人憑證
+    /// the same way the national ID is fetched, storing the result under the
+    /// document's id so it lands in the vault. A document with no MyData counterpart
+    /// (學歷) says so instead of opening a flow that cannot fetch it.
     private func presentImportPicker() {
         let sheet = UIAlertController(
             title: NSLocalizedString("Import from MyData", comment: "vault import picker title"),
@@ -705,11 +706,21 @@ extension HomeViewController {
     }
 
     private func beginImport(of type: MyDataDocumentType) {
-        // Runs the same MyData fetch → self-issue → store pipeline the national ID
-        // uses (行動自然人憑證 → the household record via `API.idPhotoRev`), but
-        // stores the result under this document's id so it lands in the vault. Each
-        // vault document reuses the national ID's path and data until it gets its
-        // own (「路徑與身分證資料一致」).
+        guard type.myDataItemPath != nil else {
+            // A document with no MyData counterpart — 學歷／畢業證書 was verified not
+            // to be a MyData item. Say so plainly rather than opening a flow that
+            // would fetch the wrong record.
+            let alert = UIAlertController(
+                title: type.title,
+                message: NSLocalizedString("This document isn't available through Taiwan's MyData service, so it can't be imported here.", comment: "vault import: document not on MyData"),
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+            present(alert, animated: true)
+            return
+        }
+        // Opens this document's own MyData item (income / labor insurance / health
+        // insurance), fetched in-app through 行動自然人憑證 the same way the national
+        // ID is, and stored under the document's id so it lands in the vault.
         presentMyDataOnboard(documentType: type)
     }
 

@@ -42,22 +42,30 @@ enum MyDataDocumentRegistry {
         systemImage: "person.text.rectangle.fill",
         myDataItemPath: "personal/detail/API.idPhotoRev")
 
-    /// The documents the 資料保險箱 is being built to hold. Paths are `nil` until
-    /// each is discovered + tested; the vault lists them as 「可匯入」 and the UI is
-    /// ready the moment a path lands here.
+    /// The documents the 資料保險箱 is being built to hold. Paths were discovered on
+    /// mydata.nat.gov.tw itself (the item detail URL is `personal/detail/API.<code>`,
+    /// the same shape as the national ID's `API.idPhotoRev`); a `nil` path means the
+    /// document has no MyData counterpart to fetch from.
     static let vaultDocuments: [MyDataDocumentType] = [
+        // 個人所得資料 · 財政部財政資訊中心
         MyDataDocumentType(id: "mydata-income", vcType: "IncomeCredential",
                            title: NSLocalizedString("Income / financial proof", comment: "document type"),
-                           systemImage: "banknote.fill", myDataItemPath: nil),
+                           systemImage: "banknote.fill", myDataItemPath: "personal/detail/API.syWqjr4flJ"),
+        // 被保險人投保資料（勞保／就保／災保）· 勞動部勞工保險局
         MyDataDocumentType(id: "mydata-labor-insurance", vcType: "LaborInsuranceCredential",
                            title: NSLocalizedString("Labor insurance record", comment: "document type"),
-                           systemImage: "shield.lefthalf.filled", myDataItemPath: nil),
+                           systemImage: "shield.lefthalf.filled", myDataItemPath: "personal/detail/API.UZQkKbsOpz"),
+        // 學歷／學位證明 is deliberately unwired: it is NOT a MyData item (verified
+        // against MyData's own /rest/inquiry/docs — 0 of 141 items match 畢業/學位/
+        // 學歷). 教育部's degree verification runs through depart.moe.edu.tw, a
+        // separate integration; MyData only carries a 學籍 (enrolment) record.
         MyDataDocumentType(id: "mydata-academic", vcType: "AcademicCredential",
                            title: NSLocalizedString("Academic qualification", comment: "document type"),
                            systemImage: "graduationcap.fill", myDataItemPath: nil),
+        // 個人投退保資料（健保）· 衛生福利部中央健康保險署
         MyDataDocumentType(id: "mydata-health-insurance", vcType: "HealthInsuranceCredential",
                            title: NSLocalizedString("Health insurance record", comment: "document type"),
-                           systemImage: "cross.case.fill", myDataItemPath: nil),
+                           systemImage: "cross.case.fill", myDataItemPath: "personal/detail/API.zH584wn59r"),
     ]
 
     static let all: [MyDataDocumentType] = [nationalID] + vaultDocuments
