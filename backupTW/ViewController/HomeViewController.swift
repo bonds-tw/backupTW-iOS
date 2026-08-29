@@ -672,13 +672,19 @@ extension HomeViewController {
               let card = Self.deletableCard(forCardID: id, in: cardRows) else { return nil }
 
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            let present = UIAction(
+                title: NSLocalizedString("Present credential", comment: "card context menu"),
+                image: UIImage(systemName: "person.badge.shield.checkmark")) { [weak self] _ in
+                    guard let self else { return }
+                    ScanToPresent.begin(on: self.navigationController)
+                }
             let delete = UIAction(
                 title: NSLocalizedString("Delete card", comment: "card context menu, destructive"),
                 image: UIImage(systemName: "trash"),
                 attributes: .destructive) { [weak self] _ in
                     self?.confirmDelete(card)
                 }
-            return UIMenu(title: "", children: [delete])
+            return UIMenu(title: "", children: [present, delete])
         }
     }
 

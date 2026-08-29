@@ -202,7 +202,8 @@ enum WalletCardFactory {
                 label: NSLocalizedString("Valid from", comment: "wallet card foot"),
                 value: Self.dateFormatter.string(from: credential.notBefore)),
             tint: tint(forCredentialType: credential.credentialType,
-                       issuer: credential.issuerDID),
+                       issuer: credential.issuerDID,
+                       kind: descriptor.cardKind),
             // The flip side lists every disclosed claim, each masked. It reuses
             // the same `backFieldValue` rule as the national ID: a name to its
             // surname, an identifier / phone / birthdate / address to dots, and a
@@ -276,10 +277,14 @@ enum WalletCardFactory {
     /// asserts nothing — a wrongly-green card is a cosmetic miss, not a false
     /// statement. Matched on substrings so a new transport or telecom card lands
     /// in the right family without a table that has to be exhaustive.
-    static func tint(forCredentialType type: String, issuer: String) -> WalletCardTint {
-        let hay = (type + " " + issuer).lowercased()
-        let transport = ["driv", "licen", "vehicle", "road", "公路", "監理", "traffic"]
-        let telecom = ["mobile", "telecom", "門號", "phone", "msisdn", "carrier",
+    static func tint(forCredentialType type: String, issuer: String, kind: String = "") -> WalletCardTint {
+        // Include the curated friendly kind/issuer, not just the raw type + DID: a
+        // real 台灣大哥大 card's `credentialType` is an opaque 「twmdiwvc_postpaid」
+        // with no telecom word in it, so it used to fall through to the graphite
+        // neutral — but its readable kind 「門號電子卡」 carries 「門號」 plainly.
+        let hay = (type + " " + issuer + " " + kind).lowercased()
+        let transport = ["driv", "licen", "vehicle", "road", "公路", "監理", "traffic", "駕照", "車籍"]
+        let telecom = ["mobile", "telecom", "門號", "電信", "phone", "msisdn", "carrier",
                        "chunghwa", "taiwanmobile", "fareastone", "中華電信", "台灣大", "遠傳"]
         if transport.contains(where: hay.contains) { return .green }
         if telecom.contains(where: hay.contains) { return .magenta }

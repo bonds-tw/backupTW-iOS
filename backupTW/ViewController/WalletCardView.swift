@@ -588,29 +588,24 @@ final class WalletCardView: UIView {
                                               valueFont: .systemFont(ofSize: 13, weight: .semibold)))
         }
         add(grid)
-        // Trust source above the grid: on the paper ID it reads
-        // 「行動自然人憑證 · 本人自簽」 — the honest note that this document vouches
-        // for itself. Grey rather than ink, so it stays quieter than the name.
-        // A tighter gap than the tinted cards, since the paper face is the
-        // vertically tightest of the three.
-        let gridTop: NSLayoutConstraint
-        if !card.trustSource.isEmpty {
-            let trust = makeTrustLine(card.trustSource, color: label)
-            add(trust)
-            NSLayoutConstraint.activate([
-                trust.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 8),
-                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
-            ])
-            gridTop = grid.topAnchor.constraint(equalTo: trust.bottomAnchor, constant: 7)
-        } else {
-            gridTop = grid.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 11)
-        }
         NSLayoutConstraint.activate([
-            gridTop,
+            grid.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 11),
             grid.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
             grid.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
         ])
+
+        // Trust source 「行動自然人憑證 · 本人自簽」 — the honest note that this document
+        // vouches for itself. It reads better down by the 統一編號 it qualifies than
+        // crowded under the title, so it is built here and pinned just above the
+        // footer hairline in the 統一編號 block below. Grey, quieter than the name.
+        let trust: UIView? = card.trustSource.isEmpty ? nil : makeTrustLine(card.trustSource, color: label)
+        if let trust {
+            add(trust)
+            NSLayoutConstraint.activate([
+                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
+            ])
+        }
 
         // Red 統一編號 footer: top hairline, right-aligned, monospaced.
         if let idLabel = card.idLabel, let idValue = card.idValueMasked {
@@ -627,13 +622,26 @@ final class WalletCardView: UIView {
             uidRow.spacing = 10
             uidRow.alignment = .firstBaseline
             add(uidRow)
-            NSLayoutConstraint.activate([
+            var footer: [NSLayoutConstraint] = [
                 uidHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
                 uidHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
                 uidHair.bottomAnchor.constraint(equalTo: uidRow.topAnchor, constant: -9),
                 uidRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
                 uidRow.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -14),
-                uidRow.topAnchor.constraint(greaterThanOrEqualTo: grid.bottomAnchor, constant: 8),
+            ]
+            // Order down the card: grid → trust source → hairline → 統一編號.
+            if let trust {
+                footer.append(trust.topAnchor.constraint(greaterThanOrEqualTo: grid.bottomAnchor, constant: 8))
+                footer.append(trust.bottomAnchor.constraint(equalTo: uidHair.topAnchor, constant: -8))
+            } else {
+                footer.append(uidHair.topAnchor.constraint(greaterThanOrEqualTo: grid.bottomAnchor, constant: 16))
+            }
+            NSLayoutConstraint.activate(footer)
+        } else if let trust {
+            // No 統一編號 footer but a trust line: pin it to the bottom.
+            NSLayoutConstraint.activate([
+                trust.topAnchor.constraint(greaterThanOrEqualTo: grid.bottomAnchor, constant: 8),
+                trust.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -14),
             ])
         } else {
             grid.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -14).isActive = true

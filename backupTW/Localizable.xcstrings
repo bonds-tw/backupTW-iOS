@@ -844,6 +844,16 @@
         }
       }
     },
+    "Choose your mobile carrier. Its app opens to verify the number on your line.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇你的電信業者，會開啟該業者的 App 驗證你門號上的號碼。"
+          }
+        }
+      }
+    },
     "Code %1$d of %2$d": {
       "comment": "Carousel position",
       "localizations": {
@@ -851,6 +861,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "第 %1$d／%2$d 張"
+          }
+        }
+      }
+    },
+    "Collapse": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收合"
           }
         }
       }
@@ -905,6 +925,16 @@
         }
       }
     },
+    "Connection failed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線失敗"
+          }
+        }
+      }
+    },
     "Continue": {
       "localizations": {
         "zh-Hant": {
@@ -941,6 +971,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法取得可信任發卡單位的清單。請檢查網路後再試一次。"
+          }
+        }
+      }
+    },
+    "Could not reach the card service. Check your connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上發卡服務。請檢查網路連線後再試一次。"
           }
         }
       }
@@ -1101,6 +1141,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "發證日期"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除"
+          }
+        }
+      }
+    },
+    "Delete card": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除卡片"
+          }
+        }
+      }
+    },
+    "Delete this card?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要刪除這張卡片嗎？"
           }
         }
       }
@@ -1357,6 +1427,16 @@
         }
       }
     },
+    "Expand": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展開"
+          }
+        }
+      }
+    },
     "Expanded": {
       "localizations": {
         "zh-Hant": {
@@ -1414,6 +1494,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "欄位"
+          }
+        }
+      }
+    },
+    "Fields you can disclose · %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可揭露的欄位 · %@"
           }
         }
       }
@@ -1650,6 +1740,16 @@
         }
       }
     },
+    "Issued": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發證日"
+          }
+        }
+      }
+    },
     "Issued by": {
       "localizations": {
         "zh-Hant": {
@@ -1666,6 +1766,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "由政府機關透過數位憑證皮夾發行，領卡走網路。"
+          }
+        }
+      }
+    },
+    "Issuer": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發證單位"
           }
         }
       }
@@ -1840,6 +1950,16 @@
         }
       }
     },
+    "Licence number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "駕照號碼"
+          }
+        }
+      }
+    },
     "Licence type": {
       "localizations": {
         "zh-Hant": {
@@ -1888,6 +2008,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在用藍牙接收——請對方掃描上面的碼。"
+          }
+        }
+      }
+    },
+    "Loading the list of phone-number cards did not work. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "載入門號卡清單失敗，請再試一次。"
           }
         }
       }
@@ -1971,6 +2101,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "只出示必要欄位"
+          }
+        }
+      }
+    },
+    "Mobile number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "門號"
           }
         }
       }
@@ -2172,6 +2312,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "還沒有金鑰——請先建立證件"
+          }
+        }
+      }
+    },
+    "No phone-number cards are available to apply for right now. Please try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前沒有可申辦的門號卡，請稍後再試。"
           }
         }
       }
@@ -2517,6 +2667,16 @@
         }
       }
     },
+    "Opening this card's application did not work. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟這張卡的申辦流程失敗，請再試一次。"
+          }
+        }
+      }
+    },
     "Out of date · download %@ again": {
       "localizations": {
         "zh-Hant": {
@@ -2669,6 +2829,16 @@
       }
     },
     "Present a credential": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示證件"
+          }
+        }
+      }
+    },
+    "Present credential": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
@@ -3740,6 +3910,26 @@
         }
       }
     },
+    "The card service could not list the cards (it returned %d). Please try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡服務無法列出卡片（回傳 %d）。請稍後再試。"
+          }
+        }
+      }
+    },
+    "The card service could not open this application (it returned %d). Please try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡服務無法開啟此申辦（回傳 %d）。請稍後再試。"
+          }
+        }
+      }
+    },
     "The card that came back could not be verified, so it was not saved.": {
       "localizations": {
         "zh-Hant": {
@@ -3756,6 +3946,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "領到的卡片不是綁定這支手機，所以沒有存入。"
+          }
+        }
+      }
+    },
+    "The card was not deleted": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "卡片未刪除"
           }
         }
       }
@@ -4125,6 +4325,16 @@
         }
       }
     },
+    "The issuer's page could not be reached. Check your connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上發證單位的頁面。請檢查網路連線後再試一次。"
+          }
+        }
+      }
+    },
     "The issuer's reply could not be read. Please try again in a moment.": {
       "localizations": {
         "zh-Hant": {
@@ -4162,6 +4372,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "以下是這份證件自己填的內容，原樣引述。本 App 只驗了它們的簽章，沒有查核內容是不是真的。"
+          }
+        }
+      }
+    },
+    "The list of phone-number cards could not be read, so nothing was started.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取門號卡清單，因此未開始任何流程。"
           }
         }
       }
@@ -4213,6 +4433,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "對方的手機沒有在提供證件。"
+          }
+        }
+      }
+    },
+    "The page did not return a valid card to add.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此頁面沒有回傳可加入的有效卡片。"
           }
         }
       }
@@ -4945,6 +5175,16 @@
         }
       }
     },
+    "This card could not be removed, so it is still on this phone. This most often means the phone's storage is busy or full — try again in a moment.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡無法移除，因此仍留在這支手機上。通常是手機儲存空間忙碌或已滿——請稍後再試一次。"
+          }
+        }
+      }
+    },
     "This card discloses no fields.": {
       "localizations": {
         "zh-Hant": {
@@ -5001,6 +5241,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "這張卡片的簽章方式不是本版本接受的(%@)。"
+          }
+        }
+      }
+    },
+    "This card will be removed from this phone. You can build your national ID again later through Taiwan's MyData service.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡會從這支手機移除。之後你可以再透過台灣 MyData 服務重新建立你的國民身分證。"
+          }
+        }
+      }
+    },
+    "This card will be removed from this phone. You can collect it again from 數位憑證皮夾.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡會從這支手機移除。之後你可以再從數位憑證皮夾重新領取。"
+          }
+        }
+      }
+    },
+    "This card's application could not be opened, so nothing was started.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡的申辦無法開啟，因此未開始任何流程。"
           }
         }
       }
@@ -5732,6 +6002,16 @@
         }
       }
     },
+    "This phone's cards cannot be read right now. Anything saved here is still saved. This most often means the phone is out of space — free some up and open the app again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前無法讀取這支手機上的卡片。已儲存的內容仍在。通常是手機空間不足——請清出一些空間後再開啟 App。"
+          }
+        }
+      }
+    },
     "This phone's date is earlier than %@, when the certificate on this document starts being valid — so nothing about the document could be checked. Check this phone's date and time.": {
       "localizations": {
         "zh-Hant": {
@@ -6383,6 +6663,16 @@
         }
       }
     },
+    "View / manage details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看／管理詳情"
+          }
+        }
+      }
+    },
     "Waiting for approval in the digital certificate app…": {
       "localizations": {
         "zh-Hant": {
@@ -6634,6 +6924,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "離線狀態無法確認這份證件是否已被撤銷。"
+          }
+        }
+      }
+    },
+    "Which carrier?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "哪一家電信業者？"
           }
         }
       }
@@ -6976,6 +7276,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "內政部需要這個號碼才能把簽章請求推送到你的手機。它只會送給內政部，不會送到別的地方，這個 App 也不會保存它——但內政部會留下你提出過要求、以及是哪個服務要求的紀錄。"
+          }
+        }
+      }
+    },
+    "行動自然人憑證 · 本人自簽": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行動自然人憑證 · 本人自簽"
           }
         }
       }
