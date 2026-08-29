@@ -683,10 +683,11 @@ extension HomeViewController {
         }
     }
 
-    /// The way into the vault: pick a MyData document type to import. Each type's
-    /// actual fetch is wired once its MyData item path is known and tested on-device
-    /// (see `MyDataDocumentType.myDataItemPath`); until then, choosing one explains
-    /// that plainly rather than opening a flow that cannot complete.
+    /// The way into the vault: pick a MyData document type to import. Choosing one
+    /// runs the same in-app MyData fetch the national ID uses (行動自然人憑證 →
+    /// the household record) and stores the result under that document's id, so it
+    /// lands in the vault. Per-document MyData paths replace the shared one as each
+    /// is discovered on a real account (see `MyDataDocumentType.myDataItemPath`).
     private func presentImportPicker() {
         let sheet = UIAlertController(
             title: NSLocalizedString("Import from MyData", comment: "vault import picker title"),
@@ -704,21 +705,12 @@ extension HomeViewController {
     }
 
     private func beginImport(of type: MyDataDocumentType) {
-        guard type.myDataItemPath != nil else {
-            // The generic fetch/issue pipeline is in place; this document is waiting
-            // on its MyData item path (discovered on a real account) and on-device
-            // testing before it can be fetched.
-            let alert = UIAlertController(
-                title: type.title,
-                message: NSLocalizedString("This document's MyData import is still being wired up. It will open here once its MyData path is confirmed.", comment: ""),
-                preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
-            present(alert, animated: true)
-            return
-        }
-        // A wired document would run the generic MyData fetch → self-issue → store
-        // flow here (the same path the national ID uses, parameterised by `type`).
-        presentMyDataOnboard()
+        // Runs the same MyData fetch → self-issue → store pipeline the national ID
+        // uses (行動自然人憑證 → the household record via `API.idPhotoRev`), but
+        // stores the result under this document's id so it lands in the vault. Each
+        // vault document reuses the national ID's path and data until it gets its
+        // own (「路徑與身分證資料一致」).
+        presentMyDataOnboard(documentType: type)
     }
 
     // MARK: - Delete one card
@@ -832,8 +824,8 @@ extension HomeViewController {
         }
     }
 
-    private func presentMyDataOnboard() {
-        let vc = MyDataOnboardViewController()
+    private func presentMyDataOnboard(documentType: MyDataDocumentType = MyDataDocumentRegistry.nationalID) {
+        let vc = MyDataOnboardViewController(documentType: documentType)
         let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)

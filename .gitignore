@@ -86,3 +86,4 @@ tw_fido_sign_response.json
 backupTWTests/ReplayLocal*.swift
 build/
 build-device/
+build-sim/

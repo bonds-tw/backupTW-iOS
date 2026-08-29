@@ -13,14 +13,6 @@ class MyDataOnboardViewController: UICollectionViewController {
 
     /// The key this device's national ID credential is filed under.
     ///
-    /// Constant on purpose. `VerifiableCredential` has no `id` of its own yet, so
-    /// the storage key has to be picked by the caller — and picking a fresh one
-    /// per run would leave the previous credential on disk beside the new one.
-    /// Two credentials asserting the same identity, one of them stale, is worse
-    /// than one: nothing downstream could say which is current. Re-running
-    /// onboarding replaces.
-    private static let nationalIDCredentialID = "national-id"
-
     private var isMobileMoicaReady: Bool {
         let mobileMoicaURLScheme = "mobilemoica://"
         let mobileMoicaURL = URL(string: mobileMoicaURLScheme)!
@@ -56,7 +48,16 @@ class MyDataOnboardViewController: UICollectionViewController {
         Item(title: NSLocalizedString("Address of household", comment: ""), secondaryText: ""),
     ]
 
-    init() {
+    /// Which document this run fetches and stores. Defaults to the national ID (the
+    /// historical single-document flow). A vault import passes its own type, so the
+    /// signed result is stored under that type's id and surfaces in the 資料保險箱
+    /// rather than as the national ID. The MyData fetch mechanism (行動自然人憑證 →
+    /// the household record) is shared: vault documents reuse the national ID's path
+    /// and data until each gets its own (「路徑與身分證資料一致」).
+    private let documentType: MyDataDocumentType
+
+    init(documentType: MyDataDocumentType = MyDataDocumentRegistry.nationalID) {
+        self.documentType = documentType
         let layout = UICollectionViewCompositionalLayout() { sectionIndex, layoutEnvironment in
             let shouldShowHeaderFooter = (sectionIndex != 0)
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
@@ -281,7 +282,12 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// and both are exactly the kind of call that stalls for a second on a bad
     /// one, right when a sheet is animating away.
     private func issueCredential(for nationalIDModel: NationalIDModel) {
-        let credentialID = Self.nationalIDCredentialID
+        // Stored under the document type's id — 「national-id」 for the national ID,
+        // 「mydata-…」 for a vault document — which is what routes it to the right
+        // section (CardInventory classifies self-issued docs by id). The id is
+        // stable per document type on purpose: re-running onboarding replaces the
+        // previous credential rather than leaving a stale twin on disk beside it.
+        let credentialID = documentType.id
 
         // Detached rather than a child of any screen's task: issuance is a round
         // trip out to 行動自然人憑證 and back, and if the user taps Done in the
