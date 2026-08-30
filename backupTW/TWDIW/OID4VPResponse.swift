@@ -86,18 +86,30 @@ struct OID4VPResponder {
     /// carrying only the chosen disclosures.
     func matchAndDisclose(_ request: OID4VPRequest,
                           chosenClaims: Set<String>) throws -> (TWDIWCredential, String) {
+        // A claim that matched the requested type but was missing from *some* card —
+        // remembered so the error can name it, but only reported after no other
+        // stored card can satisfy the request. Auto-pick (this flow has no card
+        // picker) must not fail on the first card when a later one has everything
+        // asked: a wallet holding a telecom card and a driving licence would
+        // otherwise refuse a name/birthday request the licence could have answered.
+        var missingOnSomeCard: String?
         for id in (try? store.allIDs()) ?? [] {
             guard let serialized = try? store.load(id: id),
                   StoredCardSource.source(of: serialized) == .twdiw,
                   let credential = try? TWDIWCredentialReader.read(serialized) else { continue }
             if let wanted = request.credentialType, credential.credentialType != wanted { continue }
 
-            // Every claim the user chose must actually be on the card.
+            // Use the first card that carries every claim the user chose; skip one
+            // that is missing any, in case another card has them all.
             let available = Set(credential.disclosedClaims.map(\.name))
-            for claim in chosenClaims where !available.contains(claim) {
-                throw OID4VPResponseError.requestedClaimNotAvailable(claim)
+            if let missing = chosenClaims.first(where: { !available.contains($0) }) {
+                missingOnSomeCard = missing
+                continue
             }
             return (credential, Self.reserialise(credential, disclosing: chosenClaims))
+        }
+        if let missing = missingOnSomeCard {
+            throw OID4VPResponseError.requestedClaimNotAvailable(missing)
         }
         throw OID4VPResponseError.noMatchingCredential
     }
