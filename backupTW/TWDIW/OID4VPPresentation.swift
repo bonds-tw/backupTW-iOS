@@ -91,11 +91,19 @@ enum OID4VPPresentation {
         // collection appends (docs/m52-live-collection-2026-08-26.md §七).
         list.append(.sandboxDemo)
         #endif
-        return Set(list.flatMap { issuer in
+        var hosts = Set(list.flatMap { issuer in
             [issuer.issuerMetadataBaseURL, issuer.serviceBaseURL]
                 .compactMap { $0 }
                 .compactMap { URL(string: $0)?.host?.lowercased() }
         })
+        #if DEBUG
+        // DEBUG only: the independent mashbean VP verifier (Cloudflare Workers),
+        // for cross-device presentation testing against a non-moda verifier that
+        // speaks the same request/response dialect. Not on any production trust
+        // list, so a shipped build never trusts it.
+        hosts.insert("mashbean-vp-verifier.mashbean.workers.dev")
+        #endif
+        return hosts
     }
 
     private static let log = Logger(subsystem: "tw.bonds.backupTW", category: "presentation")
