@@ -99,9 +99,11 @@ enum OID4VPPresentation {
         #if DEBUG
         // DEBUG only: the independent mashbean VP verifier (Cloudflare Workers),
         // for cross-device presentation testing against a non-moda verifier that
-        // speaks the same request/response dialect. Not on any production trust
-        // list, so a shipped build never trusts it.
+        // speaks the same request/response dialect. Both the workers.dev URL and the
+        // custom domain. Not on any production trust list, so a shipped build never
+        // trusts them.
         hosts.insert("mashbean-vp-verifier.mashbean.workers.dev")
+        hosts.insert("verifier.mashbean.net")
         #endif
         return hosts
     }

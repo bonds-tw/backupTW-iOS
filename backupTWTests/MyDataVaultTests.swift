@@ -80,6 +80,7 @@ struct MyDataDocumentRegistryTests {
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.myDataItemPath == "personal/detail/API.syWqjr4flJ")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-labor-insurance")?.myDataItemPath == "personal/detail/API.UZQkKbsOpz")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-health-insurance")?.myDataItemPath == "personal/detail/API.zH584wn59r")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-nhi-premium")?.myDataItemPath == "personal/detail/API.1qIr0nM0BT")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-tax-cert")?.myDataItemPath == "personal/detail/API.TeV2Md7SIx")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-labor-pension")?.myDataItemPath == "personal/detail/API.yqkllwwTYl")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-land")?.myDataItemPath == "personal/detail/API.KvvyRZSc5K")

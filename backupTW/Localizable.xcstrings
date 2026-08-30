@@ -1708,6 +1708,16 @@
         }
       }
     },
+    "Health insurance premium payments": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "健保保費繳納紀錄"
+          }
+        }
+      }
+    },
     "Health insurance record": {
       "localizations": {
         "zh-Hant": {

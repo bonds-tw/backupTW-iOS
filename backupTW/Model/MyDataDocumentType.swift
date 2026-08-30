@@ -62,6 +62,12 @@ enum MyDataDocumentRegistry {
         MyDataDocumentType(id: "mydata-health-insurance", vcType: "HealthInsuranceCredential",
                            title: NSLocalizedString("Health insurance record", comment: "document type"),
                            systemImage: "cross.case.fill", myDataItemPath: "personal/detail/API.zH584wn59r"),
+        // 保費繳納紀錄（健保）· 衛生福利部中央健康保險署. Health belongs in the vault
+        // as *data*, never as a 健保卡 card — the physical/virtual card is not a route
+        // a third-party wallet can take (see the feasibility assessment).
+        MyDataDocumentType(id: "mydata-nhi-premium", vcType: "HealthPremiumCredential",
+                           title: NSLocalizedString("Health insurance premium payments", comment: "document type"),
+                           systemImage: "dollarsign.circle.fill", myDataItemPath: "personal/detail/API.1qIr0nM0BT"),
         // 綜合所得稅納稅證明書 · 財政部財政資訊中心 — the 納稅證明 people use for visas/loans.
         MyDataDocumentType(id: "mydata-tax-cert", vcType: "TaxPaymentCredential",
                            title: NSLocalizedString("Tax payment certificate", comment: "document type"),
