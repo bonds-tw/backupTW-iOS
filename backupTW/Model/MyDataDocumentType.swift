@@ -62,6 +62,26 @@ enum MyDataDocumentRegistry {
         MyDataDocumentType(id: "mydata-health-insurance", vcType: "HealthInsuranceCredential",
                            title: NSLocalizedString("Health insurance record", comment: "document type"),
                            systemImage: "cross.case.fill", myDataItemPath: "personal/detail/API.zH584wn59r"),
+        // 綜合所得稅納稅證明書 · 財政部財政資訊中心 — the 納稅證明 people use for visas/loans.
+        MyDataDocumentType(id: "mydata-tax-cert", vcType: "TaxPaymentCredential",
+                           title: NSLocalizedString("Tax payment certificate", comment: "document type"),
+                           systemImage: "checkmark.seal.fill", myDataItemPath: "personal/detail/API.TeV2Md7SIx"),
+        // 勞工提繳異動資料 · 勞動部勞工保險局 — new-scheme labor-pension *contributions*
+        // (month wage, employer/self rates, effective date). Note: MyData carries the
+        // contribution history, NOT the account balance (that needs 勞保局 e-services).
+        MyDataDocumentType(id: "mydata-labor-pension", vcType: "LaborPensionCredential",
+                           title: NSLocalizedString("Labor pension record", comment: "document type"),
+                           systemImage: "chart.line.uptrend.xyaxis", myDataItemPath: "personal/detail/API.yqkllwwTYl"),
+        // 地籍及實價資料 · 內政部地政司 — owner, parcel/building no., share, area, present
+        // value, encumbrances. MyData has no item literally named 登記謄本; this is it.
+        MyDataDocumentType(id: "mydata-land", vcType: "LandRegistryCredential",
+                           title: NSLocalizedString("Property record", comment: "document type"),
+                           systemImage: "house.fill", myDataItemPath: "personal/detail/API.KvvyRZSc5K"),
+        // 現戶全戶戶籍資料 · 內政部戶政司 — the full household record (個人記事＋全戶記事),
+        // distinct from the national ID's idPhotoRev.
+        MyDataDocumentType(id: "mydata-household", vcType: "HouseholdCredential",
+                           title: NSLocalizedString("Household registration", comment: "document type"),
+                           systemImage: "person.2.fill", myDataItemPath: "personal/detail/API.UDauDOLyZg"),
     ]
 
     static let all: [MyDataDocumentType] = [nationalID] + vaultDocuments

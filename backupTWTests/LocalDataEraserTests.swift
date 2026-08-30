@@ -36,6 +36,7 @@ final class LocalDataEraserTests: @unchecked Sendable {
     private let zkDirectory: URL
     private let store: CredentialStore
     private let scratch: MyDataScratch
+    private let vaultArchive: MyDataVaultArchive
 
     /// Per-instance so parallel tests cannot erase each other's key, and so none
     /// of them can touch `DeviceKey.defaultTag` — the real key belonging to
@@ -65,6 +66,8 @@ final class LocalDataEraserTests: @unchecked Sendable {
         store = try CredentialStore(directory: root.appendingPathComponent("Credentials",
                                                                            isDirectory: true))
         scratch = MyDataScratch(directory: scratchDirectory)
+        vaultArchive = try MyDataVaultArchive(directory: root.appendingPathComponent("MyDataVaultArchive",
+                                                                                     isDirectory: true))
     }
 
     deinit {
@@ -76,6 +79,7 @@ final class LocalDataEraserTests: @unchecked Sendable {
     private func makeEraser(credentials: CredentialStoring? = nil) -> LocalDataEraser {
         LocalDataEraser(credentials: credentials ?? store,
                         scratch: scratch,
+                        vaultArchive: vaultArchive,
                         documentsDirectory: documents,
                         zkWorkingDirectory: zkDirectory,
                         keyTag: keyTag,
@@ -172,6 +176,25 @@ final class LocalDataEraserTests: @unchecked Sendable {
         let didAfter = try DIDKey.did(fromP256PublicKeyX963: after.publicKeyX963)
         #expect(didAfter != didBefore,
                 "re-onboarding after an erase must not present the previous identifier")
+    }
+
+    /// A vault document keeps its raw MyData original as evidence (保險箱原檔先儲存),
+    /// which is the most sensitive plaintext the app keeps *on purpose*. The erase
+    /// button's promise is that nothing is left, so that original has to go too —
+    /// `LocalDataEraser`'s own rule is that any new on-disk identity data is swept
+    /// here the day it is written.
+    @Test func erasingEverythingTakesTheVaultOriginalsToo() throws {
+        let src = root.appendingPathComponent("income-source.zip")
+        try Data("PK the raw income record".utf8).write(to: src)
+        try vaultArchive.store(originalAt: src, id: "mydata-income", fileExtension: "zip")
+        #expect(vaultArchive.has(id: "mydata-income"))
+
+        // `try?`: on a host without the Keychain entitlement the identity half of the
+        // erase throws, but the eraser attempts every location regardless — the vault
+        // purge still runs, which is exactly what this test is about.
+        try? makeEraser().eraseEverything()
+
+        #expect(!vaultArchive.has(id: "mydata-income"))
     }
 
     @Test func erasingTwiceInARowIsFine() throws {

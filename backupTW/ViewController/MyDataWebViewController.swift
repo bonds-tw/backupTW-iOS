@@ -37,13 +37,24 @@ class MyDataWebViewController : UIViewController {
         return webview
     }()
     private let completion: ((NationalIDModel) -> Void)
-    /// Which MyData item to open, e.g. `personal/detail/API.idPhotoRev` for the
-    /// national ID or `personal/detail/API.syWqjr4flJ` for the income record. The
-    /// fetch/auth machinery is identical across items — only the entry URL differs.
-    private let itemPath: String
+    /// Which document this run fetches. Its `myDataItemPath` chooses the entry URL
+    /// (`personal/detail/API.idPhotoRev` for the national ID, `…API.syWqjr4flJ` for
+    /// income, …); its `id` decides whether the original is archived. The fetch/auth
+    /// machinery is identical across items — only the entry URL and archiving differ.
+    private let documentType: MyDataDocumentType
 
-    init(itemPath: String, completion: @escaping ((NationalIDModel) -> Void)) {
-        self.itemPath = itemPath
+    /// Where a **vault** document's raw original is kept (保險箱原檔先儲存). Lazy so
+    /// the national-ID flow, which never archives, does not create the directory.
+    private lazy var vaultArchive = try? MyDataVaultArchive()
+
+    private var itemPath: String {
+        documentType.myDataItemPath
+            ?? MyDataDocumentRegistry.nationalID.myDataItemPath
+            ?? "personal/detail/API.idPhotoRev"
+    }
+
+    init(documentType: MyDataDocumentType, completion: @escaping ((NationalIDModel) -> Void)) {
+        self.documentType = documentType
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
     }
@@ -184,6 +195,17 @@ extension MyDataWebViewController : WKDownloadDelegate {
         guard let archiveURL else {
             presentProcessingError(detail: nil)
             return
+        }
+
+        // A vault document keeps its raw original as evidence (保險箱原檔先儲存):
+        // archived here, before any parse and before the defer purges the scratch,
+        // so the file is kept whether or not this build can yet parse it. The
+        // national ID is deliberately never archived — its household record still
+        // lives and dies inside `MyDataScratch`.
+        if MyDataDocumentRegistry.isVaultDocument(id: documentType.id) {
+            try? vaultArchive?.store(originalAt: archiveURL,
+                                     id: documentType.id,
+                                     fileExtension: archiveURL.pathExtension)
         }
 
         // From `Data`, not from the URL: the document keeps working after the file

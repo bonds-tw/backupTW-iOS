@@ -74,13 +74,21 @@ struct MyDataDocumentRegistryTests {
     }
 
     @Test func vaultDocumentsAreWiredToTheirRealMyDataItems() {
-        // Discovered on mydata.nat.gov.tw itself. Every listed vault document has a
-        // real item path — 學歷 was dropped because it has no MyData counterpart.
+        // Discovered on mydata.nat.gov.tw itself (resourceId in /rest/inquiry/docs).
+        // Every listed vault document has a real item path — 學歷 was dropped because
+        // it has no MyData counterpart.
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.myDataItemPath == "personal/detail/API.syWqjr4flJ")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-labor-insurance")?.myDataItemPath == "personal/detail/API.UZQkKbsOpz")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-health-insurance")?.myDataItemPath == "personal/detail/API.zH584wn59r")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-tax-cert")?.myDataItemPath == "personal/detail/API.TeV2Md7SIx")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-labor-pension")?.myDataItemPath == "personal/detail/API.yqkllwwTYl")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-land")?.myDataItemPath == "personal/detail/API.KvvyRZSc5K")
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-household")?.myDataItemPath == "personal/detail/API.UDauDOLyZg")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-academic") == nil)
         #expect(MyDataDocumentRegistry.vaultDocuments.allSatisfy { $0.myDataItemPath != nil })
+        // Every vault document is classified as one, and none collide with the national ID.
+        #expect(MyDataDocumentRegistry.vaultDocuments.allSatisfy { MyDataDocumentRegistry.isVaultDocument(id: $0.id) })
+        #expect(!MyDataDocumentRegistry.isVaultDocument(id: StoredNationalID.credentialID))
     }
 }
 

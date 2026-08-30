@@ -824,6 +824,14 @@ extension HomeViewController {
     private func performDelete(_ card: CardInventoryRow) {
         do {
             try CredentialStore().delete(id: card.id)
+            // A vault document may also have kept its raw MyData original (保險箱原檔
+            // 先儲存); deleting the card must take that with it, or the most sensitive
+            // copy would outlive the card the holder asked to remove. Best-effort:
+            // the credential is already gone, so a stray original must not resurrect
+            // the delete as a failure.
+            if MyDataDocumentRegistry.isVaultDocument(id: card.id) {
+                try? MyDataVaultArchive().delete(id: card.id)
+            }
             applySnapshot()
         } catch {
             let alert = UIAlertController(

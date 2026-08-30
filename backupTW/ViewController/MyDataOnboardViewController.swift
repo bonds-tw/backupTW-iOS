@@ -189,10 +189,9 @@ class MyDataOnboardViewController: UICollectionViewController {
         guard CredentialIssuanceAssembly.isAvailable else { return }
 
         if isMobileMoicaReady {
-            // The vault import guards nil paths upstream (HomeViewController), and the
-            // national ID always has one, so this resolves to a real MyData item.
-            let itemPath = documentType.myDataItemPath ?? MyDataDocumentRegistry.nationalID.myDataItemPath ?? "personal/detail/API.idPhotoRev"
-            let vc = MyDataWebViewController(itemPath: itemPath, completion: { [weak self] nationalIDModel in
+            // The web controller resolves the entry URL from the document's item path
+            // (guarded non-nil upstream) and archives the original for vault documents.
+            let vc = MyDataWebViewController(documentType: documentType, completion: { [weak self] nationalIDModel in
                 guard let self else { return }
                 self.showParsedDocument(nationalIDModel)
                 self.issueCredential(for: nationalIDModel)

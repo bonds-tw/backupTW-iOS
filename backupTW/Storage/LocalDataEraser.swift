@@ -79,6 +79,11 @@ struct LocalDataEraser {
 
     private let credentials: CredentialStoring
     private let scratch: MyDataScratch
+    /// The vault originals kept as evidence (保險箱原檔先儲存). This store holds the
+    /// most sensitive plaintext the app keeps *on purpose*, so "erase everything"
+    /// must take it too — `nil` only when Application Support cannot be resolved,
+    /// the same condition under which nothing was ever written there.
+    private let vaultArchive: MyDataVaultArchive?
     private let documentsDirectory: URL?
     /// Where `ZKProver` works. `nil` only when Application Support cannot be
     /// resolved at all — the same condition under which nothing was ever written
@@ -92,6 +97,7 @@ struct LocalDataEraser {
     /// used the defaults would destroy the real device key of whoever ran it.
     init(credentials: CredentialStoring,
          scratch: MyDataScratch = MyDataScratch(),
+         vaultArchive: MyDataVaultArchive? = try? MyDataVaultArchive(),
          documentsDirectory: URL? = FileManager.default.urls(for: .documentDirectory,
                                                              in: .userDomainMask).first,
          zkWorkingDirectory: URL? = try? CircuitAssets.defaultDirectory(),
@@ -99,6 +105,7 @@ struct LocalDataEraser {
          installRecord: UserDefaults? = .standard) {
         self.credentials = credentials
         self.scratch = scratch
+        self.vaultArchive = vaultArchive
         self.documentsDirectory = documentsDirectory
         self.zkWorkingDirectory = zkWorkingDirectory
         self.keyTag = keyTag
@@ -144,6 +151,7 @@ struct LocalDataEraser {
                                             keyTag: keyTag,
                                             installRecord: installRecord) }
         attempt { try scratch.purge() }
+        attempt { try vaultArchive?.purge() }
         attempt { try eraseProofResidue() }
         if let documentsDirectory {
             attempt { try eraseLegacyPlaintext(in: documentsDirectory) }

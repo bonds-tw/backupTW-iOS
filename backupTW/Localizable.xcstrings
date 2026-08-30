@@ -1789,6 +1789,16 @@
         }
       }
     },
+    "Household registration": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戶籍謄本"
+          }
+        }
+      }
+    },
     "How other issuers' field names map to the words this app shows. Unknown fields are shown as the issuer named them, never as this app's own word.": {
       "localizations": {
         "zh-Hant": {
@@ -2106,6 +2116,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "勞保投保資料"
+          }
+        }
+      }
+    },
+    "Labor pension record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "勞退提繳資料"
           }
         }
       }
@@ -3098,6 +3118,16 @@
         }
       }
     },
+    "Property record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地籍及實價資料"
+          }
+        }
+      }
+    },
     "Prove a real certificate signed this": {
       "localizations": {
         "zh-Hant": {
@@ -3984,6 +4014,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "統一編號"
+          }
+        }
+      }
+    },
+    "Tax payment certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "納稅證明"
           }
         }
       }
