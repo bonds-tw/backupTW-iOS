@@ -55,13 +55,9 @@ enum MyDataDocumentRegistry {
         MyDataDocumentType(id: "mydata-labor-insurance", vcType: "LaborInsuranceCredential",
                            title: NSLocalizedString("Labor insurance record", comment: "document type"),
                            systemImage: "shield.lefthalf.filled", myDataItemPath: "personal/detail/API.UZQkKbsOpz"),
-        // 學歷／學位證明 is deliberately unwired: it is NOT a MyData item (verified
-        // against MyData's own /rest/inquiry/docs — 0 of 141 items match 畢業/學位/
-        // 學歷). 教育部's degree verification runs through depart.moe.edu.tw, a
-        // separate integration; MyData only carries a 學籍 (enrolment) record.
-        MyDataDocumentType(id: "mydata-academic", vcType: "AcademicCredential",
-                           title: NSLocalizedString("Academic qualification", comment: "document type"),
-                           systemImage: "graduationcap.fill", myDataItemPath: nil),
+        // 學歷／學位證明 dropped on purpose: it is not a MyData item (verified against
+        // MyData's own /rest/inquiry/docs — 0 of 141 match 畢業/學位/學歷); 教育部's
+        // degree verification runs through depart.moe.edu.tw, a separate integration.
         // 個人投退保資料（健保）· 衛生福利部中央健康保險署
         MyDataDocumentType(id: "mydata-health-insurance", vcType: "HealthInsuranceCredential",
                            title: NSLocalizedString("Health insurance record", comment: "document type"),

@@ -74,12 +74,13 @@ struct MyDataDocumentRegistryTests {
     }
 
     @Test func vaultDocumentsAreWiredToTheirRealMyDataItems() {
-        // Discovered on mydata.nat.gov.tw itself; income / labor insurance / health
-        // insurance now resolve to real items, academic has no MyData counterpart.
+        // Discovered on mydata.nat.gov.tw itself. Every listed vault document has a
+        // real item path — 學歷 was dropped because it has no MyData counterpart.
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.myDataItemPath == "personal/detail/API.syWqjr4flJ")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-labor-insurance")?.myDataItemPath == "personal/detail/API.UZQkKbsOpz")
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-health-insurance")?.myDataItemPath == "personal/detail/API.zH584wn59r")
-        #expect(MyDataDocumentRegistry.lookup(id: "mydata-academic")?.myDataItemPath == nil)
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-academic") == nil)
+        #expect(MyDataDocumentRegistry.vaultDocuments.allSatisfy { $0.myDataItemPath != nil })
     }
 }
 
