@@ -1,6 +1,176 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Checking the installed verification files before accepting a proof…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在檢查已安裝的驗證檔案，再開始接收證明…"
+          }
+        }
+      }
+    },
+    "Integrity check failed · download %@ again": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整性檢查未通過・重新下載 %@"
+          }
+        }
+      }
+    },
+    "Integrity check failed · repair %@ on this phone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整性檢查未通過・在這支手機上重新建立 %@"
+          }
+        }
+      }
+    },
+    "Prepare": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備"
+          }
+        }
+      }
+    },
+    "Prepare and verify the checking files before asking someone to send a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先準備並驗證查驗檔案，再請對方傳送證明。"
+          }
+        }
+      }
+    },
+    "Prepare the verification files?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備驗證檔案？"
+          }
+        }
+      }
+    },
+    "Preparing verification files…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在準備驗證檔案…"
+          }
+        }
+      }
+    },
+    "Repair the verification files?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修復驗證檔案？"
+          }
+        }
+      }
+    },
+    "The checking keys passed their size and SHA-256 checks and can now be used offline.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證金鑰已通過檔案大小與 SHA-256 檢查，現在可以離線使用。"
+          }
+        }
+      }
+    },
+    "The checking keys passed their size and SHA-256 checks. A proof can now arrive over Bluetooth or as a file, with no network required.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證金鑰已通過檔案大小與 SHA-256 檢查。現在可以透過藍牙或檔案接收證明，不需要網路。"
+          }
+        }
+      }
+    },
+    "The downloaded files did not pass the installed size and SHA-256 checks, so they will not be used.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載的檔案沒有通過安裝後的大小與 SHA-256 檢查，因此不會使用。"
+          }
+        }
+      }
+    },
+    "This downloads %@ of public checking keys and uses about %@ on this phone. The files are pinned in this app and checked before they are installed. Low Data Mode blocks this bulk download.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會下載 %@ 的公開驗證金鑰，並在這支手機上使用約 %@。檔案的雜湊已固定在 App 內，安裝前會再次檢查。低數據模式會阻擋這項大型下載。"
+          }
+        }
+      }
+    },
+    "This phone would not give the app a place to store the verification files.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機沒有提供 App 可用來存放驗證檔案的位置。"
+          }
+        }
+      }
+    },
+    "Verification files are not prepared": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案尚未備妥"
+          }
+        }
+      }
+    },
+    "Verification files need repair": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案需要修復"
+          }
+        }
+      }
+    },
+    "Verification files unavailable": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法使用驗證檔案"
+          }
+        }
+      }
+    },
+    "Verification files were not prepared": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案未完成準備"
+          }
+        }
+      }
+    },
     "%.1f s": {
       "localizations": {
         "zh-Hant": {

@@ -184,7 +184,7 @@ struct ZKPackageVerifier {
 
 /// Why this phone can or cannot check a proof, in one place.
 ///
-/// # 「Yet」 is a promise, and a shipped build never keeps it
+/// # 「Yet」 is a promise, and the independent verifier installer keeps it
 ///
 /// The home row already told the two apart. The screen that actually checks
 /// proofs did not: its `.failure` branch printed `localizedDescription`
@@ -199,10 +199,11 @@ struct ZKPackageVerifier {
 /// both labels, so by the only moment that matters the permanent truth had been
 /// replaced by a temporary tense.
 ///
-/// The only path that writes verifying keys sits behind
-/// `ZKProofRunAssembly.makeSigner`, which is nil in a release build, and no
-/// `.key` ships in the bundle. So on the App Store this is not an edge case, it
-/// is the permanent state.
+/// Verifying keys used to be writable only inside the proof-creation run, so a
+/// Release build without a signer could promise a later download it had no path
+/// to perform. `ZKVerificationAssetPreparer` is now a checker-only installer: it
+/// downloads pinned public assets without constructing a signer or consulting
+/// the signing broker.
 enum ZKCheckingAvailability: Equatable, Sendable {
 
     /// The files are on this phone.
@@ -213,8 +214,17 @@ enum ZKCheckingAvailability: Equatable, Sendable {
     case impossibleInThisBuild
 
     static var current: ZKCheckingAvailability {
-        if ZKVerifyingKeyAssets.areInstalled { return .ready }
-        return ZKProofRunAssembly.isSigningAvailable ? .notDownloadedYet : .impossibleInThisBuild
+        status(keysAppearInstalled: ZKVerifyingKeyAssets.areInstalled,
+               canPrepare: true)
+    }
+
+    /// Pure policy so the Release boundary can be tested without changing build
+    /// configuration. `canPrepare` describes whether this binary contains the
+    /// public-asset installer; it is not signing-broker availability.
+    static func status(keysAppearInstalled: Bool,
+                       canPrepare: Bool) -> ZKCheckingAvailability {
+        if keysAppearInstalled { return .ready }
+        return canPrepare ? .notDownloadedYet : .impossibleInThisBuild
     }
 
     var canCheck: Bool { self == .ready }

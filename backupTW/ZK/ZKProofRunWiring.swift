@@ -42,14 +42,14 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
     /// What only `OpenACProofVerifier` reads: 968 MB on disk, and not one byte
     /// of it opened by `prove`.
     ///
-    /// **These are no longer downloaded.** `VerifyingKeyDerivation` produces both
-    /// files from the proving keys, which are byte-identical to them apart from a
-    /// 32-byte trailer, so `prepare` cuts them locally and 57.8 MB never leaves
-    /// GitHub. The rows survive because the *files* are still this store's
-    /// responsibility: `missingAssets()` is how the plan knows they are
-    /// outstanding, `installedByteCount()` counts them, `deleteAll()` removes
-    /// them, and their published URLs and `.gz` digests are the provenance record
-    /// for what the derived bytes are supposed to equal.
+    /// The proof-creation preparer does not download these separately.
+    /// `VerifyingKeyDerivation` produces both files from the proving keys, which
+    /// are byte-identical to them apart from a 32-byte trailer. A checker-only
+    /// install uses `ZKVerificationAssetPreparer` to download the same public
+    /// files directly. The rows remain this store's responsibility:
+    /// `missingAssets()` reports them, `installedByteCount()` counts them,
+    /// `deleteAll()` removes them, and the published URLs and pins are the
+    /// provenance record shared by both installation paths.
     ///
     /// Kept as its own list because the difference is load-bearing in two
     /// places. `makeProvingStore` uses it to keep these rows out of the answer
@@ -190,6 +190,7 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
     func plan() async -> ZKAssetPlan {
         let missing = await store.missingAssets()
         let stale = await store.staleAssets()
+        let inspections = await store.inspectInstalledAssets()
         // A derived key costs disk and time and nothing on the wire. Pricing it
         // at its published `.gz` size would put 57.8 MB in front of the user that
         // this app no longer spends — and the itemised price before the tap is
@@ -211,6 +212,19 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
                                // not the volume.
                                installedByteCount: 0,
                                isStale: true)
+        }
+        let alreadyOutstanding = Set(outstanding.map(\.name))
+        outstanding += inspections.compactMap { inspection in
+            guard verificationOnlyRequirementNames.contains(inspection.asset.name),
+                  !inspection.integrity.isValid,
+                  !alreadyOutstanding.contains(inspection.asset.name) else { return nil }
+            return ZKAssetRequirement(
+                name: inspection.asset.name,
+                displayName: Self.displayName(for: inspection.asset),
+                downloadByteCount: 0,
+                installedByteCount: inspection.asset.installedByteCount,
+                isStale: false,
+                needsRepair: inspection.integrity.needsRepair)
         }
         if !issuerCertificateIsVerified {
             outstanding.append(ZKAssetRequirement(
@@ -386,6 +400,83 @@ struct CircuitAssetPreparer: ZKAssetPreparing {
     static func displayName(forDerived name: String) -> String {
         guard let asset = verificationAssets.first(where: { $0.name == name }) else { return name }
         return displayName(for: asset)
+    }
+}
+
+/// Installs only the public keys needed to check a proof. It has no signer, no
+/// broker session and no issuer certificate: a Release build can prepare this
+/// capability while the signing service is unavailable, and an already-prepared
+/// phone can keep checking proofs with no network at all.
+///
+/// The proof-creation path still derives these files from proving keys it already
+/// downloaded. A checker-only phone downloads the separately published 57.8 MB
+/// gzip assets instead, rather than spending another 950 MB on proving keys it
+/// will never open.
+struct ZKVerificationAssetPreparer: ZKAssetPreparing {
+
+    let store: CircuitAssets
+    let assets: [CircuitAsset]
+
+    init(store: CircuitAssets, assets: [CircuitAsset] = ZKVerifyingKeyAssets.all) {
+        self.store = store
+        self.assets = assets
+    }
+
+    var workingDirectory: URL { store.workingDirectory }
+
+    var verificationOnlyRequirementNames: Set<String> {
+        Set(assets.map(\.name))
+    }
+
+    static func makeStore(directory: URL) -> CircuitAssets {
+        CircuitAssets(
+            directory: directory,
+            session: URLSession(configuration: CircuitAssets.makeSessionConfiguration()),
+            assets: ZKVerifyingKeyAssets.all)
+    }
+
+    func plan() async -> ZKAssetPlan {
+        let inspections = await store.inspectInstalledAssets()
+        return ZKAssetPlan(outstanding: inspections.compactMap { inspection in
+            guard !inspection.integrity.isValid else { return nil }
+            return ZKAssetRequirement(
+                name: inspection.asset.name,
+                displayName: CircuitAssetPreparer.displayName(for: inspection.asset),
+                downloadByteCount: inspection.asset.compressedByteCount,
+                installedByteCount: inspection.asset.installedByteCount,
+                isStale: false,
+                needsRepair: inspection.integrity.needsRepair)
+        })
+    }
+
+    func prepare(progress: @escaping @Sendable (ZKAssetProgress) -> Void) async throws {
+        let plan = await plan()
+        guard !plan.isReady else { return }
+        let assets = Dictionary(uniqueKeysWithValues: assets.map { ($0.name, $0) })
+        let totalBytes = max(Int64(1), plan.downloadByteCount)
+        var completedBytes: Int64 = 0
+        var completedCount = 0
+
+        for requirement in plan.outstanding {
+            guard let asset = assets[requirement.name] else { continue }
+            let base = completedBytes
+            let finished = completedCount
+            let weight = Double(asset.compressedByteCount) / Double(totalBytes)
+            try await store.download(asset) { fraction in
+                progress(ZKAssetProgress(
+                    displayName: requirement.displayName,
+                    overallFraction: min(1, Double(base) / Double(totalBytes) + weight * fraction),
+                    completedCount: finished,
+                    totalCount: plan.outstanding.count))
+            }
+            completedBytes += asset.compressedByteCount
+            completedCount += 1
+            progress(ZKAssetProgress(
+                displayName: requirement.displayName,
+                overallFraction: min(1, Double(completedBytes) / Double(totalBytes)),
+                completedCount: completedCount,
+                totalCount: plan.outstanding.count))
+        }
     }
 }
 

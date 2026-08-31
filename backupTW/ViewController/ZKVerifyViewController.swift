@@ -79,6 +79,7 @@ final class ZKVerifyViewController: UIViewController {
     private let detailLabel = UILabel()
     private let spinner = UIActivityIndicatorView(style: .large)
     private let chooseButton = UIButton(type: .system)
+    private let prepareButton = UIButton(type: .system)
     private let scroll = UIScrollView()
     private let stack = UIStackView()
 
@@ -95,6 +96,13 @@ final class ZKVerifyViewController: UIViewController {
     /// apart — a displayed identifier nobody is scanning for is a code that
     /// silently does nothing.
     private var engagement: ZKLinkEngagement?
+
+    /// Set only after this appearance's full installed-byte SHA-256 audit. File
+    /// existence is not enough: a same-size altered key would otherwise turn a
+    /// valid proof into a false refusal.
+    private var assetsAreVerified = false
+    private var verificationPlan: ZKAssetPlan?
+    private var assetTask: Task<Void, Never>?
 
     /// The only screen-to-screen screen in this app that held neither a wake
     /// lock nor a brightness boost — and the one that has to survive 21.7
@@ -142,15 +150,9 @@ final class ZKVerifyViewController: UIViewController {
         // Said at load, not after the other phone has spent twenty seconds
         // sending 400 KB. `verdict: nil` throughout — this is a fact about this
         // device's setup and says nothing about anybody's proof.
-        let availability = ZKCheckingAvailability.current
         show(status: NSLocalizedString("No proof loaded yet", comment: ""),
-             detail: availability.canCheck
-                ? NSLocalizedString(
-                    "A zero-knowledge proof is about 400 KB — far too large for a QR code, so it arrives over Bluetooth or as a file.",
-                    comment: "")
-                // One source for this sentence now, so the screen cannot say one
-                // thing at load and a differently-tensed thing at the verdict.
-                : availability.sentence,
+             detail: NSLocalizedString(
+                "Checking the installed verification files before accepting a proof…", comment: ""),
              verdict: nil)
     }
 
@@ -160,7 +162,7 @@ final class ZKVerifyViewController: UIViewController {
     /// visits by the identifier it broadcasts.
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        beginEngagement()
+        refreshVerificationAssets()
         // Same lifetime as the engagement, and counted rather than flagged, so
         // returning to this screen twice costs nothing. `isIdleTimerDisabled` is
         // process-global — see `ScreenWakeLock`.
@@ -170,9 +172,14 @@ final class ZKVerifyViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         if isMovingFromParent || isBeingDismissed {
+            assetTask?.cancel()
             stopLink()
             wakeLock.release()
         }
+    }
+
+    deinit {
+        assetTask?.cancel()
     }
 
     // MARK: - Layout
@@ -202,6 +209,13 @@ final class ZKVerifyViewController: UIViewController {
         chooseButton.configuration = config
         chooseButton.accessibilityIdentifier = "zkverify.choose"
         chooseButton.addTarget(self, action: #selector(chooseFile), for: .touchUpInside)
+
+        var prepareConfig = UIButton.Configuration.filled()
+        prepareConfig.title = NSLocalizedString("Prepare the verification files", comment: "")
+        prepareButton.configuration = prepareConfig
+        prepareButton.accessibilityIdentifier = "zkverify.prepare"
+        prepareButton.isHidden = true
+        prepareButton.addTarget(self, action: #selector(confirmPreparation), for: .touchUpInside)
 
         codeImageView.translatesAutoresizingMaskIntoConstraints = false
         codeImageView.contentMode = .scaleAspectFit
@@ -266,7 +280,7 @@ final class ZKVerifyViewController: UIViewController {
         view.addSubview(scroll)
         scroll.addSubview(stack)
         [codeContainer, codeCaptionLabel, linkLabel, nextPersonButton,
-         chooseButton, spinner, verdictContainer, statusLabel, detailLabel,
+         prepareButton, chooseButton, spinner, verdictContainer, statusLabel, detailLabel,
          caveatContainer].forEach(stack.addArrangedSubview)
         stack.setCustomSpacing(8, after: codeContainer)
         waitingOrder = stack.arrangedSubviews
@@ -311,7 +325,9 @@ final class ZKVerifyViewController: UIViewController {
 
     var nextPersonIsOfferedForReview: Bool { !nextPersonButton.isHidden }
 
-    var canCheckAProofForReview: Bool { ZKCheckingAvailability.current.canCheck }
+    var canCheckAProofForReview: Bool { assetsAreVerified }
+
+    var prepareButtonIsShownForReview: Bool { !prepareButton.isHidden }
 
     var verdictIsShownForReview: Bool { !verdictContainer.isHidden }
 
@@ -509,7 +525,7 @@ final class ZKVerifyViewController: UIViewController {
             stack.insertArrangedSubview(view, at: index)
         }
         linkLabel.text = nil
-        beginEngagement()
+        if assetsAreVerified { beginEngagement() }
         UIAccessibility.post(notification: .screenChanged, argument: codeImageView)
     }
 
@@ -536,12 +552,14 @@ final class ZKVerifyViewController: UIViewController {
         // invitation that costs the person opposite twenty seconds and a proof
         // of their identity. The file picker stays — it fails locally and
         // honestly, on this checker's own phone.
-        guard ZKCheckingAvailability.current.canCheck else {
+        guard assetsAreVerified else {
             engagement = nil
             stopLink()
             codeImageView.image = nil
             codeImageView.isHidden = true
-            codeCaptionLabel.text = ZKCheckingAvailability.current.sentence
+            codeCaptionLabel.text = NSLocalizedString(
+                "Prepare and verify the checking files before asking someone to send a proof.",
+                comment: "")
             codeCaptionLabel.isHidden = false
             linkLabel.text = nil
             return
@@ -578,6 +596,156 @@ final class ZKVerifyViewController: UIViewController {
         }
 
         startLink(for: engagement)
+    }
+
+    // MARK: - Verification asset setup
+
+    /// Rechecks exact size and SHA-256 before this screen draws an invitation.
+    /// The work is independent of `ZKProofRunAssembly.isSigningAvailable`: these
+    /// are public verifier assets, not authority granted by the signing broker.
+    private func refreshVerificationAssets() {
+        assetTask?.cancel()
+        assetsAreVerified = false
+        verificationPlan = nil
+        stopLink()
+        codeImageView.image = nil
+        codeImageView.isHidden = true
+        codeCaptionLabel.text = NSLocalizedString(
+            "Checking the installed verification files before accepting a proof…", comment: "")
+        codeCaptionLabel.isHidden = false
+        prepareButton.isHidden = true
+        prepareButton.isEnabled = true
+        chooseButton.isEnabled = true
+        spinner.startAnimating()
+
+        guard let directory = try? CircuitAssets.defaultDirectory() else {
+            spinner.stopAnimating()
+            show(status: NSLocalizedString("Verification files unavailable", comment: ""),
+                 detail: NSLocalizedString(
+                    "This phone would not give the app a place to store the verification files.",
+                    comment: ""),
+                 verdict: nil)
+            return
+        }
+
+        let preparer = ZKVerificationAssetPreparer(
+            store: ZKVerificationAssetPreparer.makeStore(directory: directory))
+        assetTask = Task { [weak self] in
+            let plan = await preparer.plan()
+            guard !Task.isCancelled, let self else { return }
+            spinner.stopAnimating()
+            verificationPlan = plan
+            if plan.isReady {
+                assetsAreVerified = true
+                prepareButton.isHidden = true
+                show(status: NSLocalizedString("No proof loaded yet", comment: ""),
+                     detail: NSLocalizedString(
+                        "The checking keys passed their size and SHA-256 checks. A proof can now arrive over Bluetooth or as a file, with no network required.",
+                        comment: ""),
+                     verdict: nil)
+                beginEngagement()
+            } else {
+                assetsAreVerified = false
+                prepareButton.isHidden = false
+                let summary = ZKStagePresentation.preparationSummary(for: plan)
+                let repairs = plan.outstanding.filter(\.needsRepair).map {
+                    ZKStagePresentation.requirementDetail(for: $0)
+                }
+                show(status: repairs.isEmpty
+                        ? NSLocalizedString("Verification files are not prepared", comment: "")
+                        : NSLocalizedString("Verification files need repair", comment: ""),
+                     detail: ([summary.title, summary.detail] + repairs).filter { !$0.isEmpty }
+                        .joined(separator: "\n"),
+                     verdict: nil)
+                beginEngagement()
+            }
+        }
+    }
+
+    @objc private func confirmPreparation() {
+        guard let plan = verificationPlan, !plan.isReady else {
+            refreshVerificationAssets()
+            return
+        }
+        let message = String(
+            format: NSLocalizedString(
+                "This downloads %@ of public checking keys and uses about %@ on this phone. The files are pinned in this app and checked before they are installed. Low Data Mode blocks this bulk download.",
+                comment: "verification-key download consent"),
+            ZKStagePresentation.byteString(plan.downloadByteCount),
+            ZKStagePresentation.byteString(plan.installedByteCount))
+        let alert = UIAlertController(
+            title: plan.outstanding.contains(where: \.needsRepair)
+                ? NSLocalizedString("Repair the verification files?", comment: "")
+                : NSLocalizedString("Prepare the verification files?", comment: ""),
+            message: message,
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Prepare", comment: ""),
+                                      style: .default) { [weak self] _ in
+            self?.startPreparation()
+        })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func startPreparation() {
+        guard let directory = try? CircuitAssets.defaultDirectory() else {
+            refreshVerificationAssets()
+            return
+        }
+        assetTask?.cancel()
+        prepareButton.isEnabled = false
+        chooseButton.isEnabled = false
+        spinner.startAnimating()
+        let preparer = ZKVerificationAssetPreparer(
+            store: ZKVerificationAssetPreparer.makeStore(directory: directory))
+        assetTask = Task { [weak self] in
+            do {
+                try await preparer.prepare { [weak self] update in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        let percent = Int((update.overallFraction * 100).rounded())
+                        show(status: NSLocalizedString("Preparing verification files…", comment: ""),
+                             detail: "\(update.displayName) · \(percent)%",
+                             verdict: nil)
+                    }
+                }
+                guard !Task.isCancelled else { return }
+                let plan = await preparer.plan()
+                guard !Task.isCancelled, let self else { return }
+                spinner.stopAnimating()
+                prepareButton.isEnabled = true
+                chooseButton.isEnabled = true
+                verificationPlan = plan
+                guard plan.isReady else {
+                    prepareButton.isHidden = false
+                    show(status: NSLocalizedString("Verification files need repair", comment: ""),
+                         detail: NSLocalizedString(
+                            "The downloaded files did not pass the installed size and SHA-256 checks, so they will not be used.",
+                            comment: ""),
+                         verdict: nil)
+                    return
+                }
+                assetsAreVerified = true
+                prepareButton.isHidden = true
+                show(status: NSLocalizedString("Verification files are ready", comment: ""),
+                     detail: NSLocalizedString(
+                        "The checking keys passed their size and SHA-256 checks and can now be used offline.",
+                        comment: ""),
+                     verdict: nil)
+                beginEngagement()
+            } catch is CancellationError {
+                // Resume data and the old complete files are deliberately kept.
+            } catch {
+                guard let self else { return }
+                spinner.stopAnimating()
+                prepareButton.isEnabled = true
+                chooseButton.isEnabled = true
+                prepareButton.isHidden = false
+                show(status: NSLocalizedString("Verification files were not prepared", comment: ""),
+                     detail: error.localizedDescription,
+                     verdict: nil)
+            }
+        }
     }
 
     private func startLink(for engagement: ZKLinkEngagement) {

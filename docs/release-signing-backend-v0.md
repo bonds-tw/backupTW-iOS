@@ -202,7 +202,7 @@ ATH-02 完成後是否能以同一 ticket 重複取得同一結果，必須在 U
 | [B4](https://github.com/bonds-tw/backupTW-iOS/issues/43)：rate limit、redacted observability、rotation／incident runbook | M | 3–5 日 | log capture 與故障演練無敏感值；current→next 輪替成功 |
 | [I1](https://github.com/bonds-tw/backupTW-iOS/issues/44)：App Attest actor、key lifecycle、challenge／assertion client | M | 3–5 日 | dev／prod environment 分離；reinstall／unsupported 誠實處理 |
 | [I2](https://github.com/bonds-tw/backupTW-iOS/issues/45)：remote `TWFidOSignSession`、opaque handle、Release assembly | L | 5–8 日 | Release 可簽 credential 與啟動 ZK；DEBUG local path 不可達 |
-| [I3](https://github.com/bonds-tw/backupTW-iOS/issues/46)：Release verifying-key 安裝與 pinned manifest／hash | M | 2–4 日 | 不需 signing broker 即可安裝、重驗與離線查驗 |
+| [I3](https://github.com/bonds-tw/backupTW-iOS/issues/46)：Release verifying-key 安裝與 pinned manifest／hash（[manifest 與更新／回滾規則](zk-verifying-key-manifest.md)） | M | 2–4 日 | 不需 signing broker 即可安裝、重驗與離線查驗 |
 | [Q1](https://github.com/bonds-tw/backupTW-iOS/issues/47)：UAT／TestFlight security matrix | L | 4–7 日主動工時 | 真機 start→callback→poll、重複 poll、斷線、重放、rotation、archive scan 全有證據 |
 
 單人序列約 30–50 工程日；B1/B2/B3/B4 與 I1/I3 可部分並行。即使程式完成，沒有真實 iPhone、正式 App Attest environment、有效 SP UAT credential 與 TestFlight archive，也不能把本階段標成產品完成。

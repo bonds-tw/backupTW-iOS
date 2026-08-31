@@ -293,7 +293,7 @@ final class VerifyingKeyDerivationTests: Sendable {
 
     // MARK: - Readiness
 
-    @Test("a key that is already there at its full length is not derived again")
+    @Test("a key that still matches its pin is rechecked but not derived again")
     func alreadyDerivedIsSkipped() throws {
         let bytes = Self.bytes(4096 + 32)
         let key = try write(bytes, named: "idempotent")
@@ -302,7 +302,8 @@ final class VerifyingKeyDerivationTests: Sendable {
         let fileSystem = InstrumentedFileSystem()
         #expect(VerifyingKeyDerivation.outstanding([key], in: directory).isEmpty)
         try VerifyingKeyDerivation.deriveAll([key], in: directory, fileSystem: fileSystem)
-        #expect(fileSystem.readCount == 0)
+        #expect(fileSystem.readCount > 0, "readiness must re-hash the installed bytes")
+        #expect(fileSystem.createdFileCount == 0, "a valid key must not be rewritten")
     }
 
     /// Stricter than `CircuitAssets`' `size > 0`, and it can afford to be: the
@@ -318,6 +319,25 @@ final class VerifyingKeyDerivationTests: Sendable {
         #expect(VerifyingKeyDerivation.isDerived(key, in: directory) == false)
         try VerifyingKeyDerivation.deriveAll([key], in: directory)
         #expect(try Data(contentsOf: installed(key)) == Data(bytes.prefix(4096)))
+    }
+
+    @Test("same-size tampering is detected and repaired from the pinned source")
+    func aTamperedKeyIsDerivedAgain() throws {
+        let bytes = Self.bytes(4096 + 32)
+        let key = try write(bytes, named: "tampered")
+        try Data(repeating: 0x5a, count: 4096).write(to: installed(key))
+
+        let state = VerifyingKeyDerivation.integrity(of: key, in: directory)
+        guard case .digestMismatch = state else {
+            Issue.record("same-size tampering was not classified as a digest mismatch")
+            return
+        }
+        #expect(VerifyingKeyDerivation.outstanding([key], in: directory) == [key])
+
+        try VerifyingKeyDerivation.deriveAll([key], in: directory)
+
+        #expect(try Data(contentsOf: installed(key)) == Data(bytes.prefix(4096)))
+        #expect(VerifyingKeyDerivation.integrity(of: key, in: directory) == .valid)
     }
 
     // MARK: - Progress and cancellation
@@ -363,6 +383,8 @@ final class VerifyingKeyDerivationTests: Sendable {
     /// Naming them separately is exactly how they drift apart.
     @Test("the derivation table matches the assets it replaces")
     func theTableAgreesWithTheAssetRows() throws {
+        #expect(ZKVerifyingKeyAssets.sourceOwner == "ethereum/zkID")
+        #expect(ZKVerifyingKeyAssets.manifestID.contains("RSA-X.509-Cert-latest"))
         #expect(Set(VerifyingKeyDerivation.all.map(\.name))
                 == Set(ZKVerifyingKeyAssets.all.map(\.name)))
         #expect(Set(VerifyingKeyDerivation.all.map(\.localFilename))
@@ -390,6 +412,7 @@ final class VerifyingKeyDerivationTests: Sendable {
             // Not the `.gz` digest: that one describes bytes this path never
             // produces, and copying it across would fail every derivation.
             #expect(key.sha256 != asset.sha256)
+            #expect(asset.installedSHA256 == key.sha256)
         }
     }
 

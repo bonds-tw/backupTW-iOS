@@ -62,6 +62,179 @@ final class CircuitAssetsTests: Sendable {
         #expect(await store.missingAssets().isEmpty)
     }
 
+    @Test("installed bytes must match their separate pin before replacing an old copy")
+    func installedPinFailurePreservesTheOldCompleteFile() async throws {
+        let payload = Data("new checking key".utf8)
+        let body = Gzip.stored(payload)
+        let asset = fixture(
+            sha256: Gzip.sha256Hex(body),
+            compressed: Int64(body.count),
+            installed: Int64(payload.count),
+            installedSHA256: Gzip.sha256Hex(Data("not the new checking key".utf8)))
+        let destination = directory.appendingPathComponent(asset.localFilename)
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let old = Data("old complete checking key".utf8)
+        try old.write(to: destination)
+        CircuitAssetStub.serve(body)
+        defer { CircuitAssetStub.reset() }
+
+        let store = makeStore([asset])
+        await #expect(throws: CircuitAssetError.self) {
+            _ = try await store.download(asset)
+        }
+
+        #expect(try Data(contentsOf: destination) == old)
+        #expect(try stagingContents().isEmpty)
+    }
+
+    @Test("a republished rolling asset cannot replace the old pinned copy")
+    func staleManifestFailurePreservesTheOldCompleteFile() async throws {
+        let expectedBody = Gzip.stored(Data("manifest version".utf8))
+        let servedBody = Gzip.stored(Data("republished version".utf8))
+        let asset = fixture(
+            sha256: Gzip.sha256Hex(expectedBody),
+            compressed: Int64(servedBody.count),
+            installed: 100)
+        let destination = directory.appendingPathComponent(asset.localFilename)
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let old = Data("old pinned copy".utf8)
+        try old.write(to: destination)
+        CircuitAssetStub.serve(servedBody)
+        defer { CircuitAssetStub.reset() }
+
+        await #expect(throws: CircuitAssetError.self) {
+            _ = try await makeStore([asset]).download(asset)
+        }
+
+        #expect(try Data(contentsOf: destination) == old)
+    }
+
+    @Test("an unexpected expanded size cannot replace the old complete copy")
+    func wrongInstalledSizePreservesTheOldCompleteFile() async throws {
+        let payload = Data("shorter than the manifest".utf8)
+        let body = Gzip.stored(payload)
+        let asset = fixture(
+            sha256: Gzip.sha256Hex(body),
+            compressed: Int64(body.count),
+            installed: Int64(payload.count + 1))
+        let destination = directory.appendingPathComponent(asset.localFilename)
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let old = Data("old complete copy".utf8)
+        try old.write(to: destination)
+        CircuitAssetStub.serve(body)
+        defer { CircuitAssetStub.reset() }
+
+        await #expect(throws: CircuitAssetError.self) {
+            _ = try await makeStore([asset]).download(asset)
+        }
+
+        #expect(try Data(contentsOf: destination) == old)
+    }
+
+    @Test("a successful repair atomically replaces the old copy")
+    func successfulRepairReplacesTheOldCopy() async throws {
+        let payload = Data("the pinned checking key".utf8)
+        let body = Gzip.stored(payload)
+        let asset = fixture(
+            sha256: Gzip.sha256Hex(body),
+            compressed: Int64(body.count),
+            installed: Int64(payload.count),
+            installedSHA256: Gzip.sha256Hex(payload))
+        let destination = directory.appendingPathComponent(asset.localFilename)
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: destination)
+        CircuitAssetStub.serve(body)
+        defer { CircuitAssetStub.reset() }
+
+        _ = try await makeStore([asset]).download(asset)
+
+        #expect(try Data(contentsOf: destination) == payload)
+    }
+
+    @Test("installed inspection distinguishes tampering from truncation")
+    func installedInspectionFindsRepairStates() async throws {
+        let payload = Data("0123456789abcdef".utf8)
+        let asset = fixture(
+            sha256: nil,
+            compressed: 100,
+            installed: Int64(payload.count),
+            installedSHA256: Gzip.sha256Hex(payload))
+        let destination = directory.appendingPathComponent(asset.localFilename)
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let store = makeStore([asset])
+
+        try payload.write(to: destination)
+        #expect(await store.inspectInstalledAssets().first?.integrity == .valid)
+
+        try Data("fedcba9876543210".utf8).write(to: destination)
+        let tampered = await store.inspectInstalledAssets().first?.integrity
+        guard case .digestMismatch = tampered else {
+            Issue.record("same-size tampering was not classified as a digest mismatch")
+            return
+        }
+
+        try Data(payload.prefix(4)).write(to: destination)
+        #expect(await store.inspectInstalledAssets().first?.integrity
+                == .wrongSize(expected: Int64(payload.count), actual: 4))
+    }
+
+    @Test("the checker-only preparer downloads and verifies without a signer")
+    func checkerOnlyPreparationIsIndependentOfSigning() async throws {
+        let payload = Data("public verifier material".utf8)
+        let body = Gzip.stored(payload)
+        let asset = fixture(
+            sha256: Gzip.sha256Hex(body),
+            compressed: Int64(body.count),
+            installed: Int64(payload.count),
+            installedSHA256: Gzip.sha256Hex(payload))
+        CircuitAssetStub.serve(body)
+        defer { CircuitAssetStub.reset() }
+
+        let store = makeStore([asset])
+        let preparer = ZKVerificationAssetPreparer(store: store, assets: [asset])
+        let before = await preparer.plan()
+        #expect(before.outstanding.map(\.name) == [asset.name])
+        #expect(before.downloadByteCount == Int64(body.count))
+
+        try await preparer.prepare { _ in }
+
+        #expect(await preparer.plan().isReady)
+        #expect(try Data(contentsOf: directory.appendingPathComponent(asset.localFilename)) == payload)
+    }
+
+    @Test("the checker-only plan exposes a repair instead of treating a tampered key as ready")
+    func checkerOnlyPlanExposesRepair() async throws {
+        let payload = Data("public verifier material".utf8)
+        let asset = fixture(
+            sha256: String(repeating: "a", count: 64),
+            compressed: 1234,
+            installed: Int64(payload.count),
+            installedSHA256: Gzip.sha256Hex(payload))
+        let destination = directory.appendingPathComponent(asset.localFilename)
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("tampered verifier bytes".utf8).write(to: destination)
+        // Keep the fixture at the declared length so this is a digest failure,
+        // not the easier wrong-size case.
+        let altered = Data(repeating: 0x5a, count: payload.count)
+        try altered.write(to: destination)
+
+        let store = makeStore([asset])
+        let plan = await ZKVerificationAssetPreparer(store: store, assets: [asset]).plan()
+        let row = try #require(plan.outstanding.first)
+        #expect(row.needsRepair)
+        #expect(!row.isStale)
+        #expect(row.downloadByteCount == asset.compressedByteCount)
+        #expect(ZKStagePresentation.requirementDetail(for: row) == String(
+            format: NSLocalizedString("Integrity check failed · download %@ again", comment: ""),
+            ZKStagePresentation.byteString(row.downloadByteCount)))
+    }
+
     /// The one that matters. The bytes are intact, the gzip CRC32 is correct,
     /// the transfer succeeded — and it is not our circuit.
     @Test func refusesAnAssetWhoseBytesDoNotMatchThePinnedDigest() async throws {
@@ -564,13 +737,17 @@ final class CircuitAssetsTests: Sendable {
         CircuitAssets(directory: directory, session: makeSession(), assets: assets)
     }
 
-    private func fixture(sha256: String?, compressed: Int64, installed: Int64) -> CircuitAsset {
+    private func fixture(sha256: String?,
+                         compressed: Int64,
+                         installed: Int64,
+                         installedSHA256: String? = nil) -> CircuitAsset {
         CircuitAsset(name: "fixture_proving",
                      remoteURL: URL(string: "https://example.invalid/fixture.key.gz")!,
                      localFilename: "keys/fixture.key",
                      sha256: sha256,
                      compressedByteCount: compressed,
-                     installedByteCount: installed)
+                     installedByteCount: installed,
+                     installedSHA256: installedSHA256)
     }
 
     private func stagingContents() throws -> [String] {
