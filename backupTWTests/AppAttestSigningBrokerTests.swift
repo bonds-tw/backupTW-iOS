@@ -565,6 +565,11 @@ struct AppAttestSigningBrokerTests {
         #expect(SigningBrokerSessionAssembly.make(bundle: allowed.bundle) != nil)
         #expect(SigningBrokerSessionAssembly.makeAppAttestUATCheck(bundle: allowed.bundle) != nil)
 
+        let deviceDevelopment = try configurationBundle(baseURL: "https://signing-dev.mashbean.net")
+        defer { try? FileManager.default.removeItem(at: deviceDevelopment.directory) }
+        #expect(SigningBrokerSessionAssembly.isConfigured(bundle: deviceDevelopment.bundle))
+        #expect(SigningBrokerSessionAssembly.makeAppAttestUATCheck(bundle: deviceDevelopment.bundle) != nil)
+
         let arbitrary = try configurationBundle(baseURL: "https://signing.attacker.example")
         defer { try? FileManager.default.removeItem(at: arbitrary.directory) }
         #expect(!SigningBrokerSessionAssembly.isConfigured(bundle: arbitrary.bundle))

@@ -19,6 +19,14 @@
 
 ## 晚點真機測試
 
+### Xcode 直連 development 驗收
+
+Apple Development provisioning 只能對應 development App Attest。以 Xcode 直連手機測試時，使用建置時明確覆寫的 `signing-dev.mashbean.net`；它固定驗 category `3`，且沒有 signing secrets，start／poll 都關閉。這個結果不得當成 TestFlight category `2` 證據。
+
+操作仍是「設定 → 診斷 → App Attest UAT 檢查」，先確認畫面 endpoint 為 `signing-dev.mashbean.net`，接著連續成功執行兩次以驗證註冊與遞增 counter。
+
+### TestFlight production 驗收
+
 1. 安裝實際 TestFlight build，不要用 Simulator 或 Xcode Debug build 代替。
 2. 開啟「設定 → 診斷 → App Attest UAT 檢查」。確認畫面上的 endpoint 是 `signing-uat.mashbean.net`，App build 與待測 TestFlight 一致。
 3. 點「執行 App Attest 檢查」，閱讀資料邊界後確認。
