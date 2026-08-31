@@ -2,7 +2,7 @@
 //  OID4VCICollection.swift
 //  backupTW
 //
-//  Collecting one credential from a TWDIW issuer, with the two gates that
+//  Collecting one credential from a TWDIW issuer, with the trust checks that
 //  make a QR code safe to act on.
 //
 
@@ -19,7 +19,7 @@ enum OID4VCICollectionError: Error, Equatable {
     }
 
     /// A gate said no. The refusal carries the reason; nothing was contacted
-    /// after it was raised (for gate 1, nothing was contacted at all).
+    /// after it was raised (for gate 1 or 1b, the issuer was never contacted).
     case refused(IssuerAuthorization.Refusal)
     /// The network failed at this step. The underlying `URLError` is not
     /// carried because this type is `Equatable` for tests; the step is what a
@@ -74,10 +74,11 @@ struct OID4VCICollectionReceipt: Equatable {
 /// existed, and load-bearing:
 ///
 /// 1. **Every URL here arrived in a QR code and is untrusted input.**
-///    `IssuerAuthorization` gate 1 runs before the first request leaves the
-///    device; gate 2 runs before anything is signed. The proof JWT's `aud` is
-///    rebuilt from the gate's canonical host rather than taken from the offer,
-///    so no attacker-chosen spelling is ever signed over.
+///    `IssuerAuthorization` gate 1 checks API membership, then gate 1b checks
+///    historical and current Arbitrum state before the first issuer request
+///    leaves the device; gate 2 runs before anything is signed. The proof JWT's
+///    `aud` is rebuilt from the gate's canonical host rather than taken from the
+///    offer, so no attacker-chosen spelling is ever signed over.
 /// 2. **One key per card.** The proof is signed with a key created for this
 ///    collection (`HolderKeyring.newKey()`), never `DeviceKey.defaultTag`.
 ///    Reusing the app's long-term key would hand the issuer — and every
@@ -108,8 +109,15 @@ struct OID4VCICollectionReceipt: Equatable {
 /// remembers, so the two must agree.
 struct OID4VCICollector {
 
+    typealias RegistryVerifier = @Sendable ([TWDIWIssuer]) async
+        -> [String: TWDIWOnChainVerification]
+
     let session: URLSession
     let trustList: [TWDIWIssuer]
+    /// Independently checks only the API entries that could account for the
+    /// scanned host. It runs before a referenced offer is fetched, so a failed
+    /// Arbitrum check cannot leak the offer's subject identifier to that host.
+    let verifyRegistry: RegistryVerifier
     let keyring: HolderKeyring
     let store: CredentialStoring
     var clientID = "moda_dw"
@@ -122,10 +130,7 @@ struct OID4VCICollector {
         let matched: [TWDIWIssuer]
         switch link {
         case .byReference(let fetchURL):
-            switch IssuerAuthorization.authorise(fetchURL: fetchURL, against: trustList) {
-            case .refused(let refusal): throw OID4VCICollectionError.refused(refusal)
-            case .allowed(let issuers, _): matched = issuers
-            }
+            matched = try await authorisedMatches(for: fetchURL)
             guard let url = URL(string: fetchURL) else {
                 throw OID4VCICollectionError.refused(.unusableHost)
             }
@@ -135,11 +140,7 @@ struct OID4VCICollector {
             // The inline form skips the fetch, not the gate: the issuer it
             // names must still be on the list before anything else happens.
             offer = try parseOffer(Data(json.utf8))
-            switch IssuerAuthorization.authorise(fetchURL: offer.credentialIssuer,
-                                                 against: trustList) {
-            case .refused(let refusal): throw OID4VCICollectionError.refused(refusal)
-            case .allowed(let issuers, _): matched = issuers
-            }
+            matched = try await authorisedMatches(for: offer.credentialIssuer)
         }
 
         // Gate 2: the offer's issuer must belong to the organisation the QR
@@ -239,6 +240,27 @@ struct OID4VCICollector {
     }
 
     // MARK: - Steps
+
+    /// Gate 1 (API membership) and gate 1b (current Arbitrum state), kept in one
+    /// helper so reference and inline offers cannot drift. No issuer request has
+    /// happened when either refusal leaves this method.
+    private func authorisedMatches(for url: String) async throws -> [TWDIWIssuer] {
+        let matched: [TWDIWIssuer]
+        switch IssuerAuthorization.authorise(fetchURL: url, against: trustList) {
+        case .refused(let refusal):
+            throw OID4VCICollectionError.refused(refusal)
+        case .allowed(let issuers, _):
+            matched = issuers
+        }
+        let verification = await verifyRegistry(matched)
+        switch IssuerAuthorization.confirmRegistryEvidence(matched: matched,
+                                                            verification: verification) {
+        case .success:
+            return matched
+        case .failure(let refusal):
+            throw OID4VCICollectionError.refused(refusal)
+        }
+    }
 
     private func parseOffer(_ data: Data) throws -> CredentialOffer {
         do { return try CredentialOffer.parse(json: data) }

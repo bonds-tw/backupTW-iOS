@@ -20,6 +20,9 @@ struct UserFacingErrorTests {
     static let everyReachableError: [Error] = [
         // Gate refusals
         IssuerAuthorization.Refusal.notOnTheTrustList(host: "issuer-sandbox.wallet.gov.tw.evil.tw"),
+        IssuerAuthorization.Refusal.trustRecordNotAnchored,
+        IssuerAuthorization.Refusal.trustRecordMismatch,
+        IssuerAuthorization.Refusal.trustVerificationUnavailable,
         IssuerAuthorization.Refusal.organisationMismatch,
         IssuerAuthorization.Refusal.notHTTPS,
         IssuerAuthorization.Refusal.unusableHost,
@@ -75,6 +78,24 @@ struct UserFacingErrorTests {
         // Says why in a word a person owns; does not echo the attacker's host.
         #expect(message.contains("可信任") || message.lowercased().contains("trusted"))
         #expect(!message.contains("evil.tw"))
+    }
+
+    @Test func everyBlockchainRefusalSaysTheIssuerWasNotContacted() {
+        let refusals: [IssuerAuthorization.Refusal] = [
+            .trustRecordNotAnchored,
+            .trustRecordMismatch,
+            .trustVerificationUnavailable,
+        ]
+        for refusal in refusals {
+            let message = UserFacingError.collectionMessage(
+                for: OID4VCICollectionError.refused(refusal))
+            let saysNoConnection = message.contains("未連線")
+                || message.contains("未聯絡")
+                || (message.contains("沒有") && message.contains("連線"))
+                || message.lowercased().contains("did not contact")
+            #expect(saysNoConnection,
+                    "the refusal did not explain that no issuer request left the phone: \(message)")
+        }
     }
 
     @Test func aBadStatusKeepsTheNumberAPersonWouldQuote() {

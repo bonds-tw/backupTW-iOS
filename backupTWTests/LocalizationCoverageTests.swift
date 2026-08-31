@@ -230,6 +230,37 @@ struct LocalizationCoverageTests {
         }
     }
 
+    /// The trust gate now sits before the first issuer request. Its refusal is
+    /// the only explanation a holder gets for why scanning a legitimate-looking
+    /// QR stopped, so every failure and every new evidence label must ship in
+    /// Chinese together with the gate.
+    @Test func everyCollectionTrustDecisionReachesAChineseReader() {
+        let refusals: [IssuerAuthorization.Refusal] = [
+            .trustRecordNotAnchored,
+            .trustRecordMismatch,
+            .trustVerificationUnavailable,
+        ]
+        for refusal in refusals {
+            let message = UserFacingError.collectionMessage(
+                for: OID4VCICollectionError.refused(refusal))
+            #expect(Self.readableInChinese(message),
+                    "untranslated collection trust refusal: \(message)")
+        }
+
+        let evidenceLabels = [
+            "%d organisations on 數位發展部信任清單. A card is accepted only when its matching API entry also matches the current Arbitrum registry state.",
+            "Each row shows the official API record and independently checks its transaction and current state on Arbitrum. Open a row to inspect both records.",
+            "Official API matches the current Arbitrum registry state",
+            "Development sandbox · No production blockchain record",
+            "Verified: the successful Arbitrum transaction and the contract's current, non-revoked record contain the same DID document, organisation and category values as the official API.",
+            "Development sandbox: this entry has no production Arbitrum record and is never trusted by a Release build.",
+        ]
+        for label in evidenceLabels {
+            #expect(Self.readableInChinese(label),
+                    "untranslated trust evidence label: \(label)")
+        }
+    }
+
     /// Same construction as `OfflineVerifierTests.everyFailure`, and for the same
     /// reason: `VerificationFailure` has associated values so it cannot be
     /// `CaseIterable`, and a hand-written list silently stops covering the case

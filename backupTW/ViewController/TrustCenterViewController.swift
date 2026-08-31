@@ -107,10 +107,10 @@ final class TrustCenterViewController: UICollectionViewController {
                 snapshot.appendItems([.note(NSLocalizedString("The trust list could not be loaded. Check your connection and reopen this screen.", comment: ""))])
             case .loaded(let issuers):
                 snapshot.appendItems([.note(String(
-                    format: NSLocalizedString("%d organisations on 數位發展部信任清單. A card is only accepted if its issuer is on this list.", comment: ""),
+                    format: NSLocalizedString("%d organisations on 數位發展部信任清單. A card is accepted only when its matching API entry also matches the current Arbitrum registry state.", comment: ""),
                     issuers.count)),
                     .note(NSLocalizedString(
-                        "Each row shows the official API record and independently checks its Arbitrum registry transaction. Open a row to inspect both records.",
+                        "Each row shows the official API record and independently checks its transaction and current state on Arbitrum. Open a row to inspect both records.",
                         comment: "trust list evidence explanation"))])
                 snapshot.appendItems(issuers.map {
                     // Head+tail so the did:key prefix and the distinguishing last
@@ -170,13 +170,15 @@ final class TrustCenterViewController: UICollectionViewController {
         case nil:
             return NSLocalizedString("Official API loaded · Checking Arbitrum…", comment: "")
         case .verified:
-            return NSLocalizedString("Official API matches the Arbitrum record", comment: "")
+            return NSLocalizedString("Official API matches the current Arbitrum registry state", comment: "")
         case .notAnchored:
             return NSLocalizedString("The API has no blockchain record for this entry", comment: "")
         case .mismatch:
             return NSLocalizedString("Warning: the API and blockchain records do not match", comment: "")
         case .unavailable:
             return NSLocalizedString("Official API loaded · Arbitrum is temporarily unavailable", comment: "")
+        case .developmentSandbox:
+            return NSLocalizedString("Development sandbox · No production blockchain record", comment: "")
         }
     }
 
@@ -187,6 +189,7 @@ final class TrustCenterViewController: UICollectionViewController {
         case .mismatch: return ("exclamationmark.shield.fill", .systemRed)
         case .notAnchored: return ("link.badge.plus", .systemOrange)
         case .unavailable: return ("wifi.exclamationmark", .systemOrange)
+        case .developmentSandbox: return ("hammer.fill", .systemOrange)
         case nil: return ("ellipsis.shield", .secondaryLabel)
         }
     }

@@ -45,8 +45,21 @@ enum CredentialCollection {
             // Release entirely — a shipped wallet trusts the production list.
             trustList.append(.sandboxDemo)
             #endif
+            let registryVerifier = TWDIWOnChainVerifier(session: .shared)
             let collector = OID4VCICollector(session: .shared,
                                              trustList: trustList,
+                                             verifyRegistry: { issuers in
+                                                 var results = await registryVerifier.verify(issuers)
+                                                 #if DEBUG
+                                                 // The demo registry is deliberately a separate trust domain
+                                                 // with no production Arbitrum row. Keep the exception explicit,
+                                                 // honest, and compiled out of Release.
+                                                 for issuer in issuers where issuer.did == TWDIWIssuer.sandboxDemo.did {
+                                                     results[issuer.did] = .developmentSandbox
+                                                 }
+                                                 #endif
+                                                 return results
+                                             },
                                              keyring: .app(),
                                              store: try CredentialStore())
             let receipt = try await collector.collect(from: link)

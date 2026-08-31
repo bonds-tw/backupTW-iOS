@@ -106,7 +106,7 @@ struct TWDIWOnChainRecord: Equatable, Sendable {
 /// signal to go and check something — never as a result. The same rule applies
 /// here, and the 43-entry trust list is what makes it enforceable offline.
 ///
-/// # Two gates, because the interesting one comes first
+/// # Three checks, because the interesting ones come before the request
 ///
 /// The deep link carries `credential_offer_uri` — a URL to fetch the offer
 /// *from*. So the first request leaves the device **before** there is any
@@ -116,7 +116,10 @@ struct TWDIWOnChainRecord: Equatable, Sendable {
 ///
 /// 1. `authorise(fetchURL:)` — may this URL be contacted at all? Host must
 ///    belong to the list.
-/// 2. `confirm(credentialIssuer:matched:)` — the offer we got back must name an
+/// 2. `confirmRegistryEvidence(matched:verification:)` — the matching API row,
+///    its successful historical transaction and the contract's current,
+///    non-revoked state must agree before the issuer receives a request.
+/// 3. `confirm(credentialIssuer:matched:)` — the offer we got back must name an
 ///    issuer from the **same** organisation as the URL we fetched it from.
 ///
 /// # No prefix matching, ever
@@ -152,6 +155,15 @@ enum IssuerAuthorization {
         case pathNotNormalised
         /// Well-formed, and not on the list.
         case notOnTheTrustList(host: String)
+        /// The official API entry has no Arbitrum registry record.
+        case trustRecordNotAnchored
+        /// The API entry, its claimed transaction, or the contract's current
+        /// state disagree. A historical transaction alone is not sufficient.
+        case trustRecordMismatch
+        /// Arbitrum could not be checked for this collection attempt, or a
+        /// matching entry had no verification result. Nothing is cached as a
+        /// substitute because that would make replay a successful fallback.
+        case trustVerificationUnavailable
         /// The offer named an issuer belonging to a different organisation than
         /// the URL it came from.
         case organisationMismatch
@@ -186,6 +198,31 @@ enum IssuerAuthorization {
         }
         guard !matches.isEmpty else { return .refused(.notOnTheTrustList(host: host)) }
         return .allowed(issuers: matches, canonicalHost: host)
+    }
+
+    /// Gate 1b: every API row that can account for this host must independently
+    /// match the Arbitrum registry before the offer URL is contacted.
+    ///
+    /// Requiring every match matters on shared hosts. If one of three
+    /// organisations on a host is unverified, host comparison cannot tell which
+    /// row the still-unfetched offer represents; accepting because a different
+    /// row verified would silently transfer its trust to the unverified one.
+    static func confirmRegistryEvidence(
+        matched: [TWDIWIssuer],
+        verification: [String: TWDIWOnChainVerification]
+    ) -> Result<Void, Refusal> {
+        guard !matched.isEmpty else { return .failure(.trustVerificationUnavailable) }
+        let results = matched.map { verification[$0.did] }
+        if results.contains(where: { $0 == .mismatch }) {
+            return .failure(.trustRecordMismatch)
+        }
+        if results.contains(where: { $0 == .notAnchored }) {
+            return .failure(.trustRecordNotAnchored)
+        }
+        guard results.allSatisfy({ $0?.authorisesCollection == true }) else {
+            return .failure(.trustVerificationUnavailable)
+        }
+        return .success(())
     }
 
     // MARK: - Gate 2

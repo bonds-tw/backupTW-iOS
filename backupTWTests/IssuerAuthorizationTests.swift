@@ -212,6 +212,52 @@ struct IssuerAuthorizationTests {
             matched: matched) != .failure(.organisationMismatch))
     }
 
+    @Test func everyOrganisationSharingAHostNeedsRegistryEvidence() {
+        let twin = TWDIWIssuer(did: "did:key:zTwin", displayName: "另一個機關",
+                               displayNameEnglish: "Another Agency", taxID: "11111111",
+                               issuerMetadataBaseURL: Self.sandbox.issuerMetadataBaseURL,
+                               serviceBaseURL: nil, reportsOnChainAnchor: true)
+        let matched = [Self.sandbox, twin]
+        let verified = TWDIWOnChainVerification.verified(blockNumber: "0x1",
+                                                         transactionHash: "0xabc")
+
+        guard case .failure(.trustVerificationUnavailable) = IssuerAuthorization.confirmRegistryEvidence(
+            matched: matched,
+            verification: [Self.sandbox.did: verified]) else {
+            Issue.record("a shared-host row without evidence did not fail closed")
+            return
+        }
+        guard case .failure(.trustRecordMismatch) = IssuerAuthorization.confirmRegistryEvidence(
+            matched: matched,
+            verification: [Self.sandbox.did: verified, twin.did: .mismatch]) else {
+            Issue.record("a mismatched shared-host row did not name the mismatch")
+            return
+        }
+        guard case .success = IssuerAuthorization.confirmRegistryEvidence(
+            matched: matched,
+            verification: [Self.sandbox.did: verified, twin.did: verified]) else {
+            Issue.record("two independently verified rows on the shared host were refused")
+            return
+        }
+    }
+
+    @Test func aDevelopmentSandboxResultIsExplicitlyAuthorised() {
+        guard case .success = IssuerAuthorization.confirmRegistryEvidence(
+            matched: [Self.sandbox],
+            verification: [Self.sandbox.did: .developmentSandbox]) else {
+            Issue.record("the explicit DEBUG sandbox result was refused")
+            return
+        }
+    }
+
+    @Test func trustListRequestsBypassCaches() throws {
+        let request = try TrustListFetcher(session: .shared).request(page: 2, orgType: 1)
+        #expect(request.cachePolicy == .reloadIgnoringLocalAndRemoteCacheData)
+        #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-cache, no-store")
+        #expect(request.value(forHTTPHeaderField: "Pragma") == "no-cache")
+        #expect(request.url?.query?.contains("page=2") == true)
+    }
+
     /// **We sign over our own bytes.** Once the host is agreed there is nothing
     /// to gain from carrying the candidate's spelling forward, and something to
     /// lose: the proof JWT's `aud` would be a string an attacker influenced.
@@ -287,6 +333,153 @@ struct IssuerAuthorizationTests {
     }
 }
 
+/// Captures the exact JSON-RPC batch sent by `TWDIWOnChainVerifier`.
+/// `URLProtocol` has no per-session storage hook, so the owning suite is
+/// serialised and resets this static state around every test.
+final class TWDIWRegistryStubURLProtocol: URLProtocol {
+
+    struct Exchange {
+        let request: URLRequest
+        let body: Data
+    }
+
+    nonisolated(unsafe) static var status = 200
+    nonisolated(unsafe) static var responseBody = Data()
+    nonisolated(unsafe) static var exchanges: [Exchange] = []
+
+    static func reset() {
+        status = 200
+        responseBody = Data()
+        exchanges = []
+    }
+
+    static func session() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [TWDIWRegistryStubURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let body = Self.drainBody(of: request)
+        Self.exchanges.append(Exchange(request: request, body: body))
+        let response = HTTPURLResponse(url: request.url!, statusCode: Self.status,
+                                       httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.responseBody)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+
+    private static func drainBody(of request: URLRequest) -> Data {
+        guard let stream = request.httpBodyStream else { return request.httpBody ?? Data() }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        let size = 4_096
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
+        defer { buffer.deallocate() }
+        while stream.hasBytesAvailable {
+            let read = stream.read(buffer, maxLength: size)
+            guard read > 0 else { break }
+            data.append(buffer, count: read)
+        }
+        return data
+    }
+}
+
+@Suite("信任清單鏈上通訊", .serialized)
+struct TWDIWOnChainTransportTests {
+
+    static let did = "did:key:zA"
+    static let organisation = #"{"name":"測試單位"}"#
+    static let record = TWDIWOnChainRecord(
+        network: TWDIWOnChainVerifier.network,
+        contractAddress: TWDIWOnChainVerifier.registryContract,
+        transactionHash: "0xabc",
+        status: 1,
+        createdAt: nil)
+    static let issuer = TWDIWIssuer(
+        did: did,
+        displayName: "測試單位",
+        displayNameEnglish: "Test",
+        taxID: "12345678",
+        issuerMetadataBaseURL: "https://issuer.example",
+        serviceBaseURL: nil,
+        reportsOnChainAnchor: true,
+        signedDIDDocument: "signed-document",
+        organisationJSON: organisation,
+        orgType: 1,
+        orgGroup: 2,
+        onChainRecords: [record])
+
+    @Test func verifierRequestsHistoryReceiptAndLatestStateWithoutCaches() async throws {
+        TWDIWRegistryStubURLProtocol.reset()
+        defer { TWDIWRegistryStubURLProtocol.reset() }
+        TWDIWRegistryStubURLProtocol.responseBody = try JSONSerialization.data(withJSONObject: [
+            ["jsonrpc": "2.0", "id": 0, "result": [
+                "hash": "0xabc",
+                "to": TWDIWOnChainVerifier.registryContract,
+                "input": TWDIWOnChainInputTests.input(
+                    strings: [Self.did, "signed-document", Self.organisation],
+                    orgType: 1,
+                    orgGroup: 2),
+                "blockNumber": "0x42",
+            ]],
+            ["jsonrpc": "2.0", "id": 1, "result": ["status": "0x1"]],
+            ["jsonrpc": "2.0", "id": 2, "result": TWDIWOnChainInputTests.currentResult(
+                signed: "signed-document",
+                organisation: Self.organisation,
+                orgType: 1,
+                orgGroup: 2,
+                revoked: false)],
+        ])
+
+        let verifier = TWDIWOnChainVerifier(session: TWDIWRegistryStubURLProtocol.session(),
+                                            rpcURL: URL(string: "https://rpc.example")!)
+        let result = await verifier.verify([Self.issuer, Self.issuer])
+        #expect(result[Self.did] == .verified(blockNumber: "0x42", transactionHash: "0xabc"))
+
+        // A repeated DID is deliberately included above. It must be checked
+        // once rather than crashing or producing two conflicting batches.
+        let exchange = try #require(TWDIWRegistryStubURLProtocol.exchanges.first)
+        #expect(TWDIWRegistryStubURLProtocol.exchanges.count == 1)
+        #expect(exchange.request.cachePolicy == .reloadIgnoringLocalAndRemoteCacheData)
+        #expect(exchange.request.value(forHTTPHeaderField: "Cache-Control") == "no-cache, no-store")
+        #expect(exchange.request.value(forHTTPHeaderField: "Pragma") == "no-cache")
+        let calls = try #require(try JSONSerialization.jsonObject(with: exchange.body)
+            as? [[String: Any]])
+        #expect(calls.compactMap { $0["method"] as? String } == [
+            "eth_getTransactionByHash", "eth_getTransactionReceipt", "eth_call",
+        ])
+        let latestCall = try #require(calls.last)
+        let params = try #require(latestCall["params"] as? [Any])
+        let call = try #require(params.first as? [String: Any])
+        #expect(call["to"] as? String == TWDIWOnChainVerifier.registryContract)
+        #expect((call["data"] as? String)?.hasPrefix(
+            "0x" + TWDIWOnChainVerifier.currentRecordSelector) == true)
+        #expect(params.last as? String == "latest")
+    }
+
+    @Test func rpcInfrastructureErrorFailsClosedAsUnavailable() async throws {
+        TWDIWRegistryStubURLProtocol.reset()
+        defer { TWDIWRegistryStubURLProtocol.reset() }
+        TWDIWRegistryStubURLProtocol.responseBody = try JSONSerialization.data(withJSONObject: [
+            ["jsonrpc": "2.0", "id": 0, "result": NSNull()],
+            ["jsonrpc": "2.0", "id": 1, "result": NSNull()],
+            ["jsonrpc": "2.0", "id": 2,
+             "error": ["code": -32_000, "message": "upstream unavailable"]],
+        ])
+        let verifier = TWDIWOnChainVerifier(session: TWDIWRegistryStubURLProtocol.session(),
+                                            rpcURL: URL(string: "https://rpc.example")!)
+        let result = await verifier.verify([Self.issuer])
+        #expect(result[Self.did] == .unavailable)
+    }
+}
+
 @Suite("信任清單鏈上交易解碼")
 struct TWDIWOnChainInputTests {
 
@@ -308,7 +501,98 @@ struct TWDIWOnChainInputTests {
             "0x00000000" + String(input.dropFirst(10))) == nil)
     }
 
-    private static func input(strings: [String], orgType: Int, orgGroup: Int) -> String {
+    @Test func currentRecordCallUsesTheDeployedGetterAndBoundsTheDID() throws {
+        let call = try #require(TWDIWOnChainVerifier.currentRecordCallData(forDID: "did:key:zA"))
+        #expect(call.hasPrefix("0x" + TWDIWOnChainVerifier.currentRecordSelector))
+        #expect(call.contains(Data("did:key:zA".utf8).map { String(format: "%02x", $0) }.joined()))
+        #expect(TWDIWOnChainVerifier.currentRecordCallData(forDID: "") == nil)
+        #expect(TWDIWOnChainVerifier.currentRecordCallData(
+            forDID: String(repeating: "a", count: 4_097)) == nil)
+    }
+
+    @Test func currentRecordReturnDecodesAllFieldsAndRevocation() throws {
+        let decoded = try #require(TWDIWOnChainVerifier.decodeCurrentRecord(
+            Self.currentResult(signed: "signed-document",
+                               organisation: #"{"name":"測試單位"}"#,
+                               orgType: 1,
+                               orgGroup: 2,
+                               revoked: true)))
+        #expect(decoded.signedDIDDocument == "signed-document")
+        #expect(decoded.organisationJSON == #"{"name":"測試單位"}"#)
+        #expect(decoded.orgType == 1)
+        #expect(decoded.orgGroup == 2)
+        #expect(decoded.revoked)
+    }
+
+    @Test func historicalTransactionCannotHideAChangedOrRevokedCurrentRecord() {
+        let did = "did:key:zA"
+        let organisation = #"{"name":"測試單位"}"#
+        let record = TWDIWOnChainRecord(
+            network: TWDIWOnChainVerifier.network,
+            contractAddress: TWDIWOnChainVerifier.registryContract,
+            transactionHash: "0xabc",
+            status: 1,
+            createdAt: nil)
+        let issuer = TWDIWIssuer(did: did,
+                                 displayName: "測試單位",
+                                 displayNameEnglish: "Test",
+                                 taxID: "12345678",
+                                 issuerMetadataBaseURL: "https://issuer.example",
+                                 serviceBaseURL: nil,
+                                 reportsOnChainAnchor: true,
+                                 signedDIDDocument: "signed-document",
+                                 organisationJSON: organisation,
+                                 orgType: 1,
+                                 orgGroup: 2,
+                                 onChainRecords: [record])
+        let transaction: [String: Any] = [
+            "hash": "0xabc",
+            "to": TWDIWOnChainVerifier.registryContract,
+            "input": Self.input(strings: [did, "signed-document", organisation],
+                                orgType: 1, orgGroup: 2),
+            "blockNumber": "0x42",
+        ]
+        let receipt: [String: Any] = ["status": "0x1"]
+        let current = TWDIWOnChainVerifier.CurrentRegistryRecord(
+            signedDIDDocument: "signed-document",
+            organisationJSON: organisation,
+            orgType: 1,
+            orgGroup: 2,
+            revoked: false)
+
+        #expect(TWDIWOnChainVerifier.check(issuer: issuer,
+                                          record: record,
+                                          transaction: transaction,
+                                          receipt: receipt,
+                                          current: current)
+            == .verified(blockNumber: "0x42", transactionHash: "0xabc"))
+
+        let replaced = TWDIWOnChainVerifier.CurrentRegistryRecord(
+            signedDIDDocument: "newer-document",
+            organisationJSON: organisation,
+            orgType: 1,
+            orgGroup: 2,
+            revoked: false)
+        #expect(TWDIWOnChainVerifier.check(issuer: issuer,
+                                          record: record,
+                                          transaction: transaction,
+                                          receipt: receipt,
+                                          current: replaced) == .mismatch)
+
+        let revoked = TWDIWOnChainVerifier.CurrentRegistryRecord(
+            signedDIDDocument: "signed-document",
+            organisationJSON: organisation,
+            orgType: 1,
+            orgGroup: 2,
+            revoked: true)
+        #expect(TWDIWOnChainVerifier.check(issuer: issuer,
+                                          record: record,
+                                          transaction: transaction,
+                                          receipt: receipt,
+                                          current: revoked) == .mismatch)
+    }
+
+    fileprivate static func input(strings: [String], orgType: Int, orgGroup: Int) -> String {
         var tail = Data()
         var offsets: [Int] = []
         for string in strings {
@@ -326,6 +610,29 @@ struct TWDIWOnChainInputTests {
         data.append(word(0))
         data.append(tail)
         return "0x" + TWDIWOnChainVerifier.methodSelector + data.map { String(format: "%02x", $0) }.joined()
+    }
+
+    fileprivate static func currentResult(signed: String,
+                                          organisation: String,
+                                          orgType: Int,
+                                          orgGroup: Int,
+                                          revoked: Bool) -> String {
+        let values = [Data(signed.utf8), Data(organisation.utf8)]
+        var tail = Data()
+        var offsets: [Int] = []
+        for value in values {
+            offsets.append(32 * 5 + tail.count)
+            tail.append(word(value.count))
+            tail.append(value)
+            tail.append(Data(repeating: 0, count: (32 - value.count % 32) % 32))
+        }
+        var tuple = Data()
+        offsets.forEach { tuple.append(word($0)) }
+        tuple.append(word(orgType))
+        tuple.append(word(orgGroup))
+        tuple.append(word(revoked ? 1 : 0))
+        tuple.append(tail)
+        return "0x" + (word(32) + tuple).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func word(_ value: Int) -> Data {

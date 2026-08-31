@@ -240,6 +240,18 @@ enum UserFacingError {
         case .notOnTheTrustList:
             return NSLocalizedString("This QR code is not from a trusted card issuer, so no card was added.",
                                      comment: "gate error: not on trust list")
+        case .trustRecordNotAnchored:
+            return NSLocalizedString(
+                "The issuer's official trust-list entry has no blockchain record, so the app did not contact it. Try again after the issuer fixes its registration.",
+                comment: "gate error: no blockchain anchor")
+        case .trustRecordMismatch:
+            return NSLocalizedString(
+                "The official trust-list API and blockchain record do not match, so the app did not contact this issuer. Try again later or report the mismatch.",
+                comment: "gate error: API and chain mismatch")
+        case .trustVerificationUnavailable:
+            return NSLocalizedString(
+                "The app could not check this issuer's blockchain record, so it did not contact the issuer. Check your connection and try again.",
+                comment: "gate error: blockchain unavailable")
         case .organisationMismatch:
             return NSLocalizedString("This QR code's issuer information does not match, so nothing was collected — for your safety.",
                                      comment: "gate error: org mismatch")

@@ -42,12 +42,10 @@ struct TrustListFetcher {
         for orgType in [1, 2] {
             var page = 0
             while true {
-                guard let url = URL(string: "\(base)?size=20&page=\(page)&orgType=\(orgType)&status=1") else {
-                    throw TrustListFetcherError.network
-                }
+                let request = try request(page: page, orgType: orgType)
                 let data: Data
                 let response: URLResponse
-                do { (data, response) = try await session.data(from: url) }
+                do { (data, response) = try await session.data(for: request) }
                 catch { throw TrustListFetcherError.network }
                 guard let http = response as? HTTPURLResponse else {
                     throw TrustListFetcherError.network
@@ -71,5 +69,22 @@ struct TrustListFetcher {
         // organisation's identity here, so it is the key that collapses them.
         var seen = Set<String>()
         return all.filter { seen.insert($0.did).inserted }
+    }
+
+    /// A trust decision must not be made from URLCache or an intermediary's
+    /// replay of an older response. Registry entries themselves are long-lived,
+    /// so their `updatedAt` age is not an expiry signal; freshness here means
+    /// fetching the API again and comparing it with the contract's *current*
+    /// state for this collection attempt.
+    func request(page: Int, orgType: Int) throws -> URLRequest {
+        guard let url = URL(string: "\(base)?size=20&page=\(page)&orgType=\(orgType)&status=1") else {
+            throw TrustListFetcherError.network
+        }
+        var request = URLRequest(url: url,
+                                 cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+                                 timeoutInterval: 20)
+        request.setValue("no-cache, no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        return request
     }
 }

@@ -104,7 +104,7 @@ final class TrustRecordDetailViewController: UICollectionViewController {
         switch verification {
         case .verified:
             return NSLocalizedString(
-                "Verified: the successful Arbitrum transaction contains the same DID, signed DID document, organisation record and category values as the official API.",
+                "Verified: the successful Arbitrum transaction and the contract's current, non-revoked record contain the same DID document, organisation and category values as the official API.",
                 comment: "")
         case .mismatch:
             return NSLocalizedString(
@@ -114,6 +114,8 @@ final class TrustRecordDetailViewController: UICollectionViewController {
             return NSLocalizedString("Not verified: this API entry has no blockchain record.", comment: "")
         case .unavailable:
             return NSLocalizedString("Not checked: Arbitrum could not be reached. The API record is still shown below.", comment: "")
+        case .developmentSandbox:
+            return NSLocalizedString("Development sandbox: this entry has no production Arbitrum record and is never trusted by a Release build.", comment: "")
         case nil:
             return NSLocalizedString("Checking the blockchain record…", comment: "")
         }

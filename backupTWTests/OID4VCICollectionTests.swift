@@ -227,11 +227,18 @@ struct OID4VCICollectionTests {
                                 legacyInstallRecord: nil)
     }
 
-    private func makeCollector() -> OID4VCICollector {
+    private func makeCollector(
+        verification: TWDIWOnChainVerification? = .verified(blockNumber: "0x1",
+                                                             transactionHash: "0xtrusted")
+    ) -> OID4VCICollector {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [OID4VCIStubURLProtocol.self]
         return OID4VCICollector(session: URLSession(configuration: configuration),
                                 trustList: [Self.sandbox],
+                                verifyRegistry: { issuers in
+            guard let verification else { return [:] }
+            return Dictionary(uniqueKeysWithValues: issuers.map { ($0.did, verification) })
+        },
                                 keyring: keyring,
                                 store: store)
     }
@@ -278,6 +285,32 @@ struct OID4VCICollectionTests {
             .notOnTheTrustList(host: "issuer-sandbox.wallet.gov.tw.evil.tw"))) {
             _ = try await makeCollector().collect(from: offerLink(
                 fetchURL: "https://issuer-sandbox.wallet.gov.tw.evil.tw/offer"))
+        }
+        #expect(OID4VCIStubURLProtocol.exchanges.isEmpty)
+    }
+
+    @Test func anUnverifiedRegistryRecordStopsBeforeTheOfferFetch() async throws {
+        let cases: [(TWDIWOnChainVerification, IssuerAuthorization.Refusal)] = [
+            (.mismatch, .trustRecordMismatch),
+            (.notAnchored, .trustRecordNotAnchored),
+            (.unavailable, .trustVerificationUnavailable),
+        ]
+        for (verification, refusal) in cases {
+            OID4VCIStubURLProtocol.reset()
+            await #expect(throws: OID4VCICollectionError.refused(refusal)) {
+                _ = try await makeCollector(verification: verification).collect(from: offerLink())
+            }
+            #expect(OID4VCIStubURLProtocol.exchanges.isEmpty)
+        }
+        OID4VCIStubURLProtocol.reset()
+    }
+
+    @Test func missingRegistryEvidenceFailsClosedBeforeTheOfferFetch() async throws {
+        OID4VCIStubURLProtocol.reset()
+        defer { OID4VCIStubURLProtocol.reset() }
+
+        await #expect(throws: OID4VCICollectionError.refused(.trustVerificationUnavailable)) {
+            _ = try await makeCollector(verification: nil).collect(from: offerLink())
         }
         #expect(OID4VCIStubURLProtocol.exchanges.isEmpty)
     }

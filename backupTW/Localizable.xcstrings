@@ -124,12 +124,12 @@
         }
       }
     },
-    "%d organisations on 數位發展部信任清單. A card is only accepted if its issuer is on this list.": {
+    "%d organisations on 數位發展部信任清單. A card is accepted only when its matching API entry also matches the current Arbitrum registry state.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "數位發展部信任清單上有 %d 個機構。只有發卡者在這份清單上的卡片才會被接受。"
+            "value": "數位發展部信任清單上有 %d 個機構。只有對應的 API 紀錄也與 Arbitrum 合約目前狀態相符，卡片才會被接受。"
           }
         }
       }
@@ -7722,13 +7722,13 @@
         }
       }
     },
-    "Each row shows the official API record and independently checks its Arbitrum registry transaction. Open a row to inspect both records.": {
+    "Each row shows the official API record and independently checks its transaction and current state on Arbitrum. Open a row to inspect both records.": {
       "comment": "trust list evidence explanation",
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "每一列都會顯示官方 API 紀錄，並獨立查核它的 Arbitrum 紀錄交易。點開可查看兩邊紀錄。"
+            "value": "每一列都會顯示官方 API 紀錄，並獨立查核 Arbitrum 上的交易與合約目前狀態。點開可查看兩邊紀錄。"
           }
         }
       }
@@ -7878,12 +7878,12 @@
         }
       }
     },
-    "Official API matches the Arbitrum record": {
+    "Official API matches the current Arbitrum registry state": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "官方 API 與 Arbitrum 紀錄相符"
+            "value": "官方 API 與 Arbitrum 合約目前狀態相符"
           }
         }
       }
@@ -8183,12 +8183,12 @@
         }
       }
     },
-    "Verified: the successful Arbitrum transaction contains the same DID, signed DID document, organisation record and category values as the official API.": {
+    "Verified: the successful Arbitrum transaction and the contract's current, non-revoked record contain the same DID document, organisation and category values as the official API.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "查核通過：成功的 Arbitrum 交易中，DID、已簽署的 DID 文件、組織紀錄與類別值都和官方 API 相同。"
+            "value": "查核通過：Arbitrum 成功交易與合約目前未撤銷的紀錄，其 DID 文件、組織與類別值都和官方 API 相同。"
           }
         }
       }
@@ -8571,6 +8571,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "警告——檔案已與保存的指紋不符。"
+          }
+        }
+      }
+    },
+    "Development sandbox · No production blockchain record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開發沙盒 · 沒有正式區塊鏈紀錄"
+          }
+        }
+      }
+    },
+    "Development sandbox: this entry has no production Arbitrum record and is never trusted by a Release build.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開發沙盒：這筆資料沒有正式 Arbitrum 紀錄，Release 版本絕不會信任它。"
+          }
+        }
+      }
+    },
+    "The app could not check this issuer's blockchain record, so it did not contact the issuer. Check your connection and try again.": {
+      "comment": "gate error: blockchain unavailable",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 無法查核這個發卡者的區塊鏈紀錄，因此沒有連線給發卡者。請檢查網路後再試一次。"
+          }
+        }
+      }
+    },
+    "The issuer's official trust-list entry has no blockchain record, so the app did not contact it. Try again after the issuer fixes its registration.": {
+      "comment": "gate error: no blockchain anchor",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡者的官方信任清單資料沒有區塊鏈紀錄，因此 App 沒有與它連線。請等發卡者修正登錄後再試。"
+          }
+        }
+      }
+    },
+    "The official trust-list API and blockchain record do not match, so the app did not contact this issuer. Try again later or report the mismatch.": {
+      "comment": "gate error: API and chain mismatch",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方信任清單 API 與區塊鏈紀錄不相符，因此 App 沒有與這個發卡者連線。請稍後再試，或回報這項不一致。"
           }
         }
       }

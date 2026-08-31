@@ -1335,9 +1335,9 @@ struct OfflineVerifierNetworkTests {
             // registry at collection time. Also caught by this scan on the
             // commit that introduced it, which is the list working.
             "TWDIW/TrustListFetcher.swift",
-            // The trust screen independently checks each API entry's claimed
-            // registry transaction against Arbitrum. It runs only when the
-            // holder opens Settings › Trust, never during offline checking.
+            // The trust screen and an explicit OID4VCI collection independently
+            // check each API entry's claimed transaction and current contract
+            // state against Arbitrum. It never runs during offline checking.
             "TWDIW/TWDIWOnChainVerifier.swift",
             // OID4VP presentation: posts the signed vp_token back to the
             // verifier's response_uri, on an explicit user action, only after
