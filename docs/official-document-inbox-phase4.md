@@ -4,7 +4,7 @@
 - 日期：2026-08-31
 - 對應：[#45](https://github.com/bonds-tw/backupTW-iOS/issues/45)
 - 範圍：local／remote transport capability 分離、broker expiry、callback transaction 解碼、三條 Release 簽章路徑、重試語意、Release binary canary scan
-- 不代表：Cloudflare UAT 已部署、`signing-uat.bonds.tw` 已可連線、真實 App Attest／TestFlight 已通過、MOICA UAT 已互通，或電子公文已取得法定送達介接
+- 不代表：真實 App Attest／TestFlight 已通過、MOICA UAT 已互通、簽章 start 已啟用，或電子公文已取得法定送達介接
 
 ## 本階段結果
 
@@ -31,7 +31,7 @@ Broker 回傳的 `expires_at` 也進入 handle。Credential、ZK 與電子公文
 
 Assembly 只從 code-signed Info.plist 讀取 allowlist 內的 HTTPS host，再建立 App Attest broker transport。它不讀環境變數、不讀本機 SP credential、不接受 runtime 任意 URL，也沒有失敗後改走 DEBUG signer 的 fallback。
 
-目前 App 的 Info.plist 尚未設定 `BondsSigningBrokerBaseURL`，所以 Release 三條路徑仍會 fail closed、UI 顯示後端尚未連接。這是部署前的預期狀態，不是可用的遠端簽章證據。
+Release build 的 code-signed Info.plist 已固定 `BondsSigningBrokerBaseURL=https://signing-uat.mashbean.net`；Debug 不設定。這只讓三條 Release 路徑能連到 App Attest-only UAT。後端 signing secrets、start 與 poll 仍關閉，因此目前簽章操作會 fail closed，不是 MOICA 可用證據。
 
 ## Callback 修正
 
@@ -55,7 +55,7 @@ MOICA deep link 的 `rtn_val` 是 transaction ID 的 base64url 表示，不是 r
 - Local handle 交給 broker 時，在呼叫 transport 前以 `wrongTransport` 拒絕。
 - Broker polling 使用原 remote token；server expiry 可縮短 client deadline。
 - MOICA `rtn_val` 正確 base64url decode；raw／不合法值被拒絕。
-- Release assembly 接受 reviewed `signing-uat.bonds.tw`，拒絕任意 hostname。
+- Release assembly 接受 reviewed `signing-uat.mashbean.net`，拒絕任意 hostname；CI 另檢查 Release product 的 Info.plist 確實固定該 URL。
 - Credential 與 ZK 的 retryable／terminal poll 行為；retryable unknown result 不重送 start。
 - 既有 credential TBS、固定 ZK app ID、電子公文同意 receipt 與錯誤／逾時案例持續通過。
 
@@ -63,10 +63,10 @@ CI 新增獨立 Release simulator build。建置環境刻意放入 SP service ID
 
 ## 下一個完成門檻
 
-1. 依 `bonds-signing-broker` runbook 完成 Cloudflare UAT first deploy；保留 `SIGNING_START_ENABLED=false`，保存 custom domain certificate、deployment version 與 `/healthz` 證據。
-2. 從實際 TestFlight archive 取得 `CFBundleVersion` allowlist，才把 reviewed `https://signing-uat.bonds.tw` 寫入該組態；不可把本機 dev endpoint 帶進 TestFlight。
-3. 真實 iPhone 依序驗 development App Attest、TestFlight category `2`、counter、reinstall、App update 與 unsupported device fail-closed。
-4. 完成 secrets／SP 管理者核准與 log redaction 抽查後，才在 UAT 開啟 signing start。
-5. 以 MOICA UAT 驗 ATH-01／ATH-02 pending、success、拒絕、timeout、callback、斷網與 unknown-result；確認 repeat-poll 行為且不產生第二張 ticket。
+1. 從實際 TestFlight archive 取得 `CFBundleVersion`，確認 broker allowlist 精確包含該值；不可只用本機 target build number 代替。
+2. 真實 iPhone 依序驗 development App Attest、TestFlight category `2`、counter、reinstall、App update 與 unsupported device fail-closed。
+3. 完成 secrets／SP 管理者核准與 log redaction 抽查後，才在 UAT 開啟 signing poll；start 仍保持關閉。
+4. 以 MOICA UAT 驗 ATH-01／ATH-02 pending、success、拒絕、timeout、callback、斷網與 unknown-result；確認 repeat-poll 行為且不產生第二張 ticket。
+5. 上述證據與 Free-plan CPU 指標都通過後，才評估啟用 signing start。
 6. 三條意圖各自做真機 start→跳轉→callback→poll；App 端 pinned MOI certificate／signature 驗證必須實際通過。
 7. TestFlight IPA 重做 secret／local-provider scan，並保留 Reduce Motion 與錯誤文案驗收證據。

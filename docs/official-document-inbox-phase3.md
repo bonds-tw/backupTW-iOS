@@ -3,7 +3,7 @@
 - 狀態：**App 端 transport 與 fail-closed 邊界已實作**
 - 日期：2026-08-31
 - 範圍：App Attest key lifecycle、Keychain state、attestation/register、逐次 assertion、canonical signing request、固定 intent、ephemeral HTTPS transport、counter 次序序列化
-- 不代表：後端已部署、TestFlight production attestation 已通過、Release 簽章已啟用、MOICA UAT 已互通，或電子公文正式介接成立
+- 不代表：TestFlight production attestation 已通過、Release 簽章已啟用、MOICA UAT 已互通，或電子公文正式介接成立
 
 ## 已實作
 
@@ -27,7 +27,7 @@ Transport 會先確認裝置支援 App Attest，再產生 key、保存 key ID �
 
 ## HTTP 與資料邊界
 
-- 只允許 code-signed Info.plist 選擇 `signing-dev.bonds.tw`、`signing-uat.bonds.tw` 或 `signing.bonds.tw`；目前尚未填入任何 endpoint，所以 Release 仍維持不可用。
+- 只允許 code-signed Info.plist 選擇三個 `bonds.tw` hostname 或暫用的 `signing-uat.mashbean.net`；Release 已固定填入後者，不能由 runtime 任意改 URL。
 - URLSession 使用 ephemeral storage、無 cache、無 cookie，所有 response 必須是 JSON 且帶 `Cache-Control: no-store`。
 - 禁止 HTTP redirect，避免帶有身分證統一編號的 POST body 被 307／308 轉送到其他 host。
 - Client 不持有 SP service ID／AES key，也不接受任意 provider URL、hint、callback 或 signing target。
@@ -56,9 +56,9 @@ App target 已加入 App Attest entitlement，source value 為 `development`。A
 
 ## 後續狀態
 
-Cloudflare Workers Free + SQLite-backed Durable Objects 已選為 UAT／低流量試辦 runtime；程式與部署防呆已合併，但 UAT 尚未部署。#45 的 opaque local／remote handle、三條 Release remote-only assembly 與 binary canary scan 已在 [Phase 4](official-document-inbox-phase4.md) 完成。
+Cloudflare Workers Free + SQLite-backed Durable Objects 已部署為 UAT／低流量試辦 runtime；公開 health 與 App Attest challenge 已通過，signing secrets、start 與 poll 維持關閉。#45 的 opaque local／remote handle、三條 Release remote-only assembly 與 binary canary scan 已在 [Phase 4](official-document-inbox-phase4.md) 完成。
 
-後續完成門檻因此收斂為：部署 reviewed `signing-uat.bonds.tw`、真機 development／TestFlight production App Attest、MOICA UAT ATH-01／ATH-02，以及 TestFlight IPA 與 Reduce Motion 驗收。開始簽章結果不明時仍不得自動建立第二張 ticket。
+後續完成門檻因此收斂為：真機 development／TestFlight production App Attest、MOICA UAT ATH-01／ATH-02，以及 TestFlight IPA 與 Reduce Motion 驗收。開始簽章結果不明時仍不得自動建立第二張 ticket。
 
 ## 主要參考
 
