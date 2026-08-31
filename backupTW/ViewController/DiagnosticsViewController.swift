@@ -25,6 +25,14 @@ final class DiagnosticsViewController: UICollectionViewController {
         let value: String
         /// nil where there is nothing to judge — a fact, not a check.
         let passed: Bool?
+        let opensAppAttestUAT: Bool
+
+        init(title: String, value: String, passed: Bool?, opensAppAttestUAT: Bool = false) {
+            self.title = title
+            self.value = value
+            self.passed = passed
+            self.opensAppAttestUAT = opensAppAttestUAT
+        }
     }
 
     private struct Group: Hashable {
@@ -83,7 +91,7 @@ final class DiagnosticsViewController: UICollectionViewController {
                 cell.accessories = [.customView(configuration: .init(
                     customView: Self.symbol("exclamationmark.triangle.fill", .systemOrange), placement: .trailing()))]
             case .none:
-                cell.accessories = []
+                cell.accessories = row.opensAppAttestUAT ? [.disclosureIndicator()] : []
             }
         }
         dataSource = UICollectionViewDiffableDataSource<Group, Row>(collectionView: collectionView) {
@@ -139,7 +147,18 @@ final class DiagnosticsViewController: UICollectionViewController {
     // MARK: - Facts
 
     private static func collect() -> [Group] {
-        [selfCheckGroup(), myDataGroup(), signingGroup(), storageGroup(), assetsGroup()]
+        [selfCheckGroup(), appAttestUATGroup(), myDataGroup(), signingGroup(), storageGroup(), assetsGroup()]
+    }
+
+    private static func appAttestUATGroup() -> Group {
+        Group(title: NSLocalizedString("Signing backend", comment: ""), rows: [
+            Row(title: NSLocalizedString("App Attest UAT check", comment: "diagnostic screen title"),
+                value: NSLocalizedString(
+                    "Run a privacy-safe TestFlight check against the reviewed Cloudflare endpoint.",
+                    comment: "App Attest UAT diagnostics entry"),
+                passed: nil,
+                opensAppAttestUAT: true)
+        ])
     }
 
     /// The one measurement that decides the credential architecture.
@@ -301,5 +320,12 @@ final class DiagnosticsViewController: UICollectionViewController {
             Row(title: NSLocalizedString("Total size when installed", comment: ""),
                 value: formatter.string(fromByteCount: total), passed: nil),
         ])
+    }
+
+    override func collectionView(_ collectionView: UICollectionView,
+                                 didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        guard dataSource.itemIdentifier(for: indexPath)?.opensAppAttestUAT == true else { return }
+        navigationController?.pushViewController(AppAttestUATViewController(), animated: true)
     }
 }

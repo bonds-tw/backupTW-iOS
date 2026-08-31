@@ -119,11 +119,14 @@ protocol AppAttestKeyRecordStoring: Sendable {
 }
 
 struct KeychainAppAttestKeyRecordStore: AppAttestKeyRecordStoring, Sendable {
+    static let defaultService = "tw.bonds.backupTW.app-attest"
+    static let defaultAccount = "signing-broker-key-v1"
+
     private let service: String
     private let account: String
 
-    init(service: String = "tw.bonds.backupTW.app-attest",
-         account: String = "signing-broker-key-v1") {
+    init(service: String = Self.defaultService,
+         account: String = Self.defaultAccount) {
         self.service = service
         self.account = account
     }
@@ -167,7 +170,24 @@ struct KeychainAppAttestKeyRecordStore: AppAttestKeyRecordStoring, Sendable {
     }
 
     func delete() async throws {
-        let status = SecItemDelete(baseQuery as CFDictionary)
+        try Self.deleteRecord(service: service, account: account)
+    }
+
+    /// Synchronous because `LocalDataEraser` is a synchronous, exhaustive sweep
+    /// over Keychain and filesystem locations. Forgetting the local key ID makes
+    /// the next broker use generate a new App Attest key; Apple exposes no API
+    /// for deleting the service-side private key itself.
+    static func deleteDefaultRecord() throws {
+        try deleteRecord(service: defaultService, account: defaultAccount)
+    }
+
+    static func deleteRecord(service: String, account: String) throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw SigningBrokerClientError.appAttestUnavailable
         }
@@ -325,6 +345,7 @@ actor AppAttestSigningBrokerTransport: SigningBrokerTransport {
     private static let registrationPath = "/v1/attest/register"
     private static let attestationChallengePath = "/v1/attest/challenge"
     private static let assertionChallengePath = "/v1/assertions/challenge"
+    private static let assertionVerificationPath = "/v1/assertions/verify"
     private static let startPath = "/v1/signatures/start"
     private static let pollPath = "/v1/signatures/poll"
 
@@ -379,6 +400,41 @@ actor AppAttestSigningBrokerTransport: SigningBrokerTransport {
             let result = try await pollSerialized(sessionToken: sessionToken)
             await gate.release()
             return result
+        } catch {
+            await gate.release()
+            throw error
+        }
+    }
+
+    /// Exercises registration, a fresh server challenge, the Apple-generated
+    /// assertion and the server-side monotonic counter. The fixed request shape
+    /// cannot carry an ID number, intent, signature payload or session token.
+    func verifyAppAttestConnection() async throws {
+        try await gate.acquire()
+        do {
+            try await withKeyRecovery { keyID in
+                let business: [String: Any] = ["key_id": keyID]
+                let challenge = try await assertionChallenge(keyID: keyID)
+                let clientData = try Self.canonicalJSON([
+                    "api_version": "v1",
+                    "body_sha256": Self.sha256Hex(try Self.canonicalJSON(business)),
+                    "challenge": challenge.challenge,
+                    "method": "POST",
+                    "path": Self.assertionVerificationPath
+                ])
+                let assertion = try await assertionObject(keyID: keyID, clientData: clientData)
+                let response: VerificationResponse = try await post(
+                    path: Self.assertionVerificationPath,
+                    body: [
+                        "assertion_object": assertion.base64EncodedString(),
+                        "challenge": challenge.challenge,
+                        "key_id": keyID
+                    ])
+                guard response.verified else {
+                    throw SigningBrokerClientError.invalidResponse
+                }
+            }
+            await gate.release()
         } catch {
             await gate.release()
             throw error
@@ -750,6 +806,10 @@ private struct ChallengeResponse: Decodable {
 
 private struct RegistrationResponse: Decodable {
     let registered: Bool
+}
+
+private struct VerificationResponse: Decodable {
+    let verified: Bool
 }
 
 private struct StartResponse: Decodable {
