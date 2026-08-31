@@ -169,6 +169,7 @@ final class AppAttestUATViewController: UITableViewController {
         content.secondaryTextProperties.numberOfLines = 0
         cell.accessoryType = .none
         cell.accessoryView = nil
+        cell.accessibilityIdentifier = nil
         cell.selectionStyle = .none
 
         switch Section(rawValue: indexPath.section) {
@@ -187,6 +188,7 @@ final class AppAttestUATViewController: UITableViewController {
         case .result:
             configureResult(content: &content, cell: cell, row: indexPath.row)
         case .action:
+            cell.accessibilityIdentifier = "appattest.run"
             content.text = isRunning
                 ? NSLocalizedString("Checking…", comment: "App Attest UAT running")
                 : NSLocalizedString("Run App Attest check", comment: "App Attest UAT action")
@@ -220,6 +222,7 @@ final class AppAttestUATViewController: UITableViewController {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
         switch row {
         case 0:
+            cell.accessibilityIdentifier = "appattest.status"
             content.text = NSLocalizedString("Status", comment: "")
             if isRunning {
                 content.secondaryText = NSLocalizedString("Checking…", comment: "App Attest UAT running")
@@ -237,6 +240,7 @@ final class AppAttestUATViewController: UITableViewController {
                 content.secondaryText = NSLocalizedString("Not run yet", comment: "")
             }
         case 1:
+            cell.accessibilityIdentifier = "appattest.endpoint"
             content.text = NSLocalizedString("Endpoint", comment: "")
             content.secondaryText = endpoint
         case 2:

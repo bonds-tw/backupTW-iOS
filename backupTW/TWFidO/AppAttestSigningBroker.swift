@@ -71,6 +71,7 @@ struct SigningBrokerEndpointConfiguration: Equatable, Sendable {
               let host = url.host?.lowercased(),
               host == "signing.bonds.tw" || host == "signing-uat.bonds.tw" ||
                 host == "signing-dev.bonds.tw" ||
+                host == "signing-dev.mashbean.net" ||
                 host == "signing-uat.mashbean.net" else {
             return nil
         }
