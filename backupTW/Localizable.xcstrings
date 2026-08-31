@@ -1,6 +1,206 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "App Attest UAT check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Attest UAT 檢查"
+          }
+        }
+      }
+    },
+    "App build": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App 版本"
+          }
+        }
+      }
+    },
+    "Checked at / error code": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檢查時間／錯誤碼"
+          }
+        }
+      }
+    },
+    "Endpoint": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務端點"
+          }
+        }
+      }
+    },
+    "Failed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未通過"
+          }
+        }
+      }
+    },
+    "No identity or signing data": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不傳送身分或簽章資料"
+          }
+        }
+      }
+    },
+    "Not configured in this build": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此版本未設定"
+          }
+        }
+      }
+    },
+    "Not run yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未執行"
+          }
+        }
+      }
+    },
+    "Production App Attest chain": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正式版 App Attest 驗證鏈"
+          }
+        }
+      }
+    },
+    "Registers or reuses this installation's App Attest key, creates a fresh assertion, and asks the reviewed Cloudflare server to verify its environment, app version, signature, and counter.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "註冊或沿用此安裝的 App Attest 金鑰，建立新的 assertion，再由已審查的 Cloudflare 伺服器驗證環境、App 版本、簽章與計數器。"
+          }
+        }
+      }
+    },
+    "Run App Attest UAT check?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要執行 App Attest UAT 檢查嗎？"
+          }
+        }
+      }
+    },
+    "Run App Attest check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "執行 App Attest 檢查"
+          }
+        }
+      }
+    },
+    "Run a privacy-safe TestFlight check against the reviewed Cloudflare endpoint.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以不傳個資的方式，從 TestFlight 檢查已審查的 Cloudflare 端點。"
+          }
+        }
+      }
+    },
+    "Run check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "執行檢查"
+          }
+        }
+      }
+    },
+    "Signing backend": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章後端"
+          }
+        }
+      }
+    },
+    "Status": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "狀態"
+          }
+        }
+      }
+    },
+    "This check sends no ID number, credential field, zero-knowledge proof, MOICA request, or signing payload.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此檢查不會傳送身分證字號、證件欄位、零知識證明、行動自然人憑證請求或待簽內容。"
+          }
+        }
+      }
+    },
+    "This creates or reuses this installation's App Attest key and advances its server-side assertion counter. No identity data or signing request is sent.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會建立或沿用此安裝的 App Attest 金鑰，並推進伺服器端的 assertion 計數器。不會傳送身分資料或簽章請求。"
+          }
+        }
+      }
+    },
+    "What this checks": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檢查內容"
+          }
+        }
+      }
+    },
+    "iOS version": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS 版本"
+          }
+        }
+      }
+    },
     "%.1f s": {
       "localizations": {
         "zh-Hant": {

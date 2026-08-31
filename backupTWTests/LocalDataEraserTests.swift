@@ -79,7 +79,10 @@ final class LocalDataEraserTests: @unchecked Sendable {
         UserDefaults.standard.removeSuite(named: defaultsSuiteName)
     }
 
-    private func makeEraser(credentials: CredentialStoring? = nil) -> LocalDataEraser {
+    private func makeEraser(
+        credentials: CredentialStoring? = nil,
+        appAttestRecordEraser: (() throws -> Void)? = nil
+    ) -> LocalDataEraser {
         LocalDataEraser(credentials: credentials ?? store,
                         scratch: scratch,
                         vaultArchive: vaultArchive,
@@ -87,7 +90,8 @@ final class LocalDataEraserTests: @unchecked Sendable {
                         documentsDirectory: documents,
                         zkWorkingDirectory: zkDirectory,
                         keyTag: keyTag,
-                        installRecord: defaults)
+                        installRecord: defaults,
+                        appAttestRecordEraser: appAttestRecordEraser)
     }
 
     /// Leaves the working directory exactly as a proof run killed by jetsam
@@ -227,6 +231,17 @@ final class LocalDataEraserTests: @unchecked Sendable {
         try makeEraser().eraseEverything()
 
         #expect(try store.allIDs().isEmpty)
+    }
+
+    @Test func erasingEverythingAlsoForgetsTheAppAttestInstallationRecord() throws {
+        final class Probe: @unchecked Sendable {
+            var calls = 0
+        }
+        let probe = Probe()
+
+        try makeEraser(appAttestRecordEraser: { probe.calls += 1 }).eraseEverything()
+
+        #expect(probe.calls == 1)
     }
 
     // MARK: - The ZK working directory

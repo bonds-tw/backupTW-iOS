@@ -100,6 +100,24 @@ protocol SigningBrokerTransport: Sendable {
     func poll(sessionToken: String) async throws -> TWFidOSignResult?
 }
 
+/// A privacy-safe production-distribution check. It proves that this installed
+/// app can register and advance its App Attest assertion counter at the
+/// reviewed backend, without accepting an ID number or opening a MOICA signing
+/// transaction.
+protocol AppAttestUATChecking: Sendable {
+    var endpointHost: String { get }
+    func run() async throws
+}
+
+struct SigningBrokerAppAttestUATCheck: AppAttestUATChecking, Sendable {
+    let endpointHost: String
+    let transport: AppAttestSigningBrokerTransport
+
+    func run() async throws {
+        try await transport.verifyAppAttestConnection()
+    }
+}
+
 /// Lets every existing signing workflow use the same future broker through the
 /// existing `TWFidOSignSession` seam. The client-supplied `hint` is deliberately
 /// ignored: the backend owns fixed Traditional-Chinese text for each intent.
@@ -138,6 +156,16 @@ enum SigningBrokerSessionAssembly {
             return nil
         }
         return SigningBrokerSignSession(
+            transport: AppAttestSigningBrokerTransport(configuration: configuration))
+    }
+
+    static func makeAppAttestUATCheck(bundle: Bundle = .main) -> (any AppAttestUATChecking)? {
+        guard let configuration = SigningBrokerEndpointConfiguration.fromBundle(bundle),
+              let host = configuration.baseURL.host else {
+            return nil
+        }
+        return SigningBrokerAppAttestUATCheck(
+            endpointHost: host,
             transport: AppAttestSigningBrokerTransport(configuration: configuration))
     }
 }
