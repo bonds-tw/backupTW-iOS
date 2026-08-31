@@ -19,7 +19,7 @@ final class AppAttestDeviceIntegrationTests: XCTestCase {
         let configuration = try SigningBrokerEndpointConfiguration(
             baseURL: XCTUnwrap(URL(string: "https://signing-dev.mashbean.net")))
         let check = SigningBrokerAppAttestUATCheck(
-            endpointHost: XCTUnwrap(configuration.baseURL.host),
+            endpointHost: try XCTUnwrap(configuration.baseURL.host),
             transport: AppAttestSigningBrokerTransport(configuration: configuration))
 
         do {
