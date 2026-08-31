@@ -21,9 +21,11 @@ final class DiagnosticsUITests: XCTestCase {
 
     func testDiagnosticsReportsSigningAndStorageFacts() throws {
         let app = XCUIApplication()
+        app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
         app.launch()
 
-        app.tabBars.buttons.element(boundBy: 1).tap()
+        app.buttons.matching(
+            NSPredicate(format: "label IN {'設定', 'Settings'}")).firstMatch.tap()
 
         // Matched on the visible label in either language. The previous version
         // keyed off an accessibility identifier that does not exist and fell

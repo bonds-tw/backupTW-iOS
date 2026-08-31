@@ -121,6 +121,39 @@ final class HolderPresentationTests: @unchecked Sendable {
 
     // MARK: - Assembly
 
+    @Test(.enabled(if: HolderPresentationTests.deviceKeyIsAvailable))
+    func aPerCardCredentialSelectsItsOwnKeyFromTheKeyring() throws {
+        let unique = UUID().uuidString
+        let keyring = HolderKeyring(
+            namespace: "tw.bonds.backupTW.tests.holderPresentation.keyring.\(unique).",
+            legacyTags: [],
+            installID: "install",
+            legacyInstallRecord: nil)
+        defer {
+            for entry in (try? keyring.entries()) ?? [] {
+                try? DeviceKey.deleteKey(tag: entry.tag, installRecord: nil)
+            }
+        }
+        let key = try keyring.newKey()
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+        let credential = VerifiableCredential.nationalID(
+            NationalIDModel(nationality: "中華民國（臺灣）", unifiedNo: "A123456789",
+                            name: "王小明", birthdate: "0700101", addressOfHousehold: "臺北市"),
+            issuerDID: did,
+            validFrom: Self.now.addingTimeInterval(-3600))
+        let store = try store()
+        try store.save(jws: try credential.jwsCompactSerialization(signedBy: key, issuerDID: did),
+                       id: StoredNationalID.credentialID)
+
+        let presentation = try HolderPresentation(store: store, keyring: keyring)
+            .presentation(answering: makeRequest(), now: Self.now)
+        let compact = try #require(String(data: presentation, encoding: .utf8))
+        let payload = try #require(MOICASignedCredential.base64URLDecoded(
+            compact.components(separatedBy: ".")[1]))
+        let object = try #require(JSONSerialization.jsonObject(with: payload) as? [String: Any])
+        #expect(object["holder"] as? String == did)
+    }
+
     /// The frames carry the exact signed bytes and nothing else. Deflation,
     /// base45 and sharding all happen in between, and any of them mangling a byte
     /// would leave a presentation that reassembles into an invalid signature at

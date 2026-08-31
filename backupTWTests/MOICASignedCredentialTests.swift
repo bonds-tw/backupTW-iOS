@@ -18,14 +18,15 @@ struct MOICASignedCredentialTests {
 
     /// A credential whose `name` matches the fixture certificate's common name.
     private func credential(name: String = "王小明",
-                            birthdate: String = "0700101") -> VerifiableCredential {
+                            birthdate: String = "0700101",
+                            issuerDID: String = Self.subjectDID) -> VerifiableCredential {
         VerifiableCredential(
             context: [.url(VerifiableCredential.credentialsV2Context),
                       .definitions(VerifiableCredential.nationalIDTermDefinitions)],
             type: [VerifiableCredential.baseType, VerifiableCredential.nationalIDType],
-            issuer: Self.subjectDID,
+            issuer: issuerDID,
             validFrom: "2026-08-09T12:00:00Z",
-            credentialSubject: ["id": Self.subjectDID,
+            credentialSubject: ["id": issuerDID,
                                 "nationality": "中華民國（臺灣）",
                                 "name": name,
                                 "birthdate": birthdate],
@@ -61,6 +62,46 @@ struct MOICASignedCredentialTests {
 
         #expect(verified.cardholderName == "王小明")
         #expect(verified.credential.credentialSubject["birthdate"] == "0700101")
+    }
+
+    @Test(.enabled(if: DeviceKeyAvailability.isAvailable))
+    func theNationalIDsOwnDIDKeySignsTheSamePayloadAsTheCard() throws {
+        let tag = "tw.bonds.backupTW.tests.nationalIDIssuer.\(UUID().uuidString)"
+        defer { try? DeviceKey.deleteKey(tag: tag, installRecord: nil) }
+        let key = try DeviceKey.loadOrCreate(tag: tag, installRecord: nil)
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+        let credential = credential(issuerDID: did)
+        let (_, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        let cardSigned = try sign(bytes)
+        let issuerJWS = try credential.jwsCompactSerialization(signedBy: key, issuerDID: did)
+        let coSigned = MOICASignedCredential(payload: cardSigned.payload,
+                                             proof: cardSigned.proof,
+                                             issuerJWS: issuerJWS)
+
+        #expect(try coSigned.verify(signedBy: holderCertificate()).credential.issuer == did)
+    }
+
+    @Test(.enabled(if: DeviceKeyAvailability.isAvailable))
+    func anAlteredNationalIDKeySignatureIsRefused() throws {
+        let tag = "tw.bonds.backupTW.tests.nationalIDIssuerTamper.\(UUID().uuidString)"
+        defer { try? DeviceKey.deleteKey(tag: tag, installRecord: nil) }
+        let key = try DeviceKey.loadOrCreate(tag: tag, installRecord: nil)
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+        let credential = credential(issuerDID: did)
+        let (_, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        let cardSigned = try sign(bytes)
+        let issuerJWS = try credential.jwsCompactSerialization(signedBy: key, issuerDID: did)
+        var components = issuerJWS.split(separator: ".").map(String.init)
+        var signature = try #require(MOICASignedCredential.base64URLDecoded(components[2]))
+        signature[0] ^= 0x01
+        components[2] = VerifiableCredential.base64URLEncoded(signature)
+        let altered = MOICASignedCredential(payload: cardSigned.payload,
+                                            proof: cardSigned.proof,
+                                            issuerJWS: components.joined(separator: "."))
+
+        #expect(throws: MOICASignedCredentialError.issuerSignatureInvalid) {
+            try altered.verify(signedBy: self.holderCertificate())
+        }
     }
 
     /// The signature really is 256 bytes of RSA-2048 PKCS#1, the same shape

@@ -41,7 +41,7 @@ class UseViewController: UICollectionViewController {
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
-        static let minimalDisclosure = NSLocalizedString("Minimal disclosure", comment: "ZK proof screen title")
+        static let createProof = NSLocalizedString("Create a zero-knowledge proof", comment: "ZK proof screen title")
     }
 
     /// Recomputed on every appearance, not stored once at init.
@@ -76,17 +76,20 @@ class UseViewController: UICollectionViewController {
     }
 
     /// 「實驗中」 — the verification tracks still being built, gathered here in 使用
-    /// rather than hidden in Settings. Today: the zero-knowledge minimal-disclosure
-    /// proof (make one). The subtitle states a local capability fact, keyed to the
-    /// same `CredentialIssuanceAssembly.isAvailable` the proof screen gates on.
+    /// rather than hidden in Settings. Creating and checking are two distinct
+    /// actions and appear together with different icons.
     private func experimentalSection() -> Section {
         Section(title: "🧪 " + NSLocalizedString("Experimental", comment: "use section"), items: [
-            Item(image: UIImage(systemName: "eye.slash")?
+            Item(image: UIImage(systemName: "lock.shield.fill")?
                     .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
-                 title: Row.minimalDisclosure,
+                 title: Row.createProof,
                  secondaryText: CredentialIssuanceAssembly.isAvailable
                     ? NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.", comment: "")
-                    : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: ""))
+                    : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: "")),
+            Item(image: UIImage(systemName: "checkmark.shield.fill")?
+                    .withTintColor(.systemOrange, renderingMode: .alwaysOriginal),
+                 title: Row.verifyProof,
+                 secondaryText: Self.proofRowSubtitle())
         ])
     }
 
@@ -167,11 +170,7 @@ class UseViewController: UICollectionViewController {
             Item(image: UIImage(systemName: "checkmark.shield")?
                     .withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
                  title: Row.verify,
-                 secondaryText: NSLocalizedString("Scan someone's document to check it is genuine — no network needed.", comment: "")),
-            Item(image: UIImage(systemName: "eye.slash")?
-                    .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
-                 title: Row.verifyProof,
-                 secondaryText: Self.proofRowSubtitle())
+                 secondaryText: NSLocalizedString("Scan someone's document to check it is genuine — no network needed.", comment: ""))
         ])
     }
 
@@ -416,7 +415,7 @@ extension UseViewController {
             navigationController?.pushViewController(VerifierViewController(), animated: true)
         case Row.verifyProof:
             navigationController?.pushViewController(ZKVerifyViewController(), animated: true)
-        case Row.minimalDisclosure:
+        case Row.createProof:
             navigationController?.pushViewController(ZKProofViewController(), animated: true)
         default:
             break

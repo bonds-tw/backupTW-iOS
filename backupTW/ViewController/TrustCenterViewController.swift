@@ -23,6 +23,7 @@ final class TrustCenterViewController: UICollectionViewController {
 
     private var selectedTab: Tab = .trustList
     private var trustState: LoadState = .loading
+    private var chainResults: [String: TWDIWOnChainVerification] = [:]
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
     private let segmented = UISegmentedControl(items: [
@@ -58,16 +59,21 @@ final class TrustCenterViewController: UICollectionViewController {
     }
 
     private func configureDataSource() {
-        let registration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
+        let registration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { [weak self] cell, _, item in
             var content = cell.defaultContentConfiguration()
+            cell.accessories = []
             switch item {
-            case let .issuer(_, name, detail):
+            case let .issuer(did, name, detail):
                 content.text = name
-                content.secondaryText = detail
+                let verification = self?.chainResults[did]
+                content.secondaryText = detail + "\n" + Self.verificationSummary(verification)
+                content.secondaryTextProperties.numberOfLines = 0
                 content.secondaryTextProperties.color = .secondaryLabel
                 content.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-                content.image = UIImage(systemName: "checkmark.seal.fill")?
-                    .withTintColor(.systemGreen, renderingMode: .alwaysOriginal)
+                let appearance = Self.verificationAppearance(verification)
+                content.image = UIImage(systemName: appearance.symbol)?
+                    .withTintColor(appearance.colour, renderingMode: .alwaysOriginal)
+                cell.accessories = [.disclosureIndicator()]
             case let .field(label, key):
                 // The app's own word leads; the machine key is the quiet detail.
                 content.text = label
@@ -102,7 +108,10 @@ final class TrustCenterViewController: UICollectionViewController {
             case .loaded(let issuers):
                 snapshot.appendItems([.note(String(
                     format: NSLocalizedString("%d organisations on 數位發展部信任清單. A card is only accepted if its issuer is on this list.", comment: ""),
-                    issuers.count))])
+                    issuers.count)),
+                    .note(NSLocalizedString(
+                        "Each row shows the official API record and independently checks its Arbitrum registry transaction. Open a row to inspect both records.",
+                        comment: "trust list evidence explanation"))])
                 snapshot.appendItems(issuers.map {
                     // Head+tail so the did:key prefix and the distinguishing last
                     // characters both show (did:key:z6Mk…AbCd), not a tail-only slice.
@@ -122,22 +131,63 @@ final class TrustCenterViewController: UICollectionViewController {
 
     private func fetchTrustList() {
         Task { [weak self] in
-            let result: LoadState
             do {
                 let issuers = try await TrustListFetcher(session: .shared).fetchAll()
-                result = .loaded(issuers)
+                await MainActor.run {
+                    guard let self else { return }
+                    self.trustState = .loaded(issuers)
+                    if self.selectedTab == .trustList { self.applySnapshot() }
+                }
+                let verified = await TWDIWOnChainVerifier(session: .shared).verify(issuers)
+                await MainActor.run {
+                    guard let self else { return }
+                    self.chainResults = verified
+                    if self.selectedTab == .trustList { self.applySnapshot() }
+                }
             } catch {
-                result = .failed
-            }
-            await MainActor.run {
-                guard let self else { return }
-                self.trustState = result
-                if self.selectedTab == .trustList { self.applySnapshot() }
+                await MainActor.run {
+                    guard let self else { return }
+                    self.trustState = .failed
+                    if self.selectedTab == .trustList { self.applySnapshot() }
+                }
             }
         }
     }
 
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
+        guard case let .issuer(did, _, _) = dataSource.itemIdentifier(for: indexPath),
+              case .loaded(let issuers) = trustState,
+              let issuer = issuers.first(where: { $0.did == did }) else { return }
+        navigationController?.pushViewController(
+            TrustRecordDetailViewController(issuer: issuer,
+                                            verification: chainResults[did]),
+            animated: true)
+    }
+
+    private static func verificationSummary(_ result: TWDIWOnChainVerification?) -> String {
+        switch result {
+        case nil:
+            return NSLocalizedString("Official API loaded · Checking Arbitrum…", comment: "")
+        case .verified:
+            return NSLocalizedString("Official API matches the Arbitrum record", comment: "")
+        case .notAnchored:
+            return NSLocalizedString("The API has no blockchain record for this entry", comment: "")
+        case .mismatch:
+            return NSLocalizedString("Warning: the API and blockchain records do not match", comment: "")
+        case .unavailable:
+            return NSLocalizedString("Official API loaded · Arbitrum is temporarily unavailable", comment: "")
+        }
+    }
+
+    private static func verificationAppearance(_ result: TWDIWOnChainVerification?)
+        -> (symbol: String, colour: UIColor) {
+        switch result {
+        case .verified: return ("checkmark.shield.fill", .systemGreen)
+        case .mismatch: return ("exclamationmark.shield.fill", .systemRed)
+        case .notAnchored: return ("link.badge.plus", .systemOrange)
+        case .unavailable: return ("wifi.exclamationmark", .systemOrange)
+        case nil: return ("ellipsis.shield", .secondaryLabel)
+        }
     }
 }

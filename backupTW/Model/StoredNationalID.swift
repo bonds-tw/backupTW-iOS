@@ -50,6 +50,10 @@ struct StoredNationalID: Equatable {
     /// has to do it, so the answer travels rather than being recomputed.
     let isCardSigned: Bool
 
+    /// Whether this national ID's own did:key also signed the exact credential
+    /// bytes. Older stored envelopes are still readable and report `false`.
+    let hasIssuerSignature: Bool
+
     /// As the credential stores it — an ISO 8601 string, not a `Date`.
     let validFromRaw: String
 
@@ -60,6 +64,20 @@ struct StoredNationalID: Equatable {
     let validFrom: Date?
 
     let claims: [(key: String, value: String)]
+
+    init(issuerDID: String,
+         isCardSigned: Bool,
+         hasIssuerSignature: Bool = false,
+         validFromRaw: String,
+         validFrom: Date?,
+         claims: [(key: String, value: String)]) {
+        self.issuerDID = issuerDID
+        self.isCardSigned = isCardSigned
+        self.hasIssuerSignature = hasIssuerSignature
+        self.validFromRaw = validFromRaw
+        self.validFrom = validFrom
+        self.claims = claims
+    }
 
     /// What to put on screen for the creation time.
     func createdDescription(style: DateFormatter.Style = .medium) -> String {
@@ -82,6 +100,7 @@ struct StoredNationalID: Equatable {
             // are not the same document — one is vouched for by a cardholder's
             // certificate and the other by nothing but this phone.
             && a.isCardSigned == b.isCardSigned
+            && a.hasIssuerSignature == b.hasIssuerSignature
             && a.claims.map(\.key) == b.claims.map(\.key)
             && a.claims.map(\.value) == b.claims.map(\.value)
     }
@@ -123,6 +142,7 @@ struct StoredNationalID: Equatable {
         parser.formatOptions = [.withInternetDateTime]
         return StoredNationalID(issuerDID: credential.issuer,
                                 isCardSigned: decoded.isCardSigned,
+                                hasIssuerSignature: decoded.hasIssuerSignature,
                                 validFromRaw: credential.validFrom,
                                 validFrom: parser.date(from: credential.validFrom),
                                 claims: ordered + extras)
@@ -145,7 +165,7 @@ struct StoredNationalID: Equatable {
     /// to indistinguishable `VerifiableCredential`s, since the device DID is the
     /// subject identifier in both.
     private static func decodePayload(of stored: String)
-        -> (credential: VerifiableCredential, isCardSigned: Bool)? {
+        -> (credential: VerifiableCredential, isCardSigned: Bool, hasIssuerSignature: Bool)? {
         if let cardSigned = try? MOICASignedCredential.parse(stored) {
             // Not verified here, for the reason `load` gives above: this is the
             // holder's own device reading the holder's own file back to them.
@@ -166,7 +186,7 @@ struct StoredNationalID: Equatable {
                         .merging(Dictionary(revealed.map { ($0.name, $0.value) }) { a, _ in a }) { a, _ in a },
                     sd: committed)
             }
-            return (credential, true)
+            return (credential, true, cardSigned.issuerJWS != nil)
         }
         let segments = stored.split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3,
@@ -174,7 +194,7 @@ struct StoredNationalID: Equatable {
               let credential = try? JSONDecoder().decode(VerifiableCredential.self, from: payload) else {
             return nil
         }
-        return (credential, false)
+        return (credential, false, true)
     }
 
     private static func base64URLDecoded(_ string: String) -> Data? {
@@ -247,16 +267,18 @@ struct StoredNationalID: Equatable {
         (["nationality"], NSLocalizedString("Nationality", comment: "field label")),
         (["license_number", "licence_number", "licenseno", "licence_no"], NSLocalizedString("Licence number", comment: "field label")),
         (["controlnumber", "control_number"], NSLocalizedString("Control number", comment: "field label; the driving-licence 管轄編號")),
-        // The real 公路局 driving-licence disclosed a bare `type` for the vehicle
-        // class (value 「普通小型車」). It is generic enough to collide in theory,
-        // but the driving licence is the only card in this ecosystem that carries
-        // it, and a reader is far better served by 車輛類別 than the raw key.
-        (["vehicle_type", "car_type", "license_class", "class", "type"], NSLocalizedString("Vehicle class", comment: "field label")),
+        // The production driving-licence card uses `type` for 駕照種類.
+        (["type", "license_type", "licence_type"], NSLocalizedString("Licence type", comment: "field label")),
+        (["vehicle_type", "car_type", "license_class", "licence_class", "class"], NSLocalizedString("Vehicle class", comment: "field label")),
         (["msisdn", "mobile", "phone", "phone_number", "mobile_number"], NSLocalizedString("Mobile number", comment: "field label")),
         (["phone_number_last3", "phonel3"], NSLocalizedString("Mobile number (last 3)", comment: "field label; convenience-store pickup card")),
         (["carrier", "telecom", "operator"], NSLocalizedString("Carrier", comment: "field label")),
         // `gDate` is the driving-licence issue date (民國 date, e.g. 1020701).
-        (["issue_date", "issuedate", "valid_from", "validfrom", "gdate"], NSLocalizedString("Valid from", comment: "field label")),
+        (["issue_date", "issuedate", "gdate"], NSLocalizedString("Issue date", comment: "field label")),
+        (["valid_from", "validfrom", "effective_date"], NSLocalizedString("Valid from", comment: "field label")),
         (["expiry", "expiration", "valid_until", "validuntil", "expires", "expiry_date"], NSLocalizedString("Valid until", comment: "field label")),
+        (["email", "email_address", "mail"], NSLocalizedString("Email address", comment: "field label")),
+        (["organisation", "organization", "org_name", "company"], NSLocalizedString("Organisation", comment: "field label")),
+        (["role", "job_title", "position"], NSLocalizedString("Role", comment: "field label")),
     ]
 }

@@ -2,7 +2,7 @@
 //  TrustListFetcher.swift
 //  backupTW
 //
-//  The 43 organisations, fetched the only way that returns all of them.
+//  Every production organisation, fetched with the API's measured paging rules.
 //
 
 import Foundation

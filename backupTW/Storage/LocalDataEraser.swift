@@ -91,6 +91,10 @@ struct LocalDataEraser {
     private let zkWorkingDirectory: URL?
     private let keyTag: String
     private let installRecord: UserDefaults?
+    /// Optional in injected/test instances so a test can never sweep the real
+    /// app-wide Keychain namespace. The production initializer supplies both.
+    private let holderKeyring: HolderKeyring?
+    private let walletIdentityTag: String?
 
     /// `keyTag` and `installRecord` are injectable for the same reason the
     /// directories are: the Keychain is a process-wide namespace, so a test that
@@ -102,7 +106,9 @@ struct LocalDataEraser {
                                                              in: .userDomainMask).first,
          zkWorkingDirectory: URL? = try? CircuitAssets.defaultDirectory(),
          keyTag: String = DeviceKey.defaultTag,
-         installRecord: UserDefaults? = .standard) {
+         installRecord: UserDefaults? = .standard,
+         holderKeyring: HolderKeyring? = nil,
+         walletIdentityTag: String? = nil) {
         self.credentials = credentials
         self.scratch = scratch
         self.vaultArchive = vaultArchive
@@ -110,11 +116,15 @@ struct LocalDataEraser {
         self.zkWorkingDirectory = zkWorkingDirectory
         self.keyTag = keyTag
         self.installRecord = installRecord
+        self.holderKeyring = holderKeyring
+        self.walletIdentityTag = walletIdentityTag
     }
 
     /// The app's own wiring: the real store, in the real locations.
     init() throws {
-        self.init(credentials: try CredentialStore())
+        self.init(credentials: try CredentialStore(),
+                  holderKeyring: .app(),
+                  walletIdentityTag: WalletIdentity.keyTag)
     }
 
     /// Erases everything, then reports the first thing that went wrong.
@@ -147,6 +157,14 @@ struct LocalDataEraser {
         // credentials itself, key first, and reports the Keychain failure in
         // preference to the file one — because the Keychain failure is the one
         // that means the identity outlived the erase.
+        // Credential-specific keys and the app installation DID are independent
+        // from the legacy key `IdentityReset` knows. All must go before files or
+        // an interrupted erase would leave a living identity behind.
+        attempt { _ = try holderKeyring?.destroyAll() }
+        if let walletIdentityTag, walletIdentityTag != keyTag {
+            attempt { try DeviceKey.deleteKey(tag: walletIdentityTag,
+                                              installRecord: installRecord) }
+        }
         attempt { try IdentityReset.perform(credentialStore: credentials,
                                             keyTag: keyTag,
                                             installRecord: installRecord) }

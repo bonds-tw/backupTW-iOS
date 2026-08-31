@@ -9,6 +9,11 @@ import UIKit
 import WebKit
 import PDFKit
 
+enum MyDataImportResult {
+    case nationalID(NationalIDModel)
+    case vaultDocument(MyDataVaultArchive.Entry)
+}
+
 class MyDataWebViewController : UIViewController {
 
     /// Owns every file this flow creates, outside Documents and outside backups,
@@ -17,6 +22,10 @@ class MyDataWebViewController : UIViewController {
     /// The zip we told WKDownload to write, so `downloadDidFinish` knows what to
     /// unpack. Nil whenever nothing is in flight.
     private var archiveURL: URL?
+    /// Metadata only. The server-supplied filename never becomes a local path;
+    /// a short alphanumeric suffix is retained so the vault can reopen the raw
+    /// original with the right parser later.
+    private var archiveFileExtension = ""
 
     private var progressObservation: NSKeyValueObservation?
     private lazy var progressView: UIProgressView = {
@@ -36,7 +45,7 @@ class MyDataWebViewController : UIViewController {
         webview.allowsBackForwardNavigationGestures = true
         return webview
     }()
-    private let completion: ((NationalIDModel) -> Void)
+    private let completion: ((MyDataImportResult) -> Void)
     /// Which document this run fetches. Its `myDataItemPath` chooses the entry URL
     /// (`personal/detail/API.idPhotoRev` for the national ID, `…API.syWqjr4flJ` for
     /// income, …); its `id` decides whether the original is archived. The fetch/auth
@@ -53,7 +62,7 @@ class MyDataWebViewController : UIViewController {
             ?? "personal/detail/API.idPhotoRev"
     }
 
-    init(documentType: MyDataDocumentType, completion: @escaping ((NationalIDModel) -> Void)) {
+    init(documentType: MyDataDocumentType, completion: @escaping ((MyDataImportResult) -> Void)) {
         self.documentType = documentType
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
@@ -168,6 +177,8 @@ extension MyDataWebViewController : WKDownloadDelegate {
         do {
             let destination = try scratch.downloadDestination()
             archiveURL = destination
+            archiveFileExtension = Self.safeFileExtension(suggestedFilename: suggestedFilename,
+                                                          mimeType: response.mimeType)
             return destination
         } catch {
             archiveURL = nil
@@ -197,15 +208,23 @@ extension MyDataWebViewController : WKDownloadDelegate {
             return
         }
 
-        // A vault document keeps its raw original as evidence (保險箱原檔先儲存):
-        // archived here, before any parse and before the defer purges the scratch,
-        // so the file is kept whether or not this build can yet parse it. The
-        // national ID is deliberately never archived — its household record still
-        // lives and dies inside `MyDataScratch`.
+        // A vault document is the original file, not a national-ID-shaped VC.
+        // Store it under its own document id and finish here: feeding an income,
+        // insurance or property PDF into `NationalIDModel.parse` is what made the
+        // UI show 身分證 fields under every MyData item and could mint the wrong
+        // credential if a coincidental label matched.
         if MyDataDocumentRegistry.isVaultDocument(id: documentType.id) {
-            try? vaultArchive?.store(originalAt: archiveURL,
-                                     id: documentType.id,
-                                     fileExtension: archiveURL.pathExtension)
+            do {
+                guard let vaultArchive else { throw CocoaError(.fileNoSuchFile) }
+                let entry = try vaultArchive.store(originalAt: archiveURL,
+                                                   id: documentType.id,
+                                                   fileExtension: archiveFileExtension)
+                completion(.vaultDocument(entry))
+                dismiss(animated: true)
+            } catch {
+                presentProcessingError(detail: nil)
+            }
+            return
         }
 
         // From `Data`, not from the URL: the document keeps working after the file
@@ -215,10 +234,8 @@ extension MyDataWebViewController : WKDownloadDelegate {
         do {
             pdfData = try scratch.pdfData(fromArchiveAt: archiveURL)
         } catch {
-            // The national ID arrives as a PDF inside a zip. A vault document that
-            // arrives in some other shape (not a zip, or a zip of a CSV) lands here;
-            // on DEBUG we say which shape — structure only, never content — so its
-            // own handling can be written.
+            // The national ID arrives as a PDF inside a zip. On DEBUG we say
+            // which unexpected shape arrived — structure only, never content.
             var detail: String?
             #if DEBUG
             detail = "pdfData: \(error) · " + scratch.debugArchiveShape(ofArchiveAt: archiveURL)
@@ -259,7 +276,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
         } else if let model = parseUnencryptedPDF(pdf) {
             // Some MyData documents deliver an *unencrypted* PDF — parse it straight
             // away, no password prompt.
-            completion(model)
+            completion(.nationalID(model))
             dismiss(animated: true)
         } else {
             // Unencrypted, but the national-ID-shaped parser found none of its
@@ -269,6 +286,21 @@ extension MyDataWebViewController : WKDownloadDelegate {
             detail = "unencrypted PDF, parse=nil, pages=\(pdf.pageCount)"
             #endif
             presentProcessingError(detail: detail)
+        }
+    }
+
+    private static func safeFileExtension(suggestedFilename: String,
+                                          mimeType: String?) -> String {
+        let suffix = URL(fileURLWithPath: suggestedFilename).pathExtension.lowercased()
+        if !suffix.isEmpty, suffix.utf8.count <= 10,
+           suffix.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) {
+            return suffix
+        }
+        switch mimeType?.lowercased() {
+        case "application/zip", "application/x-zip-compressed": return "zip"
+        case "application/pdf": return "pdf"
+        case "application/json": return "json"
+        default: return ""
         }
     }
 
@@ -335,7 +367,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
                 let success = pdf.unlock(withPassword: password)
                 if success {
                     if let nationalIDModel = self.parseUnencryptedPDF(pdf) {
-                        self.completion(nationalIDModel)
+                        self.completion(.nationalID(nationalIDModel))
                         self.dismiss(animated: true)
                     } else {
                         // Unlocked, but not the national-ID layout — an encrypted

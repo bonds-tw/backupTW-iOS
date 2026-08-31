@@ -136,6 +136,16 @@ final class PrivacyShield {
     /// not in the more obvious place.
     func coverIfNeeded(_ window: UIWindow?) {
         guard let window, coverView == nil, Self.hasShieldedContent(in: window) else { return }
+        cover(window)
+    }
+
+    /// Installs the opaque cover regardless of which screen is visible.
+    ///
+    /// The login gate uses this on every background transition: once the wallet
+    /// promises to require Face ID or the phone passcode on return, even the home
+    /// screen must not be photographed before that check.
+    func cover(_ window: UIWindow?) {
+        guard let window, coverView == nil else { return }
         let cover = Self.makeCover(for: window)
         window.addSubview(cover)
         // Laid out synchronously. The cover has one frame in which to exist — the
@@ -239,6 +249,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
     private let privacyShield = PrivacyShield()
+    private var mainRootViewController: UIViewController?
+    private weak var unlockViewController: WalletUnlockViewController?
+    private var needsUnlock = true
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
@@ -270,7 +283,31 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             UINavigationController(rootViewController: useViewController)
         ]
 
-        window.rootViewController = tabBarController
+        mainRootViewController = tabBarController
+
+        // Make the wallet's own did:key part of the installation, rather than a
+        // side effect of somebody eventually finding the Settings row. Failure is
+        // not fatal here — the identity page reports an unavailable locked
+        // Keychain — but a normal first launch leaves with a stable wallet DID.
+        _ = try? WalletIdentity.key()
+
+        #if DEBUG
+        // UI automation cannot approve LocalAuthentication. The bypass exists
+        // only in DEBUG and only when a test explicitly asks for it; Release
+        // does not compile this branch, so no launch environment can unlock a
+        // shipped wallet.
+        if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] == "1" {
+            needsUnlock = false
+            window.rootViewController = tabBarController
+            window.makeKeyAndVisible()
+            self.window = window
+            return
+        }
+        #endif
+
+        let unlock = makeUnlockController(initial: true)
+        unlockViewController = unlock
+        window.rootViewController = unlock
         window.makeKeyAndVisible()
         self.window = window
     }
@@ -332,7 +369,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        privacyShield.uncover()
+        guard needsUnlock else {
+            privacyShield.uncover()
+            return
+        }
+        presentUnlockIfNeeded()
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
@@ -341,7 +382,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // `sceneDidBecomeActive` puts the screen back within the same
         // interaction, and this callback cannot tell an interruption from the
         // Home gesture that ends with a snapshot on disk.
-        privacyShield.coverIfNeeded(window)
+        privacyShield.cover(window)
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {
@@ -355,5 +396,48 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // state to restore the scene later. The privacy cover is deliberately
         // *not* installed here: the system has already taken its snapshot by the
         // time this runs. See `PrivacyShield.coverIfNeeded`.
+        needsUnlock = true
+    }
+
+    // MARK: - App unlock
+
+    private func makeUnlockController(initial: Bool) -> WalletUnlockViewController {
+        let unlock = WalletUnlockViewController()
+        unlock.modalPresentationStyle = .fullScreen
+        unlock.onUnlocked = { [weak self, weak unlock] in
+            guard let self else { return }
+            self.needsUnlock = false
+            if initial {
+                guard let root = self.mainRootViewController else { return }
+                self.window?.rootViewController = root
+                self.unlockViewController = nil
+                self.privacyShield.uncover()
+            } else {
+                unlock?.dismiss(animated: false) { [weak self] in
+                    self?.unlockViewController = nil
+                    self?.privacyShield.uncover()
+                }
+            }
+        }
+        return unlock
+    }
+
+    private func presentUnlockIfNeeded() {
+        guard unlockViewController == nil,
+              let root = window?.rootViewController else {
+            // Initial launch already has the unlock controller as its root.
+            privacyShield.uncover()
+            return
+        }
+
+        let unlock = makeUnlockController(initial: false)
+        unlockViewController = unlock
+        var presenter = root
+        while let presented = presenter.presentedViewController { presenter = presented }
+        presenter.present(unlock, animated: false) { [weak self] in
+            // The opaque unlock screen is now above every credential screen, so
+            // the snapshot cover can come down without exposing the wallet.
+            self?.privacyShield.uncover()
+        }
     }
 }

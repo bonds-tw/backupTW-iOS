@@ -129,6 +129,16 @@ final class StoredCredentialViewController: UICollectionViewController {
                 title: NSLocalizedString("Created", comment: ""),
                 value: stored.createdDescription(style: .long),
                 isSensitive: false, isAction: false),
+            Row(id: "about.did",
+                title: NSLocalizedString("National ID did:key", comment: "national ID own DID field"),
+                value: stored.issuerDID,
+                isSensitive: false, isAction: false),
+            Row(id: "about.deviceSignature",
+                title: NSLocalizedString("National ID key signature", comment: "national ID own key signature field"),
+                value: stored.hasIssuerSignature
+                    ? NSLocalizedString("Signed by this national ID's own key", comment: "")
+                    : NSLocalizedString("Not present in this older document", comment: ""),
+                isSensitive: false, isAction: false),
             Row(id: "about.issuer",
                 title: NSLocalizedString("Signed by", comment: ""),
                 // Named plainly, and it has to be the *right* plain answer:

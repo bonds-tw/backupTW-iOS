@@ -22,7 +22,10 @@ final class ZKVerifyUITests: XCTestCase {
 
     func testTheProofCheckerIsReachableAndHonestBeforeAnyProofIsLoaded() throws {
         let app = XCUIApplication()
+        app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
         app.launch()
+
+        app.tabBars.buttons.element(boundBy: 1).tap()
 
         // Scrolled for, not just waited for. This row is the third in its
         // section, and the section above it grows by a row once a credential
@@ -43,7 +46,7 @@ final class ZKVerifyUITests: XCTestCase {
         if !row.waitForExistence(timeout: 10) {
             let visible = app.staticTexts.allElementsBoundByIndex
                 .map(\.label).filter { !$0.isEmpty }
-            XCTFail("no proof-checking row on the home screen after scrolling. On screen: \(visible)")
+            XCTFail("no proof-checking row in Use › Experimental after scrolling. On screen: \(visible)")
             return
         }
         row.tap()

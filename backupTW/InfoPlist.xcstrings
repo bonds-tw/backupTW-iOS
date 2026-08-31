@@ -48,6 +48,24 @@
           }
         }
       }
+    },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Privacy - Face ID Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Face ID to unlock 有備而來 and keep anyone else holding this phone from viewing or presenting your credentials. Biometric data is handled on-device by iOS and never given to this app."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Face ID 解鎖有備而來，避免其他拿到這支手機的人查看或出示你的證件。生物辨識資料只由 iOS 在裝置上處理，不會交給本 App。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

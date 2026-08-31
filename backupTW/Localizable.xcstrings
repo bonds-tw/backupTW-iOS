@@ -7639,6 +7639,602 @@
           }
         }
       }
+    },
+    "API record updated": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API 紀錄更新時間"
+          }
+        }
+      }
+    },
+    "Arbiscan · Arbitrum One": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arbiscan · Arbitrum One"
+          }
+        }
+      }
+    },
+    "Blockchain record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "區塊鏈紀錄"
+          }
+        }
+      }
+    },
+    "Checking the blockchain record…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在查核區塊鏈紀錄…"
+          }
+        }
+      }
+    },
+    "Copy did:key": {
+      "comment": "wallet identity action",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製 did:key"
+          }
+        }
+      }
+    },
+    "Create a zero-knowledge proof": {
+      "comment": "ZK proof screen title",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立零知識證明"
+          }
+        }
+      }
+    },
+    "Document type": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件類型"
+          }
+        }
+      }
+    },
+    "Download this document from Taiwan's MyData service and keep the original in your on-device data vault.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從台灣 MyData 下載這份文件，並將原始檔保存在裝置上的資料保險箱。"
+          }
+        }
+      }
+    },
+    "Each row shows the official API record and independently checks its Arbitrum registry transaction. Open a row to inspect both records.": {
+      "comment": "trust list evidence explanation",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每一列都會顯示官方 API 紀錄，並獨立查核它的 Arbitrum 紀錄交易。點開可查看兩邊紀錄。"
+          }
+        }
+      }
+    },
+    "Email address": {
+      "comment": "field label",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "電子郵件地址"
+          }
+        }
+      }
+    },
+    "File fingerprint": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案指紋"
+          }
+        }
+      }
+    },
+    "File format": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案格式"
+          }
+        }
+      }
+    },
+    "Import %@": {
+      "comment": "MyData document import title",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入 %@"
+          }
+        }
+      }
+    },
+    "Integrity check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整性查核"
+          }
+        }
+      }
+    },
+    "Issue date": {
+      "comment": "field label",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發證日期"
+          }
+        }
+      }
+    },
+    "National ID did:key": {
+      "comment": "national ID own DID field",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "國民身分證 did:key"
+          }
+        }
+      }
+    },
+    "National ID key signature": {
+      "comment": "national ID own key signature field",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "國民身分證金鑰簽章"
+          }
+        }
+      }
+    },
+    "Not checked: Arbitrum could not be reached. The API record is still shown below.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未查核：目前無法連線 Arbitrum。下方仍會顯示 API 紀錄。"
+          }
+        }
+      }
+    },
+    "Not present in this older document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此舊版證件未包含"
+          }
+        }
+      }
+    },
+    "Not verified: the transaction, contract, receipt or recorded values differ from the official API.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查核未通過：交易、合約、收據或紀錄內容與官方 API 不同。"
+          }
+        }
+      }
+    },
+    "Not verified: this API entry has no blockchain record.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查核未通過：這筆 API 資料沒有區塊鏈紀錄。"
+          }
+        }
+      }
+    },
+    "Official API loaded · Arbitrum is temporarily unavailable": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已載入官方 API · Arbitrum 暫時無法使用"
+          }
+        }
+      }
+    },
+    "Official API loaded · Checking Arbitrum…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已載入官方 API · 正在查核 Arbitrum…"
+          }
+        }
+      }
+    },
+    "Official API matches the Arbitrum record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方 API 與 Arbitrum 紀錄相符"
+          }
+        }
+      }
+    },
+    "Open blockchain record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟區塊鏈紀錄"
+          }
+        }
+      }
+    },
+    "Open official API record": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟官方 API 紀錄"
+          }
+        }
+      }
+    },
+    "Organisation": {
+      "comment": "field label",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "組織"
+          }
+        }
+      }
+    },
+    "Original file, protected on this phone and excluded from backups": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原始檔，僅在此手機上受保護，且不納入備份"
+          }
+        }
+      }
+    },
+    "Private key": {
+      "comment": "wallet identity field",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "私密金鑰"
+          }
+        }
+      }
+    },
+    "Protected by iOS Keychain": {
+      "comment": "wallet identity key backing",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由 iOS 鑰匙圈保護"
+          }
+        }
+      }
+    },
+    "Registry contract": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紀錄合約"
+          }
+        }
+      }
+    },
+    "Role": {
+      "comment": "field label",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "職務"
+          }
+        }
+      }
+    },
+    "Saved in MyData vault": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存到 MyData 資料保險箱"
+          }
+        }
+      }
+    },
+    "Set a passcode on this phone before using the wallet.": {
+      "comment": "wallet login unavailable",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先為這支手機設定解鎖密碼，再使用這個皮夾。"
+          }
+        }
+      }
+    },
+    "Signed by this national ID's own key": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已由此國民身分證自己的金鑰簽署"
+          }
+        }
+      }
+    },
+    "Source": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "來源"
+          }
+        }
+      }
+    },
+    "Taiwan MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "台灣 MyData"
+          }
+        }
+      }
+    },
+    "The API has no blockchain record for this entry": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API 沒有這筆資料的區塊鏈紀錄"
+          }
+        }
+      }
+    },
+    "The did:key owned by this installation of 有備而來.": {
+      "comment": "settings wallet identity subtitle",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次安裝的有備而來所擁有的 did:key。"
+          }
+        }
+      }
+    },
+    "The official API does not report an anchor for this entry.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方 API 沒有回報這筆資料的上鏈紀錄。"
+          }
+        }
+      }
+    },
+    "The original file is protected on this phone. It was not turned into national-ID data or a self-issued credential.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原始檔受保護地儲存在這支手機上，不會被當成身分證資料，也不會被製成自行簽發的憑證。"
+          }
+        }
+      }
+    },
+    "The wallet identity is unavailable while this device is locked.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此裝置鎖定時，無法取用皮夾識別。"
+          }
+        }
+      }
+    },
+    "The wallet is still locked.": {
+      "comment": "wallet login failed",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "皮夾仍然鎖定。"
+          }
+        }
+      }
+    },
+    "This DID names this installation of 有備而來, not you. Each national ID and government card uses its own key so one card's DID does not identify the others.": {
+      "comment": "wallet identity explanation",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 DID 代表這次安裝的有備而來，不是你本人。每張國民身分證與政府卡都使用各自的金鑰，不會因其中一張卡的 DID 而識別出其他卡。"
+          }
+        }
+      }
+    },
+    "This installation": {
+      "comment": "wallet identity section",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次安裝"
+          }
+        }
+      }
+    },
+    "Transaction hash": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交易雜湊"
+          }
+        }
+      }
+    },
+    "Trust record": {
+      "comment": "trust record detail title",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信任紀錄"
+          }
+        }
+      }
+    },
+    "Unlock": {
+      "comment": "wallet login button",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解鎖"
+          }
+        }
+      }
+    },
+    "Unlock your credentials in 有備而來": {
+      "comment": "Face ID reason",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解鎖你在有備而來中的憑證"
+          }
+        }
+      }
+    },
+    "Unlock 有備而來": {
+      "comment": "wallet login title",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解鎖有備而來"
+          }
+        }
+      }
+    },
+    "Use Face ID or this phone's passcode. Your biometric data never enters this app.": {
+      "comment": "wallet login explanation",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Face ID 或這支手機的解鎖密碼。你的生物辨識資料不會進入這個 App。"
+          }
+        }
+      }
+    },
+    "Use phone passcode": {
+      "comment": "Face ID fallback",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用手機解鎖密碼"
+          }
+        }
+      }
+    },
+    "Verified: the successful Arbitrum transaction contains the same DID, signed DID document, organisation record and category values as the official API.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查核通過：成功的 Arbitrum 交易中，DID、已簽署的 DID 文件、組織紀錄與類別值都和官方 API 相同。"
+          }
+        }
+      }
+    },
+    "Wallet identity": {
+      "comment": "settings row",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有備而來識別"
+          }
+        }
+      }
+    },
+    "Warning: the API and blockchain records do not match": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "警告：API 與區塊鏈紀錄不相符"
+          }
+        }
+      }
+    },
+    "What it means": {
+      "comment": "wallet identity section",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這代表什麼"
+          }
+        }
+      }
+    },
+    "有備而來 did:key": {
+      "comment": "wallet identity field",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有備而來 did:key"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

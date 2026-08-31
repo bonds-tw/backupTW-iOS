@@ -49,7 +49,10 @@ final class CrossDeviceVerifierHarnessUITests: XCTestCase {
         // pasteboard read (Operation not authorized), so the app polls a file in
         // its own container that the host writes instead.
         app.launchEnvironment["BONDSTW_DEBUG_PRESENTATION_DROP"] = "1"
+        app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
         app.launch()
+
+        app.tabBars.buttons.element(boundBy: 1).tap()
 
         // Home → the verifier flow. Matched in both languages so the harness
         // does not care which locale the simulator happens to be in.

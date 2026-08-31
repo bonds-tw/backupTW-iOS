@@ -3,6 +3,7 @@
 //  backupTW
 //
 
+import CryptoKit
 import Foundation
 
 enum HolderPresentationError: Error, Equatable {
@@ -60,11 +61,32 @@ struct HolderPresentation {
     /// `VerifiablePresentation.create` refuses the credential it just orphaned.
     /// Having one visible seam means the wrong call is a diff rather than a line
     /// buried in a view controller.
-    private let loadKey: () throws -> DeviceKey?
+    private let loadKey: (String) throws -> DeviceKey?
 
-    init(store: CredentialStoring, loadKey: @escaping () throws -> DeviceKey? = { try DeviceKey.load() }) {
+    /// Production resolves the key from the DID inside the stored credential.
+    /// This covers both new per-card keys and the legacy app key without a
+    /// second credential-to-key lookup table that could drift.
+    init(store: CredentialStoring) {
         self.store = store
-        self.loadKey = loadKey
+        let keyring = HolderKeyring.app()
+        self.loadKey = { serialized in
+            try Self.key(for: serialized, in: keyring)
+        }
+    }
+
+    /// Injectable keyring for proving that a credential selects its own key.
+    init(store: CredentialStoring, keyring: HolderKeyring) {
+        self.store = store
+        self.loadKey = { serialized in
+            try Self.key(for: serialized, in: keyring)
+        }
+    }
+
+    /// Test seam for refusal and holder-binding cases that deliberately supply
+    /// a key unrelated to the app Keychain.
+    init(store: CredentialStoring, loadKey: @escaping () throws -> DeviceKey?) {
+        self.store = store
+        self.loadKey = { _ in try loadKey() }
     }
 
     /// The credential this device would present, or `nil` if it holds none.
@@ -156,7 +178,7 @@ struct HolderPresentation {
               let credentialJWS = try store.load(id: credentialID) else {
             throw HolderPresentationError.noCredentialStored
         }
-        guard let key = try loadKey() else {
+        guard let key = try loadKey(credentialJWS) else {
             throw HolderPresentationError.identityUnavailable
         }
 
@@ -173,5 +195,24 @@ struct HolderPresentation {
                                                     disclosing: disclosing,
                                                     createdAt: now)
         return Data(jws.utf8)
+    }
+
+    private static func key(for serialized: String,
+                            in keyring: HolderKeyring) throws -> DeviceKey? {
+        let credential: VerifiableCredential?
+        if let envelope = try? MOICASignedCredential.parse(serialized) {
+            credential = try? envelope.credential()
+        } else {
+            let segments = serialized.split(separator: ".", omittingEmptySubsequences: false)
+            if segments.count == 3,
+               let payload = MOICASignedCredential.base64URLDecoded(String(segments[1])) {
+                credential = try? JSONDecoder().decode(VerifiableCredential.self, from: payload)
+            } else {
+                credential = nil
+            }
+        }
+        guard let did = credential?.credentialSubject["id"],
+              let publicKey = try? DIDKey.p256PublicKey(fromDID: did) else { return nil }
+        return try? keyring.key(matchingPublicKeyX963: publicKey.x963Representation)
     }
 }

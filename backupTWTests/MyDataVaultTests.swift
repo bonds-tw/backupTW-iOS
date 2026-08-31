@@ -33,9 +33,9 @@ struct FieldLabelDirectoryTests {
     @Test func mapsTheRealGovernmentCardKeys() {
         // The keys the actual 公路局 driving licence and the 便利商店取貨 card
         // disclose — the ones a reader was seeing raw before they were curated.
-        #expect(StoredNationalID.label(for: "type") == NSLocalizedString("Vehicle class", comment: ""))
+        #expect(StoredNationalID.label(for: "type") == NSLocalizedString("Licence type", comment: ""))
         #expect(StoredNationalID.label(for: "controlnumber") == NSLocalizedString("Control number", comment: ""))
-        #expect(StoredNationalID.label(for: "gDate") == NSLocalizedString("Valid from", comment: ""))
+        #expect(StoredNationalID.label(for: "gDate") == NSLocalizedString("Issue date", comment: ""))
         #expect(StoredNationalID.label(for: "expiry_date") == NSLocalizedString("Valid until", comment: ""))
         #expect(StoredNationalID.label(for: "Phone_number_last3") == NSLocalizedString("Mobile number (last 3)", comment: ""))
         // Adding `controlnumber` must not have disturbed the licence number.

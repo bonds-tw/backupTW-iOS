@@ -136,7 +136,8 @@ struct CredentialIssuance {
     /// difference between the two, down to a key order, is a credential that
     /// fails to verify with nothing on screen to explain why.
     func issue(_ model: NationalIDModel,
-               subjectDID: String) async throws -> MOICASignedCredential {
+               subjectDID: String,
+               issuerKey: DeviceKey? = nil) async throws -> MOICASignedCredential {
         guard let idNumber = model.unifiedNo, !idNumber.isEmpty else {
             throw CredentialIssuanceError.identityNumberMissing
         }
@@ -154,6 +155,12 @@ struct CredentialIssuance {
         let (credential, disclosures) = VerifiableCredential.selectivelyDisclosableNationalID(
             model, issuerDID: subjectDID, validFrom: now())
         let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        // New national IDs are co-signed by their own per-card did:key. Keeping
+        // this optional lets existing tests and migration readers construct the
+        // older card-only envelope, but production always passes the key.
+        let issuerJWS = try issuerKey.map {
+            try credential.jwsCompactSerialization(signedBy: $0, issuerDID: subjectDID)
+        }
 
         let started: (ticket: TWFidOTicket, deepLink: URL)
         do {
@@ -189,6 +196,7 @@ struct CredentialIssuance {
                                                    payloadBytes: bytes,
                                                    signResult: result,
                                                    anchor: trustAnchor,
+                                                   issuerJWS: issuerJWS,
                                                    disclosures: disclosures,
                                                    now: now())
         } catch let error as IssuerCertificateError {

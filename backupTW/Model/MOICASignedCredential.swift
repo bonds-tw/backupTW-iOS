@@ -45,6 +45,10 @@ enum MOICASignedCredentialError: Error, Equatable {
     /// editing a field therefore surfaces here rather than in a case of its own.
     case signatureInvalid
 
+    /// The credential names a did:key issuer, but the optional issuer JWS does
+    /// not verify under that key or does not cover these exact payload bytes.
+    case issuerSignatureInvalid
+
     /// The certificate carries no common name, so there is nothing to check the
     /// credential's subject against.
     case cardholderNameMissing
@@ -70,7 +74,7 @@ extension MOICASignedCredentialError: LocalizedError {
         switch self {
         case .malformedPayload, .unsupportedProofConstruction, .malformedSignature:
             return NSLocalizedString("This document is in a format this app cannot read.", comment: "")
-        case .signatureInvalid:
+        case .signatureInvalid, .issuerSignatureInvalid:
             return NSLocalizedString("This document does not match the signature on it.", comment: "")
         case .disclosureNotCommitted:
             return NSLocalizedString("This document does not match the signature on it.", comment: "")
@@ -130,6 +134,15 @@ struct MOICASignedCredential: Codable, Equatable {
     let payload: String
 
     let proof: MOICACredentialProof
+
+    /// A compact VC-JOSE-COSE signature made by this national ID's own did:key.
+    ///
+    /// Optional only for backward compatibility with credentials already stored
+    /// before per-card issuer keys existed. New issuance always supplies it. The
+    /// 自然人憑證 proof still matters: this signature establishes that the DID
+    /// issued these exact bytes; the card proof establishes which named
+    /// cardholder made that assertion.
+    var issuerJWS: String? = nil
 
     /// The disclosures that open the credential's committed digests, when it has
     /// any. Empty for a credential that carries its claims in the clear.
@@ -275,6 +288,7 @@ extension MOICASignedCredential {
                       payloadBytes: Data,
                       signResult: TWFidOSignResult,
                       anchor: IssuerCertificate,
+                      issuerJWS: String? = nil,
                       disclosures: [Disclosure] = [],
                       now: Date = Date()) throws -> MOICASignedCredential {
         let signed = MOICASignedCredential(
@@ -283,6 +297,7 @@ extension MOICASignedCredential {
                 tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
                 certificate: signResult.cert,
                 signature: signResult.signedResponse),
+            issuerJWS: issuerJWS,
             disclosures: disclosures.map(\.encoded))
 
         _ = try signed.verify(against: anchor, now: now)
@@ -300,6 +315,33 @@ extension MOICASignedCredential {
     static func toBeSigned(for credential: VerifiableCredential) throws -> (tbs: String, bytes: Data) {
         let bytes = try credential.canonicalBytes()
         return (MOICACredentialProof.tbsDomainPrefix + VerifiableCredential.digestHex(of: bytes), bytes)
+    }
+
+    /// Checks the national ID's own did:key signature without re-encoding the
+    /// credential. The payload segment has to be byte-for-byte the payload the
+    /// 自然人憑證 also signed; otherwise two individually valid signatures could
+    /// be made to describe two different documents inside one envelope.
+    private static func verifyIssuerJWS(_ compact: String,
+                                        expectedPayload: Data,
+                                        issuerDID: String) throws {
+        let parts = compact.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              let headerData = base64URLDecoded(String(parts[0])),
+              let payloadData = base64URLDecoded(String(parts[1])),
+              let signatureData = base64URLDecoded(String(parts[2])),
+              payloadData == expectedPayload,
+              signatureData.count == 64,
+              let header = try? JSONSerialization.jsonObject(with: headerData) as? [String: Any],
+              header["alg"] as? String == "ES256",
+              header["typ"] as? String == "vc+jwt",
+              header["cty"] as? String == "vc",
+              header["kid"] as? String == (try? VerifiableCredential.verificationMethodID(for: issuerDID)),
+              let publicKey = try? DIDKey.p256PublicKey(fromDID: issuerDID),
+              let signature = try? P256.Signing.ECDSASignature(rawRepresentation: signatureData),
+              publicKey.isValidSignature(signature,
+                                         for: Data("\(parts[0]).\(parts[1])".utf8)) else {
+            throw MOICASignedCredentialError.issuerSignatureInvalid
+        }
     }
 }
 
@@ -387,6 +429,12 @@ extension MOICASignedCredential {
     func verify(signedBy holder: X509Certificate) throws -> MOICACredentialVerification {
         let bytes = try payloadBytes()
         let credential = try self.credential()
+
+        if let issuerJWS {
+            try Self.verifyIssuerJWS(issuerJWS,
+                                     expectedPayload: bytes,
+                                     issuerDID: credential.issuer)
+        }
 
         guard proof.tbsConstruction == MOICACredentialProof.payloadDigestHexConstruction else {
             throw MOICASignedCredentialError.unsupportedProofConstruction

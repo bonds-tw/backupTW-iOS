@@ -35,18 +35,8 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// **The cost of the late answer is not bandwidth, it is identity data.**
     /// `ZKProofViewController` already wrote this principle down; it had just
     /// never been applied to this path.
-    private var coverItem: Item = CredentialIssuanceAssembly.isAvailable
-        ? Item(title: NSLocalizedString("Create a Valid Document", comment: ""),
-               secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
-        : Item(title: NSLocalizedString("This version cannot create a document", comment: ""),
-               secondaryText: NSLocalizedString("Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.", comment: ""))
-    private var items: [Item] = [
-        Item(title: NSLocalizedString("Nationality", comment: ""), secondaryText: ""),
-        Item(title: NSLocalizedString("Unified No.", comment: ""), secondaryText: ""),
-        Item(title: NSLocalizedString("Name", comment: ""), secondaryText: ""),
-        Item(title: NSLocalizedString("Birth date", comment: ""), secondaryText: ""),
-        Item(title: NSLocalizedString("Address of household", comment: ""), secondaryText: ""),
-    ]
+    private var coverItem: Item
+    private var items: [Item]
 
     /// Which document this run fetches and stores. Defaults to the national ID (the
     /// historical single-document flow). A vault import passes its own type, so the
@@ -56,8 +46,34 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// and data until each gets its own (「路徑與身分證資料一致」).
     private let documentType: MyDataDocumentType
 
+    private var isNationalID: Bool { documentType.id == MyDataDocumentRegistry.nationalID.id }
+    private var canProceed: Bool { !isNationalID || CredentialIssuanceAssembly.isAvailable }
+
     init(documentType: MyDataDocumentType = MyDataDocumentRegistry.nationalID) {
         self.documentType = documentType
+        if documentType.id == MyDataDocumentRegistry.nationalID.id {
+            self.coverItem = CredentialIssuanceAssembly.isAvailable
+                ? Item(title: NSLocalizedString("Create a Valid Document", comment: ""),
+                       secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
+                : Item(title: NSLocalizedString("This version cannot create a document", comment: ""),
+                       secondaryText: NSLocalizedString("Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.", comment: ""))
+            self.items = [
+                Item(title: NSLocalizedString("Nationality", comment: ""), secondaryText: ""),
+                Item(title: NSLocalizedString("Unified No.", comment: ""), secondaryText: ""),
+                Item(title: NSLocalizedString("Name", comment: ""), secondaryText: ""),
+                Item(title: NSLocalizedString("Birth date", comment: ""), secondaryText: ""),
+                Item(title: NSLocalizedString("Address of household", comment: ""), secondaryText: ""),
+            ]
+        } else {
+            self.coverItem = Item(
+                title: String(format: NSLocalizedString("Import %@", comment: "MyData document import title"), documentType.title),
+                secondaryText: NSLocalizedString("Download this document from Taiwan's MyData service and keep the original in your on-device data vault.", comment: ""))
+            self.items = [
+                Item(title: NSLocalizedString("Document type", comment: ""), secondaryText: documentType.title),
+                Item(title: NSLocalizedString("Source", comment: ""), secondaryText: NSLocalizedString("Taiwan MyData", comment: "")),
+                Item(title: NSLocalizedString("Storage", comment: ""), secondaryText: NSLocalizedString("Original file, protected on this phone and excluded from backups", comment: "")),
+            ]
+        }
         let layout = UICollectionViewCompositionalLayout() { sectionIndex, layoutEnvironment in
             let shouldShowHeaderFooter = (sectionIndex != 0)
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
@@ -76,7 +92,7 @@ class MyDataOnboardViewController: UICollectionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = NSLocalizedString("Valid Document", comment: "")
+        title = isNationalID ? NSLocalizedString("Valid Document", comment: "") : documentType.title
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
         // # The button obeys the same fact the cover states
@@ -96,7 +112,7 @@ class MyDataOnboardViewController: UICollectionViewController {
         // behaviour each looked reasonable alone, which is exactly the shape.
         let proceed = UIBarButtonItem(title: NSLocalizedString("Continue", comment: ""),
                                       style: .done, target: self, action: #selector(nextAction))
-        proceed.isEnabled = CredentialIssuanceAssembly.isAvailable
+        proceed.isEnabled = canProceed
         navigationItem.rightBarButtonItem = proceed
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
         collectionView.allowsSelection = false
@@ -125,7 +141,7 @@ class MyDataOnboardViewController: UICollectionViewController {
                 // in the app's card tint at a hero size and centred above the
                 // title with a blank line between.
                 let config = UIImage.SymbolConfiguration(pointSize: 52, weight: .regular)
-                if let symbol = UIImage(systemName: "person.text.rectangle", withConfiguration: config)?
+                if let symbol = UIImage(systemName: self.documentType.systemImage, withConfiguration: config)?
                     .withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
                     let attachment = NSTextAttachment(image: symbol)
                     let hero = NSMutableAttributedString(attachment: attachment)
@@ -186,15 +202,20 @@ class MyDataOnboardViewController: UICollectionViewController {
         // is what holds if some future path invokes the action another way —
         // a keyboard shortcut, a restored state, a test. The thing being
         // guarded is somebody's national ID number, so it is guarded twice.
-        guard CredentialIssuanceAssembly.isAvailable else { return }
+        guard canProceed else { return }
 
         if isMobileMoicaReady {
             // The web controller resolves the entry URL from the document's item path
             // (guarded non-nil upstream) and archives the original for vault documents.
-            let vc = MyDataWebViewController(documentType: documentType, completion: { [weak self] nationalIDModel in
+            let vc = MyDataWebViewController(documentType: documentType, completion: { [weak self] result in
                 guard let self else { return }
-                self.showParsedDocument(nationalIDModel)
-                self.issueCredential(for: nationalIDModel)
+                switch result {
+                case .nationalID(let nationalIDModel):
+                    self.showParsedDocument(nationalIDModel)
+                    self.issueCredential(for: nationalIDModel)
+                case .vaultDocument(let entry):
+                    self.finishVaultImport(entry)
+                }
             })
             present(vc, animated: true)
         } else {
@@ -237,6 +258,23 @@ class MyDataOnboardViewController: UICollectionViewController {
     }
 
     // MARK: - Issuance
+
+    private func finishVaultImport(_ entry: MyDataVaultArchive.Entry) {
+        coverItem = Item(
+            title: "✅\n" + NSLocalizedString("Saved in MyData vault", comment: ""),
+            secondaryText: NSLocalizedString("The original file is protected on this phone. It was not turned into national-ID data or a self-issued credential.", comment: ""))
+        items = [
+            Item(title: NSLocalizedString("Document type", comment: ""), secondaryText: documentType.title),
+            Item(title: NSLocalizedString("Source", comment: ""), secondaryText: NSLocalizedString("Taiwan MyData", comment: "")),
+            Item(title: NSLocalizedString("File format", comment: ""), secondaryText: entry.fileExtension.isEmpty ? NSLocalizedString("Unknown", comment: "") : entry.fileExtension.uppercased()),
+            Item(title: NSLocalizedString("File fingerprint", comment: ""), secondaryText: WalletCardMask.middleEllipsis(entry.sha256)),
+        ]
+        navigationItem.leftBarButtonItem = nil
+        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done,
+                                                            target: self,
+                                                            action: #selector(cancel))
+        applySnapshot()
+    }
 
     /// Puts the parsed fields on screen before the credential exists.
     ///
@@ -311,20 +349,34 @@ class MyDataOnboardViewController: UICollectionViewController {
                         message: NSLocalizedString("This version cannot sign documents yet. Signing has to go through the bonds-tw service, which is not available in this build.",
                                                    comment: ""))
                 }
-                // The device key is still what the holder presents under — the
-                // credential's subject identifier — even though it no longer
-                // signs anything. See `VerifiableCredential.nationalID`.
-                let deviceKey = try DeviceKey.loadOrCreate()
-                let subjectDID = try DIDKey.did(fromP256PublicKeyX963: deviceKey.publicKeyX963)
-
-                let signed = try await issuance.issue(nationalIDModel, subjectDID: subjectDID)
-                try CredentialStore().save(jws: try signed.serialized(), id: credentialID)
+                // A national ID owns its key. The app installation has a separate
+                // WalletIdentity DID, and every TWDIW card already follows the
+                // same per-credential rule through HolderKeyring.
+                let keyring = HolderKeyring.app()
+                let documentKey = try keyring.newKey()
+                do {
+                    let subjectDID = try DIDKey.did(fromP256PublicKeyX963: documentKey.publicKeyX963)
+                    let signed = try await issuance.issue(nationalIDModel,
+                                                          subjectDID: subjectDID,
+                                                          issuerKey: documentKey)
+                    try CredentialStore().save(jws: try signed.serialized(), id: credentialID)
+                } catch {
+                    Self.destroyProvisionalKey(documentKey, in: keyring)
+                    throw error
+                }
                 result = .success(())
             } catch {
                 result = .failure(error)
             }
 
             await MainActor.run { self?.finishIssuance(result) }
+        }
+    }
+
+    private static func destroyProvisionalKey(_ key: DeviceKey, in keyring: HolderKeyring) {
+        guard let entries = try? keyring.entries() else { return }
+        for entry in entries where entry.publicKeyX963 == key.publicKeyX963 && !entry.isLegacy {
+            try? DeviceKey.deleteKey(tag: entry.tag, installRecord: nil)
         }
     }
 

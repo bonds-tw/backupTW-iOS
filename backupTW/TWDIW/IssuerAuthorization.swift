@@ -36,12 +36,59 @@ struct TWDIWIssuer: Equatable, Sendable {
     /// The organisation's service base, used by entries that are verifiers.
     let serviceBaseURL: String?
 
-    /// Whether the list reports an on-chain anchoring record.
-    ///
-    /// ⚠️ Self-reported by the same API the anchor exists to make unnecessary,
-    /// so `false` means "the list says so", not "we looked at the chain".
-    /// Measured 2026-08-16: 41 of 43 report an anchor.
+    /// The signed DID document carried by the API under its historical `did`
+    /// property. It is one of the strings written into the registry contract.
+    let signedDIDDocument: String
+
+    /// The API's organisation object, retained as JSON so it can be compared
+    /// structurally with the organisation JSON in the registry transaction.
+    let organisationJSON: String
+
+    let orgType: Int
+    let orgGroup: Int
+    let apiUpdatedAt: Date?
+    let onChainRecords: [TWDIWOnChainRecord]
+
+    /// Whether the API reports an on-chain anchoring record. This remains a
+    /// compatibility property for the collection gate and its fixtures; the
+    /// trust screen does not treat it as verification.
     let reportsOnChainAnchor: Bool
+
+    init(did: String,
+         displayName: String,
+         displayNameEnglish: String,
+         taxID: String,
+         issuerMetadataBaseURL: String?,
+         serviceBaseURL: String?,
+         reportsOnChainAnchor: Bool,
+         signedDIDDocument: String = "",
+         organisationJSON: String = "{}",
+         orgType: Int = 0,
+         orgGroup: Int = 0,
+         apiUpdatedAt: Date? = nil,
+         onChainRecords: [TWDIWOnChainRecord] = []) {
+        self.did = did
+        self.displayName = displayName
+        self.displayNameEnglish = displayNameEnglish
+        self.taxID = taxID
+        self.issuerMetadataBaseURL = issuerMetadataBaseURL
+        self.serviceBaseURL = serviceBaseURL
+        self.reportsOnChainAnchor = reportsOnChainAnchor
+        self.signedDIDDocument = signedDIDDocument
+        self.organisationJSON = organisationJSON
+        self.orgType = orgType
+        self.orgGroup = orgGroup
+        self.apiUpdatedAt = apiUpdatedAt
+        self.onChainRecords = onChainRecords
+    }
+}
+
+struct TWDIWOnChainRecord: Equatable, Sendable {
+    let network: String
+    let contractAddress: String
+    let transactionHash: String
+    let status: Int
+    let createdAt: Date?
 }
 
 /// Whether a URL from a QR code may be contacted, and under whose name.
@@ -270,13 +317,42 @@ extension TWDIWIssuer {
     init?(entry: [String: Any]) {
         guard let did = entry["id"] as? String,
               let org = entry["org"] as? [String: Any] else { return nil }
-        self.did = did
-        self.displayName = org["name"] as? String ?? ""
-        self.displayNameEnglish = org["name_en"] as? String ?? ""
-        self.taxID = org["taxId"] as? String ?? ""
-        self.issuerMetadataBaseURL = org["issuerMetadataBaseURL"] as? String
-        self.serviceBaseURL = org["serviceBaseURL"] as? String
-        self.reportsOnChainAnchor = !((entry["onChainHistory"] as? [Any]) ?? []).isEmpty
+        let rawHistory = (entry["onChainHistory"] as? [[String: Any]]) ?? []
+        let records: [TWDIWOnChainRecord] = rawHistory.compactMap { value -> TWDIWOnChainRecord? in
+            guard let network = value["net"] as? String,
+                  let contract = value["scAddress"] as? String,
+                  let hash = value["txHash"] as? String else { return nil }
+            let created = (value["createdAt"] as? NSNumber).map {
+                Date(timeIntervalSince1970: $0.doubleValue)
+            }
+            return TWDIWOnChainRecord(network: network,
+                                      contractAddress: contract,
+                                      transactionHash: hash,
+                                      status: (value["status"] as? NSNumber)?.intValue ?? 0,
+                                      createdAt: created)
+        }
+        let orgJSON: String
+        if let bytes = try? JSONSerialization.data(withJSONObject: org,
+                                                   options: [.sortedKeys, .withoutEscapingSlashes]) {
+            orgJSON = String(decoding: bytes, as: UTF8.self)
+        } else {
+            orgJSON = "{}"
+        }
+        self.init(did: did,
+                  displayName: org["name"] as? String ?? "",
+                  displayNameEnglish: org["name_en"] as? String ?? "",
+                  taxID: org["taxId"] as? String ?? "",
+                  issuerMetadataBaseURL: org["issuerMetadataBaseURL"] as? String,
+                  serviceBaseURL: org["serviceBaseURL"] as? String,
+                  reportsOnChainAnchor: !rawHistory.isEmpty,
+                  signedDIDDocument: entry["did"] as? String ?? "",
+                  organisationJSON: orgJSON,
+                  orgType: (entry["orgType"] as? NSNumber)?.intValue ?? 0,
+                  orgGroup: (entry["orgGroup"] as? NSNumber)?.intValue ?? 0,
+                  apiUpdatedAt: (entry["updatedAt"] as? NSNumber).map {
+                    Date(timeIntervalSince1970: $0.doubleValue)
+                  },
+                  onChainRecords: records)
     }
 }
 

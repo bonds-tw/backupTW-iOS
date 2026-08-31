@@ -268,4 +268,70 @@ struct IssuerAuthorizationTests {
         let json = Data(#"{"msg":"執行成功","code":"0","data":{"count":20,"dids":[]}}"#.utf8)
         #expect(try TWDIWIssuer.page(from: json).isEmpty)
     }
+
+    @Test func aCompleteChainRecordIsRetainedForIndependentChecking() throws {
+        let json = Data("""
+        {"code":"0","data":{"id":"did:key:zA","did":"signed-document",
+          "orgType":1,"orgGroup":2,"updatedAt":1700000000,
+          "org":{"name":"測試單位","taxId":"12345678"},
+          "onChainHistory":[{"net":"arbitrum",
+            "scAddress":"0x84172caf8dd126c76f1fa8a2733ca3233264d31f",
+            "txHash":"0xabc","status":1,"createdAt":1700000001}]}}
+        """.utf8)
+        let issuer = try #require(TWDIWIssuer.page(from: json).first)
+        #expect(issuer.signedDIDDocument == "signed-document")
+        #expect(issuer.orgType == 1)
+        #expect(issuer.orgGroup == 2)
+        #expect(issuer.onChainRecords.first?.transactionHash == "0xabc")
+        #expect(issuer.organisationJSON.contains("測試單位"))
+    }
+}
+
+@Suite("信任清單鏈上交易解碼")
+struct TWDIWOnChainInputTests {
+
+    @Test func registryInputRoundTripsTheThreeRecordsAndCategories() throws {
+        let input = Self.input(strings: ["did:key:zA", "signed.did.document", #"{"name":"測試單位"}"#],
+                               orgType: 1,
+                               orgGroup: 2)
+        let decoded = try #require(TWDIWOnChainVerifier.decodeRegistryInput(input))
+        #expect(decoded.did == "did:key:zA")
+        #expect(decoded.signedDIDDocument == "signed.did.document")
+        #expect(decoded.organisationJSON == #"{"name":"測試單位"}"#)
+        #expect(decoded.orgType == 1)
+        #expect(decoded.orgGroup == 2)
+    }
+
+    @Test func aDifferentMethodSelectorIsRefused() {
+        let input = Self.input(strings: ["a", "b", "{}"], orgType: 1, orgGroup: 1)
+        #expect(TWDIWOnChainVerifier.decodeRegistryInput(
+            "0x00000000" + String(input.dropFirst(10))) == nil)
+    }
+
+    private static func input(strings: [String], orgType: Int, orgGroup: Int) -> String {
+        var tail = Data()
+        var offsets: [Int] = []
+        for string in strings {
+            offsets.append(32 * 6 + tail.count)
+            let value = Data(string.utf8)
+            tail.append(word(value.count))
+            tail.append(value)
+            let padding = (32 - value.count % 32) % 32
+            tail.append(Data(repeating: 0, count: padding))
+        }
+        var data = Data()
+        offsets.forEach { data.append(word($0)) }
+        data.append(word(orgType))
+        data.append(word(orgGroup))
+        data.append(word(0))
+        data.append(tail)
+        return "0x" + TWDIWOnChainVerifier.methodSelector + data.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func word(_ value: Int) -> Data {
+        var bytes = Data(repeating: 0, count: 32)
+        var number = UInt64(value).bigEndian
+        withUnsafeBytes(of: &number) { bytes.replaceSubrange(24..<32, with: $0) }
+        return bytes
+    }
 }
