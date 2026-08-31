@@ -44,6 +44,14 @@ import Foundation
 /// **cannot** check that its holder is the cardholder who signed the credential.
 /// Binding the two is what `MOICASignedCredential` gives the disclosed path, and
 /// it is exactly what the ZK path still lacks.
+struct TWFidOOfficialDocumentConsentTarget: Equatable, Sendable {
+    let version: String
+    let scope: String
+    let createdAtUnixMilliseconds: Int64
+    let nonce: String
+    let toBeSigned: String
+}
+
 enum TWFidOSigningTarget: Equatable, Sendable {
 
     /// The 31-character relying-party namespace — `TWFidOConfiguration.appID`.
@@ -63,7 +71,7 @@ enum TWFidOSigningTarget: Equatable, Sendable {
     /// A domain-separated digest for the electronic official-document inbox.
     /// Kept distinct from `credentialTBS` so a caller cannot accidentally store
     /// a mailbox consent as a wallet credential proof, or vice versa.
-    case officialDocumentTBS(String)
+    case officialDocumentConsent(TWFidOOfficialDocumentConsentTarget)
 
     /// The TBS itself. `sign_data` is this string, base64-wrapped — the wrapping
     /// is what `tbs_encoding: "base64"` describes, and it is not part of what
@@ -71,7 +79,8 @@ enum TWFidOSigningTarget: Equatable, Sendable {
     var toBeSigned: String {
         switch self {
         case .relyingPartyIdentifier(let identifier): return identifier
-        case .credentialTBS(let tbs), .officialDocumentTBS(let tbs): return tbs
+        case .credentialTBS(let tbs): return tbs
+        case .officialDocumentConsent(let consent): return consent.toBeSigned
         }
     }
 }

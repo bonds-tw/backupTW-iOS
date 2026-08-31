@@ -268,6 +268,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let window = UIWindow(windowScene: windowScene)
 
         #if DEBUG
+        Self.resetOfficialDocumentsForUITestIfRequested()
         Self.seedVaultForUITestIfRequested()
         #endif
 
@@ -324,6 +325,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     #if DEBUG
+    /// Keeps official-document UI tests independent even though the target app
+    /// process uses a persistent simulator sandbox between test methods.
+    private static func resetOfficialDocumentsForUITestIfRequested() {
+        guard ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_RESET_OFFICIAL_DOCUMENTS"] == "1",
+              let archive = try? OfficialDocumentInboxArchive() else { return }
+        try? archive.purge()
+    }
+
     /// UI tests run in a different process and cannot inject Home's archive
     /// factory. This narrow launch seam creates one content-free PDF-shaped
     /// original in the test app's own sandbox. It is DEBUG-only, requires an

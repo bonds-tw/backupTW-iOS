@@ -26,6 +26,7 @@ final class backupTWUITests: XCTestCase {
     func testOfficialDocumentInboxIsASeparateSectionBelowTheVault() throws {
         let app = XCUIApplication()
         app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
+        app.launchEnvironment["BONDSTW_UI_TEST_RESET_OFFICIAL_DOCUMENTS"] = "1"
         app.launch()
 
         let inbox = app.descendants(matching: .any)["control.official-documents"]
@@ -43,6 +44,36 @@ final class backupTWUITests: XCTestCase {
                       "the prototype did not disclose that no official documents are connected")
         XCTAssertTrue(app.descendants(matching: .any)["officialDocuments.signConsent"].exists,
                       "the 行動自然人憑證 pilot action was not visible")
+    }
+
+    @MainActor
+    func testSyntheticENDIESWPackageReachesAnHonestDetailScreen() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
+        app.launchEnvironment["BONDSTW_UI_TEST_RESET_OFFICIAL_DOCUMENTS"] = "1"
+        app.launch()
+
+        let inbox = app.descendants(matching: .any)["control.official-documents"]
+        for _ in 0..<4 where !inbox.exists { app.swipeUp() }
+        XCTAssertTrue(inbox.waitForExistence(timeout: 10))
+        inbox.tap()
+
+        let load = app.descendants(matching: .any)["officialDocuments.loadSynthetic"]
+        for _ in 0..<3 where !load.exists { app.swipeUp() }
+        XCTAssertTrue(load.waitForExistence(timeout: 10),
+                      "the DEBUG synthetic package action was not visible")
+        load.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["officialDocuments.detail.boundary"]
+            .waitForExistence(timeout: 10),
+                      "the detail did not label the package as synthetic")
+        let integrity = app.descendants(matching: .any)["officialDocuments.detail.integrity"]
+        for _ in 0..<4 where !integrity.exists { app.swipeUp() }
+        XCTAssertTrue(integrity.waitForExistence(timeout: 10),
+                      "the EN SHA-256 evidence was not shown")
+        let receipt = app.descendants(matching: .any)["officialDocuments.detail.receipt"]
+        XCTAssertTrue(receipt.exists,
+                      "the detail did not state that no legal receipt was created")
     }
 
     @MainActor

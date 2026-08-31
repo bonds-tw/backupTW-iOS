@@ -86,7 +86,7 @@ struct OfficialDocumentSigning {
         do {
             started = try await session.begin(idNumber: idNumber,
                                               hint: hint,
-                                              signing: .officialDocumentTBS(consent.signingTarget),
+                                              signing: .officialDocumentConsent(consent.signingDescriptor),
                                               timeLimit: timeLimit)
         } catch let error as SPCredentialError {
             throw OfficialDocumentSigningError.signingUnavailable(message: Self.credentialMessage(error))

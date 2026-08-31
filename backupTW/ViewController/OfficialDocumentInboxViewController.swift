@@ -7,11 +7,11 @@ import UIKit
 
 /// The holder-facing home for electronic official documents.
 ///
-/// The first slice is deliberately an enrolment prototype, not a pretend inbox:
+/// The feature remains a development prototype, not a pretend official inbox:
 /// no government exchange endpoint exists in this app yet, so the screen says so
 /// before offering the same 行動自然人憑證 hand-off used by the app's other
-/// signatures. Incoming EN/DI/ESW envelopes will appear here only after an
-/// official sandbox and routing contract exist.
+/// signatures. Debug builds can exercise a synthetic EN/DI/ESW package; official
+/// incoming envelopes still require a sandbox and routing contract.
 final class OfficialDocumentInboxViewController: UITableViewController {
     private enum Section: Int, CaseIterable {
         case status
@@ -23,6 +23,8 @@ final class OfficialDocumentInboxViewController: UITableViewController {
     private let makeSigning: () -> OfficialDocumentSigning?
     private var signatureTask: Task<Void, Never>?
     private var isSigning = false
+    private var packages: [OfficialDocumentPackage] = []
+    private var packagesUnavailable = false
 
     init(archive: OfficialDocumentInboxArchive,
          makeSigning: @escaping () -> OfficialDocumentSigning? = {
@@ -45,6 +47,12 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         navigationItem.largeTitleDisplayMode = .never
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 72
+        reloadPackages()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        reloadPackages()
     }
 
     override func numberOfSections(in tableView: UITableView) -> Int {
@@ -52,7 +60,20 @@ final class OfficialDocumentInboxViewController: UITableViewController {
     }
 
     override func tableView(_ tableView: UITableView,
-                            numberOfRowsInSection section: Int) -> Int { 1 }
+                            numberOfRowsInSection section: Int) -> Int {
+        switch Section(rawValue: section) {
+        case .documents:
+            return packages.isEmpty || packagesUnavailable ? 1 : packages.count
+        case .action:
+            #if DEBUG
+            return 2
+            #else
+            return 1
+            #endif
+        case .status, .none:
+            return 1
+        }
+    }
 
     override func tableView(_ tableView: UITableView,
                             titleForHeaderInSection section: Int) -> String? {
@@ -81,13 +102,13 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         case .status:
             configureStatus(cell)
         case .documents:
-            cell.accessibilityIdentifier = "officialDocuments.empty"
-            cell.imageView?.image = UIImage(systemName: "tray")
-            cell.textLabel?.text = NSLocalizedString("No official documents yet", comment: "official document inbox")
-            cell.detailTextLabel?.text = NSLocalizedString("This app is not connected to the government's G2C exchange service yet. No agency can deliver a legally effective document here today.", comment: "official document inbox")
-            cell.selectionStyle = .none
+            configureDocument(cell, at: indexPath.row)
         case .action:
-            configureAction(cell)
+            if indexPath.row == 0 {
+                configureSigningAction(cell)
+            } else {
+                configureSyntheticAction(cell)
+            }
         case .none:
             break
         }
@@ -121,7 +142,7 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         }
     }
 
-    private func configureAction(_ cell: UITableViewCell) {
+    private func configureSigningAction(_ cell: UITableViewCell) {
         cell.accessibilityIdentifier = "officialDocuments.signConsent"
         cell.imageView?.image = UIImage(systemName: "signature")
         cell.imageView?.tintColor = .tintColor
@@ -141,12 +162,104 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         }
     }
 
+    private func configureDocument(_ cell: UITableViewCell, at index: Int) {
+        if packagesUnavailable {
+            cell.accessibilityIdentifier = "officialDocuments.unavailable"
+            cell.imageView?.image = UIImage(systemName: "exclamationmark.triangle")
+            cell.imageView?.tintColor = .systemOrange
+            cell.textLabel?.text = NSLocalizedString("The stored official document index could not be read", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("The protected source files remain on this phone. Do not import another package until the storage problem is resolved.", comment: "official document inbox")
+            cell.selectionStyle = .none
+            return
+        }
+        guard packages.indices.contains(index) else {
+            cell.accessibilityIdentifier = "officialDocuments.empty"
+            cell.imageView?.image = UIImage(systemName: "tray")
+            cell.textLabel?.text = NSLocalizedString("No official documents yet", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("This app is not connected to the government's G2C exchange service yet. No agency can deliver a legally effective document here today.", comment: "official document inbox")
+            cell.selectionStyle = .none
+            return
+        }
+
+        let package = packages[index]
+        cell.accessibilityIdentifier = "officialDocuments.document.\(index)"
+        cell.imageView?.image = UIImage(systemName: package.localState == .unread
+            ? "envelope.badge" : "doc.text")
+        cell.imageView?.tintColor = package.localState == .unread ? .tintColor : .secondaryLabel
+        cell.textLabel?.text = UntrustedText.value(
+            package.document?.subject ?? package.envelope.subject).text
+        let state = package.localState == .unread
+            ? NSLocalizedString("Unread on this phone", comment: "official document inbox")
+            : NSLocalizedString("Viewed on this phone", comment: "official document inbox")
+        let format = NSLocalizedString("%@ · %@ · Synthetic test data", comment: "official document inbox")
+        cell.detailTextLabel?.text = String(
+            format: format,
+            UntrustedText.value(package.envelope.sender.organizationName).text,
+            state)
+        cell.accessoryType = .disclosureIndicator
+        cell.selectionStyle = .default
+    }
+
+    private func configureSyntheticAction(_ cell: UITableViewCell) {
+        #if DEBUG
+        cell.accessibilityIdentifier = "officialDocuments.loadSynthetic"
+        cell.imageView?.image = UIImage(systemName: "shippingbox.and.arrow.backward")
+        cell.imageView?.tintColor = .systemOrange
+        cell.textLabel?.textColor = .systemOrange
+        cell.textLabel?.text = NSLocalizedString("Load a synthetic EN / DI / ESW package", comment: "official document inbox")
+        cell.detailTextLabel?.text = NSLocalizedString("Developer test only — this did not come from a government agency and creates no receipt.", comment: "official document inbox")
+        cell.accessoryType = .disclosureIndicator
+        #endif
+    }
+
     override func tableView(_ tableView: UITableView,
                             didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        guard Section(rawValue: indexPath.section) == .action, !isSigning else { return }
-        beginConsentSigning()
+        switch Section(rawValue: indexPath.section) {
+        case .documents:
+            guard !packagesUnavailable, packages.indices.contains(indexPath.row) else { return }
+            navigationController?.pushViewController(
+                OfficialDocumentDetailViewController(packageID: packages[indexPath.row].id,
+                                                     archive: archive),
+                animated: true)
+        case .action where indexPath.row == 0:
+            guard !isSigning else { return }
+            beginConsentSigning()
+        case .action:
+            #if DEBUG
+            loadSyntheticPackage()
+            #endif
+        case .status, .none:
+            break
+        }
     }
+
+    private func reloadPackages() {
+        do {
+            packages = try archive.packages()
+            packagesUnavailable = false
+        } catch {
+            packages = []
+            packagesUnavailable = true
+        }
+        if isViewLoaded { tableView.reloadData() }
+    }
+
+    #if DEBUG
+    private func loadSyntheticPackage() {
+        do {
+            let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
+            reloadPackages()
+            let detail = OfficialDocumentDetailViewController(packageID: package.id,
+                                                              archive: archive)
+            navigationController?.pushViewController(detail, animated: true)
+        } catch {
+            presentMessage(
+                title: NSLocalizedString("The synthetic package was not imported", comment: "official document inbox"),
+                message: error.localizedDescription)
+        }
+    }
+    #endif
 
     private func beginConsentSigning() {
         guard OfficialDocumentSigningAssembly.isAvailable,

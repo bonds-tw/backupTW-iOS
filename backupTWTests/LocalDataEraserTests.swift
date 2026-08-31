@@ -201,7 +201,7 @@ final class LocalDataEraserTests: @unchecked Sendable {
         #expect(!vaultArchive.has(id: "mydata-income"))
     }
 
-    @Test func erasingEverythingTakesTheOfficialDocumentConsentToo() throws {
+    @Test func erasingEverythingTakesTheOfficialDocumentInboxToo() throws {
         let consent = OfficialDocumentInboxConsent(
             createdAt: Date(timeIntervalSince1970: 1_800_000_000), nonce: "erase-me")
         try officialDocumentInbox.store(OfficialDocumentInboxReceipt(
@@ -209,7 +209,9 @@ final class LocalDataEraserTests: @unchecked Sendable {
             certificate: "certificate",
             signature: "signature",
             recordedAt: Date(timeIntervalSince1970: 1_800_000_001)))
+        try officialDocumentInbox.importSynthetic(OfficialDocumentSyntheticFixture.make())
         #expect(try officialDocumentInbox.receipt() != nil)
+        #expect(try officialDocumentInbox.packages().count == 1)
 
         // The Keychain half may be unavailable on a host process, but every file
         // location still receives its erase attempt.

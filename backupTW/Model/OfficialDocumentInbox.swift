@@ -75,6 +75,18 @@ struct OfficialDocumentInboxConsent: Codable, Equatable, Sendable {
             .map { String(format: "%02x", $0) }.joined()
         return Self.tbsDomainPrefix + digest
     }
+
+    /// The structured form a Release signing broker needs in order to rebuild
+    /// the digest instead of accepting an arbitrary caller-chosen string.
+    var signingDescriptor: TWFidOOfficialDocumentConsentTarget {
+        TWFidOOfficialDocumentConsentTarget(
+            version: Self.version,
+            scope: Self.scope,
+            createdAtUnixMilliseconds: Int64(
+                (createdAt.timeIntervalSince1970 * 1_000).rounded(.down)),
+            nonce: nonce,
+            toBeSigned: signingTarget)
+    }
 }
 
 /// The local evidence that the 行動自然人憑證 round trip completed for one

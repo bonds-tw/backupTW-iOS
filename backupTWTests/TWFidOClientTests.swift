@@ -322,7 +322,7 @@ struct TWFidOClientTests {
         let consent = OfficialDocumentInboxConsent(
             createdAt: Date(timeIntervalSince1970: 1_800_000_000), nonce: "wire-test")
         _ = try await makeClient().requestSignAppToApp(
-            signRequest(signing: .officialDocumentTBS(consent.signingTarget)),
+            signRequest(signing: .officialDocumentConsent(consent.signingDescriptor)),
             returnURL: callback)
 
         let signInfo = try #require(try lastBody()["sign_info"] as? [String: Any])

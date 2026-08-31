@@ -98,6 +98,7 @@ class HomeViewController: UICollectionViewController {
         case unavailable
         case notSigned
         case prototypeSigned
+        case syntheticPackages(total: Int, unread: Int)
     }
 
     /// Synthetic card identifiers — cards that do not stand for a stored
@@ -167,7 +168,14 @@ class HomeViewController: UICollectionViewController {
         let officialDocumentState: OfficialDocumentInboxState
         if let inbox = makeOfficialDocumentInbox() {
             do {
-                officialDocumentState = try inbox.receipt() == nil ? .notSigned : .prototypeSigned
+                let packages = try inbox.packages()
+                if packages.isEmpty {
+                    officialDocumentState = try inbox.receipt() == nil ? .notSigned : .prototypeSigned
+                } else {
+                    officialDocumentState = .syntheticPackages(
+                        total: packages.count,
+                        unread: packages.filter { $0.localState == .unread }.count)
+                }
             } catch {
                 officialDocumentState = .unavailable
             }
@@ -309,6 +317,14 @@ class HomeViewController: UICollectionViewController {
             subtitle = NSLocalizedString("Set up the 行動自然人憑證 signing pilot", comment: "home official document row")
         case .unavailable:
             subtitle = NSLocalizedString("The local inbox record cannot be read right now", comment: "home official document row")
+        case .syntheticPackages(let total, let unread):
+            if unread > 0 {
+                subtitle = String(format: NSLocalizedString("Synthetic test packages · %lld unread · Official receiving is not active", comment: "home official document row"),
+                                  Int64(unread))
+            } else {
+                subtitle = String(format: NSLocalizedString("Synthetic test packages · %lld stored · Official receiving is not active", comment: "home official document row"),
+                                  Int64(total))
+            }
         }
         return (section, [.control(ControlRow(
             id: "control.official-documents",

@@ -5,17 +5,42 @@
 
 import Foundation
 
+enum OfficialDocumentInboxArchiveError: Error, Equatable {
+    case invalidIdentifier
+    case conflictingApplicationID(String)
+    case packageMissing
+}
+
+extension OfficialDocumentInboxArchiveError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .invalidIdentifier:
+            return NSLocalizedString("The electronic official document identifier is invalid.", comment: "official document inbox")
+        case .conflictingApplicationID:
+            return NSLocalizedString("A package with the same application ID but different bytes is already stored. The new package was refused.", comment: "official document inbox")
+        case .packageMissing:
+            return NSLocalizedString("This electronic official document is no longer stored on this phone.", comment: "official document inbox")
+        }
+    }
+}
+
 /// An on-device store owned only by the electronic official-document feature.
 ///
 /// It is separate from both `CredentialStore` and `MyDataVaultArchive`: an
 /// official document is not a wallet credential, and its delivery evidence must
-/// not be mixed with a MyData original. The first slice stores only the signed
-/// prototype consent. Government envelopes and delivery receipts belong here
-/// later, once an official G2C interface and test fixtures exist.
+/// not be mixed with a MyData original. This phase also stores synthetic source
+/// packages for end-to-end product testing; official exchange envelopes and
+/// delivery receipts still require a government G2C interface and test fixtures.
 final class OfficialDocumentInboxArchive {
     let directory: URL
 
     private static let receiptFilename = "prototype-consent.json"
+    private static let packagesDirectoryName = "packages"
+    private static let metadataFilename = "metadata.json"
+    private static let envelopeFilename = "source.en"
+    private static let documentFilename = "source.di"
+    private static let encryptedSwitchFilename = "source.esw"
+    private static let maximumIdentifierUTF8Count = 256
 
     init(directory: URL? = nil) throws {
         self.directory = try directory ?? Self.defaultDirectory()
@@ -54,6 +79,136 @@ final class OfficialDocumentInboxArchive {
         let data = try encoder.encode(receipt)
         try data.write(to: directory.appendingPathComponent(Self.receiptFilename),
                        options: [.atomic, .completeFileProtectionUnlessOpen])
+    }
+
+    // MARK: - Synthetic EN / DI / ESW packages
+
+    /// The only import path in this phase. Naming it `importSynthetic` prevents
+    /// a caller from accidentally treating parser success as official G2C
+    /// sender authentication or a legally effective receipt.
+    @discardableResult
+    func importSynthetic(_ payload: OfficialDocumentImportPayload,
+                         checkedAt: Date = Date()) throws -> OfficialDocumentPackage {
+        let package = try OfficialDocumentPackageParser.parseSynthetic(payload,
+                                                                        checkedAt: checkedAt)
+        if let existing = try packages().first(where: {
+            $0.envelope.applicationID == package.envelope.applicationID
+        }) {
+            guard existing.integrity.envelopeDigest == package.integrity.envelopeDigest else {
+                throw OfficialDocumentInboxArchiveError.conflictingApplicationID(
+                    package.envelope.applicationID)
+            }
+            // The exchange requirements call for identical repeated receipts to
+            // stop here. Preserve the first receive/view timestamps.
+            return existing
+        }
+
+        let target = try packageDirectory(id: package.id)
+        let packages = packagesDirectory
+        try FileManager.default.createDirectory(
+            at: packages,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.completeUnlessOpen])
+        let temporary = packages.appendingPathComponent(".incoming-\(UUID().uuidString)",
+                                                        isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: temporary,
+            withIntermediateDirectories: false,
+            attributes: [.protectionKey: FileProtectionType.completeUnlessOpen])
+        defer { try? FileManager.default.removeItem(at: temporary) }
+
+        try payload.envelope.data.write(
+            to: temporary.appendingPathComponent(Self.envelopeFilename),
+            options: [.atomic, .completeFileProtectionUnlessOpen])
+        if let document = payload.document {
+            try document.data.write(
+                to: temporary.appendingPathComponent(Self.documentFilename),
+                options: [.atomic, .completeFileProtectionUnlessOpen])
+        }
+        if let encryptedSwitch = payload.encryptedSwitch {
+            try encryptedSwitch.data.write(
+                to: temporary.appendingPathComponent(Self.encryptedSwitchFilename),
+                options: [.atomic, .completeFileProtectionUnlessOpen])
+        }
+        try writeMetadata(package, in: temporary)
+        try FileManager.default.moveItem(at: temporary, to: target)
+        return package
+    }
+
+    func packages() throws -> [OfficialDocumentPackage] {
+        guard FileManager.default.fileExists(atPath: packagesDirectory.path) else { return [] }
+        let urls = try FileManager.default.contentsOfDirectory(
+            at: packagesDirectory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles])
+        return try urls.compactMap { url in
+            guard try url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else {
+                return nil
+            }
+            return try readMetadata(in: url)
+        }.sorted { left, right in
+            if left.receivedAt != right.receivedAt { return left.receivedAt > right.receivedAt }
+            return left.id < right.id
+        }
+    }
+
+    func package(id: String) throws -> OfficialDocumentPackage? {
+        let url = try packageDirectory(id: id)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try readMetadata(in: url)
+    }
+
+    @discardableResult
+    func markViewed(id: String, at date: Date = Date()) throws -> OfficialDocumentPackage {
+        let url = try packageDirectory(id: id)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw OfficialDocumentInboxArchiveError.packageMissing
+        }
+        let updated = try readMetadata(in: url).markingViewed(at: date)
+        try writeMetadata(updated, in: url)
+        return updated
+    }
+
+    /// Test/audit hook for proving the exact source survives import. Nothing in
+    /// the UI exposes these URLs to Files, Quick Look, or a share sheet.
+    func sourceData(id: String, fileExtension: String) throws -> Data? {
+        let filename: String
+        switch fileExtension.lowercased() {
+        case "en": filename = Self.envelopeFilename
+        case "di": filename = Self.documentFilename
+        case "esw": filename = Self.encryptedSwitchFilename
+        default: return nil
+        }
+        let url = try packageDirectory(id: id).appendingPathComponent(filename)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try Data(contentsOf: url)
+    }
+
+    private var packagesDirectory: URL {
+        directory.appendingPathComponent(Self.packagesDirectoryName, isDirectory: true)
+    }
+
+    private func packageDirectory(id: String) throws -> URL {
+        let bytes = Data(id.utf8)
+        guard !bytes.isEmpty, bytes.count <= Self.maximumIdentifierUTF8Count else {
+            throw OfficialDocumentInboxArchiveError.invalidIdentifier
+        }
+        let encoded = bytes.map { String(format: "%02x", $0) }.joined()
+        return packagesDirectory.appendingPathComponent(encoded, isDirectory: true)
+    }
+
+    private func readMetadata(in directory: URL) throws -> OfficialDocumentPackage {
+        try JSONDecoder().decode(
+            OfficialDocumentPackage.self,
+            from: Data(contentsOf: directory.appendingPathComponent(Self.metadataFilename)))
+    }
+
+    private func writeMetadata(_ package: OfficialDocumentPackage, in directory: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(package).write(
+            to: directory.appendingPathComponent(Self.metadataFilename),
+            options: [.atomic, .completeFileProtectionUnlessOpen])
     }
 
     func purge() throws {

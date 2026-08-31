@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+import UIKit
 @testable import backupTW
 
 struct OfficialDocumentInboxTests {
@@ -24,7 +25,16 @@ struct OfficialDocumentInboxTests {
         "Sign with 行動自然人憑證",
         "This sends your ID number, the service identifier, and a prototype-consent digest to the Ministry of the Interior, which keeps a service record. 有備而來 does not save the ID number you type. The signature will not create an official mailbox.",
         "Send the number and sign",
-        "The verified signature is stored on this phone. Official receiving is still inactive until a government G2C service accepts this app and issues a receiving address."
+        "The verified signature is stored on this phone. Official receiving is still inactive until a government G2C service accepts this app and issues a receiving address.",
+        "Load a synthetic EN / DI / ESW package",
+        "Developer test only — this did not come from a government agency and creates no receipt.",
+        "Synthetic test package — not an official delivery",
+        "This fixture exercises EN, DI, ESW, storage, integrity and viewing state. No government service sent it.",
+        "Verified against the SHA-256 fingerprints listed in EN.",
+        "Not verified — this package is synthetic and has no official exchange signature or address-book proof.",
+        "Not created — viewing this test package changes only this phone's local state and sends nothing.",
+        "有備而來 does not yet have an official ESW decryption contract or recipient key. It will not pretend the content was opened.",
+        "A file does not match the SHA-256 fingerprint listed in the envelope, so the package was not stored."
     ]
 
     private func directory() -> URL {
@@ -88,6 +98,155 @@ struct OfficialDocumentInboxTests {
                     "untranslated official-document inbox string: \(message)")
         }
     }
+
+    @Test func syntheticENDIESWPackageChecksHashesAndKeepsSourceBoundaries() throws {
+        let receivedAt = Date(timeIntervalSince1970: 1_800_001_000)
+        let checkedAt = Date(timeIntervalSince1970: 1_800_001_010)
+        let payload = OfficialDocumentSyntheticFixture.make(receivedAt: receivedAt)
+
+        let package = try OfficialDocumentPackageParser.parseSynthetic(payload,
+                                                                        checkedAt: checkedAt)
+
+        #expect(package.environment == .syntheticFixtureOnly)
+        #expect(package.localState == .unread)
+        #expect(package.contentAvailability == .syntheticReadable)
+        #expect(package.envelope.sender.organizationName == "電子公文接收站合成測試機關")
+        #expect(package.envelope.files.map(\.filename) == ["synthetic.di", "synthetic.esw"])
+        #expect(package.envelope.files.map(\.note) == ["合成 DI 本文", "合成 ESW 邊界資料"])
+        #expect(package.document?.type == "函")
+        #expect(package.document?.subject == "合成測試：防災演練通知")
+        #expect(package.encryptedSwitch?.recipientCount == 1)
+        #expect(package.encryptedSwitch?.method == "RSA")
+        #expect(package.integrity.documentDigest == payload.document.map {
+            OfficialDocumentPackageParser.sha256($0.data)
+        })
+        #expect(package.receivedAt == receivedAt)
+        #expect(package.integrity.checkedAt == checkedAt)
+
+        let index = String(decoding: try JSONEncoder().encode(package), as: UTF8.self)
+        #expect(index.contains("SYNTHETIC-ONLY") == false)
+        #expect(index.contains("CipherData") == false)
+    }
+
+    @Test func packageWithAMismatchedDIIsRefusedBeforeStorage() throws {
+        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let fixture = OfficialDocumentSyntheticFixture.make()
+        let document = try #require(fixture.document)
+        let tampered = OfficialDocumentImportPayload(
+            envelope: fixture.envelope,
+            document: .init(filename: document.filename,
+                            data: document.data + Data("tampered".utf8)),
+            encryptedSwitch: fixture.encryptedSwitch,
+            receivedAt: fixture.receivedAt)
+
+        #expect(throws: OfficialDocumentPackageError.hashMismatch("synthetic.di")) {
+            _ = try archive.importSynthetic(tampered)
+        }
+        #expect(try archive.packages().isEmpty)
+    }
+
+    @Test func archivePreservesSourcesAndMovesOnlyTheLocalReadState() throws {
+        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let fixture = OfficialDocumentSyntheticFixture.make(
+            receivedAt: Date(timeIntervalSince1970: 1_800_002_000))
+        let stored = try archive.importSynthetic(
+            fixture, checkedAt: Date(timeIntervalSince1970: 1_800_002_010))
+
+        #expect(try archive.sourceData(id: stored.id, fileExtension: "en") == fixture.envelope.data)
+        #expect(try archive.sourceData(id: stored.id, fileExtension: "di") == fixture.document?.data)
+        #expect(try archive.sourceData(id: stored.id, fileExtension: "esw") == fixture.encryptedSwitch?.data)
+
+        let viewedAt = Date(timeIntervalSince1970: 1_800_002_100)
+        let viewed = try archive.markViewed(id: stored.id, at: viewedAt)
+        #expect(viewed.localState == .viewedLocally)
+        #expect(viewed.viewedAt == viewedAt)
+        #expect(viewed.integrity == stored.integrity)
+        #expect(viewed.sourceAuthentication == .notVerifiedSynthetic)
+    }
+
+    @Test func identicalRepeatIsIdempotentButConflictingApplicationIDIsRefused() throws {
+        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let firstPayload = OfficialDocumentSyntheticFixture.make(
+            applicationID: "SYNTHETIC-SAME-ID",
+            receivedAt: Date(timeIntervalSince1970: 1_800_003_000))
+        let first = try archive.importSynthetic(firstPayload)
+        _ = try archive.markViewed(id: first.id,
+                                   at: Date(timeIntervalSince1970: 1_800_003_010))
+
+        let repeated = try archive.importSynthetic(firstPayload)
+        #expect(repeated.localState == .viewedLocally)
+        #expect(try archive.packages().count == 1)
+
+        let conflict = OfficialDocumentSyntheticFixture.make(
+            applicationID: "SYNTHETIC-SAME-ID",
+            subject: "同一 application ID 的不同內容")
+        #expect(throws: OfficialDocumentInboxArchiveError.conflictingApplicationID(
+            "SYNTHETIC-SAME-ID")) {
+            _ = try archive.importSynthetic(conflict)
+        }
+        #expect(try archive.packages().count == 1)
+    }
+
+    @Test func ESWOnlyPackageStaysEncryptedAndNeverPretendsToBeReadable() throws {
+        let fixture = OfficialDocumentSyntheticFixture.make()
+        let encryptedOnly = OfficialDocumentImportPayload(
+            envelope: fixture.envelope,
+            document: nil,
+            encryptedSwitch: fixture.encryptedSwitch,
+            receivedAt: fixture.receivedAt)
+
+        let package = try OfficialDocumentPackageParser.parseSynthetic(encryptedOnly)
+
+        #expect(package.document == nil)
+        #expect(package.contentAvailability == .encryptedContentUnavailable)
+        #expect(package.encryptedSwitch != nil)
+    }
+
+    @Test @MainActor func inboxListsTheSyntheticPackageAndOpensItsDedicatedDetail() throws {
+        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
+        let controller = OfficialDocumentInboxViewController(archive: archive,
+                                                             makeSigning: { nil })
+        let navigation = UINavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        controller.loadViewIfNeeded()
+
+        #expect(controller.tableView.numberOfRows(inSection: 1) == 1)
+        let cell = controller.tableView(controller.tableView,
+                                        cellForRowAt: IndexPath(row: 0, section: 1))
+        #expect(cell.accessibilityIdentifier == "officialDocuments.document.0")
+        #expect(cell.textLabel?.text == package.document?.subject)
+
+        controller.tableView(controller.tableView,
+                             didSelectRowAt: IndexPath(row: 0, section: 1))
+        #expect(navigation.topViewController is OfficialDocumentDetailViewController)
+    }
+
+    @Test @MainActor func openingDetailMarksOnlyTheLocalViewingState() throws {
+        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
+        let controller = OfficialDocumentDetailViewController(packageID: package.id,
+                                                              archive: archive)
+        controller.loadViewIfNeeded()
+
+        #expect(controller.numberOfSections(in: controller.tableView) == 5)
+        let boundary = controller.tableView(controller.tableView,
+                                            cellForRowAt: IndexPath(row: 0, section: 0))
+        #expect(boundary.accessibilityIdentifier == "officialDocuments.detail.boundary")
+        controller.viewDidAppear(false)
+
+        let stored = try archive.package(id: package.id)
+        let updated = try #require(stored)
+        #expect(updated.localState == .viewedLocally)
+        #expect(updated.sourceAuthentication == .notVerifiedSynthetic)
+        let receipt = controller.tableView(controller.tableView,
+                                           cellForRowAt: IndexPath(row: 2, section: 3))
+        #expect(receipt.accessibilityIdentifier == "officialDocuments.detail.receipt")
+        #expect(receipt.detailTextLabel?.text?.contains("sends nothing") == true
+                || receipt.detailTextLabel?.text?.contains("不會送出") == true)
+    }
 }
 
 private actor OfficialDocumentStubSession: TWFidOSignSession {
@@ -138,11 +297,13 @@ struct OfficialDocumentSigningTests {
 
         let receipt = try await signing.sign(consent: consent, idNumber: "A123456789")
 
-        guard case .officialDocumentTBS(let target) = await session.signingTarget() else {
+        guard case .officialDocumentConsent(let target) = await session.signingTarget() else {
             Issue.record("expected the official-document signing target")
             return
         }
-        #expect(target == consent.signingTarget)
+        #expect(target.toBeSigned == consent.signingTarget)
+        #expect(target.scope == OfficialDocumentInboxConsent.scope)
+        #expect(target.nonce == consent.nonce)
         #expect(receipt.environment == .localPrototypeOnly)
         #expect(receipt.recordedAt == recordedAt)
         #expect(receipt.certificate == "cert")
