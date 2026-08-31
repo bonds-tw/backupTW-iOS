@@ -1,7 +1,7 @@
 # App Attest UAT 真機驗收
 
 - 狀態：**Xcode development 真機已通過；等待 TestFlight production 真機證據**
-- 日期：2026-08-31
+- 日期：2026-09-01
 - 對應：[#42](https://github.com/bonds-tw/backupTW-iOS/issues/42)、[#47](https://github.com/bonds-tw/backupTW-iOS/issues/47)
 - 不代表：MOICA UAT 可用、簽章 start／poll 已啟用、TestFlight 已上傳，或 App Store production category 已驗證
 
@@ -29,6 +29,12 @@ Apple Development provisioning 只能對應 development App Attest。以 Xcode �
 
 人工操作仍是「設定 → 診斷 → App Attest UAT 檢查」，先確認畫面 endpoint 為 `signing-dev.mashbean.net`，接著連續成功執行兩次以驗證註冊與遞增 counter。
 
+### Release archive 前置驗收
+
+2026-09-01 以 Xcode 26.6 從乾淨、隔離的 DerivedData 成功建立 generic iOS Release archive。實際封存內容是 `tw.bonds.backupTW`、版本 `1.0 (1)`，endpoint 為 `https://signing-uat.mashbean.net`；App Attest entitlement 存在，binary strings 也找不到 local signing provider、SP credential 環境變數、credential filename 或 CI canary。以 archive 的 `CFBundleVersion=1` 執行 broker live preflight 已通過：UAT 使用 production App Attest、allowlist 只含 build `1`、無 signing secret bindings，start／poll 都維持關閉。
+
+本機 archive 目前仍由 Apple Development identity 簽署。[Apple 文件](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment)指出，經 TestFlight、App Store 或 Enterprise 發行後，App 會忽略 entitlement 的 source value 並使用 production App Attest；因此 archive 內看到 `development` 不能當成 TestFlight environment 的失敗，也不能當成已通過的證據。Xcode 的 Validate App 尚未完成：CLI 回報團隊 `538MCM44UX` 缺少可用的 App Store Connect account access。必須先在 Xcode 補齊對該團隊的 App Store Connect 權限，再由 distribution workflow 重簽、驗證與上傳。
+
 ### TestFlight production 驗收
 
 1. 安裝實際 TestFlight build，不要用 Simulator 或 Xcode Debug build 代替。
@@ -51,9 +57,9 @@ Apple Development provisioning 只能對應 development App Attest。以 Xcode �
 | challenge 重用或 counter rollback | server `challenge_used`／`replay_detected`，不自動重註冊繞過 |
 | UAT 無法連線或 response shape／headers 不合約 | `network_unavailable`／`invalid_response` |
 
-## 上傳前仍需完成
+## 上傳前狀態
 
-- 從實際 archive 讀取 `CFBundleVersion`，以 `BONDS_EXPECTED_UAT_BUNDLE_VERSION` 跑 broker live preflight；本機 target 的 build number 不是替代證據。
-- 確認 archive 的 bundle ID、App Attest entitlement、UAT endpoint 與 secret／local-provider canary scan。
-- Apple 帳號必須能建立 App Store distribution archive 並上傳；只有 Apple Development identity 不足以宣稱 TestFlight ready。
+- 已從實際 archive 讀取 `CFBundleVersion=1`，並以 `BONDS_EXPECTED_UAT_BUNDLE_VERSION=1` 通過 broker live preflight。
+- 已確認 archive 的 bundle ID、App Attest entitlement、UAT endpoint 與 secret／local-provider canary scan。
+- 尚未通過 Validate App：Apple 帳號必須具有團隊 `538MCM44UX` 的 App Store Connect access；只有 Apple Development identity 不足以宣稱 TestFlight ready。
 - 上傳後仍要等 processing 完成並確認 tester 可安裝，才算 TestFlight 發佈完成。
