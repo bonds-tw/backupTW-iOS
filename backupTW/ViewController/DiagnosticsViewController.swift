@@ -80,6 +80,9 @@ final class DiagnosticsViewController: UICollectionViewController {
                     .scaledFont(for: .monospacedSystemFont(ofSize: 12, weight: .regular))
             content.secondaryTextProperties.numberOfLines = 0
             cell.contentConfiguration = content
+            cell.accessibilityIdentifier = row.opensAppAttestUAT
+                ? "diagnostics.appAttestUAT"
+                : nil
             // Spelled `.some(true)` rather than `true`: matching an Optional<Bool>
             // against boolean literals is only accepted as exhaustive by newer
             // compilers, and CI builds with an older Xcode than this machine has.
