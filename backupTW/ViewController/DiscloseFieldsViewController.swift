@@ -35,6 +35,25 @@ final class DiscloseFieldsViewController: UITableViewController {
 
     private let presentButton = UIButton(type: .system)
 
+    #if DEBUG
+    /// What each stored TWDIW card can actually disclose — so a "the card doesn't
+    /// have this field" failure can be diagnosed against the real card's own claim
+    /// names, not the demo card's. Read once, off the real store.
+    private lazy var debugCardInventory: String = {
+        guard let store = try? CredentialStore() else { return "no store" }
+        var lines: [String] = []
+        for id in (try? store.allIDs()) ?? [] {
+            guard let serialized = try? store.load(id: id) else { continue }
+            if StoredCardSource.source(of: serialized) == .twdiw,
+               let credential = try? TWDIWCredentialReader.read(serialized) {
+                let names = credential.disclosedClaims.map(\.name).joined(separator: ", ")
+                lines.append("• \(credential.credentialType): [\(names)]")
+            }
+        }
+        return lines.isEmpty ? "no TWDIW cards stored" : lines.joined(separator: "\n")
+    }()
+    #endif
+
     init(request: OID4VPRequest) {
         self.request = request
         self.claims = request.requestedFields.compactMap(\.claimName)
@@ -88,8 +107,12 @@ final class DiscloseFieldsViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         // What withholding actually does, so the choice is informed rather than
         // decorative: the issuer's signature over the rest still holds.
-        NSLocalizedString("What you leave off is never sent. The verifier can still check that the rest was issued by the official issuer and not changed.",
-                          comment: "disclosure footer")
+        var footer = NSLocalizedString("What you leave off is never sent. The verifier can still check that the rest was issued by the official issuer and not changed.",
+                                       comment: "disclosure footer")
+        #if DEBUG
+        footer += "\n\n[DEBUG] stored cards & their disclosable claims:\n" + debugCardInventory
+        #endif
+        return footer
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
