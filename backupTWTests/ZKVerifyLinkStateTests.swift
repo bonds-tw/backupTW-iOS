@@ -124,14 +124,10 @@ struct ZKVerifyLinkStateTests {
 ///
 /// # Two instructions on one screen, and the cost lands on the other person
 ///
-/// In a shipped build `ZKVerifyingKeyAssets.areInstalled` is permanently false —
-/// the only path that writes verifying keys sits behind
-/// `ZKProofRunAssembly.makeSigner`, nil in release, and no `.key` ships in the
-/// bundle. The screen said so at load: 「this version cannot download the files …
-/// tell them before they send one.」 Then `viewWillAppear` drew a pairing code
-/// and started listening anyway, and the invitation sat four views *above* the
-/// disqualification — 「ask them to scan the code above」 at the top, the sentence
-/// that withdraws it below the fold.
+/// A shipped build now has a checker-only installer, but it still must not draw
+/// an invitation until this appearance has re-hashed both installed keys. The
+/// setup problem is local to the checker and must be discovered before the other
+/// phone spends twenty seconds sending a proof.
 ///
 /// `verify(package:)` never asked either, so a proof really did arrive,
 /// reassemble, spin for fifteen seconds, and come back 「no verdict」.
@@ -146,6 +142,15 @@ struct ZKCheckingAvailabilityTests {
         #expect(ZKCheckingAvailability.ready.canCheck)
         #expect(!ZKCheckingAvailability.notDownloadedYet.canCheck)
         #expect(!ZKCheckingAvailability.impossibleInThisBuild.canCheck)
+    }
+
+    @Test func checkerPreparationDoesNotDependOnSigningAvailability() {
+        #expect(ZKCheckingAvailability.status(keysAppearInstalled: false,
+                                              canPrepare: true) == .notDownloadedYet)
+        #expect(ZKCheckingAvailability.status(keysAppearInstalled: false,
+                                              canPrepare: false) == .impossibleInThisBuild)
+        #expect(ZKCheckingAvailability.status(keysAppearInstalled: true,
+                                              canPrepare: false) == .ready)
     }
 
     /// 「Yet」 is a promise, and only one of the three states can keep it.
@@ -169,5 +174,29 @@ struct ZKCheckingAvailabilityTests {
         #expect(controller.pairingCodeIsShownForReview == controller.canCheckAProofForReview,
                 "the screen invites a transfer it cannot check")
         #expect(controller.radioIsListeningForReview == controller.canCheckAProofForReview)
+    }
+
+    @Test func anUnpreparedReleaseOffersSetupBeforeItOffersBluetooth() async throws {
+        let controller = ZKVerifyViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = UINavigationController(rootViewController: controller)
+        window.isHidden = false
+        controller.loadViewIfNeeded()
+        controller.beginAppearanceTransition(true, animated: false)
+        controller.endAppearanceTransition()
+        defer {
+            controller.beginAppearanceTransition(false, animated: false)
+            window.rootViewController = nil
+            controller.endAppearanceTransition()
+            window.isHidden = true
+        }
+
+        for _ in 0..<100 where !controller.prepareButtonIsShownForReview {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(controller.prepareButtonIsShownForReview)
+        #expect(!controller.canCheckAProofForReview)
+        #expect(!controller.pairingCodeIsShownForReview)
+        #expect(!controller.radioIsListeningForReview)
     }
 }

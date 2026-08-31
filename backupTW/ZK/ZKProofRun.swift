@@ -49,31 +49,31 @@ import Foundation
 /// for these circuits is a few hundred bytes of actual content; 662 MB of it is
 /// an upstream packaging defect, not a requirement of the mathematics.
 ///
-/// **These are no longer downloaded.** This comment used to end by refusing to
-/// derive them — truncating a proving key on the strength of a claim in another
-/// comment would have made verification depend on an unverified guess about a
-/// file format — and to name the condition for changing its mind: confirm the
-/// truncation against both blobs. That has now been done. `VerifyingKeyDerivation`
-/// cuts both files locally, and the derived bytes were checked to be
-/// `FileManager.contentsEqual` to the downloaded ones before this changed.
-///
-/// The rows stay because these are still the files verification needs, and the
-/// sizes and digests are still what a download would have to match. What they no
-/// longer describe is 57.8 MB of traffic.
+/// Proof creation does not download these separately: `VerifyingKeyDerivation`
+/// cuts both files locally from the proving keys, and the derived bytes were
+/// checked to be `FileManager.contentsEqual` to the published verifying files.
+/// A checker-only install does download these two public gzip assets directly,
+/// because that device neither needs nor should fetch the much larger proving
+/// keys. Both paths must end at the same installed-byte pins below.
 ///
 /// The digests are the ones already recorded in `CircuitAssets.setupOnly`'s doc
 /// comment, taken from the same release manifest as the proving keys.
 enum ZKVerifyingKeyAssets {
 
-    private static let release = URL(
-        string: "https://github.com/privacy-ethereum/zkID/releases/download/RSA-X.509-Cert-latest")!
+    /// Human-reviewable identity of the compiled manifest. The rolling tag is
+    /// not itself immutable; this timestamp names the release assets whose two
+    /// compressed and two installed-byte digests were reviewed together.
+    static let manifestID = "ethereum/zkID:RSA-X.509-Cert-latest:2026-07-15"
+    static let sourceOwner = "ethereum/zkID"
 
-    /// Installed sizes are the proving keys' figures minus 32 bytes, which is
-    /// what the prefix claim implies. They are budget and progress-bar inputs
-    /// only — `sha256` is what decides whether a download is accepted — and
-    /// `CircuitAsset.inflateByteLimit` already carries a 1/16 margin for exactly
-    /// this kind of estimate.
-    /// Whether this phone can check a proof right now.
+    private static let release = URL(
+        string: "https://github.com/ethereum/zkID/releases/download/RSA-X.509-Cert-latest")!
+
+    /// Fast preflight for surfaces such as the home row. Exact size rules out a
+    /// partial file without hashing almost 968 MB on the main thread. The
+    /// checking screen performs the full installed-byte SHA-256 audit before it
+    /// accepts a proof invitation, and the verifier repeats that audit before
+    /// Rust opens the keys.
     ///
     /// Extracted from `HomeViewController.proofRowSubtitle()`, which owned the
     /// only copy of this question — so the *screen that actually checks proofs*
@@ -88,8 +88,23 @@ enum ZKVerifyingKeyAssets {
     static var areInstalled: Bool {
         guard let directory = try? CircuitAssets.defaultDirectory() else { return false }
         return all.allSatisfy { asset in
-            FileManager.default.fileExists(
-                atPath: directory.appendingPathComponent(asset.localFilename).path)
+            let url = directory.appendingPathComponent(asset.localFilename)
+            let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize
+            return Int64(size ?? -1) == asset.installedByteCount
+        }
+    }
+
+    /// Paths that are missing, truncated or no longer match the installed-byte
+    /// pin. Synchronous by design: production callers invoke this on their
+    /// dedicated verifier queue immediately before Rust opens the files.
+    static func invalidInstalledFilenames(in directory: URL) -> [String] {
+        all.compactMap { asset in
+            guard let key = VerifyingKeyDerivation.all.first(where: {
+                $0.name == asset.name && $0.localFilename == asset.localFilename
+            }) else { return asset.localFilename }
+            return VerifyingKeyDerivation.integrity(of: key, in: directory).isValid
+                ? nil
+                : asset.localFilename
         }
     }
 
@@ -99,13 +114,15 @@ enum ZKVerifyingKeyAssets {
                      localFilename: "keys/cert_chain_rs4096_verifying.key",
                      sha256: "ba5054a5044115de5f51dcf4330ecf844423bd9e12aa311ca3e3756e1202fc8e",
                      compressedByteCount: 41_321_957,
-                     installedByteCount: 693_663_362),
+                     installedByteCount: 693_663_362,
+                     installedSHA256: "498dc13211a4311900fcbf1df029be109880905d08c4ab271a2f795f4fa1da7c"),
         CircuitAsset(name: "user_sig_rs2048_verifying",
                      remoteURL: release.appendingPathComponent("user_sig_rs2048_verifying.key.gz"),
                      localFilename: "keys/user_sig_rs2048_verifying.key",
                      sha256: "c4eabf366d7baf99306db72573d129f89aeef5a178d3368ffaef2d475ae81b7b",
                      compressedByteCount: 16_513_623,
-                     installedByteCount: 274_677_818)
+                     installedByteCount: 274_677_818,
+                     installedSHA256: "d85d0738827dcdfe13dc5fbf0ce8cddab5cbef3d55e6bf02c9c749190bdc3091")
     ]
 
     static var totalDownloadByteCount: Int64 {
@@ -209,13 +226,12 @@ struct OpenACProofVerifier: ZKProofVerifying {
     /// that shows ❌ for "the proof file is not there" has told the user their
     /// certificate is bad.
     func missingArtifacts(in workingDirectory: URL) -> [String] {
-        let required = ZKVerifyingKeyAssets.all.map(\.localFilename)
-            + ZKProver.proofFilenames
-            + ZKProver.instanceFilenames
-        return required.filter {
+        let invalidKeys = ZKVerifyingKeyAssets.invalidInstalledFilenames(in: workingDirectory)
+        let proofInputs = (ZKProver.proofFilenames + ZKProver.instanceFilenames).filter {
             !FileManager.default.fileExists(
                 atPath: workingDirectory.appendingPathComponent($0).path)
         }
+        return invalidKeys + proofInputs
     }
 
     /// Runs the checks, and runs the cheap path first.
@@ -650,6 +666,16 @@ enum ZKStagePresentation {
 
     /// The per-file line under that headline.
     static func requirementDetail(for requirement: ZKAssetRequirement) -> String {
+        if requirement.needsRepair {
+            if requirement.downloadByteCount == 0 {
+                return String(format: NSLocalizedString(
+                    "Integrity check failed · repair %@ on this phone", comment: ""),
+                              byteString(requirement.installedByteCount))
+            }
+            return String(format: NSLocalizedString(
+                "Integrity check failed · download %@ again", comment: ""),
+                          byteString(requirement.downloadByteCount))
+        }
         if requirement.downloadByteCount == 0 {
             return String(format: NSLocalizedString("Made on this phone · %@ on disk", comment: ""),
                           byteString(requirement.installedByteCount))
@@ -746,6 +772,24 @@ struct ZKAssetRequirement: Equatable, Sendable {
     /// snapshot is not a download the user has never started, it is one they
     /// finished and that has since gone off.
     let isStale: Bool
+    /// The file exists, but its exact installed size or SHA-256 no longer
+    /// matches the manifest. Kept apart from `isStale`: a daily snapshot is old;
+    /// a checking key that misses its pin is unsafe to use and needs repair.
+    let needsRepair: Bool
+
+    init(name: String,
+         displayName: String,
+         downloadByteCount: Int64,
+         installedByteCount: Int64,
+         isStale: Bool,
+         needsRepair: Bool = false) {
+        self.name = name
+        self.displayName = displayName
+        self.downloadByteCount = downloadByteCount
+        self.installedByteCount = installedByteCount
+        self.isStale = isStale
+        self.needsRepair = needsRepair
+    }
 }
 
 struct ZKAssetPlan: Equatable, Sendable {

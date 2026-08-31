@@ -1194,6 +1194,8 @@ struct ZKAssetPreparationTests {
             // anyone with publish rights can swap.
             #expect(digest.count == 64)
             #expect(digest.allSatisfy { $0.isHexDigit && !$0.isUppercase })
+            let installedDigest = try? #require(asset.installedSHA256)
+            #expect(installedDigest?.count == 64)
             #expect(asset.compressedByteCount > 0)
             #expect(asset.installedByteCount > asset.compressedByteCount)
             // Never stale: a circuit is immutable, so there is nothing to

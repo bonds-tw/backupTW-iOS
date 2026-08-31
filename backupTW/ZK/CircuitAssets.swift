@@ -4,6 +4,7 @@
 //
 
 import CryptoKit
+import Darwin
 import Foundation
 
 // MARK: - Asset table
@@ -75,6 +76,15 @@ struct CircuitAsset: Sendable, Hashable, Identifiable {
     /// gzipped.
     let installedByteCount: Int64
 
+    /// SHA-256 of the bytes the verifier opens after installation.
+    ///
+    /// This is deliberately separate from `sha256`, which pins the compressed
+    /// release asset. Most proving assets predate an installed-byte manifest and
+    /// leave this nil. Verifying keys do not: a wrong key turns a good proof into
+    /// a false refusal, so their installed bytes are checked both before the
+    /// atomic rename and again before use.
+    let installedSHA256: String?
+
     /// Whether the downloaded `.gz` is inflated into place, or installed as-is.
     ///
     /// The revocation snapshot is the odd one out: `generateCertChainRs4096Input`
@@ -95,6 +105,7 @@ struct CircuitAsset: Sendable, Hashable, Identifiable {
          sha256: String? = nil,
          compressedByteCount: Int64 = 0,
          installedByteCount: Int64 = 0,
+         installedSHA256: String? = nil,
          expandsAfterDownload: Bool = true,
          refreshInterval: TimeInterval? = nil) {
         self.name = name
@@ -103,6 +114,7 @@ struct CircuitAsset: Sendable, Hashable, Identifiable {
         self.sha256 = sha256
         self.compressedByteCount = compressedByteCount
         self.installedByteCount = installedByteCount
+        self.installedSHA256 = installedSHA256
         self.expandsAfterDownload = expandsAfterDownload
         self.refreshInterval = refreshInterval
     }
@@ -116,10 +128,9 @@ struct CircuitAsset: Sendable, Hashable, Identifiable {
     /// apps start losing writes, all while our progress bar says it is working.
     ///
     /// For assets that expand, the manifest already knows the answer, so the
-    /// ceiling is that figure plus 1/16. The margin is there because
-    /// `installedByteCount` is a manifest reading rather than something we
-    /// measured, and being a few megabytes out must degrade into "downloads a
-    /// bit more than budgeted", not "this app can no longer be prepared".
+    /// defensive decompression ceiling is that figure plus 1/16. Acceptance is
+    /// still exact where an installed byte count is pinned; the margin only
+    /// ensures malformed or unexpectedly large input fails in a bounded way.
     ///
     /// For the snapshot, which is not inflated onto disk and whose expanded
     /// size grows as the revocation list does, the ceiling is a ratio instead:
@@ -155,6 +166,10 @@ struct CircuitAsset: Sendable, Hashable, Identifiable {
             return NSLocalizedString("Certificate chain proving key", comment: "ZK circuit asset")
         case "user_sig_rs2048_proving":
             return NSLocalizedString("Signature proving key", comment: "ZK circuit asset")
+        case "cert_chain_rs4096_verifying":
+            return NSLocalizedString("Certificate chain checking key", comment: "ZK circuit asset")
+        case "user_sig_rs2048_verifying":
+            return NSLocalizedString("Signature checking key", comment: "ZK circuit asset")
         case "g3_tree_snapshot":
             return NSLocalizedString("Certificate revocation snapshot", comment: "ZK circuit asset")
         default:
@@ -178,6 +193,11 @@ enum CircuitAssetError: Error, LocalizedError {
     /// rolling tag, or someone with publish rights to the upstream repository
     /// swapped it.
     case hashMismatch(name: String, expected: String, actual: String)
+    /// The expanded bytes do not have the exact size in the installed manifest.
+    case unexpectedInstalledSize(name: String, expected: Int64, actual: Int64)
+    /// The downloaded gzip was pinned, but the bytes produced from it do not
+    /// match the separate pin for the file the verifier will open.
+    case installedHashMismatch(name: String, expected: String, actual: String)
     /// The download inflated past the size its manifest declares.
     case oversizedContent(name: String, limit: Int64)
     /// There is no connection this download can use — offline, or Low Data Mode
@@ -197,7 +217,7 @@ enum CircuitAssetError: Error, LocalizedError {
             return NSLocalizedString("The verification files couldn't be downloaded.", comment: "")
         case .corruptDownload:
             return NSLocalizedString("The downloaded file was damaged. Please try again.", comment: "")
-        case .hashMismatch, .oversizedContent:
+        case .hashMismatch, .unexpectedInstalledSize, .installedHashMismatch, .oversizedContent:
             // Deliberately not "please try again": the bytes are intact and the
             // next attempt fetches exactly the same ones. Either the app is too
             // old for what the server now publishes, or the file has been
@@ -214,6 +234,26 @@ enum CircuitAssetError: Error, LocalizedError {
             return NSLocalizedString("A file this app ships with is missing.", comment: "")
         }
     }
+}
+
+/// Result of re-reading an installed public asset against the manifest compiled
+/// into this build. It is intentionally not a Bool: a repair screen has to tell
+/// "never installed" apart from "the installed copy failed its pin" without
+/// ever presenting either one as a verdict about somebody's proof.
+enum CircuitAssetIntegrity: Equatable, Sendable {
+    case missing
+    case wrongSize(expected: Int64, actual: Int64)
+    case digestMismatch(expected: String, actual: String)
+    case unreadable
+    case valid
+
+    var isValid: Bool { self == .valid }
+    var needsRepair: Bool { self != .missing && self != .valid }
+}
+
+struct CircuitAssetInspection: Equatable, Sendable {
+    let asset: CircuitAsset
+    let integrity: CircuitAssetIntegrity
 }
 
 // MARK: - Store
@@ -333,7 +373,7 @@ actor CircuitAssets {
 
     // These are compile-time literals; the force-unwraps cannot fire at runtime.
     private static let zkIDRelease = URL(
-        string: "https://github.com/privacy-ethereum/zkID/releases/download/RSA-X.509-Cert-latest")!
+        string: "https://github.com/ethereum/zkID/releases/download/RSA-X.509-Cert-latest")!
     private static let smtRelease = URL(
         string: "https://github.com/privacy-ethereum/moica-revocation-smt/releases/download/snapshot-latest")!
 
@@ -452,6 +492,44 @@ actor CircuitAssets {
         }
     }
 
+    /// Re-hashes the installed representation of every row that carries an
+    /// installed-byte pin. This is the readiness gate for verifying keys; an
+    /// atomic install proves a previous write completed, not that the file has
+    /// remained unchanged since then.
+    func inspectInstalledAssets() async -> [CircuitAssetInspection] {
+        var result: [CircuitAssetInspection] = []
+        result.reserveCapacity(assets.count)
+        for asset in assets {
+            let url = installedURL(for: asset)
+            guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+                result.append(CircuitAssetInspection(asset: asset, integrity: .missing))
+                continue
+            }
+            let actualSize = Int64(size)
+            if asset.installedByteCount > 0, actualSize != asset.installedByteCount {
+                result.append(CircuitAssetInspection(
+                    asset: asset,
+                    integrity: .wrongSize(expected: asset.installedByteCount, actual: actualSize)))
+                continue
+            }
+            guard let expected = asset.installedSHA256 else {
+                result.append(CircuitAssetInspection(asset: asset, integrity: .valid))
+                continue
+            }
+            do {
+                let actual = try await sha256Hex(ofFileAt: url) { _ in }
+                result.append(CircuitAssetInspection(
+                    asset: asset,
+                    integrity: actual == expected
+                        ? .valid
+                        : .digestMismatch(expected: expected, actual: actual)))
+            } catch {
+                result.append(CircuitAssetInspection(asset: asset, integrity: .unreadable))
+            }
+        }
+        return result
+    }
+
     /// Bytes currently occupied, for a settings row that lets the user get them
     /// back.
     func installedByteCount() -> Int64 {
@@ -494,9 +572,13 @@ actor CircuitAssets {
         let sidecar = resumeDataURL(for: asset)
 
         // Phase boundaries, as fractions of the whole operation.
-        let transferEnd = asset.expandsAfterDownload ? 0.72 : 0.88
+        let checksInstalledBytes = asset.expandsAfterDownload && asset.installedSHA256 != nil
+        let transferEnd = asset.expandsAfterDownload ? (checksInstalledBytes ? 0.58 : 0.72) : 0.88
         let verifyEnd = asset.sha256 == nil ? transferEnd
-                                            : (asset.expandsAfterDownload ? 0.80 : 0.94)
+                                            : (asset.expandsAfterDownload
+                                               ? (checksInstalledBytes ? 0.66 : 0.80)
+                                               : 0.94)
+        let inflateEnd = checksInstalledBytes ? 0.88 : 1.0
         let report: @Sendable (Double) -> Void = { value in
             progress?(min(max(value, 0), 1))
         }
@@ -535,7 +617,26 @@ actor CircuitAssets {
                 try await inflate(from: staged, to: expanded, limit: asset.inflateByteLimit) { bytes in
                     guard asset.installedByteCount > 0 else { return }
                     let fraction = min(1, Double(bytes) / Double(asset.installedByteCount))
-                    report(verifyEnd + (1 - verifyEnd) * fraction)
+                    report(verifyEnd + (inflateEnd - verifyEnd) * fraction)
+                }
+                let actualSize = Int64((try? expanded
+                    .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? -1)
+                if asset.installedByteCount > 0, actualSize != asset.installedByteCount {
+                    throw CircuitAssetError.unexpectedInstalledSize(
+                        name: asset.name,
+                        expected: asset.installedByteCount,
+                        actual: actualSize)
+                }
+                if let expected = asset.installedSHA256 {
+                    let actual = try await sha256Hex(ofFileAt: expanded) { hashed in
+                        guard asset.installedByteCount > 0 else { return }
+                        let fraction = min(1, Double(hashed) / Double(asset.installedByteCount))
+                        report(inflateEnd + (1 - inflateEnd) * fraction)
+                    }
+                    guard actual == expected else {
+                        throw CircuitAssetError.installedHashMismatch(
+                            name: asset.name, expected: expected, actual: actual)
+                    }
                 }
                 try install(expanded, at: destination)
             } else {
@@ -934,8 +1035,10 @@ actor CircuitAssets {
         .protectionKey: FileProtectionType.completeUnlessOpen
     ]
 
-    /// Rename into place. Same volume, so this is atomic — which is what lets
-    /// `missingAssets()` treat a file's existence as proof it is complete.
+    /// Rename into place. POSIX `rename` replaces an existing file in the same
+    /// atomic operation, so a repair never removes the known copy before the new
+    /// one is ready. A crash sees either the old complete file or the new complete
+    /// file, never the gap produced by `removeItem` followed by `moveItem`.
     private func install(_ source: URL, at destination: URL) throws {
         // Carries the attributes too: this is a no-op for a directory
         // `prepareDirectories` already made, but it must not be the one place
@@ -943,8 +1046,9 @@ actor CircuitAssets {
         try fileManager.createDirectory(at: destination.deletingLastPathComponent(),
                                         withIntermediateDirectories: true,
                                         attributes: Self.directoryAttributes)
-        try? fileManager.removeItem(at: destination)
-        try fileManager.moveItem(at: source, to: destination)
+        guard Darwin.rename(source.path, destination.path) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
     }
 }
 

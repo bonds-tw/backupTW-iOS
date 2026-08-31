@@ -1199,14 +1199,19 @@ actor ZKProver {
     /// .isRejection`, which is an allowlist of things we have actually seen mean
     /// "no". Everything else lands on the "we cannot tell" side on purpose.
     private func verifyOnThisDevice() async throws -> ZKSelfCheck {
-        let missing = verifier.missingArtifacts(in: workingDirectory)
+        // The production implementation re-hashes nearly a gigabyte of pinned
+        // verifying keys here. It is part of the verification, not actor work,
+        // and therefore belongs on the same dedicated queue as Rust below.
+        let verifier = self.verifier
+        let documentsPath = workingDirectory.path
+        let workingDirectory = self.workingDirectory
+        let missing = try await offload {
+            verifier.missingArtifacts(in: workingDirectory)
+        }
         guard missing.isEmpty else { return .notPerformed(missing: missing) }
 
         // Copied out of `self` for the same reason the proving closures are: the
         // body runs on a `DispatchQueue` and must not capture the actor.
-        let verifier = self.verifier
-        let documentsPath = workingDirectory.path
-
         let outcome: ZKVerificationOutcome
         do {
             outcome = try await offload { try verifier.verify(documentsPath: documentsPath) }

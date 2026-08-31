@@ -7,6 +7,7 @@
 //
 
 import CryptoKit
+import Darwin
 import Foundation
 
 // MARK: - What this is, and why it is allowed to exist
@@ -296,7 +297,9 @@ struct SystemVerifyingKeyFileSystem: VerifyingKeyFileSystem {
     }
 
     func moveItem(at source: URL, to destination: URL) throws {
-        try FileManager.default.moveItem(at: source, to: destination)
+        guard Darwin.rename(source.path, destination.path) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
     }
 
     func removeItem(at url: URL) {
@@ -387,18 +390,48 @@ enum VerifyingKeyDerivation {
 
     // MARK: Readiness
 
-    /// Whether the derived key is already sitting there, **at its exact size**.
+    /// Whether the derived key is still exactly the file this build pinned.
     ///
-    /// Stricter than `CircuitAssets.isInstalled`'s `size > 0`, and it can afford
-    /// to be: unlike a download, the expected length here is known to the byte
-    /// before the work starts. A short file is what a jetsam kill during the copy
-    /// would leave if the atomic rename were ever lost, and treating it as
-    /// installed would hand the verifier a truncated key.
+    /// Exact size catches interrupted writes; the streaming SHA-256 catches an
+    /// altered file that kept the same length. The latter matters because a wrong
+    /// verifying key looks like a rejected proof unless it is stopped here.
     static func isDerived(_ key: DerivableVerifyingKey,
                           in directory: URL,
                           fileSystem: any VerifyingKeyFileSystem = SystemVerifyingKeyFileSystem())
         -> Bool {
-        fileSystem.fileSize(at: directory.appendingPathComponent(key.localFilename)) == key.byteCount
+        integrity(of: key, in: directory, fileSystem: fileSystem).isValid
+    }
+
+    static func integrity(of key: DerivableVerifyingKey,
+                          in directory: URL,
+                          fileSystem: any VerifyingKeyFileSystem = SystemVerifyingKeyFileSystem(),
+                          chunkByteCount: Int = defaultChunkByteCount) -> CircuitAssetIntegrity {
+        let url = directory.appendingPathComponent(key.localFilename)
+        guard let size = fileSystem.fileSize(at: url) else { return .missing }
+        guard size == key.byteCount else {
+            return .wrongSize(expected: key.byteCount, actual: size)
+        }
+        let reader: any VerifyingKeyReading
+        do {
+            reader = try fileSystem.openForReading(url)
+        } catch {
+            return .unreadable
+        }
+        defer { reader.close() }
+
+        var hasher = SHA256()
+        let budget = max(1, chunkByteCount)
+        do {
+            while let chunk = try reader.read(upToCount: budget), !chunk.isEmpty {
+                hasher.update(data: chunk)
+            }
+        } catch {
+            return .unreadable
+        }
+        let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        return actual == key.sha256
+            ? .valid
+            : .digestMismatch(expected: key.sha256, actual: actual)
     }
 
     static func outstanding(_ keys: [DerivableVerifyingKey] = all,
@@ -516,7 +549,6 @@ enum VerifyingKeyDerivation {
 
         let destination = directory.appendingPathComponent(key.localFilename)
         do {
-            fileSystem.removeItem(at: destination)
             try fileSystem.moveItem(at: staged, to: destination)
         } catch {
             throw VerifyingKeyDerivationError.inputOutput(name: key.name)
