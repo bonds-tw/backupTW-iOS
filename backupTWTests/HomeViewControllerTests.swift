@@ -14,6 +14,31 @@ import UIKit
 @MainActor
 struct HomeViewControllerTests {
 
+    private func tempVault() throws -> MyDataVaultArchive {
+        try MyDataVaultArchive(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("HomeVaultTests-\(UUID().uuidString)", isDirectory: true))
+    }
+
+    private func source(_ text: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString).pdf")
+        try Data(text.utf8).write(to: url)
+        return url
+    }
+
+    private func mountedHome(store: CredentialStoring, archive: MyDataVaultArchive)
+        -> (HomeViewController, UINavigationController, UIWindow) {
+        let controller = HomeViewController(makeStore: { store }, makeVaultArchive: { archive })
+        let navigation = UINavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = navigation
+        window.isHidden = false
+        controller.loadViewIfNeeded()
+        controller.viewWillAppear(false)
+        window.layoutIfNeeded()
+        return (controller, navigation, window)
+    }
+
     /// Loading the view runs the whole snapshot build — three sections, the
     /// invite-to-create ID card, the empty-government CTA, and the MyData vault —
     /// against whatever the real (fresh) store holds. It must open, not trap:
@@ -42,6 +67,34 @@ struct HomeViewControllerTests {
         func allIDs() throws -> [String] { Array(items.keys).sorted() }
         func delete(id: String) throws { items.removeValue(forKey: id) }
         func deleteAll() throws { items.removeAll() }
+    }
+
+    @Test func anArchivedMyDataOriginalAppearsAndOpensItsOwnDetail() throws {
+        let store = MemoryStore()
+        let archive = try tempVault()
+        try archive.store(originalAt: try source("income"),
+                          id: "mydata-income", fileExtension: "pdf")
+        let (controller, navigation, _) = mountedHome(store: store, archive: archive)
+
+        // National ID / government / MyData. The first MyData item is the stored
+        // original; the second is the import-another control.
+        #expect(controller.collectionView.numberOfItems(inSection: 2) == 2)
+        controller.collectionView(controller.collectionView,
+                                  didSelectItemAt: IndexPath(item: 0, section: 2))
+        #expect(navigation.topViewController is MyDataVaultDocumentViewController)
+        #expect(!(navigation.topViewController is StoredCredentialViewController))
+    }
+
+    @Test func theEmptyVaultOpensTheDocumentPickerNotNationalIDOnboarding() throws {
+        let store = MemoryStore()
+        let archive = try tempVault()
+        let (controller, _, _) = mountedHome(store: store, archive: archive)
+
+        controller.collectionView(controller.collectionView,
+                                  didSelectItemAt: IndexPath(item: 0, section: 2))
+
+        #expect(controller.presentedViewController is UIAlertController)
+        #expect(!(controller.presentedViewController is UINavigationController))
     }
 
     /// The 「刪除卡片」 menu is offered on a face that stands for a stored file and

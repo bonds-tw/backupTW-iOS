@@ -16,8 +16,8 @@ enum MyDataVaultArchiveError: Error, Equatable {
 ///
 /// This deliberately reverses, **for vault documents only**, the destroy-everything
 /// contract that `MyDataScratch` enforces for the national ID. The holder chose to
-/// keep their MyData originals (財力／投保 records) so a self-issued credential can
-/// later be checked against — or re-derived from — the file it actually came from.
+/// keep their MyData originals (財力／投保 records) so they can reopen the
+/// agency-produced document itself and verify that its bytes have not changed.
 /// The national ID is *not* archived here: its household-registration PDF still
 /// lives and dies inside `MyDataScratch`, because it is the single most sensitive
 /// artefact the app touches and nothing asked to keep it.
@@ -40,6 +40,38 @@ final class MyDataVaultArchive {
         /// The original file's extension (e.g. `zip`, `pdf`), lowercased, for
         /// re-processing later. Empty when the download had none.
         let fileExtension: String
+        /// When this phone imported/replaced the original. Optional so metadata
+        /// written by the first vault build (which had only the two fields above)
+        /// continues to decode instead of making a stored document disappear.
+        let importedAt: Date?
+
+        init(sha256: String, fileExtension: String, importedAt: Date? = Date()) {
+            self.sha256 = sha256
+            self.fileExtension = fileExtension
+            self.importedAt = importedAt
+        }
+    }
+
+    /// One original that is actually present in the archive.
+    ///
+    /// The filename is the durable index. `entry` is optional because a crash
+    /// after the original's atomic write but before the metadata write — or an
+    /// older damaged sidecar — must not turn the most sensitive file into an
+    /// invisible orphan the holder cannot inspect or delete.
+    struct Document: Equatable {
+        let id: String
+        let entry: Entry?
+        /// Filesystem fallback for metadata created before `importedAt` existed.
+        let fileModifiedAt: Date?
+
+        var importedAt: Date? { entry?.importedAt ?? fileModifiedAt }
+    }
+
+    enum Integrity: Equatable {
+        case verified
+        case mismatch
+        case metadataMissing
+        case fileMissing
     }
 
     /// The directory this instance owns. Exposed for tests, which must never be
@@ -112,6 +144,50 @@ final class MyDataVaultArchive {
 
     func has(id: String) -> Bool { originalURL(id: id) != nil }
 
+    /// Every original this archive currently holds, including one whose metadata
+    /// cannot be decoded. The original files are enumerated rather than the
+    /// sidecars: a metadata-only remnant contains no personal document, while an
+    /// original-only remnant is exactly the thing the UI must never hide.
+    func documents() throws -> [Document] {
+        let urls = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles])
+
+        return urls.compactMap { url -> Document? in
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey,
+                                                            .isRegularFileKey])
+            guard url.pathExtension == Self.originalExtension,
+                  let id = Self.identifier(fromEncodedFilename: url.deletingPathExtension().lastPathComponent),
+                  values?.isRegularFile == true else {
+                return nil
+            }
+            return Document(id: id, entry: entry(id: id), fileModifiedAt: values?.contentModificationDate)
+        }.sorted { left, right in
+            if left.importedAt != right.importedAt {
+                return (left.importedAt ?? .distantPast) > (right.importedAt ?? .distantPast)
+            }
+            return left.id < right.id
+        }
+    }
+
+    /// Recomputes the fingerprint over the bytes currently stored. This is done
+    /// only on the detail screen, never while building Home: a MyData PDF can be
+    /// large, and opening the wallet must not hash every document before drawing.
+    func integrity(id: String) throws -> Integrity {
+        guard let original = originalURL(id: id) else { return .fileMissing }
+        guard let entry = entry(id: id) else { return .metadataMissing }
+
+        let handle = try FileHandle(forReadingFrom: original)
+        defer { try? handle.close() }
+        var hash = SHA256()
+        while let chunk = try handle.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+            hash.update(data: chunk)
+        }
+        let actual = hash.finalize().map { String(format: "%02x", $0) }.joined()
+        return actual == entry.sha256 ? .verified : .mismatch
+    }
+
     /// Removes the whole archive — every original and its metadata — for the
     /// "erase everything on this phone" path (`LocalDataEraser`). Unlinking the
     /// directory discards the per-file Data Protection keys its contents were
@@ -147,5 +223,24 @@ final class MyDataVaultArchive {
         }
         let name = bytes.map { String(format: "%02x", $0) }.joined() + "." + ext
         return directory.appendingPathComponent(name, isDirectory: false)
+    }
+
+    /// Inverse of `fileURL`'s hex encoding, used only for files already inside
+    /// this archive. A malformed or non-UTF-8 name is ignored rather than turned
+    /// into a path or a UI string.
+    private static func identifier(fromEncodedFilename value: String) -> String? {
+        guard !value.isEmpty, value.count.isMultiple(of: 2) else { return nil }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(value.count / 2)
+        var index = value.startIndex
+        while index < value.endIndex {
+            let next = value.index(index, offsetBy: 2)
+            guard let byte = UInt8(value[index..<next], radix: 16) else { return nil }
+            bytes.append(byte)
+            index = next
+        }
+        guard let id = String(bytes: bytes, encoding: .utf8),
+              !id.isEmpty, id.utf8.count <= maximumIdentifierUTF8Count else { return nil }
+        return id
     }
 }

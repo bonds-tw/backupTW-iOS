@@ -2,13 +2,12 @@
 //  MyDataDocumentType.swift
 //  backupTW
 //
-//  The registry of documents this app can hold via MyData. Today the national ID
-//  (entry #0) is the only one wired end-to-end; the vault entries are the shape
-//  the 資料保險箱 will fill as each one's MyData item path and parser are added
-//  (see the Group D plan — the path per document must be discovered on a real
-//  MyData account and tested on-device). This file is the single place that knows
-//  「which documents exist」, so the vault UI, classification, and (later) the
-//  fetch/issue pipeline all agree.
+//  The registry of documents this app can hold via MyData. The national ID
+//  (entry #0) is parsed and turned into its own signed credential; the remaining
+//  entries retain the original file in the on-device vault. Their real MyData
+//  paths are wired, while real-account/on-device format validation remains the
+//  release gate. This is the single place that knows which documents exist, so
+//  the picker, archive inventory and detail screen agree.
 //
 
 import Foundation

@@ -210,6 +210,26 @@ struct LocalizationCoverageTests {
         }
     }
 
+    /// The fingerprint verdict is the sentence that tells a holder whether the
+    /// original is still the one they imported. Translating only the green path
+    /// would hide the state that actually needs attention.
+    @Test func everyMyDataVaultIntegrityStateReachesAChineseReader() {
+        let states: [MyDataVaultArchive.Integrity] = [
+            .verified, .mismatch, .metadataMissing, .fileMissing,
+        ]
+        for state in states {
+            let message = MyDataVaultDocumentViewController.integrityMessage(state)
+            #expect(Self.readableInChinese(message),
+                    "untranslated MyData vault integrity state: \(message)")
+        }
+        for error in [MyDataVaultPreviewError.originalMissing,
+                      .unsupportedFormat("ZIP"), .noPDF] {
+            let message = error.localizedDescription
+            #expect(Self.readableInChinese(message),
+                    "untranslated MyData vault preview error: \(message)")
+        }
+    }
+
     /// Same construction as `OfflineVerifierTests.everyFailure`, and for the same
     /// reason: `VerificationFailure` has associated values so it cannot be
     /// `CaseIterable`, and a hand-written list silently stops covering the case

@@ -16,6 +16,12 @@ class HomeViewController: UICollectionViewController {
     /// and drive the home screen (stack included) without touching the device store.
     private let makeStore: () -> CredentialStoring?
 
+    /// Opens the raw-original vault independently from the credential store.
+    /// Keeping the two factories separate is the product boundary: a MyData PDF
+    /// is evidence the holder keeps, not a self-issued credential and never a row
+    /// that should be manufactured in `CredentialStore` just to make Home see it.
+    private let makeVaultArchive: () -> MyDataVaultArchive?
+
     /// The single device-motion source that drives every visible card's sheen and
     /// micro-tilt. Owned here (strong) and fed to the cards through a closure that
     /// captures `self` weakly, so there is no cycle. Runs only while this screen is
@@ -102,6 +108,10 @@ class HomeViewController: UICollectionViewController {
     /// answered by *which stored card* it was rather than by a title two cards
     /// share. Recomputed on every rebuild.
     private var cardRows: [String: CardInventoryRow] = [:]
+    /// Raw MyData originals keyed by their document id. Separate from `cardRows`
+    /// so a vault document can never fall through to the national-ID detail or
+    /// receive the credential-only 「present」 action.
+    private var vaultDocuments: [String: MyDataVaultArchive.Document] = [:]
 
     // MARK: - Content
 
@@ -120,11 +130,22 @@ class HomeViewController: UICollectionViewController {
         let rows = store.map { CardInventory.rows(from: $0) }
         cardRows = Dictionary((rows ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
+        let archived: [MyDataVaultArchive.Document]?
+        if let archive = makeVaultArchive() {
+            archived = try? archive.documents()
+        } else {
+            archived = nil
+        }
+        vaultDocuments = Dictionary((archived ?? []).map { ($0.id, $0) },
+                                    uniquingKeysWith: { first, _ in first })
+
         // Self-issued splits two ways: the national ID (its own section, one card)
         // and MyData vault documents (財力/勞保/學歷…), which go to the vault.
         let selfIssued = rows?.filter { $0.source == .selfIssued }
         let nationalID = selfIssued?.filter { !MyDataDocumentRegistry.isVaultDocument(id: $0.id) }
-        let vaultDocs = selfIssued?.filter { MyDataDocumentRegistry.isVaultDocument(id: $0.id) }
+        let legacyVaultCredentials = selfIssued?.filter {
+            MyDataDocumentRegistry.isVaultDocument(id: $0.id) && vaultDocuments[$0.id] == nil
+        }
         // Unrecognised cards ride with the government group, as the old list did:
         // this app mints exactly one self-issued document, so a blob matching
         // neither shape is likelier collected than ours gone wrong.
@@ -132,7 +153,7 @@ class HomeViewController: UICollectionViewController {
 
         return [nationalIDSection(rows: nationalID, store: store),
                 governmentSection(rows: government, store: store),
-                myDataSection(rows: vaultDocs, store: store)]
+                myDataSection(documents: archived, legacyCredentials: legacyVaultCredentials)]
     }
 
     /// The national ID this app builds, kept with the 「更新備份」 control that
@@ -207,19 +228,31 @@ class HomeViewController: UICollectionViewController {
         })
     }
 
-    /// MyData, shown as a source even though this build keeps nothing under it:
-    /// the household record is fetched to build the national ID and erased
-    /// straight after (see `MyDataScratch`). The vault card says that plainly
-    /// rather than showing a vault that will always be empty with no word on why.
-    private func myDataSection(rows: [CardInventoryRow]?,
-                               store: CredentialStoring?) -> (HomeSection, [HomeItem]) {
+    /// MyData originals are listed from `MyDataVaultArchive`, never inferred from
+    /// the credential store. The optional distinguishes an empty archive from one
+    /// that could not be opened — hiding files behind an empty-state card would
+    /// invite the holder to import them again and make the failure worse.
+    private func myDataSection(documents: [MyDataVaultArchive.Document]?,
+                               legacyCredentials: [CardInventoryRow]?) -> (HomeSection, [HomeItem]) {
         let section = HomeSection(id: "mydata",
                                   title: "🗂️ " + NSLocalizedString("MyData vault", comment: "home card group"))
+        guard let documents else {
+            return (section, [.card(id: CardID.unreadableStore(in: "mydata"),
+                                    content: .unreadable(Self.unreadableStoreMessage))])
+        }
         var items: [HomeItem] = []
-        // Held vault documents first, each as its own card face.
-        for row in rows ?? [] {
-            items.append(.card(id: row.id,
-                               content: WalletCardFactory.vaultDocumentContent(row: row, store: store)))
+        for document in documents {
+            items.append(.card(id: document.id,
+                               content: WalletCardFactory.vaultDocumentContent(document)))
+        }
+        // Builds before the raw-original vault existed could leave a self-issued
+        // `mydata-*` credential with no original. It is not silently discarded:
+        // show a neutral, removable row, but do not pretend it is the document or
+        // route it through the national-ID reader.
+        for row in legacyCredentials ?? [] {
+            items.append(.card(id: row.id, content: .unreadable(NSLocalizedString(
+                "This older MyData import has no stored original. Import it again to keep the real document.",
+                comment: "legacy MyData vault item"))))
         }
         // The empty-state 「Sealed / nothing here」 card only when the vault is empty.
         if items.isEmpty {
@@ -242,8 +275,10 @@ class HomeViewController: UICollectionViewController {
 
     // MARK: - Setup
 
-    init(makeStore: @escaping () -> CredentialStoring? = { try? CredentialStore() }) {
+    init(makeStore: @escaping () -> CredentialStoring? = { try? CredentialStore() },
+         makeVaultArchive: @escaping () -> MyDataVaultArchive? = { try? MyDataVaultArchive() }) {
         self.makeStore = makeStore
+        self.makeVaultArchive = makeVaultArchive
         super.init(collectionViewLayout: UICollectionViewLayout())
         collectionView.collectionViewLayout = makeLayout()
     }
@@ -538,9 +573,8 @@ class HomeViewController: UICollectionViewController {
                 guard let self, let cell,
                       let indexPath = self.collectionView.indexPath(for: cell),
                       let item = self.dataSource.itemIdentifier(for: indexPath),
-                      case .card(let id, _) = item,
-                      let card = self.cardRows[id] else { return }
-                self.open(card)
+                      case .card(let id, _) = item else { return }
+                self.openCard(id: id)
             }
         }
         let controlRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, ControlRow> {
@@ -661,13 +695,12 @@ extension HomeViewController {
             // two government cards share a title, so title-matching would open the
             // wrong one. (This path now carries the unreadable stored faces, whose
             // `open` shows the honest 「could not be read」 alert.)
-            if let card = cardRows[id] {
-                open(card)
-            } else if id == CardID.nationalIDPlaceholder || id == CardID.vault {
-                // The invite-to-create ID card and the MyData vault are two doors
-                // onto the one flow: MyData is fetched only to build the national
-                // ID, so both open the onboarding flow.
+            if vaultDocuments[id] != nil || cardRows[id] != nil {
+                openCard(id: id)
+            } else if id == CardID.nationalIDPlaceholder {
                 presentMyDataOnboard()
+            } else if id == CardID.vault {
+                presentImportPicker()
             }
             // The two 「storage would not open」 faces have no destination and are
             // left inert.
@@ -724,10 +757,11 @@ extension HomeViewController {
         presentMyDataOnboard(documentType: type)
     }
 
-    // MARK: - Delete one card
+    // MARK: - Manage one stored item
 
-    /// A long-press context menu, offered **only** on a face that stands for a
-    /// real stored credential.
+    /// A long-press context menu, offered only on a face backed by a real stored
+    /// item. Credentials may be presented; raw MyData originals may be opened or
+    /// deleted but never presented as credentials.
     ///
     /// The eligibility rule is `deletableCard(forCardID:in:)` and it is the same
     /// keying the tap router already trusts: a card is deletable exactly when its
@@ -742,10 +776,38 @@ extension HomeViewController {
                                  contextMenuConfigurationForItemAt indexPath: IndexPath,
                                  point: CGPoint) -> UIContextMenuConfiguration? {
         guard let item = dataSource.itemIdentifier(for: indexPath),
-              case .card(let id, _) = item,
-              let card = Self.deletableCard(forCardID: id, in: cardRows) else { return nil }
+              case .card(let id, _) = item else { return nil }
+
+        if let document = Self.deletableVaultDocument(forID: id, in: vaultDocuments) {
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+                let open = UIAction(
+                    title: NSLocalizedString("View original document", comment: ""),
+                    image: UIImage(systemName: "doc.text.magnifyingglass")) { [weak self] _ in
+                        self?.openVaultDocument(document)
+                    }
+                let delete = UIAction(
+                    title: NSLocalizedString("Delete document", comment: ""),
+                    image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+                        self?.confirmDelete(document)
+                    }
+                return UIMenu(title: "", children: [open, delete])
+            }
+        }
+
+        guard let card = Self.deletableCard(forCardID: id, in: cardRows) else { return nil }
 
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            // An older build may have minted a `mydata-*` self-issued credential
+            // before the vault retained originals. It can be removed, but it is
+            // not offered to a verifier as though it were the MyData document.
+            if MyDataDocumentRegistry.isVaultDocument(id: card.id) {
+                let delete = UIAction(
+                    title: NSLocalizedString("Delete document", comment: ""),
+                    image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+                        self?.confirmDelete(card)
+                    }
+                return UIMenu(title: "", children: [delete])
+            }
             let present = UIAction(
                 title: NSLocalizedString("Present credential", comment: "card context menu"),
                 image: UIImage(systemName: "person.badge.shield.checkmark")) { [weak self] _ in
@@ -760,6 +822,12 @@ extension HomeViewController {
                 }
             return UIMenu(title: "", children: [present, delete])
         }
+    }
+
+    static func deletableVaultDocument(forID id: String,
+                                       in documents: [String: MyDataVaultArchive.Document])
+        -> MyDataVaultArchive.Document? {
+        documents[id]
     }
 
     /// The stored card a 「刪除卡片」 action on `id` would remove, or nil when the
@@ -809,6 +877,21 @@ extension HomeViewController {
         present(alert, animated: true)
     }
 
+    private func confirmDelete(_ document: MyDataVaultArchive.Document) {
+        let alert = UIAlertController(
+            title: NSLocalizedString("Delete this document?", comment: ""),
+            message: NSLocalizedString(
+                "The protected original and its saved fingerprint will be removed from this phone. You can import it again later from MyData.",
+                comment: ""),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Delete", comment: ""), style: .destructive) { [weak self] _ in
+                self?.performDelete(document)
+            })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
+    }
+
     /// Removes exactly this card, then rebuilds the list so it disappears.
     ///
     /// A fresh `CredentialStore()` for the one call, matching every other write
@@ -843,6 +926,21 @@ extension HomeViewController {
         }
     }
 
+    private func performDelete(_ document: MyDataVaultArchive.Document) {
+        do {
+            guard let archive = makeVaultArchive() else { throw CocoaError(.fileNoSuchFile) }
+            try archive.delete(id: document.id)
+            applySnapshot()
+        } catch {
+            let alert = UIAlertController(
+                title: NSLocalizedString("The document was not deleted", comment: ""),
+                message: NSLocalizedString("The protected original is still on this phone. Try again in a moment.", comment: ""),
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .cancel))
+            present(alert, animated: true)
+        }
+    }
+
     private func presentMyDataOnboard(documentType: MyDataDocumentType = MyDataDocumentRegistry.nationalID) {
         let vc = MyDataOnboardViewController(documentType: documentType)
         let nav = UINavigationController(rootViewController: vc)
@@ -850,11 +948,53 @@ extension HomeViewController {
         present(nav, animated: true)
     }
 
+    /// One routing table for both front-card taps and the flip-side detail button.
+    /// Vault originals win over credential rows with the same id, so an upgrade
+    /// that retained both cannot accidentally open the national-ID reader.
+    private func openCard(id: String) {
+        if let document = vaultDocuments[id] {
+            openVaultDocument(document)
+        } else if let card = cardRows[id] {
+            open(card)
+        }
+    }
+
+    private func openVaultDocument(_ document: MyDataVaultArchive.Document) {
+        guard let archive = makeVaultArchive() else {
+            let alert = UIAlertController(
+                title: NSLocalizedString("Could not open the document", comment: ""),
+                message: Self.unreadableStoreMessage, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .cancel))
+            present(alert, animated: true)
+            return
+        }
+        let detail = MyDataVaultDocumentViewController(id: document.id, archive: archive) { [weak self] in
+            self?.applySnapshot()
+        }
+        navigationController?.pushViewController(detail, animated: true)
+    }
+
     /// What tapping a stored card does — including when the answer is 「nothing
     /// yet」. Routed by source and id, never by title: pushing the wrong detail
     /// screen would show a holder a different card's contents under the row they
     /// tapped.
     private func open(_ card: CardInventoryRow) {
+        if MyDataDocumentRegistry.isVaultDocument(id: card.id) {
+            let alert = UIAlertController(
+                title: NSLocalizedString("Original file missing", comment: ""),
+                message: NSLocalizedString(
+                    "This older MyData import kept a self-issued record but not the original document. Import it again from MyData to replace it with the protected original.",
+                    comment: "legacy MyData vault item"),
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("Import again", comment: ""),
+                                          style: .default) { [weak self] _ in
+                guard let type = MyDataDocumentRegistry.lookup(id: card.id) else { return }
+                self?.presentMyDataOnboard(documentType: type)
+            })
+            alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+            present(alert, animated: true)
+            return
+        }
         if card.source == .selfIssued, card.state == .usable {
             navigationController?.pushViewController(StoredCredentialViewController(), animated: true)
             return

@@ -261,26 +261,37 @@ enum WalletCardFactory {
         .vault(VaultCard(
             title: NSLocalizedString("Nothing stored here", comment: "vault card title"),
             message: NSLocalizedString(
-                "Your household record is fetched through MyData only to build your national ID, then erased — nothing is kept here.",
+                "Import a financial, insurance, tax, property, or household document from MyData. Its protected original stays only on this phone.",
                 comment: "vault card message"),
             status: NSLocalizedString("Sealed", comment: "vault card status")))
     }
 
-    /// A held MyData vault document, drawn as a graphite credential face. It is
-    /// 「self-held」 — wrapped from MyData data by this phone, not signed by the
-    /// agency — so it is badged as such and never dressed up as agency-issued.
-    static func vaultDocumentContent(row: CardInventoryRow, store: CredentialStoring?) -> WalletCardContent {
-        .credential(CredentialCard(
-            kind: row.title,
-            kindEnglish: nil,
-            issuer: NSLocalizedString("Held by you · from MyData", comment: "vault document issuer line"),
-            holderName: nil,
-            primaryMasked: nil,
-            trustSource: NSLocalizedString("Self-held", comment: "vault document trust source"),
-            leftField: nil,
-            rightField: nil,
-            tint: .neutral,
-            backFields: []))
+    /// A held MyData original, kept visually in the graphite vault family rather
+    /// than drawn as a credential. The source file has no holder key, issuer
+    /// signature or disclosure semantics, so a credential face would promise
+    /// properties it does not have and would also expose a meaningless flip side.
+    static func vaultDocumentContent(_ document: MyDataVaultArchive.Document) -> WalletCardContent {
+        let title = MyDataDocumentRegistry.lookup(id: document.id)?.title
+            ?? UntrustedText.term(document.id).text
+        let format = document.entry.flatMap { entry in
+            entry.fileExtension.isEmpty
+                ? nil
+                : UntrustedText.term(entry.fileExtension.uppercased()).text
+        } ?? NSLocalizedString("Unknown format", comment: "vault document card")
+        let imported: String
+        if let date = document.importedAt {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            imported = String(format: NSLocalizedString("Imported %@", comment: "vault document card"),
+                              formatter.string(from: date))
+        } else {
+            imported = NSLocalizedString("Import time unknown", comment: "vault document card")
+        }
+        return .vault(VaultCard(
+            title: title,
+            message: "\(format) · \(imported)",
+            status: NSLocalizedString("Original stored", comment: "vault document card")))
     }
 
     // MARK: - Tint selection (a colour is not a claim)

@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import PDFKit
 import Testing
 import UIKit
 @testable import backupTW
@@ -27,7 +28,7 @@ struct PrivacyShieldTests {
     /// anything, `sceneWillResignActive` was empty, and a checker's phone kept a
     /// readable picture of somebody else's national ID until the card was swiped
     /// away.
-    @Test func theScreensThatShowIdentityDataDeclareThemselvesShielded() {
+    @Test func theScreensThatShowIdentityDataDeclareThemselvesShielded() throws {
         let result: UIViewController = VerificationResultViewController(outcome: .verified(Self.presentation()))
         let holder: UIViewController = PresentCredentialViewController(holder: HolderPresentation(store: StubStore()))
         let scanner: UIViewController = QRScanningViewController(title: "t", prompt: "p") { _ in .stop }
@@ -39,8 +40,14 @@ struct PrivacyShieldTests {
         // already shielded.
         let onboard: UIViewController = MyDataOnboardViewController()
         let stored: UIViewController = StoredCredentialViewController()
+        let vaultDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PrivacyShieldVault-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: vaultDirectory) }
+        let vault: UIViewController = MyDataVaultDocumentViewController(
+            id: "mydata-income", archive: try MyDataVaultArchive(directory: vaultDirectory))
+        let vaultPDF: UIViewController = MyDataVaultPDFViewController(title: "test", document: PDFDocument())
 
-        for screen in [result, holder, scanner, onboard, stored] {
+        for screen in [result, holder, scanner, onboard, stored, vault, vaultPDF] {
             let shielded = screen as? PrivacyShieldedScreen
             #expect(shielded != nil, "\(type(of: screen)) does not declare itself shielded")
             #expect(shielded?.needsPrivacyShield == true)

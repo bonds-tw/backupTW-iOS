@@ -36,10 +36,72 @@ struct MyDataVaultArchiveTests {
 
         #expect(entry.fileExtension == "zip")
         #expect(entry.sha256 == hex(of: bytes))
+        #expect(entry.importedAt != nil)
         #expect(archive.has(id: "mydata-income"))
         #expect(archive.entry(id: "mydata-income") == entry)
         let stored = try #require(archive.originalURL(id: "mydata-income"))
         #expect(try Data(contentsOf: stored) == bytes)
+    }
+
+    @Test func listsStoredOriginalsWithoutNeedingCredentialStoreRows() throws {
+        let archive = try MyDataVaultArchive(directory: tempDirectory())
+        try archive.store(originalAt: try writeSource(Data("income".utf8)),
+                          id: "mydata-income", fileExtension: "zip")
+        try archive.store(originalAt: try writeSource(Data("land".utf8)),
+                          id: "mydata-land", fileExtension: "pdf")
+
+        let documents = try archive.documents()
+        #expect(Set(documents.map(\.id)) == ["mydata-income", "mydata-land"])
+        #expect(documents.allSatisfy { $0.entry != nil })
+        #expect(documents.allSatisfy { $0.importedAt != nil })
+    }
+
+    @Test func anOriginalWithBrokenMetadataStaysVisibleAndDeletable() throws {
+        let dir = tempDirectory()
+        let archive = try MyDataVaultArchive(directory: dir)
+        try archive.store(originalAt: try writeSource(Data("income".utf8)),
+                          id: "mydata-income", fileExtension: "zip")
+        let metadata = try #require(FileManager.default.contentsOfDirectory(at: dir,
+                                                                             includingPropertiesForKeys: nil)
+            .first { $0.pathExtension == "meta" })
+        try Data("not json".utf8).write(to: metadata)
+
+        let document = try #require(archive.documents().first)
+        #expect(document.id == "mydata-income")
+        #expect(document.entry == nil)
+        #expect(try archive.integrity(id: document.id) == .metadataMissing)
+
+        try archive.delete(id: document.id)
+        #expect(try archive.documents().isEmpty)
+    }
+
+    @Test func verifiesAndDetectsChangedOriginalBytes() throws {
+        let archive = try MyDataVaultArchive(directory: tempDirectory())
+        try archive.store(originalAt: try writeSource(Data("original".utf8)),
+                          id: "mydata-income", fileExtension: "pdf")
+        #expect(try archive.integrity(id: "mydata-income") == .verified)
+
+        let stored = try #require(archive.originalURL(id: "mydata-income"))
+        try Data("changed".utf8).write(to: stored)
+        #expect(try archive.integrity(id: "mydata-income") == .mismatch)
+    }
+
+    @Test func metadataFromTheFirstVaultVersionStillDecodes() throws {
+        let dir = tempDirectory()
+        let archive = try MyDataVaultArchive(directory: dir)
+        try archive.store(originalAt: try writeSource(Data("old".utf8)),
+                          id: "mydata-income", fileExtension: "zip")
+        let metadata = try #require(FileManager.default.contentsOfDirectory(at: dir,
+                                                                             includingPropertiesForKeys: nil)
+            .first { $0.pathExtension == "meta" })
+        let legacy = "{\"sha256\":\"\(hex(of: Data("old".utf8)))\",\"fileExtension\":\"zip\"}"
+        try Data(legacy.utf8).write(to: metadata)
+
+        let document = try #require(archive.documents().first)
+        #expect(document.entry?.fileExtension == "zip")
+        #expect(document.entry?.importedAt == nil)
+        #expect(document.importedAt != nil) // filesystem fallback
+        #expect(try archive.integrity(id: document.id) == .verified)
     }
 
     @Test func storeReplacesAnEarlierOriginalUnderTheSameID() throws {

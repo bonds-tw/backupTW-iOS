@@ -106,6 +106,13 @@ extension StoredCredentialViewController: PrivacyShieldedScreen {}
 /// logic changes, by somebody editing a different file.
 extension GovernmentCardViewController: PrivacyShieldedScreen {}
 
+/// A MyData vault detail shows the fingerprint and provenance of a financial,
+/// insurance, tax, property or household document. The PDF screen shows the raw
+/// original itself. Both are sensitive from the moment they are on-screen, so
+/// neither may survive in the app-switcher snapshot.
+extension MyDataVaultDocumentViewController: PrivacyShieldedScreen {}
+extension MyDataVaultPDFViewController: PrivacyShieldedScreen {}
+
 // MARK: - The shield
 
 /// Covers the window while the app is not in front, if anything on it said it
@@ -260,6 +267,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         let window = UIWindow(windowScene: windowScene)
 
+        #if DEBUG
+        Self.seedVaultForUITestIfRequested()
+        #endif
+
         // Creating the tab bar. Two tabs: 「首頁」 (what you hold) and 「使用」
         // (what you can do). Settings is no longer a tab — it moved to a gear in
         // the top-right of both, presented modally, so the tab bar carries only
@@ -311,6 +322,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
         self.window = window
     }
+
+    #if DEBUG
+    /// UI tests run in a different process and cannot inject Home's archive
+    /// factory. This narrow launch seam creates one content-free PDF-shaped
+    /// original in the test app's own sandbox. It is DEBUG-only, requires an
+    /// explicit environment flag, and contains no personal/test-card data.
+    private static func seedVaultForUITestIfRequested() {
+        guard ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_SEED_VAULT"] == "1",
+              let archive = try? MyDataVaultArchive() else { return }
+        let source = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ui-test-vault-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: source) }
+        do {
+            try Data("%PDF-1.4 UI test only\n%%EOF\n".utf8).write(to: source,
+                                                                     options: .atomic)
+            try archive.store(originalAt: source, id: "mydata-income", fileExtension: "pdf")
+        } catch {
+            // The UI assertion reports the missing card with the screen's visible
+            // labels; a launch-time test fixture must never crash the app.
+        }
+    }
+    #endif
 
     /// The `backuptw://` return leg of the TW FidO App-to-App flow, and the
     /// `openid-credential-offer://` entry of the TWDIW collection flow.

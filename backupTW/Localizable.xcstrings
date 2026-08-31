@@ -8235,6 +8235,345 @@
           }
         }
       }
+    },
+    "Could not open the document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法開啟文件"
+          }
+        }
+      }
+    },
+    "Delete document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除文件"
+          }
+        }
+      }
+    },
+    "Delete this document?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要刪除這份文件嗎？"
+          }
+        }
+      }
+    },
+    "Download this document again and replace the stored original.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新下載這份文件，取代目前保存的原始檔。"
+          }
+        }
+      }
+    },
+    "Import a financial, insurance, tax, property, or household document from MyData. Its protected original stays only on this phone.": {
+      "comment": "vault card message",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從 MyData 匯入財力、保險、稅務、不動產或戶籍文件；受保護的原始檔只留在這支手機。"
+          }
+        }
+      }
+    },
+    "Import again": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新匯入"
+          }
+        }
+      }
+    },
+    "Import time unknown": {
+      "comment": "vault document card",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入時間不明"
+          }
+        }
+      }
+    },
+    "Imported": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入時間"
+          }
+        }
+      }
+    },
+    "Imported %@": {
+      "comment": "vault document card",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 匯入"
+          }
+        }
+      }
+    },
+    "Manage": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理"
+          }
+        }
+      }
+    },
+    "Metadata missing": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中繼資料遺失"
+          }
+        }
+      }
+    },
+    "MyData document": {
+      "comment": "vault document detail title",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 文件"
+          }
+        }
+      }
+    },
+    "Open the protected copy stored on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟保存在這支手機上的受保護副本。"
+          }
+        }
+      }
+    },
+    "Original file missing": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原始檔遺失"
+          }
+        }
+      }
+    },
+    "Original stored": {
+      "comment": "vault document card",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存原始檔"
+          }
+        }
+      }
+    },
+    "Remove the original file and its fingerprint from this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從這支手機移除原始檔及其檔案指紋。"
+          }
+        }
+      }
+    },
+    "Replace from MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從 MyData 更新"
+          }
+        }
+      }
+    },
+    "The document could not be deleted from this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法從這支手機刪除文件。"
+          }
+        }
+      }
+    },
+    "The document was not deleted": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件未刪除"
+          }
+        }
+      }
+    },
+    "The original file is missing.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原始檔已遺失。"
+          }
+        }
+      }
+    },
+    "The original file is no longer stored on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機已不再保存原始檔。"
+          }
+        }
+      }
+    },
+    "The original is present, but its fingerprint metadata is missing.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原始檔仍在，但檔案指紋的中繼資料遺失了。"
+          }
+        }
+      }
+    },
+    "The protected original and its saved fingerprint will be removed from this phone. You can import it again later from MyData.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "受保護的原始檔與保存的檔案指紋都會從這支手機移除；日後可再從 MyData 匯入。"
+          }
+        }
+      }
+    },
+    "The protected original is still on this phone. Try again in a moment.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "受保護的原始檔仍在這支手機上，請稍後再試。"
+          }
+        }
+      }
+    },
+    "The stored file does not contain a PDF this version can show.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存的檔案中沒有這個版本能顯示的 PDF。"
+          }
+        }
+      }
+    },
+    "This document is no longer stored on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機已不再保存這份文件。"
+          }
+        }
+      }
+    },
+    "This older MyData import has no stored original. Import it again to keep the real document.": {
+      "comment": "legacy MyData vault item",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份舊版 MyData 匯入沒有保存原始檔；請重新匯入，以保留真正的文件。"
+          }
+        }
+      }
+    },
+    "This older MyData import kept a self-issued record but not the original document. Import it again from MyData to replace it with the protected original.": {
+      "comment": "legacy MyData vault item",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份舊版 MyData 匯入只留下自簽紀錄，沒有原始文件。請重新從 MyData 匯入，改為保存受保護的原始檔。"
+          }
+        }
+      }
+    },
+    "This version cannot preview %@ files yet. The protected original is still stored.": {
+      "comment": "MyData vault preview unsupported",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個版本還不能預覽 %@ 檔；受保護的原始檔仍有保存。"
+          }
+        }
+      }
+    },
+    "Unknown format": {
+      "comment": "vault document card",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "格式不明"
+          }
+        }
+      }
+    },
+    "Verified — the file matches the fingerprint saved when it was imported.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查核通過——檔案與匯入時保存的指紋相符。"
+          }
+        }
+      }
+    },
+    "View original document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看原始文件"
+          }
+        }
+      }
+    },
+    "Warning — the file no longer matches its saved fingerprint.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "警告——檔案已與保存的指紋不符。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
