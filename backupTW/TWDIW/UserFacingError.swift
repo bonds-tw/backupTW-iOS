@@ -126,6 +126,46 @@ enum UserFacingError {
         }
     }
 
+    /// A message for the official convenience-store barcode flow. It may fail
+    /// while loading the scenario, presenting the telecom card, or asking the
+    /// verifier for its encrypted PNG, so all three families are translated in
+    /// one place for the two screens that run the flow.
+    static func pickupMessage(for error: Error) -> String {
+        switch error {
+        case let e as ConvenienceStorePickupError:
+            switch e {
+            case .network:
+                return NSLocalizedString("Could not reach the pickup service. Check your connection and try again.",
+                                         comment: "pickup error: network")
+            case .badStatus(let code):
+                return String(format: NSLocalizedString(
+                    "The pickup service could not create a barcode (it returned %d). Please try again.",
+                    comment: "pickup error: bad status"), code)
+            case .scenarioUnavailable:
+                return NSLocalizedString("7-ELEVEN pickup is not available in the official service list right now. Please try again later.",
+                                         comment: "pickup error: unavailable")
+            case .trustEvidenceUnavailable:
+                return NSLocalizedString("The app could not compare the trust-list API with the current Arbitrum record, so no credential was presented. Please try again later.",
+                                         comment: "pickup error: trust evidence unavailable")
+            case .untrustedService, .unexpectedRequest:
+                return NSLocalizedString("The pickup request did not match the trusted 7-ELEVEN service, so no credential was presented.",
+                                         comment: "pickup error: trust mismatch")
+            case .serverCode(let code):
+                return String(format: NSLocalizedString(
+                    "The pickup service refused this request (code %@). Make a fresh barcode and try again.",
+                    comment: "pickup error: server code"), code)
+            case .malformedResponse, .invalidBarcodeImage:
+                return NSLocalizedString("The pickup service returned a barcode the app could not read. Please try again.",
+                                         comment: "pickup error: malformed")
+            }
+        case is OID4VPRequestError, is OID4VPResponseError, is TrustListFetcherError:
+            return presentationMessage(for: error)
+        default:
+            return NSLocalizedString("Creating the pickup barcode did not work. Please try again.",
+                                     comment: "pickup error: unknown")
+        }
+    }
+
     /// A message for any error reaching the presentation flow — reading the
     /// verifier's request, or sending the answer.
     static func presentationMessage(for error: Error) -> String {

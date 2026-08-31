@@ -38,6 +38,7 @@ struct FieldLabelDirectoryTests {
         #expect(StoredNationalID.label(for: "gDate") == NSLocalizedString("Issue date", comment: ""))
         #expect(StoredNationalID.label(for: "expiry_date") == NSLocalizedString("Valid until", comment: ""))
         #expect(StoredNationalID.label(for: "Phone_number_last3") == NSLocalizedString("Mobile number (last 3)", comment: ""))
+        #expect(StoredNationalID.label(for: "phonel5") == NSLocalizedString("Mobile number (last 5)", comment: ""))
         // Adding `controlnumber` must not have disturbed the licence number.
         #expect(StoredNationalID.label(for: "license_number") == NSLocalizedString("Licence number", comment: ""))
     }

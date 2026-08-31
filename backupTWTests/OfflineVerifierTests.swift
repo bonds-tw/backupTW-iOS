@@ -1371,6 +1371,13 @@ struct OfflineVerifierNetworkTests {
             // being checked. Caught by this scan on the commit that introduced it —
             // the list working.
             "TWDIW/TelecomCardCatalog.swift",
+            // The official convenience-store pickup exchange: fetches the
+            // holder-selected scenario and signed OID4VP request, posts the two
+            // explicitly approved telecom-card disclosures, then asks that same
+            // trusted verifier for its short-lived encrypted PNG. It is reached
+            // only by tapping the pickup action and never by offline checking.
+            // The app does not render disclosed values into a local barcode.
+            "TWDIW/ConvenienceStorePickup.swift",
             // The embedded issuer web view where a holder finishes an application
             // the card cannot hand over up front (電信卡 verifies the line, 駕照驗證卡
             // logs in to 監理服務網). A browser is a network client by definition,

@@ -1,6 +1,376 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Arbitrum block: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arbitrum 區塊：%@"
+          }
+        }
+      }
+    },
+    "Service trust verified": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務信任已核對"
+          }
+        }
+      }
+    },
+    "Transaction: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交易：%@"
+          }
+        }
+      }
+    },
+    "Trust-list API: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信任清單 API：%@"
+          }
+        }
+      }
+    },
+    "7-ELEVEN parcel pickup": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統一超商包裹取貨"
+          }
+        }
+      }
+    },
+    "7-ELEVEN pickup barcode": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統一超商取貨條碼"
+          }
+        }
+      }
+    },
+    "7-ELEVEN pickup is not available in the official service list right now. Please try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方服務清單目前未提供統一超商取貨，請稍後再試。"
+          }
+        }
+      }
+    },
+    "Approve sharing your name and phone-number last five digits for 7-ELEVEN pickup": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同意提供姓名及手機後 5 碼以產生統一超商取貨條碼"
+          }
+        }
+      }
+    },
+    "By tapping “Create barcode”, you agree to provide your name and the last five digits of your mobile number to 7-ELEVEN for this parcel pickup check.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "點選「產生條碼」即表示同意將姓名及手機後 5 碼提供給統一超商，用於本次包裹取貨查驗。"
+          }
+        }
+      }
+    },
+    "Could not reach the pickup service. Check your connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上取貨服務，請檢查網路後再試。"
+          }
+        }
+      }
+    },
+    "Create a convenience-store pickup barcode": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產生超商取貨條碼"
+          }
+        }
+      }
+    },
+    "Create a new barcode": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新產生條碼"
+          }
+        }
+      }
+    },
+    "Create barcode": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "產生條碼"
+          }
+        }
+      }
+    },
+    "Creating the pickup barcode did not work. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法產生取貨條碼，請再試一次。"
+          }
+        }
+      }
+    },
+    "Credential ID": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證序號"
+          }
+        }
+      }
+    },
+    "Credential issuer": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證核發者"
+          }
+        }
+      }
+    },
+    "Data being provided": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提供的資料"
+          }
+        }
+      }
+    },
+    "Done scanning": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成掃描"
+          }
+        }
+      }
+    },
+    "Last 5 digits of phone number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手機後 5 碼"
+          }
+        }
+      }
+    },
+    "Last five digits": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "末五碼"
+          }
+        }
+      }
+    },
+    "Mobile number (last 5)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手機號碼（後 5 碼）"
+          }
+        }
+      }
+    },
+    "Phone-number credential": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "門號電子卡"
+          }
+        }
+      }
+    },
+    "President Chain Store Corporation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統一超商股份有限公司"
+          }
+        }
+      }
+    },
+    "Providing data to: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提供資料的對象：%@"
+          }
+        }
+      }
+    },
+    "QR code expires in %02d:%02d": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR Code 將於 %1$02d:%2$02d 後失效"
+          }
+        }
+      }
+    },
+    "Required by the credential protocol": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證協定必要資料"
+          }
+        }
+      }
+    },
+    "Selected": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已選取"
+          }
+        }
+      }
+    },
+    "Set a passcode on this phone before presenting the credential.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先為這支手機設定解鎖密碼，才能出示憑證。"
+          }
+        }
+      }
+    },
+    "Show this credential barcode to the scanner": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請出示憑證條碼進行掃描"
+          }
+        }
+      }
+    },
+    "Tap the QR code to enlarge it": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "點擊下圖 QR Code 可以放大"
+          }
+        }
+      }
+    },
+    "The app could not compare the trust-list API with the current Arbitrum record, so no credential was presented. Please try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前無法比對信任清單 API 與 Arbitrum 的現行紀錄，因此沒有出示任何憑證，請稍後再試。"
+          }
+        }
+      }
+    },
+    "The pickup request did not match the trusted 7-ELEVEN service, so no credential was presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取貨請求與受信任的統一超商服務不符，因此沒有出示任何憑證。"
+          }
+        }
+      }
+    },
+    "The pickup service could not create a barcode (it returned %d). Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取貨服務無法產生條碼（回傳狀態 %d），請再試一次。"
+          }
+        }
+      }
+    },
+    "The pickup service refused this request (code %@). Make a fresh barcode and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取貨服務拒絕這次請求（代碼 %@），請重新產生條碼後再試。"
+          }
+        }
+      }
+    },
+    "The pickup service returned a barcode the app could not read. Please try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取貨服務傳回的條碼無法讀取，請再試一次。"
+          }
+        }
+      }
+    },
+    "This QR code has expired": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個 QR Code 已失效"
+          }
+        }
+      }
+    },
+    "Use your phone-number card to create a short-lived 7-ELEVEN pickup barcode.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用門號電子卡產生短效的統一超商取貨條碼。"
+          }
+        }
+      }
+    },
     "App Attest UAT check": {
       "localizations": {
         "zh-Hant": {

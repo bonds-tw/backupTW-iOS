@@ -84,7 +84,14 @@ enum OID4VPPresentation {
     /// TWDIW organisations' own hosts. Built from the same trust list collection
     /// fetches, so the two directions cannot disagree about who is real.
     private static func verifierHosts() async throws -> Set<String> {
-        var list = try await TrustListFetcher(session: .shared).fetchAll()
+        verifierHosts(from: try await TrustListFetcher(session: .shared).fetchAll())
+    }
+
+    /// Pure trust-list projection shared with service-specific presentations.
+    /// Keeping network injection in the caller lets tests use a private session
+    /// without turning this coordinator into another socket-opening surface.
+    static func verifierHosts(from fetchedList: [TWDIWIssuer]) -> Set<String> {
+        var list = fetchedList
         #if DEBUG
         // DEBUG only: a development build talks to the demo verifier, whose host
         // is not on the production list — the mirror of the sandbox issuer

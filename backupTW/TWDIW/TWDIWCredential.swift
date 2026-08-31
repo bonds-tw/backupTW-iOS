@@ -72,6 +72,11 @@ struct TWDIWCredential: Equatable {
     let issuerDID: String
     let subjectDID: String
 
+    /// The issuer-assigned credential identifier from the signed JWT `jti`.
+    /// Production uses a credential URL whose last path component is the UUID
+    /// shown as 「憑證序號」 in the official disclosure screen.
+    let credentialID: String?
+
     /// `vc.type[1]` — the issuer's own opaque identifier for this kind of card,
     /// e.g. `00000000_demo_drivinglicense_202504251418`.
     ///
@@ -229,6 +234,7 @@ enum TWDIWCredentialReader {
             serialized: serialized,
             issuerDID: iss,
             subjectDID: sub,
+            credentialID: (payload["jti"] as? String).flatMap { $0.isEmpty ? nil : $0 },
             credentialType: types[1],
             notBefore: date(payload["nbf"]) ?? now,
             expires: date(payload["exp"]) ?? .distantFuture,

@@ -36,6 +36,7 @@ class UseViewController: UICollectionViewController {
     private enum Row {
         static let collect = NSLocalizedString("Add a card by scanning", comment: "")
         static let applyTelecom = NSLocalizedString("Apply for a phone-number card", comment: "")
+        static let pickupBarcode = NSLocalizedString("Create a convenience-store pickup barcode", comment: "")
         static let presentOnline = NSLocalizedString("Present a card to a verifier", comment: "")
         static let compare = NSLocalizedString("What each of these cards is worth", comment: "")
         static let present = NSLocalizedString("Show my document", comment: "")
@@ -60,7 +61,8 @@ class UseViewController: UICollectionViewController {
         // 「this phone's storage would not open」 into 「you hold no cards」 — and
         // here the second lie is spoken in front of a checker. `CredentialStore`'s
         // own layers refuse this substitution, and so does `HomeViewController`.
-        let rows = (try? CredentialStore()).map { CardInventory.rows(from: $0) }
+        let store = try? CredentialStore()
+        let rows = store.map { CardInventory.rows(from: $0) }
 
         // `presentOnline` and `compare` appear only once at least one card exists
         // — the gating the home screen already applied (`!rows.isEmpty`): there is
@@ -68,8 +70,9 @@ class UseViewController: UICollectionViewController {
         // on a phone that holds no card. `collect` is unconditional, because a
         // fresh install scanning a government offer first is a real path.
         let hasAnyCard = !(rows ?? []).isEmpty
+        let hasTelecomCard = store.map(Self.hasTelecomCredential(in:)) ?? false
 
-        return [onlineSection(hasAnyCard: hasAnyCard),
+        return [onlineSection(hasAnyCard: hasAnyCard, hasTelecomCard: hasTelecomCard),
                 offlineSection(hasDocument: rows?.contains { $0.source == .selfIssued } ?? false,
                                storeIsReadable: rows != nil),
                 experimentalSection()]
@@ -99,7 +102,7 @@ class UseViewController: UICollectionViewController {
     /// `collect` is unconditional; `presentOnline` and `compare` are gated on
     /// there being at least one card, which is the gating the single-list home
     /// screen already had — not a new rule, the same one relocated.
-    private func onlineSection(hasAnyCard: Bool) -> Section {
+    private func onlineSection(hasAnyCard: Bool, hasTelecomCard: Bool) -> Section {
         let title = "🌐 " + NSLocalizedString("Online", comment: "use section")
 
         // Collecting an official card by scanning its QR — independent of MyData,
@@ -136,10 +139,31 @@ class UseViewController: UICollectionViewController {
                                  secondaryText: NSLocalizedString(
                                     "Scan a verifier's QR and choose exactly what to show.", comment: ""))
 
+        let pickupBarcode = Item(image: UIImage(systemName: "shippingbox.and.arrow.backward")?
+                                    .withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
+                                 title: Row.pickupBarcode,
+                                 secondaryText: NSLocalizedString(
+                                    "Use your phone-number card to create a short-lived 7-ELEVEN pickup barcode.", comment: ""))
+
         // 「每張卡值多少」 (the card-capability comparison) is not a verb, and it
         // duplicates Settings › 支援與關於 › 「這個 App 能證明什麼」, which opens the
         // same screen — so it no longer sits among the 使用 actions.
-        return Section(title: title, items: [collect, applyTelecom, presentOnline])
+        let heldCardActions = hasTelecomCard
+            ? [pickupBarcode, presentOnline]
+            : [presentOnline]
+        return Section(title: title, items: [collect, applyTelecom] + heldCardActions)
+    }
+
+    private static func hasTelecomCredential(in store: CredentialStore) -> Bool {
+        for id in (try? store.allIDs()) ?? [] {
+            guard let serialized = try? store.load(id: id),
+                  StoredCardSource.source(of: serialized) == .twdiw,
+                  let credential = try? TWDIWCredentialReader.read(serialized) else { continue }
+            if ConvenienceStorePickupCatalog.telecomCredentialTypes.contains(credential.credentialType) {
+                return true
+            }
+        }
+        return false
     }
 
     /// The offline half of the wallet: showing your own document to a checker,
@@ -332,6 +356,33 @@ class UseViewController: UICollectionViewController {
         present(alert, animated: true)
     }
 
+    private func startSevenElevenPickup() {
+        collectionView.isUserInteractionEnabled = false
+        let activity = UIActivityIndicatorView(style: .medium)
+        activity.startAnimating()
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: activity)
+
+        Task { @MainActor in
+            defer {
+                collectionView.isUserInteractionEnabled = true
+                navigationItem.rightBarButtonItem = nil
+            }
+            do {
+                let store = try CredentialStore()
+                let client = ConvenienceStorePickupClient(store: store, keyring: .app())
+                let context = try await client.beginSevenElevenPickup()
+                let disclosure = try client.disclosure(for: context)
+                navigationController?.pushViewController(
+                    ConvenienceStorePickupConsentViewController(
+                        context: context, client: client, disclosure: disclosure),
+                    animated: true)
+            } catch {
+                presentTelecomAlert(title: NSLocalizedString("7-ELEVEN parcel pickup", comment: "pickup title"),
+                                    message: UserFacingError.pickupMessage(for: error))
+            }
+        }
+    }
+
     private func configureDataSource() {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
             var content = cell.defaultContentConfiguration()
@@ -407,6 +458,8 @@ extension UseViewController {
             // the await, because the collection view may recompose while the
             // catalogue is fetched.
             applyTelecomCard(anchorCell: collectionView.cellForItem(at: indexPath))
+        case Row.pickupBarcode:
+            startSevenElevenPickup()
         case Row.presentOnline:
             ScanToPresent.begin(on: navigationController)
         case Row.present:
