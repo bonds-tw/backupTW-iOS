@@ -33,6 +33,8 @@ Assembly 只從 code-signed Info.plist 讀取 allowlist 內的 HTTPS host，再�
 
 Release build 的 code-signed Info.plist 已固定 `BondsSigningBrokerBaseURL=https://signing-uat.mashbean.net`；Debug 不設定。這只讓三條 Release 路徑能連到 App Attest-only UAT。後端 signing secrets、start 與 poll 仍關閉，因此目前簽章操作會 fail closed，不是 MOICA 可用證據。
 
+為了讓 TestFlight 驗收不必用真實身分證字號觸發一條必然關閉的 signing start，診斷頁另加入明確觸發的 [App Attest UAT 真機檢查](app-attest-uat-test.md)。它只完成註冊、fresh assertion 與後端 counter 驗證，不接受個資或簽章 payload；因此能先獨立結清 TestFlight category `2` 與 Cloudflare App Attest 鏈，但不能作為 MOICA 互通證據。
+
 ## Callback 修正
 
 MOICA deep link 的 `rtn_val` 是 transaction ID 的 base64url 表示，不是 raw transaction ID。Client 現在會先限制 encoded 長度，再 base64url decode、驗 UTF-8／長度／控制字元，最後才把 raw transaction ID 交給 callback router。

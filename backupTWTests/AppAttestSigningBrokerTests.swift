@@ -118,6 +118,74 @@ private actor BlockingBrokerSender: SigningBrokerRequestSending {
 
 @Suite(.serialized)
 struct AppAttestSigningBrokerTests {
+    @Test func uatCheckRegistersAndVerifiesAnAssertionWithoutCallingSigningEndpoints() async throws {
+        let appAttest = StubAppAttestService(
+            assertions: [.success(Data("uat-assertion".utf8))])
+        let store = MemoryAppAttestKeyStore()
+        let sender = StubBrokerSender([
+            response(["challenge": attestationChallenge, "expires_at": brokerExpiry]),
+            response(["registered": true], status: 201),
+            response(["challenge": assertionChallenge, "expires_at": brokerExpiry]),
+            response(["verified": true])
+        ])
+        let transport = try makeTransport(appAttest: appAttest, store: store, sender: sender)
+
+        try await transport.verifyAppAttestConnection()
+
+        let exchanges = await sender.exchanges
+        #expect(exchanges.map(\.path) == [
+            "/v1/attest/challenge", "/v1/attest/register",
+            "/v1/assertions/challenge", "/v1/assertions/verify"
+        ])
+        let verificationBody = try json(exchanges[3].body)
+        #expect(Set(verificationBody.keys) == ["assertion_object", "challenge", "key_id"])
+        #expect(verificationBody["assertion_object"] as? String == Data("uat-assertion".utf8).base64EncodedString())
+        #expect(verificationBody["challenge"] as? String == assertionChallenge)
+        #expect(verificationBody["key_id"] as? String == brokerKeyID)
+
+        let expectedClientData = try AppAttestSigningBrokerTransport.canonicalJSON([
+            "api_version": "v1",
+            "body_sha256": SHA256.hash(data: try AppAttestSigningBrokerTransport.canonicalJSON([
+                "key_id": brokerKeyID
+            ])).hex,
+            "challenge": assertionChallenge,
+            "method": "POST",
+            "path": "/v1/assertions/verify"
+        ])
+        let assertionCall = try #require(await appAttest.assertionCalls.first)
+        #expect(assertionCall.clientDataHash == Data(SHA256.hash(data: expectedClientData)))
+    }
+
+    @Test func repeatedUATCheckReusesTheRegistrationAndAdvancesOnlyThroughVerification() async throws {
+        let record = AppAttestKeyRecord(keyID: brokerKeyID,
+                                        scope: "test-scope",
+                                        registered: true,
+                                        pendingChallenge: nil,
+                                        pendingChallengeExpiresAt: nil,
+                                        pendingAttestationObject: nil)
+        let appAttest = StubAppAttestService(
+            assertions: [.success(Data("first".utf8)), .success(Data("second".utf8))])
+        let store = MemoryAppAttestKeyStore(record: record)
+        let sender = StubBrokerSender([
+            response(["challenge": assertionChallenge, "expires_at": brokerExpiry]),
+            response(["verified": true]),
+            response(["challenge": attestationChallenge, "expires_at": brokerExpiry]),
+            response(["verified": true])
+        ])
+        let transport = try makeTransport(appAttest: appAttest, store: store, sender: sender)
+
+        try await transport.verifyAppAttestConnection()
+        try await transport.verifyAppAttestConnection()
+
+        #expect((await sender.exchanges).map(\.path) == [
+            "/v1/assertions/challenge", "/v1/assertions/verify",
+            "/v1/assertions/challenge", "/v1/assertions/verify"
+        ])
+        #expect(await appAttest.generateKeyCount == 0)
+        #expect(await appAttest.attestationCalls.isEmpty)
+        #expect(await appAttest.assertionCalls.count == 2)
+    }
+
     @Test func registersOnceThenSignsAndPollsWithCanonicalAssertions() async throws {
         let appAttest = StubAppAttestService(
             assertions: [.success(Data("start-assertion".utf8)),
@@ -495,16 +563,19 @@ struct AppAttestSigningBrokerTests {
         defer { try? FileManager.default.removeItem(at: allowed.directory) }
         #expect(SigningBrokerSessionAssembly.isConfigured(bundle: allowed.bundle))
         #expect(SigningBrokerSessionAssembly.make(bundle: allowed.bundle) != nil)
+        #expect(SigningBrokerSessionAssembly.makeAppAttestUATCheck(bundle: allowed.bundle) != nil)
 
         let arbitrary = try configurationBundle(baseURL: "https://signing.attacker.example")
         defer { try? FileManager.default.removeItem(at: arbitrary.directory) }
         #expect(!SigningBrokerSessionAssembly.isConfigured(bundle: arbitrary.bundle))
         #expect(SigningBrokerSessionAssembly.make(bundle: arbitrary.bundle) == nil)
+        #expect(SigningBrokerSessionAssembly.makeAppAttestUATCheck(bundle: arbitrary.bundle) == nil)
     }
 
     @Test func debugAppDoesNotSelectTheDistributionEndpoint() {
         #expect(!SigningBrokerSessionAssembly.isConfigured(bundle: .main))
         #expect(SigningBrokerSessionAssembly.make(bundle: .main) == nil)
+        #expect(SigningBrokerSessionAssembly.makeAppAttestUATCheck(bundle: .main) == nil)
     }
 
     @Test func keyRecordRoundTripsInThisDeviceOnlyKeychainStorage() async throws {

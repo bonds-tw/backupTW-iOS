@@ -1,172 +1,202 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Checking the installed verification files before accepting a proof…": {
+    "App Attest UAT check": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在檢查已安裝的驗證檔案，再開始接收證明…"
+            "value": "App Attest UAT 檢查"
           }
         }
       }
     },
-    "Integrity check failed · download %@ again": {
+    "App build": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "完整性檢查未通過・重新下載 %@"
+            "value": "App 版本"
           }
         }
       }
     },
-    "Integrity check failed · repair %@ on this phone": {
+    "Checked at / error code": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "完整性檢查未通過・在這支手機上重新建立 %@"
+            "value": "檢查時間／錯誤碼"
           }
         }
       }
     },
-    "Prepare": {
+    "Endpoint": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "準備"
+            "value": "服務端點"
           }
         }
       }
     },
-    "Prepare and verify the checking files before asking someone to send a proof.": {
+    "Failed": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先準備並驗證查驗檔案，再請對方傳送證明。"
+            "value": "未通過"
           }
         }
       }
     },
-    "Prepare the verification files?": {
+    "No identity or signing data": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "準備驗證檔案？"
+            "value": "不傳送身分或簽章資料"
           }
         }
       }
     },
-    "Preparing verification files…": {
+    "Not configured in this build": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在準備驗證檔案…"
+            "value": "此版本未設定"
           }
         }
       }
     },
-    "Repair the verification files?": {
+    "Not run yet": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "修復驗證檔案？"
+            "value": "尚未執行"
           }
         }
       }
     },
-    "The checking keys passed their size and SHA-256 checks and can now be used offline.": {
+    "Production App Attest chain": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "驗證金鑰已通過檔案大小與 SHA-256 檢查，現在可以離線使用。"
+            "value": "正式版 App Attest 驗證鏈"
           }
         }
       }
     },
-    "The checking keys passed their size and SHA-256 checks. A proof can now arrive over Bluetooth or as a file, with no network required.": {
+    "Registers or reuses this installation's App Attest key, creates a fresh assertion, and asks the reviewed Cloudflare server to verify its environment, app version, signature, and counter.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "驗證金鑰已通過檔案大小與 SHA-256 檢查。現在可以透過藍牙或檔案接收證明，不需要網路。"
+            "value": "註冊或沿用此安裝的 App Attest 金鑰，建立新的 assertion，再由已審查的 Cloudflare 伺服器驗證環境、App 版本、簽章與計數器。"
           }
         }
       }
     },
-    "The downloaded files did not pass the installed size and SHA-256 checks, so they will not be used.": {
+    "Run App Attest UAT check?": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "下載的檔案沒有通過安裝後的大小與 SHA-256 檢查，因此不會使用。"
+            "value": "要執行 App Attest UAT 檢查嗎？"
           }
         }
       }
     },
-    "This downloads %@ of public checking keys and uses about %@ on this phone. The files are pinned in this app and checked before they are installed. Low Data Mode blocks this bulk download.": {
+    "Run App Attest check": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這會下載 %@ 的公開驗證金鑰，並在這支手機上使用約 %@。檔案的雜湊已固定在 App 內，安裝前會再次檢查。低數據模式會阻擋這項大型下載。"
+            "value": "執行 App Attest 檢查"
           }
         }
       }
     },
-    "This phone would not give the app a place to store the verification files.": {
+    "Run a privacy-safe TestFlight check against the reviewed Cloudflare endpoint.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這支手機沒有提供 App 可用來存放驗證檔案的位置。"
+            "value": "以不傳個資的方式，從 TestFlight 檢查已審查的 Cloudflare 端點。"
           }
         }
       }
     },
-    "Verification files are not prepared": {
+    "Run check": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "驗證檔案尚未備妥"
+            "value": "執行檢查"
           }
         }
       }
     },
-    "Verification files need repair": {
+    "Signing backend": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "驗證檔案需要修復"
+            "value": "簽章後端"
           }
         }
       }
     },
-    "Verification files unavailable": {
+    "Status": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法使用驗證檔案"
+            "value": "狀態"
           }
         }
       }
     },
-    "Verification files were not prepared": {
+    "This check sends no ID number, credential field, zero-knowledge proof, MOICA request, or signing payload.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "驗證檔案未完成準備"
+            "value": "此檢查不會傳送身分證字號、證件欄位、零知識證明、行動自然人憑證請求或待簽內容。"
+          }
+        }
+      }
+    },
+    "This creates or reuses this installation's App Attest key and advances its server-side assertion counter. No identity data or signing request is sent.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會建立或沿用此安裝的 App Attest 金鑰，並推進伺服器端的 assertion 計數器。不會傳送身分資料或簽章請求。"
+          }
+        }
+      }
+    },
+    "What this checks": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檢查內容"
+          }
+        }
+      }
+    },
+    "iOS version": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS 版本"
           }
         }
       }
@@ -8757,299 +8787,712 @@
       }
     },
     "Synthetic test packages · %lld stored · Official receiving is not active": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "已保存 %lld 份合成測試套件 · 尚未啟用正式收文" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存 %lld 份合成測試套件 · 尚未啟用正式收文"
+          }
+        }
+      }
     },
     "Synthetic test packages · %lld unread · Official receiving is not active": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "%lld 份合成測試套件尚未查看 · 尚未啟用正式收文" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 份合成測試套件尚未查看 · 尚未啟用正式收文"
+          }
+        }
+      }
     },
     "%@ · %@ · Synthetic test data": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "%@ · %@ · 合成測試資料" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ · 合成測試資料"
+          }
+        }
+      }
     },
     "A file does not match the SHA-256 fingerprint listed in the envelope, so the package was not stored.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "有檔案與 EN 信封所列的 SHA-256 指紋不符，因此未保存這份套件。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有檔案與 EN 信封所列的 SHA-256 指紋不符，因此未保存這份套件。"
+          }
+        }
+      }
     },
     "A package with the same application ID but different bytes is already stored. The new package was refused.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "已有相同 application ID、但內容位元組不同的套件。已拒絕新套件。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已有相同 application ID、但內容位元組不同的套件。已拒絕新套件。"
+          }
+        }
+      }
     },
     "Content": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "內容" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內容"
+          }
+        }
+      }
     },
     "Developer test only — this did not come from a government agency and creates no receipt.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "僅供開發測試——不是政府機關來文，也不會產生收文回執。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅供開發測試——不是政府機關來文，也不會產生收文回執。"
+          }
+        }
+      }
     },
     "Development boundary": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "開發邊界" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開發邊界"
+          }
+        }
+      }
     },
     "Document": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "公文" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "公文"
+          }
+        }
+      }
     },
     "Document date": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "發文日期" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發文日期"
+          }
+        }
+      }
     },
     "Document number": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "發文字號" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發文字號"
+          }
+        }
+      }
     },
     "Document text": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "公文內容" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "公文內容"
+          }
+        }
+      }
     },
     "Document text is encrypted or unavailable": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "公文內容已加密或無法取得" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "公文內容已加密或無法取得"
+          }
+        }
+      }
     },
     "EN fingerprint": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "EN 指紋" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EN 指紋"
+          }
+        }
+      }
     },
     "Electronic official document test package": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "電子公文測試套件" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "電子公文測試套件"
+          }
+        }
+      }
     },
     "Encrypted content unavailable": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "無法取得加密內容" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法取得加密內容"
+          }
+        }
+      }
     },
     "Envelope metadata and file fingerprints parsed": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "已解析信封中繼資料與檔案指紋" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已解析信封中繼資料與檔案指紋"
+          }
+        }
+      }
     },
     "Evidence and limits": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "證據與限制" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證據與限制"
+          }
+        }
+      }
     },
     "Exchange components": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "交換元件" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交換元件"
+          }
+        }
+      }
     },
     "File integrity": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "檔案完整性" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案完整性"
+          }
+        }
+      }
     },
     "Its protected index could not be opened on this phone.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "無法在這支手機上開啟其受保護索引。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法在這支手機上開啟其受保護索引。"
+          }
+        }
+      }
     },
     "Legal receipt": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "法定收文回執" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "法定收文回執"
+          }
+        }
+      }
     },
     "Load a synthetic EN / DI / ESW package": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "載入合成 EN／DI／ESW 套件" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "載入合成 EN／DI／ESW 套件"
+          }
+        }
+      }
     },
     "Local viewing state": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "本機查看狀態" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機查看狀態"
+          }
+        }
+      }
     },
     "Metadata only · %@ · %lld synthetic recipient": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "僅讀取中繼資料 · %@ · %lld 個合成收件憑證" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅讀取中繼資料 · %@ · %lld 個合成收件憑證"
+          }
+        }
+      }
     },
     "Not available outside the encrypted payload": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "加密承載內容之外無法取得" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密承載內容之外無法取得"
+          }
+        }
+      }
     },
     "Not created — viewing this test package changes only this phone's local state and sends nothing.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "未建立——查看測試套件只會改變這支手機的本機狀態，不會送出任何資料。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未建立——查看測試套件只會改變這支手機的本機狀態，不會送出任何資料。"
+          }
+        }
+      }
     },
     "Not verified — this package is synthetic and has no official exchange signature or address-book proof.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "未驗證——這是合成套件，沒有正式交換簽章或機關地址簿證明。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未驗證——這是合成套件，沒有正式交換簽章或機關地址簿證明。"
+          }
+        }
+      }
     },
     "Priority": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "速別" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "速別"
+          }
+        }
+      }
     },
     "Sender authentication": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "發文者驗證" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發文者驗證"
+          }
+        }
+      }
     },
     "Sender stated in EN": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "EN 所載發文機關" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EN 所載發文機關"
+          }
+        }
+      }
     },
     "Stored on this phone": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "保存至本機時間" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存至本機時間"
+          }
+        }
+      }
     },
     "Subject": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "主旨" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主旨"
+          }
+        }
+      }
     },
     "Synthetic XML document parsed for display": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "已解析合成 XML 公文供畫面顯示" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已解析合成 XML 公文供畫面顯示"
+          }
+        }
+      }
     },
     "Synthetic test package — not an official delivery": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "合成測試套件——不是正式送達" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合成測試套件——不是正式送達"
+          }
+        }
+      }
     },
     "The electronic official document XML could not be safely read.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "無法安全讀取電子公文 XML。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法安全讀取電子公文 XML。"
+          }
+        }
+      }
     },
     "The electronic official document envelope is incomplete or unsupported.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "電子公文信封不完整或此版本不支援。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "電子公文信封不完整或此版本不支援。"
+          }
+        }
+      }
     },
     "The electronic official document identifier is invalid.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "電子公文識別碼無效。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "電子公文識別碼無效。"
+          }
+        }
+      }
     },
     "The envelope contains no readable document or encrypted switch file.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "信封中沒有可讀公文或加密交換表單檔。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信封中沒有可讀公文或加密交換表單檔。"
+          }
+        }
+      }
     },
     "The protected source files remain on this phone. Do not import another package until the storage problem is resolved.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "受保護的來源檔仍留在這支手機上。在儲存問題解決前，請勿匯入其他套件。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "受保護的來源檔仍留在這支手機上。在儲存問題解決前，請勿匯入其他套件。"
+          }
+        }
+      }
     },
     "The stored official document index could not be read": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "無法讀取已保存的電子公文索引" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取已保存的電子公文索引"
+          }
+        }
+      }
     },
     "The synthetic package was not imported": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "未匯入合成測試套件" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未匯入合成測試套件"
+          }
+        }
+      }
     },
     "The test package is larger than this prototype accepts.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "測試套件超過此原型可接受的大小。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "測試套件超過此原型可接受的大小。"
+          }
+        }
+      }
     },
     "The test package is unavailable": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "無法取得測試套件" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法取得測試套件"
+          }
+        }
+      }
     },
     "This electronic official document is no longer stored on this phone.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "這份電子公文已不在這支手機上。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份電子公文已不在這支手機上。"
+          }
+        }
+      }
     },
     "This fixture exercises EN, DI, ESW, storage, integrity and viewing state. No government service sent it.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "這份測試資料用來驗證 EN、DI、ESW、儲存、完整性及查看狀態；並非由政府服務送出。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份測試資料用來驗證 EN、DI、ESW、儲存、完整性及查看狀態；並非由政府服務送出。"
+          }
+        }
+      }
     },
     "Unread on this phone": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "本機尚未查看" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機尚未查看"
+          }
+        }
+      }
     },
     "Verified against the SHA-256 fingerprints listed in EN.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "已比對 EN 所列的 SHA-256 指紋。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已比對 EN 所列的 SHA-256 指紋。"
+          }
+        }
+      }
     },
     "Viewed on this phone": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "已在本機查看" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在本機查看"
+          }
+        }
+      }
     },
     "有備而來 does not yet have an official ESW decryption contract or recipient key. It will not pretend the content was opened.": {
-      "localizations": { "zh-Hant": { "stringUnit": { "state": "translated", "value": "有備而來尚未取得正式 ESW 解密介接契約或收件金鑰，因此不會假裝已開啟內容。" } } }
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有備而來尚未取得正式 ESW 解密介接契約或收件金鑰，因此不會假裝已開啟內容。"
+          }
+        }
+      }
     },
     "A secure signing request could not be created.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "無法建立安全的簽章請求。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法建立安全的簽章請求。"
+          }
         }
       }
     },
     "Anything already saved remains on this phone. Do not sign again until the storage problem is resolved.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "已保存的內容仍留在這支手機上。在儲存問題解決前，請勿再次簽署。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存的內容仍留在這支手機上。在儲存問題解決前，請勿再次簽署。"
+          }
         }
       }
     },
     "Approve the request in 行動自然人憑證, then return here.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "請在行動自然人憑證中核准請求，再回到這裡。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "請在行動自然人憑證中核准請求，再回到這裡。"
+          }
         }
       }
     },
     "Electronic official documents": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "電子公文" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "電子公文"
+          }
         }
       }
     },
     "Enter your ID number to ask 行動自然人憑證 for this signature.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "請輸入身分證統一編號，以透過行動自然人憑證提出這次簽章要求。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "請輸入身分證統一編號，以透過行動自然人憑證提出這次簽章要求。"
+          }
         }
       }
     },
     "ID number required": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "需要身分證統一編號" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要身分證統一編號"
+          }
         }
       }
     },
     "No official documents yet": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "尚無電子公文" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚無電子公文"
+          }
         }
       }
     },
     "Official documents": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "公文" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "公文"
+          }
         }
       }
     },
     "Official receiving is not active": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "尚未啟用正式收文" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未啟用正式收文"
+          }
         }
       }
     },
     "Personal official document inbox": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "個人公文接收站" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "個人公文接收站"
+          }
         }
       }
     },
     "Prototype consent signed": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "已完成試辦同意簽章" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成試辦同意簽章"
+          }
         }
       }
     },
     "Prototype consent signed · Official receiving is not active yet": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "已完成試辦同意簽章 · 尚未啟用正式收文" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成試辦同意簽章 · 尚未啟用正式收文"
+          }
         }
       }
     },
     "Receiving status": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "收文狀態" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "收文狀態"
+          }
         }
       }
     },
     "Release signing must go through the bonds-tw backend so the Ministry of the Interior service key never enters the app. That backend is not connected yet.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "Release 版簽章必須透過 bonds-tw 後端，確保內政部服務金鑰不會進入 App。該後端目前尚未接通。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release 版簽章必須透過 bonds-tw 後端，確保內政部服務金鑰不會進入 App。該後端目前尚未接通。"
+          }
         }
       }
     },
     "Send the number and sign": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "傳送統一編號並簽署" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "傳送統一編號並簽署"
+          }
         }
       }
     },
     "Set up the 行動自然人憑證 signing pilot": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "設定行動自然人憑證簽章試辦" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定行動自然人憑證簽章試辦"
+          }
         }
       }
     },
     "Sign the electronic official document inbox pilot consent": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "簽署電子公文接收站試辦同意" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署電子公文接收站試辦同意"
+          }
         }
       }
     },
     "Sign the prototype consent": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "簽署試辦同意" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署試辦同意"
+          }
         }
       }
     },
     "Sign with 行動自然人憑證": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "使用行動自然人憑證簽署" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用行動自然人憑證簽署"
+          }
         }
       }
     },
     "Signed on %@. This is stored only as local prototype evidence; it has not registered an official receiving address.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "於 %@ 簽署。這只在本機保存為試辦證據；尚未註冊正式收件地址。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "於 %@ 簽署。這只在本機保存為試辦證據；尚未註冊正式收件地址。"
+          }
         }
       }
     },
     "Signing is not available in this build": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "此版本無法簽章" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "此版本無法簽章"
+          }
         }
       }
     },
@@ -9057,7 +9500,10 @@
       "comment": "signing broker",
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "後端簽章服務無法完成這次請求。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "後端簽章服務無法完成這次請求。"
+          }
         }
       }
     },
@@ -9065,7 +9511,10 @@
       "comment": "signing broker",
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "簽章請求的有效時間不正確。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章請求的有效時間不正確。"
+          }
         }
       }
     },
@@ -9073,91 +9522,130 @@
       "comment": "signing broker",
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "簽章請求過於頻繁，請稍後再試。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章請求過於頻繁，請稍後再試。"
+          }
         }
       }
     },
     "The consent was not saved": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "未保存這份同意" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存這份同意"
+          }
         }
       }
     },
     "The local inbox record cannot be read right now": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "目前無法讀取本機公文匣紀錄" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前無法讀取本機公文匣紀錄"
+          }
         }
       }
     },
     "The local inbox record could not be read": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "本機公文匣紀錄無法讀取" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機公文匣紀錄無法讀取"
+          }
         }
       }
     },
     "The official document inbox could not be opened": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "無法開啟電子公文接收站" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法開啟電子公文接收站"
+          }
         }
       }
     },
     "The signature that came back does not match this consent, so it was not saved.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "回傳的簽章與這份同意不相符，因此沒有保存。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "回傳的簽章與這份同意不相符，因此沒有保存。"
+          }
         }
       }
     },
     "The signing request could not be created": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "無法建立簽章請求" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法建立簽章請求"
+          }
         }
       }
     },
     "The verified signature is stored on this phone. Official receiving is still inactive until a government G2C service accepts this app and issues a receiving address.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "已驗證的簽章保存在這支手機上。在政府 G2C 服務接受此 App 並核發收件地址前，正式收文仍未啟用。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "已驗證的簽章保存在這支手機上。在政府 G2C 服務接受此 App 並核發收件地址前，正式收文仍未啟用。"
+          }
         }
       }
     },
     "This app is not connected to the government's G2C exchange service yet. No agency can deliver a legally effective document here today.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "此 App 尚未連接政府 G2C 交換服務。目前沒有機關能在這裡送達具有法律效力的公文。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 App 尚未連接政府 G2C 交換服務。目前沒有機關能在這裡送達具有法律效力的公文。"
+          }
         }
       }
     },
     "This sends your ID number, the service identifier, and a prototype-consent digest to the Ministry of the Interior, which keeps a service record. 有備而來 does not save the ID number you type. The signature will not create an official mailbox.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "這會把你的身分證統一編號、服務識別碼與試辦同意摘要傳送給內政部，內政部會留下服務紀錄。有備而來不會保存你輸入的統一編號。這次簽章不會建立正式公文匣。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會把你的身分證統一編號、服務識別碼與試辦同意摘要傳送給內政部，內政部會留下服務紀錄。有備而來不會保存你輸入的統一編號。這次簽章不會建立正式公文匣。"
+          }
         }
       }
     },
     "This tests the app-to-app signature only. It does not activate legal electronic delivery.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "這只測試 App 間跳轉簽章，不會啟用具有法律效力的電子送達。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "這只測試 App 間跳轉簽章，不會啟用具有法律效力的電子送達。"
+          }
         }
       }
     },
     "Waiting for 行動自然人憑證": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "等待行動自然人憑證" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待行動自然人憑證"
+          }
         }
       }
     },
     "You can test the 行動自然人憑證 signing hand-off now. Official receiving still requires the Archives Administration's G2C exchange service and an agency delivery policy.": {
       "localizations": {
         "zh-Hant": {
-          "stringUnit": { "state": "translated", "value": "你現在可以測試行動自然人憑證的簽章跳轉。正式收文仍須接上檔案管理局 G2C 交換服務，並有機關的送達規則。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "你現在可以測試行動自然人憑證的簽章跳轉。正式收文仍須接上檔案管理局 G2C 交換服務，並有機關的送達規則。"
+          }
         }
       }
     },
@@ -9210,6 +9698,176 @@
           "stringUnit": {
             "state": "translated",
             "value": "官方信任清單 API 與區塊鏈紀錄不相符，因此 App 沒有與這個發卡者連線。請稍後再試，或回報這項不一致。"
+          }
+        }
+      }
+    },
+    "Checking the installed verification files before accepting a proof…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在檢查已安裝的驗證檔案，再開始接收證明…"
+          }
+        }
+      }
+    },
+    "Integrity check failed · download %@ again": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整性檢查未通過・重新下載 %@"
+          }
+        }
+      }
+    },
+    "Integrity check failed · repair %@ on this phone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整性檢查未通過・在這支手機上重新建立 %@"
+          }
+        }
+      }
+    },
+    "Prepare": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備"
+          }
+        }
+      }
+    },
+    "Prepare and verify the checking files before asking someone to send a proof.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先準備並驗證查驗檔案，再請對方傳送證明。"
+          }
+        }
+      }
+    },
+    "Prepare the verification files?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備驗證檔案？"
+          }
+        }
+      }
+    },
+    "Preparing verification files…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在準備驗證檔案…"
+          }
+        }
+      }
+    },
+    "Repair the verification files?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修復驗證檔案？"
+          }
+        }
+      }
+    },
+    "The checking keys passed their size and SHA-256 checks and can now be used offline.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證金鑰已通過檔案大小與 SHA-256 檢查，現在可以離線使用。"
+          }
+        }
+      }
+    },
+    "The checking keys passed their size and SHA-256 checks. A proof can now arrive over Bluetooth or as a file, with no network required.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證金鑰已通過檔案大小與 SHA-256 檢查。現在可以透過藍牙或檔案接收證明，不需要網路。"
+          }
+        }
+      }
+    },
+    "The downloaded files did not pass the installed size and SHA-256 checks, so they will not be used.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載的檔案沒有通過安裝後的大小與 SHA-256 檢查，因此不會使用。"
+          }
+        }
+      }
+    },
+    "This downloads %@ of public checking keys and uses about %@ on this phone. The files are pinned in this app and checked before they are installed. Low Data Mode blocks this bulk download.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會下載 %@ 的公開驗證金鑰，並在這支手機上使用約 %@。檔案的雜湊已固定在 App 內，安裝前會再次檢查。低數據模式會阻擋這項大型下載。"
+          }
+        }
+      }
+    },
+    "This phone would not give the app a place to store the verification files.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這支手機沒有提供 App 可用來存放驗證檔案的位置。"
+          }
+        }
+      }
+    },
+    "Verification files are not prepared": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案尚未備妥"
+          }
+        }
+      }
+    },
+    "Verification files need repair": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案需要修復"
+          }
+        }
+      }
+    },
+    "Verification files unavailable": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法使用驗證檔案"
+          }
+        }
+      }
+    },
+    "Verification files were not prepared": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證檔案未完成準備"
           }
         }
       }

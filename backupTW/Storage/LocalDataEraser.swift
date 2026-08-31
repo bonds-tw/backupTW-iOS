@@ -99,6 +99,11 @@ struct LocalDataEraser {
     /// app-wide Keychain namespace. The production initializer supplies both.
     private let holderKeyring: HolderKeyring?
     private let walletIdentityTag: String?
+    /// The App Attest private key is Apple-managed and has no delete API, but
+    /// the local key ID is what lets this installation reuse it. Removing that
+    /// record ensures the next UAT/signing action creates a new installation
+    /// key instead of silently preserving linkage after "erase everything".
+    private let appAttestRecordEraser: (() throws -> Void)?
 
     /// `keyTag` and `installRecord` are injectable for the same reason the
     /// directories are: the Keychain is a process-wide namespace, so a test that
@@ -113,7 +118,8 @@ struct LocalDataEraser {
          keyTag: String = DeviceKey.defaultTag,
          installRecord: UserDefaults? = .standard,
          holderKeyring: HolderKeyring? = nil,
-         walletIdentityTag: String? = nil) {
+         walletIdentityTag: String? = nil,
+         appAttestRecordEraser: (() throws -> Void)? = nil) {
         self.credentials = credentials
         self.scratch = scratch
         self.vaultArchive = vaultArchive
@@ -124,13 +130,15 @@ struct LocalDataEraser {
         self.installRecord = installRecord
         self.holderKeyring = holderKeyring
         self.walletIdentityTag = walletIdentityTag
+        self.appAttestRecordEraser = appAttestRecordEraser
     }
 
     /// The app's own wiring: the real store, in the real locations.
     init() throws {
         self.init(credentials: try CredentialStore(),
                   holderKeyring: .app(),
-                  walletIdentityTag: WalletIdentity.keyTag)
+                  walletIdentityTag: WalletIdentity.keyTag,
+                  appAttestRecordEraser: KeychainAppAttestKeyRecordStore.deleteDefaultRecord)
     }
 
     /// Erases everything, then reports the first thing that went wrong.
@@ -167,6 +175,7 @@ struct LocalDataEraser {
         // from the legacy key `IdentityReset` knows. All must go before files or
         // an interrupted erase would leave a living identity behind.
         attempt { _ = try holderKeyring?.destroyAll() }
+        attempt { try appAttestRecordEraser?() }
         if let walletIdentityTag, walletIdentityTag != keyTag {
             attempt { try DeviceKey.deleteKey(tag: walletIdentityTag,
                                               installRecord: installRecord) }
