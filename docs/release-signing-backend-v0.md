@@ -1,9 +1,9 @@
 # ADR：Release 簽章與 bonds 後端 v0
 
-- 狀態：**協定與責任邊界已採用；Cloudflare UAT runtime 已實作但尚未部署**
+- 狀態：**協定與責任邊界已採用；Cloudflare App Attest-only UAT 已部署**
 - 日期：2026-08-31
 - 對應：[#38](https://github.com/bonds-tw/backupTW-iOS/issues/38)
-- 完成範圍：架構、責任邊界、API、Cloudflare runtime 程式與部署防呆已定；**UAT 尚未部署、Release 簽章尚未可用、TestFlight 尚未驗收**
+- 完成範圍：架構、責任邊界、API、Cloudflare runtime、Custom Domain 與 Release endpoint 已定；**signing secrets／start／poll 尚未啟用，TestFlight 尚未驗收**
 
 ## 決策
 
@@ -23,7 +23,7 @@
 
 - `backupTW/TWFidO/SPSecrets.swift` 整檔在 `#if DEBUG` 內；正式 archive 不會編入本機 SP credential provider。
 - `backupTW/TWFidO/TWFidOConfiguration.swift` 的 Release provider 固定丟出 `requiresBackend`。原因是取得 AES key 的人可以冒用 bonds-tw 對任意身分證統一編號送出簽章提示。
-- `backupTW/Model/CredentialIssuance.swift` 與 `backupTW/ZK/ZKProofRunWiring.swift` 已共用 `TWFidOSignSession` 抽象；Release 目前刻意不組裝 live signer。
+- `backupTW/Model/CredentialIssuance.swift` 與 `backupTW/ZK/ZKProofRunWiring.swift` 已共用 `TWFidOSignSession` 抽象；Release 現在只組裝指向 reviewed UAT host 的 App Attest broker，沒有 secrets 時仍 fail closed。
 - 本機流程不只產生 `sp_checksum`，還會用同一把 SP key 驗證 ATH-02 的 `idp_checksum`。只把「開始簽章」搬到後端、結果仍在 App 驗證，仍然會把解密／驗證能力帶回出貨 binary，不能接受。
 
 因此 v0 必須代理完整的 ATH-01 開始與 ATH-02 查詢，並在後端完成 provider response 驗證；App 收到的 certificate 與 signature 仍須再用內建的內政部 trust anchor 驗證一次，作為不同金鑰體系的 defense in depth。
@@ -32,8 +32,8 @@
 
 | 元件 | v0 選擇 | 保存內容 |
 | --- | --- | --- |
-| Mobile API | 獨立 Cloudflare Worker；UAT custom domain `signing-uat.bonds.tw` | 不保存 request body |
-| SP secret | Worker Secrets 的 numeric-version JSON map | service ID、SP AES key、自有 session-token key |
+| Mobile API | 獨立 Cloudflare Worker；暫用 UAT custom domain `signing-uat.mashbean.net` | 不保存 request body |
+| SP secret | 取得正式 credential 後才寫入 Worker Secrets 的 numeric-version JSON map；bootstrap inventory 為空 | service ID、SP AES key、自有 session-token key |
 | App Attest registry | `InstallationState` SQLite Durable Object | key ID hash、public key、receipt、environment、last counter、建立／最後使用時間 |
 | 一次性 challenge／冪等紀錄 | `AttestationChallengeState` 與 installation-scoped SQLite Durable Object records | challenge hash、request hash、加密 session token、到期時間；不含身分證統一編號 |
 | FidO session | AES-GCM 加密且帶版本的 opaque token，由 App 暫持 | MOI transaction／ticket、intent、key version、App Attest key hash、到期時間 |

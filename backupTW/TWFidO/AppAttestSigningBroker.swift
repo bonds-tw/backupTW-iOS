@@ -62,7 +62,7 @@ struct SigningBrokerEndpointConfiguration: Equatable, Sendable {
     }
 
     /// Runtime configuration remains absent until a reviewed endpoint is
-    /// deployed. A code-signed Info.plist can select one of the bonds.tw hosts;
+    /// deployed. A code-signed Info.plist can select one of the reviewed hosts;
     /// an arbitrary URL can never turn this app into a client for another
     /// signing service.
     static func fromBundle(_ bundle: Bundle = .main) -> Self? {
@@ -70,7 +70,8 @@ struct SigningBrokerEndpointConfiguration: Equatable, Sendable {
               let url = URL(string: value),
               let host = url.host?.lowercased(),
               host == "signing.bonds.tw" || host == "signing-uat.bonds.tw" ||
-                host == "signing-dev.bonds.tw" else {
+                host == "signing-dev.bonds.tw" ||
+                host == "signing-uat.mashbean.net" else {
             return nil
         }
         return try? Self(baseURL: url)

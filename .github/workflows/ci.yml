@@ -121,6 +121,9 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER=""
           binary="$derived/Build/Products/Release-iphonesimulator/backupTW.app/backupTW"
           test -x "$binary"
+          info_plist="$derived/Build/Products/Release-iphonesimulator/backupTW.app/Info.plist"
+          test "$(plutil -extract BondsSigningBrokerBaseURL raw -o - "$info_plist")" = \
+            "https://signing-uat.mashbean.net"
           strings_file="$derived/release-strings.txt"
           strings "$binary" > "$strings_file"
           forbidden=(

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BondsSigningBrokerBaseURL</key>
+	<string>$(BONDS_SIGNING_BROKER_BASE_URL)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Bond</string>
 	<key>CFBundleURLTypes</key>

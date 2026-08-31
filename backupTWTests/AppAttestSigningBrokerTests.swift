@@ -491,7 +491,7 @@ struct AppAttestSigningBrokerTests {
     }
 
     @Test func distributionAssemblyAcceptsOnlyAReviewedCodeSignedEndpoint() throws {
-        let allowed = try configurationBundle(baseURL: "https://signing-uat.bonds.tw")
+        let allowed = try configurationBundle(baseURL: "https://signing-uat.mashbean.net")
         defer { try? FileManager.default.removeItem(at: allowed.directory) }
         #expect(SigningBrokerSessionAssembly.isConfigured(bundle: allowed.bundle))
         #expect(SigningBrokerSessionAssembly.make(bundle: allowed.bundle) != nil)
@@ -500,6 +500,11 @@ struct AppAttestSigningBrokerTests {
         defer { try? FileManager.default.removeItem(at: arbitrary.directory) }
         #expect(!SigningBrokerSessionAssembly.isConfigured(bundle: arbitrary.bundle))
         #expect(SigningBrokerSessionAssembly.make(bundle: arbitrary.bundle) == nil)
+    }
+
+    @Test func debugAppDoesNotSelectTheDistributionEndpoint() {
+        #expect(!SigningBrokerSessionAssembly.isConfigured(bundle: .main))
+        #expect(SigningBrokerSessionAssembly.make(bundle: .main) == nil)
     }
 
     @Test func keyRecordRoundTripsInThisDeviceOnlyKeychainStorage() async throws {
