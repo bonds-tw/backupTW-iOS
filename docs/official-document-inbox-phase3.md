@@ -35,7 +35,9 @@ Transport 會先確認裝置支援 App Attest，再產生 key、保存 key ID �
 
 ## App Attest 現行格式
 
-後端已同步驗證 Apple 2026 文件新增的 launch metadata：attestation 的 `apple_validation_category_01`／`apple_bundle_version_01`，以及 assertion 的 `validationCategory`／`bundleVersion`。`dev`、TestFlight UAT、App Store production 分別只接受 category `3`、`2`、`4`，並明列 `CFBundleVersion` allowlist；certificate public key 與 authenticator-data COSE public key 都必須對上 key ID。
+後端已同步驗證 Apple 2026 文件新增的 launch metadata：attestation 的 `apple_validation_category_01`／`apple_bundle_version_01`，以及 assertion 的 `validationCategory`／`bundleVersion`。TestFlight UAT、App Store production 分別只接受 category `2`、`4`，並明列 `CFBundleVersion` allowlist；certificate public key 與 authenticator-data COSE public key 都必須對上 key ID。
+
+2026-08-31 的 iPhone 14／iOS 27.0 development attestation／assertion 都未帶上述 metadata。隔離的 dev broker 因此只在 `appattestdevelop` AAGUID 已驗證後，使用伺服器唯一固定的 category `3`／build `1` fallback；UAT／production 沒有此相容路徑，缺 metadata 仍會拒絕。development 真機已通過註冊與連續兩次 assertion，但這不是 TestFlight category `2` 證據。
 
 App target 已加入 App Attest entitlement，source value 為 `development`。Apple 文件指出，經 TestFlight、App Store 或 Enterprise 發行後會忽略這個 source value 並使用 production environment；這仍須以真機 TestFlight attestation 與後端紀錄作為完成證據。
 

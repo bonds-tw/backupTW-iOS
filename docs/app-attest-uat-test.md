@@ -1,6 +1,6 @@
 # App Attest UAT 真機驗收
 
-- 狀態：**App／Cloudflare 的無個資檢查鏈已實作；等待 TestFlight 真機證據**
+- 狀態：**Xcode development 真機已通過；等待 TestFlight production 真機證據**
 - 日期：2026-08-31
 - 對應：[#42](https://github.com/bonds-tw/backupTW-iOS/issues/42)、[#47](https://github.com/bonds-tw/backupTW-iOS/issues/47)
 - 不代表：MOICA UAT 可用、簽章 start／poll 已啟用、TestFlight 已上傳，或 App Store production category 已驗證
@@ -13,17 +13,19 @@
 2. 在這次安裝建立或沿用 App Attest key，必要時向 broker 完成 attestation／register。
 3. 取得只綁定這個 installation 的一次性 assertion challenge。
 4. 對固定的 `/v1/assertions/verify` request shape 產生 assertion。
-5. Cloudflare UAT 驗證 signature、validation category、`CFBundleVersion`、challenge 與遞增 counter，成功只回 `{"verified":true}`。
+5. Cloudflare 驗證 RP ID／environment、certificate／nonce／key、signature、challenge 與遞增 counter；production 另驗 launch metadata，成功只回 `{"verified":true}`。
 
 固定 request 只有 `key_id`、`challenge`、`assertion_object`。沒有身分證字號、credential 欄位、零知識證明、MOICA 請求、待簽內容或 session token；後端也不會為這條路徑載入 signing secrets。
 
-## 晚點真機測試
+## 實機測試紀錄與下一步
 
 ### Xcode 直連 development 驗收
 
-Apple Development provisioning 只能對應 development App Attest。以 Xcode 直連手機測試時，使用建置時明確覆寫的 `signing-dev.mashbean.net`；它固定驗 category `3`，且沒有 signing secrets，start／poll 都關閉。這個結果不得當成 TestFlight category `2` 證據。
+Apple Development provisioning 只能對應 development App Attest。以 Xcode 直連手機測試時，使用建置時明確覆寫的 `signing-dev.mashbean.net`；它沒有 signing secrets，start／poll 都關閉。這個結果不得當成 TestFlight category `2` 證據。
 
-操作仍是「設定 → 診斷 → App Attest UAT 檢查」，先確認畫面 endpoint 為 `signing-dev.mashbean.net`，接著連續成功執行兩次以驗證註冊與遞增 counter。
+2026-08-31 23:09（Asia/Taipei），iPhone 14／iOS 27.0 以 Apple Development identity 對 `signing-dev.mashbean.net` 完成註冊，接著連續兩次 assertion 都回 200；physical-device XCTest 1 test、0 failures。實機產生的 attestation／assertion 沒有 Apple 2026 文件列出的 launch metadata，因此 dev broker 只在 `appattestdevelop` AAGUID 已驗證後，套用伺服器唯一固定的 category `3`／build `1` fallback。這個 fallback 不存在於 TestFlight UAT／production，不能當成實機直接證明 category／build 的證據。
+
+人工操作仍是「設定 → 診斷 → App Attest UAT 檢查」，先確認畫面 endpoint 為 `signing-dev.mashbean.net`，接著連續成功執行兩次以驗證註冊與遞增 counter。
 
 ### TestFlight production 驗收
 
