@@ -247,6 +247,17 @@ extension TWFidOError: LocalizedError {
 ///   Retrying it would hand whoever is forging bodies an unlimited number of
 ///   attempts inside the polling window, silently. One bad body ends the flow.
 func isTransientSignPollFailure(_ error: Error) -> Bool {
+    if let error = error as? SigningBrokerClientError {
+        switch error {
+        case .appAttestUnavailable, .invalidResponse:
+            return true
+        case .server(_, let retryable):
+            return retryable
+        case .configurationMissing, .appAttestUnsupported, .appAttestKeyInvalid,
+             .invalidTimeLimit:
+            return false
+        }
+    }
     if let error = error as? TWFidOError {
         switch error {
         case .httpStatus, .invalidResponse:

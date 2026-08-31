@@ -66,5 +66,5 @@ ESW-only 套件固定進入 `encryptedContentUnavailable`；在官方介接契�
 1. 取得 G2C／G2B2C 正式介接窗口、現行 DTD／標籤集、測試地址簿與合成測試資格。
 2. 釐清私人收件適用的收件地址、同意版本、收文確認時點、撤回與紙本 fallback。
 3. 取得 ESW 收件憑證／解密介面規格；確認行動自然人憑證是否提供所需 decrypt 能力。未確認前維持 fail closed。
-4. 建立 `bonds-signing-broker` private repo，先完成 App Attest challenge/register/assertion，再接 ATH-01／ATH-02。
+4. `bonds-signing-broker` 與 App 端 App Attest transport 已完成本機實作；下一步依 [`official-document-inbox-phase3.md`](official-document-inbox-phase3.md) 的外部 gate 部署 UAT、接 Release assembly 並做真機驗收。
 5. 用官方 sandbox fixture 驗 DTD、來源簽章、地址簿、雜湊、解密、重複收文、錯投／漏附件與確認訊息；真機完成後才能把 `syntheticFixtureOnly` 擴成新環境。

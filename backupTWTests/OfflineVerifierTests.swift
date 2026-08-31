@@ -1349,6 +1349,11 @@ struct OfflineVerifierNetworkTests {
             // host passed the trust gate. Fetches a signed ask, publishes
             // nothing.
             "TWDIW/OID4VPRequestFetcher.swift",
+            // App Attest registration plus the allowlisted signing-broker
+            // round trip. It only runs after an explicit signing action, uses
+            // an ephemeral no-redirect session, and is not reachable from the
+            // offline document verifier.
+            "TWFidO/AppAttestSigningBroker.swift",
             // Static card-application resolve: GETs the 201i endpoint on
             // `frontend.wallet.gov.tw` to turn a scanned 「要申請的卡」 QR into the
             // issuer page URL, on an explicit scan. Fetches which card is being

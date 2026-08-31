@@ -5668,6 +5668,17 @@
         }
       }
     },
+    "This device currently cannot use features that require backend signing. Try again later.": {
+      "comment": "signing broker fail-closed message",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此裝置目前無法使用需要後端簽章的功能，請稍後再試。"
+          }
+        }
+      }
+    },
     "This device can't check the proof yet: the verification keys aren't downloaded.": {
       "localizations": {
         "zh-Hant": {
@@ -8869,6 +8880,30 @@
       "localizations": {
         "zh-Hant": {
           "stringUnit": { "state": "translated", "value": "此版本無法簽章" }
+        }
+      }
+    },
+    "The backend signing service could not complete the request.": {
+      "comment": "signing broker",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "後端簽章服務無法完成這次請求。" }
+        }
+      }
+    },
+    "The signing request has an invalid time limit.": {
+      "comment": "signing broker",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "簽章請求的有效時間不正確。" }
+        }
+      }
+    },
+    "Too many signing requests were made. Try again later.": {
+      "comment": "signing broker",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "簽章請求過於頻繁，請稍後再試。" }
         }
       }
     },
