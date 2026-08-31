@@ -83,16 +83,38 @@ struct SigningBrokerTests {
             hint: "a client-supplied hint the broker must never receive",
             signing: .officialDocumentConsent(consent.signingDescriptor),
             timeLimit: 600)
-        let result = try await session.poll(ticket: started.ticket)
+        let result = try await session.poll(handle: started.handle)
 
-        #expect(started.ticket.spTicket == "opaque-session-token")
-        #expect(started.ticket.transactionID == "broker-transaction")
+        #expect(started.handle.transactionID == "broker-transaction")
+        #expect(started.handle.expiresAt == Date(timeIntervalSince1970: 1_800_000_600))
+        #expect(started.handle.deadline(
+            fallback: Date(timeIntervalSince1970: 1_800_001_000)) ==
+            Date(timeIntervalSince1970: 1_800_000_600))
+        #expect(started.handle.deadline(
+            fallback: Date(timeIntervalSince1970: 1_800_000_100)) ==
+            Date(timeIntervalSince1970: 1_800_000_100))
+        #expect(String(describing: started.handle) == "TWFidOSignHandle(redacted)")
+        #expect(String(reflecting: started.handle).contains("opaque-session-token") == false)
         #expect(await transport.startedIDNumber == "A123456789")
         #expect(await transport.startedIntent?.type == .officialDocumentInboxConsentV1)
         #expect(await transport.startedTimeLimit == 600)
         #expect(await transport.polledToken == "opaque-session-token")
         #expect(result?.cert == "certificate")
         #expect(result?.hashedIDNumber == "transport-only")
+    }
+
+    @Test func brokerSessionRejectsALocalTicketHandleWithoutCallingTransport() async {
+        let transport = SigningBrokerStubTransport()
+        let session = SigningBrokerSignSession(transport: transport)
+        let local = TWFidOSignHandle.local(TWFidOTicket(
+            spTicket: "local-ticket",
+            transactionID: "local-transaction",
+            spTicketID: "local-id"))
+
+        await #expect(throws: TWFidOSignHandleError.wrongTransport) {
+            _ = try await session.poll(handle: local)
+        }
+        #expect(await transport.polledToken == nil)
     }
 
     @Test func brokerAllowlistRejectsArbitraryTargets() {

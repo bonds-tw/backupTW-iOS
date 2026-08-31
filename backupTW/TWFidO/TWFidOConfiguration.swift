@@ -118,12 +118,16 @@ extension SPCredentialError: CustomStringConvertible, CustomDebugStringConvertib
     var description: String {
         switch self {
         case .notConfigured:
+            #if DEBUG
             return """
                 No TW FidO SP credentials on this machine. Set \
                 TWFIDO_SP_SERVICE_ID and TWFIDO_SP_AES_KEY on the Run action of \
                 the Xcode scheme. Debug builds only — a distribution build \
                 cannot read them by design.
                 """
+            #else
+            return "Local TW FidO credentials are unavailable in this build."
+            #endif
         case .requiresBackend:
             return """
                 TW FidO SP credentials are unavailable in this build by design: \

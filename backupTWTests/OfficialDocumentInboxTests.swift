@@ -258,13 +258,15 @@ private actor OfficialDocumentStubSession: TWFidOSignSession {
     func begin(idNumber: String,
                hint: String,
                signing: TWFidOSigningTarget,
-               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
+               timeLimit: Int) async throws -> (handle: TWFidOSignHandle, deepLink: URL) {
         receivedSigning = signing
-        return (TWFidOTicket(spTicket: "ticket", transactionID: "transaction", spTicketID: "id"),
+        return (.local(TWFidOTicket(spTicket: "ticket",
+                                   transactionID: "transaction",
+                                   spTicketID: "id")),
                 URL(string: "mobilemoica://moica.moi.gov.tw/a2a/verifySign")!)
     }
 
-    func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult? { result }
+    func poll(handle: TWFidOSignHandle) async throws -> TWFidOSignResult? { result }
 
     func signingTarget() -> TWFidOSigningTarget? { receivedSigning }
 }

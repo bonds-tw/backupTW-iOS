@@ -82,7 +82,7 @@ struct OfficialDocumentSigning {
         let idNumber = idNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !idNumber.isEmpty else { throw OfficialDocumentSigningError.identityNumberMissing }
 
-        let started: (ticket: TWFidOTicket, deepLink: URL)
+        let started: (handle: TWFidOSignHandle, deepLink: URL)
         do {
             started = try await session.begin(idNumber: idNumber,
                                               hint: hint,
@@ -99,8 +99,9 @@ struct OfficialDocumentSigning {
         }
 
         let result = try await awaitResult(
-            ticket: started.ticket,
-            deadline: now().addingTimeInterval(TimeInterval(timeLimit)))
+            handle: started.handle,
+            deadline: started.handle.deadline(
+                fallback: now().addingTimeInterval(TimeInterval(timeLimit))))
         do {
             return try makeReceipt(consent, result, now())
         } catch {
@@ -108,13 +109,13 @@ struct OfficialDocumentSigning {
         }
     }
 
-    private func awaitResult(ticket: TWFidOTicket,
+    private func awaitResult(handle: TWFidOSignHandle,
                              deadline: Date) async throws -> TWFidOSignResult {
         var sawTransportFailure = false
         while true {
             try Task.checkCancellation()
             do {
-                if let result = try await session.poll(ticket: ticket) { return result }
+                if let result = try await session.poll(handle: handle) { return result }
             } catch let error as SPCredentialError {
                 throw OfficialDocumentSigningError.signingUnavailable(message: Self.credentialMessage(error))
             } catch let error where isTransientSignPollFailure(error) {
@@ -133,9 +134,9 @@ struct OfficialDocumentSigning {
             let interval = self.pollInterval
             await withTaskGroup(of: Void.self) { group in
                 group.addTask { try? await sleep(interval) }
-                group.addTask { await callbacks.waitForCallback(transactionID: ticket.transactionID) }
+                group.addTask { await callbacks.waitForCallback(transactionID: handle.transactionID) }
                 await group.next()
-                await callbacks.cancelWait(transactionID: ticket.transactionID)
+                await callbacks.cancelWait(transactionID: handle.transactionID)
                 group.cancelAll()
             }
         }
@@ -161,7 +162,7 @@ enum OfficialDocumentSigningAssembly {
         #if DEBUG
         return true
         #else
-        return false
+        return SigningBrokerSessionAssembly.isConfigured()
         #endif
     }
 
@@ -180,7 +181,14 @@ enum OfficialDocumentSigningAssembly {
                     : false
             })
         #else
-        return nil
+        guard let session = SigningBrokerSessionAssembly.make() else { return nil }
+        return OfficialDocumentSigning(
+            session: session,
+            open: { url in
+                await MainActor.run { UIApplication.shared.canOpenURL(url) }
+                    ? await UIApplication.shared.open(url)
+                    : false
+            })
         #endif
     }
 }

@@ -37,14 +37,16 @@ private struct StubSignSession: TWFidOSignSession, @unchecked Sendable {
     func begin(idNumber: String,
                hint: String,
                signing: TWFidOSigningTarget,
-               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
+               timeLimit: Int) async throws -> (handle: TWFidOSignHandle, deepLink: URL) {
         recorder.beginCount += 1
         recorder.signing = signing
-        return (TWFidOTicket(spTicket: "sp.ticket", transactionID: "TXN-1", spTicketID: "TKT-1"),
+        return (.local(TWFidOTicket(spTicket: "sp.ticket",
+                                   transactionID: "TXN-1",
+                                   spTicketID: "TKT-1")),
                 URL(string: "mobilemoica://moica.moi.gov.tw/a2a/verifySign")!)
     }
 
-    func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult? {
+    func poll(handle: TWFidOSignHandle) async throws -> TWFidOSignResult? {
         defer { recorder.pollCount += 1 }
         guard recorder.pollCount < pollScript.count else { return nil }
         switch pollScript[recorder.pollCount] {
@@ -252,6 +254,7 @@ struct CredentialIssuanceTests {
         let recorder = SignSessionRecorder()
         let readings = ClockStub(times: [Self.issuedAt,
                                          Self.issuedAt,
+                                         Self.issuedAt,
                                          Self.issuedAt.addingTimeInterval(601)])
         let issuance = issuance(recorder: recorder,
                                 pollScript: [.failure(URLError(.notConnectedToInternet)),
@@ -261,6 +264,41 @@ struct CredentialIssuanceTests {
         await #expect(throws: CredentialIssuanceError.resultUnreachable) {
             _ = try await issuance.issue(Self.model, subjectDID: Self.subjectDID)
         }
+    }
+
+    @Test func retryableBrokerFailurePollsAgainButNeverRestartsCredentialSigning() async throws {
+        let recorder = SignSessionRecorder()
+        let readings = ClockStub(times: [Self.issuedAt,
+                                         Self.issuedAt,
+                                         Self.issuedAt,
+                                         Self.issuedAt.addingTimeInterval(601)])
+        let failure = SigningBrokerClientError.server(
+            code: "signing_unavailable", retryable: true)
+        let issuance = issuance(recorder: recorder,
+                                pollScript: [.failure(failure), .failure(failure)],
+                                clock: { readings.next() })
+
+        await #expect(throws: CredentialIssuanceError.resultUnreachable) {
+            _ = try await issuance.issue(Self.model, subjectDID: Self.subjectDID)
+        }
+        #expect(recorder.beginCount == 1,
+                "an unknown result must never create a second signing request")
+        #expect(recorder.pollCount == 2)
+    }
+
+    @Test func terminalBrokerFailureStopsCredentialPollingImmediately() async throws {
+        let recorder = SignSessionRecorder()
+        let issuance = issuance(
+            recorder: recorder,
+            pollScript: [.failure(SigningBrokerClientError.server(
+                code: "session_expired", retryable: false)),
+                         .success(Self.signResult())])
+
+        await #expect(throws: CredentialIssuanceError.self) {
+            _ = try await issuance.issue(Self.model, subjectDID: Self.subjectDID)
+        }
+        #expect(recorder.beginCount == 1)
+        #expect(recorder.pollCount == 1)
     }
 
     /// The deadline is the ticket's own `time_limit`, so this app and 內政部

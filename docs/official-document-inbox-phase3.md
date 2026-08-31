@@ -54,13 +54,11 @@ App target 已加入 App Attest entitlement，source value 為 `development`。A
 
 這些是 protocol stub 與模擬器證據，不是 Apple 真實 attestation，也不是 MOICA 互通證據。
 
-## 下一個完成門檻
+## 後續狀態
 
-1. 後端 runtime 決策與部署完成，設定 reviewed `signing-uat.bonds.tw` endpoint；client contract 不依賴 Cloud Run 或 Cloudflare 實作。
-2. 完成 #45 的 opaque local／remote ticket model；不可再把 remote session token 挪用成 `spTicket`。
-3. `CredentialIssuanceAssembly`、`ZKProofRunAssembly`、`OfficialDocumentSigningAssembly` 在 Release 只組 remote signer，DEBUG local signer 仍不得進 Release binary。
-4. 真機 development attestation、TestFlight production category `2`、counter／reinstall／app update 與 Reduce Motion UI 驗收。
-5. MOICA UAT ATH-01／ATH-02 pending、success、拒絕、timeout 與 unknown-result；開始簽章結果不明時不得自動建立第二張 ticket。
+Cloudflare Workers Free + SQLite-backed Durable Objects 已選為 UAT／低流量試辦 runtime；程式與部署防呆已合併，但 UAT 尚未部署。#45 的 opaque local／remote handle、三條 Release remote-only assembly 與 binary canary scan 已在 [Phase 4](official-document-inbox-phase4.md) 完成。
+
+後續完成門檻因此收斂為：部署 reviewed `signing-uat.bonds.tw`、真機 development／TestFlight production App Attest、MOICA UAT ATH-01／ATH-02，以及 TestFlight IPA 與 Reduce Motion 驗收。開始簽章結果不明時仍不得自動建立第二張 ticket。
 
 ## 主要參考
 

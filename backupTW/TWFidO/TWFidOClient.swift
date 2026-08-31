@@ -138,14 +138,77 @@ struct TWFidOSignRequest {
 /// The transport handed us only the opaque string, but polling for the result
 /// needs `transaction_id` and `sp_ticket_id`, both of which live inside the
 /// ticket's own payload — so decoding is mandatory, not a debug convenience.
-struct TWFidOTicket: Equatable {
+struct TWFidOTicket: Equatable, Sendable {
     let spTicket: String
     let transactionID: String
     let spTicketID: String
 }
 
+enum TWFidOSignHandleError: Error, Equatable, Sendable {
+    case wrongTransport
+}
+
+/// An in-memory handle for one app-to-app signing attempt.
+///
+/// Local development and the Release broker carry different capabilities:
+/// the former needs the MOI ticket claims to calculate ATH-02 checksums, while
+/// the latter must keep only the broker's encrypted session token. Keeping the
+/// storage private prevents a remote token from being passed off as an
+/// `sp_ticket`, and prevents generic signing workflows from learning either
+/// representation.
+struct TWFidOSignHandle: Equatable, Sendable, CustomStringConvertible,
+                         CustomDebugStringConvertible, CustomReflectable {
+    private enum Storage: Equatable, Sendable {
+        case local(TWFidOTicket)
+        case remote(sessionToken: String)
+    }
+
+    let transactionID: String
+    let expiresAt: Date?
+    private let storage: Storage
+
+    static func local(_ ticket: TWFidOTicket) -> Self {
+        Self(transactionID: ticket.transactionID,
+             expiresAt: nil,
+             storage: .local(ticket))
+    }
+
+    static func remote(sessionToken: String,
+                       transactionID: String,
+                       expiresAt: Date) -> Self {
+        Self(transactionID: transactionID,
+             expiresAt: expiresAt,
+             storage: .remote(sessionToken: sessionToken))
+    }
+
+    func localTicket() throws -> TWFidOTicket {
+        guard case .local(let ticket) = storage else {
+            throw TWFidOSignHandleError.wrongTransport
+        }
+        return ticket
+    }
+
+    func remoteSessionToken() throws -> String {
+        guard case .remote(let token) = storage else {
+            throw TWFidOSignHandleError.wrongTransport
+        }
+        return token
+    }
+
+    func deadline(fallback: Date) -> Date {
+        guard let expiresAt else { return fallback }
+        return min(expiresAt, fallback)
+    }
+
+    // A session token is bearer material. Even an accidental interpolation or
+    // debugger reflection gets a fixed redacted value instead of the storage.
+    var description: String { "TWFidOSignHandle(redacted)" }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 /// The signature material, once the holder has approved.
-struct TWFidOSignResult: Equatable {
+struct TWFidOSignResult: Equatable, Sendable {
 
     /// Base64 DER of the **holder's** certificate. The issuing CA (MOICA G3) is
     /// bundled with the app separately — feeding this where the issuer is

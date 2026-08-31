@@ -1,16 +1,16 @@
 # ADR：Release 簽章與 bonds 後端 v0
 
-- 狀態：**已採用**
+- 狀態：**協定與責任邊界已採用；Cloudflare UAT runtime 已實作但尚未部署**
 - 日期：2026-08-31
 - 對應：[#38](https://github.com/bonds-tw/backupTW-iOS/issues/38)
-- 完成範圍：架構、責任邊界、API 與估工已定；**服務尚未建立、Release 簽章尚未可用、TestFlight 尚未驗收**
+- 完成範圍：架構、責任邊界、API、Cloudflare runtime 程式與部署防呆已定；**UAT 尚未部署、Release 簽章尚未可用、TestFlight 尚未驗收**
 
 ## 決策
 
 有備而來的出貨版本採用一個獨立的 `bonds-signing-broker`，專門代理行動自然人憑證 ATH-01／ATH-02：
 
 - SP service ID 與 AES-256 key 只存在後端；App 不得取得 `sp_checksum` 或 `idp_checksum` 的等價能力。
-- 正式服務以 Google Cloud Run `asia-east1`（台灣）為目標，SP key 使用同區域的 Regional Secret Manager；正式 API 不經 Cloudflare proxy。
+- UAT／低流量試辦以獨立 Cloudflare Worker、SQLite-backed Durable Objects 與 Worker Secrets 實作；`dev`、`uat`、`production` 使用不同 Worker 與 Durable Object namespace。這不是 production 資料落地承諾。
 - iOS 以 App Attest 為敏感 API 的裝置／App 完整性門檻。Release 裝置不支援或無法完成 App Attest 時，保留查驗能力，但簽發身分證與建立 ZK 證明必須 fail closed。
 - 後端只接受三種固定簽章意圖，不提供任意 `sign_data`、任意提示文字或 push 介面。
 - ZK challenge、nullifier 政策、verifying key 發布與撤銷 root 錨定各自留在正確的信任邊界，不塞進簽章代理。
@@ -32,17 +32,14 @@
 
 | 元件 | v0 選擇 | 保存內容 |
 | --- | --- | --- |
-| Mobile API | 獨立 Cloud Run service，`asia-east1` | 不保存 request body |
-| DNS | `bonds.tw` DNS 可由 Cloudflare 管理，但 API record 不開 proxy | 無 |
-| SP secret | Regional Secret Manager，`asia-east1`，以明確 version 讀取 | service ID、SP AES key、自有 session-token key |
-| App Attest registry | Firestore regional database，`asia-east1` | key ID hash、public key、receipt、environment、last counter、建立／最後使用時間 |
-| 一次性 challenge／冪等紀錄 | Firestore TTL document | challenge hash、request hash、加密 session token、到期時間；不含身分證統一編號 |
+| Mobile API | 獨立 Cloudflare Worker；UAT custom domain `signing-uat.bonds.tw` | 不保存 request body |
+| SP secret | Worker Secrets 的 numeric-version JSON map | service ID、SP AES key、自有 session-token key |
+| App Attest registry | `InstallationState` SQLite Durable Object | key ID hash、public key、receipt、environment、last counter、建立／最後使用時間 |
+| 一次性 challenge／冪等紀錄 | `AttestationChallengeState` 與 installation-scoped SQLite Durable Object records | challenge hash、request hash、加密 session token、到期時間；不含身分證統一編號 |
 | FidO session | AES-GCM 加密且帶版本的 opaque token，由 App 暫持 | MOI transaction／ticket、intent、key version、App Attest key hash、到期時間 |
 | 簽章結果 | 不寫資料庫或 object storage | ATH-02 當次驗證通過後直接回 App |
 
-[Cloud Run 官方位置表](https://cloud.google.com/run/docs/locations)列出 `asia-east1`（台灣），並說明 Cloud Run resource 的 associated customer data 存在所選區域；[Regional Secret Manager](https://cloud.google.com/secret-manager/regional-secrets/data-residency)則可讓 secret 的靜態、使用中與傳輸處理維持在指定區域。這些平台說明仍不能取代正式的個資／契約審查；production go-live 前要再確認內政部 SP 契約、Google Cloud data processing terms 與實際 logging 設定。
-
-不以 Cloudflare Worker／Durable Object 承載 v0 的理由是：Cloudflare Durable Objects 的 APAC 只能設定 location hint，並非台灣 jurisdiction guarantee；SQLite Durable Objects 又提供約 30 日 point-in-time recovery。即使 live storage 能清掉，也不符合本案對短生命週期簽章 session 的直觀刪除承諾。參考 [Durable Objects data location](https://developers.cloudflare.com/durable-objects/reference/data-location/) 與 [storage／PITR 說明](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/)。
+Cloudflare 的 `apac-ne` 只有首次放置 hint，不保證台灣或特定 jurisdiction；SQLite Durable Objects 的 point-in-time recovery 也代表 application TTL 刪除不等於供應商備援立即不可恢復。這兩項限制必須由參與方在 UAT 前書面接受；若 production 要求資料固定台灣，本 runtime 不符合，須重新評估具區域保證的基礎設施。Canonical runtime 邊界與驗收條件見 [`bonds-signing-broker/docs/cloudflare-free-plan.md`](https://github.com/bonds-tw/bonds-signing-broker/blob/main/docs/cloudflare-free-plan.md)。
 
 ## 責任邊界
 
@@ -100,7 +97,7 @@ Apple 要求 server 發放 unique one-time challenge、保存已驗證的 public
 - `POST /v1/assertions/challenge`
   - 輸入：App Attest key ID。
   - 回傳短效 one-time challenge。
-  - challenge redemption 與 assertion counter 更新在同一個 Firestore transaction 內完成。
+  - challenge redemption 與 assertion counter 更新在同一個 installation Durable Object SQLite transaction 內完成。
 
 ### 開始簽章
 
@@ -158,14 +155,14 @@ ATH-02 完成後是否能以同一 ticket 重複取得同一結果，必須在 U
 - FidO transaction／ticket：只在 client 持有的加密 session token 內，最長 10 分鐘。
 - certificate／signed response／hashed ID：後端不持久化；當次 verified response 直接回 App。
 - App Attest public key／receipt／counter：裝置安裝生命週期；App 回報刪除身分資料時可撤銷 association，reinstall 會建立新 key。
-- challenge／idempotency document：TTL 10 分鐘；只保存 hash、opaque ciphertext 與時間。
-- 備份：短效 collection 不開 PITR／export；production backup policy 必須證明不會把 request body 或簽章結果帶進備份。
+- challenge／idempotency record：application TTL 10 分鐘；只保存 hash、opaque ciphertext 與時間。
+- 備份：不把 request body 或簽章結果寫入 Durable Object；Cloudflare PITR 對已刪短效 record 的限制必須明載於資料治理風險，不宣稱 TTL 後供應商層立即不可恢復。
 
 「不持久化」只描述我們的 application storage 與 logging 設定，不等於宣稱雲端供應商、網路或內政部完全沒有處理紀錄。隱私告知必須把這些處理者分開說明。
 
 ### 監控
 
-- Cloud Run request log 不記 body；application structured log 只含 stage、safe error code、latency bucket、deployment version。
+- Cloudflare invocation／application log 不記 body；structured log 只含 stage、safe error code、latency bucket、deployment version。
 - 不把 IP、App Attest key ID、session token、MOI ticket、certificate subject、身分證統一編號放進 log 或 metrics。
 - 指標只做聚合：start／poll count、成功率、provider latency、App Attest failure rate、rate-limit count、invalid checksum count。
 - `provider_response_invalid`、checksum failure、secret access denied、異常 start surge 立即告警；告警內容仍不得附 raw payload。
@@ -173,7 +170,7 @@ ATH-02 完成後是否能以同一 ticket 重複取得同一結果，必須在 U
 
 ## 金鑰與事故處理
 
-- `SP_AES_KEY_CURRENT`、`SESSION_TOKEN_KEY_CURRENT` 都以 Regional Secret Manager 的明確 version number 注入，不用 `latest` alias。
+- `TWFIDO_SP_SERVICE_IDS_JSON`、`TWFIDO_SP_AES_KEYS_JSON`、`SESSION_TOKEN_KEYS_JSON` 都以 Worker Secrets 保存 numeric-version map；public config 只選明確 current／allowed version，不使用 `latest`。
 - 每個 session token 記錄 SP key version；舊 session 在 10 分鐘 drain window 內仍使用原 version。
 - 正常輪替：新增 secret version → UAT canary → deploy 指向新 version → 等舊 session 10 分鐘到期 → disable 舊 version → 驗證 Release start／poll。
 - 是否允許 SP current／previous 同時有效，取決於內政部 SP 契約；沒有重疊能力時，採短維護窗 fail closed，不自行假設雙 key 可用。
@@ -195,11 +192,11 @@ ATH-02 完成後是否能以同一 ticket 重複取得同一結果，必須在 U
 
 ## 可估工子任務
 
-估工是工程日範圍，不含內政部申請／換 key、Apple Developer entitlement、Google Cloud 帳務與外部審查等待時間。
+估工是工程日範圍，不含內政部申請／換 key、Apple Developer entitlement、Cloudflare 帳戶／zone 權限與外部審查等待時間。
 
 | 工作包 | 大小 | 粗估 | 完成門檻 |
 | --- | --- | --- | --- |
-| [B1](https://github.com/bonds-tw/backupTW-iOS/issues/42)：private backend repo、Cloud Run／Firestore／regional secrets IaC、CI | M | 3–5 日 | UAT service 可部署；prod resources 不放真 secret |
+| [B1](https://github.com/bonds-tw/backupTW-iOS/issues/42)：private backend repo、Workers／Durable Objects／Worker Secrets config、CI | M | 3–5 日 | UAT dry-run 與部署防呆通過；prod resources 不放真 secret |
 | [B2](https://github.com/bonds-tw/backupTW-iOS/issues/42)：App Attest register／assertion verifier、atomic counter／challenge | L | 5–8 日 | Apple fixture、replay、wrong RP ID／AAGUID／counter 測試全過 |
 | [B3](https://github.com/bonds-tw/backupTW-iOS/issues/43)：FidO ATH-01／ATH-02 broker、checksum parity、opaque session token | L | 5–8 日 | 與 Swift 固定向量相同；不落 raw ID／result；冪等 start |
 | [B4](https://github.com/bonds-tw/backupTW-iOS/issues/43)：rate limit、redacted observability、rotation／incident runbook | M | 3–5 日 | log capture 與故障演練無敏感值；current→next 輪替成功 |
@@ -218,7 +215,7 @@ ATH-02 完成後是否能以同一 ticket 重複取得同一結果，必須在 U
 4. 同一 `request_id` 重送不產生第二個 prompt；不同 body、重放 challenge、counter 倒退、跨裝置 session token 全被拒。
 5. 斷線與 ATH-02 repeat-poll 行為有 UAT 實測結論；未知結果不自動重簽。
 6. SP key 輪替、session-token key 輪替、provider outage、checksum failure 與 emergency disable 均演練一次。
-7. 從 Cloud Logging／Error Reporting／Trace／Firestore／backup 抽查，找不到身分證統一編號、ticket、certificate、signature 或 request body。
+7. 從 Cloudflare Workers Logs／traces／Durable Object storage 與部署設定抽查，找不到身分證統一編號、ticket、certificate、signature 或 request body。
 8. verifying key 可在 Release 安裝、hash 驗證與離線使用；這項不依賴 signing broker 健康狀態。
 9. ZK 畫面繼續顯示 replay、global uniqueness、cross-verifier nullifier 與 revocation-root caveat，直到各自的上游／查驗方門檻真的完成。
 
@@ -226,12 +223,13 @@ ATH-02 完成後是否能以同一 ticket 重複取得同一結果，必須在 U
 
 - **把 AES key 放 Keychain／Secure Enclave／Harvard BKC Keyring**：只能保護裝置自己的非對稱 key，不能讓每一份可逆向的 App 安全持有同一把 SP shared secret；不採用。
 - **App 傳資料給後端只換 `sp_checksum`，再直接呼叫 MOI**：仍需在 App 驗 ATH-02 `idp_checksum`，等價 secret boundary 沒有移走；不採用。
-- **Cloudflare Worker + Durable Object**：適合 wall／verifier，但不提供台灣 jurisdiction guarantee，短效 state 又受 PITR retention 影響；不採用於 production signing broker。
+- **以 Cloudflare location hint 宣稱資料固定台灣**：hint 不是 jurisdiction guarantee；Cloudflare runtime 只作 UAT／試辦，未經資料位置風險接受不得把它升格為 production 承諾。
+- **Google Cloud regional topology**：仍是 production 若要求區域保證時的候選方案，但目前沒有建立資源，也不是這版 UAT runtime。
 - **在既有 Wall Worker 加路由**：會把政治表態服務與法定身分簽章的資料、事故半徑及權限混在一起；不採用。
 - **generic signing API**：會讓合法 App 或被竄改 App 以 bonds-tw 名義要求任意持卡人簽任意內容；不採用。
 
 ## 參考規範
 
 - Apple：[Establishing your app's integrity](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity)、[Validating apps that connect to your server](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server)、[App Attest environment](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment)
-- Google Cloud：[Cloud Run locations](https://cloud.google.com/run/docs/locations)、[Firestore locations](https://cloud.google.com/firestore/docs/locations)、[Regional Secret Manager](https://cloud.google.com/secret-manager/regional-secrets/data-residency)、[Secret Manager best practices](https://cloud.google.com/secret-manager/docs/best-practices)
-- Cloudflare（替代案證據）：[Durable Objects data location](https://developers.cloudflare.com/durable-objects/reference/data-location/)、[Durable Object storage／PITR](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/)
+- Cloudflare：[Workers limits](https://developers.cloudflare.com/workers/platform/limits/)、[Durable Objects data location](https://developers.cloudflare.com/durable-objects/reference/data-location/)、[Durable Object storage／PITR](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/)、[Worker Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
+- Google Cloud（若 production 需要區域保證時重新評估）：[Cloud Run locations](https://cloud.google.com/run/docs/locations)、[Firestore locations](https://cloud.google.com/firestore/docs/locations)、[Regional Secret Manager](https://cloud.google.com/secret-manager/regional-secrets/data-residency)

@@ -708,8 +708,11 @@ actor AppAttestSigningBrokerTransport: SigningBrokerTransport {
 
     private static func transactionID(from deepLink: URL) -> String? {
         guard deepLink.scheme?.lowercased() == "mobilemoica",
-              let value = URLComponents(url: deepLink, resolvingAgainstBaseURL: false)?
+              let encoded = URLComponents(url: deepLink, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "rtn_val" })?.value,
+              !encoded.isEmpty, encoded.utf8.count <= 512,
+              let data = base64URLData(encoded),
+              let value = String(data: data, encoding: .utf8),
               !value.isEmpty, value.utf8.count <= 256,
               value.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
             return nil

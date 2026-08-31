@@ -162,7 +162,7 @@ struct CredentialIssuance {
             try credential.jwsCompactSerialization(signedBy: $0, issuerDID: subjectDID)
         }
 
-        let started: (ticket: TWFidOTicket, deepLink: URL)
+        let started: (handle: TWFidOSignHandle, deepLink: URL)
         do {
             started = try await session.begin(idNumber: idNumber,
                                               hint: hint,
@@ -178,8 +178,10 @@ struct CredentialIssuance {
             throw CredentialIssuanceError.certificateAppUnavailable
         }
 
-        let result = try await awaitResult(ticket: started.ticket,
-                                           deadline: now().addingTimeInterval(TimeInterval(timeLimit)))
+        let result = try await awaitResult(
+            handle: started.handle,
+            deadline: started.handle.deadline(
+                fallback: now().addingTimeInterval(TimeInterval(timeLimit))))
 
         // Loaded outside the block below so that "this build's trust anchor is
         // broken" cannot be reported as "the signature does not match the
@@ -217,7 +219,8 @@ struct CredentialIssuance {
     /// signature itself always arrives through an `idp_checksum`-authenticated
     /// ATH-02 response. `cancelWait` runs on every exit because the router parks
     /// the continuation in a dictionary and nothing else would resume it.
-    private func awaitResult(ticket: TWFidOTicket, deadline: Date) async throws -> TWFidOSignResult {
+    private func awaitResult(handle: TWFidOSignHandle,
+                             deadline: Date) async throws -> TWFidOSignResult {
         // Set when a poll fails at the transport layer, because the deadline
         // then means something different: not "the holder never approved" but
         // "we could not ask". The two must not share an error — see
@@ -226,7 +229,7 @@ struct CredentialIssuance {
         while true {
             try Task.checkCancellation()
             do {
-                if let result = try await session.poll(ticket: ticket) {
+                if let result = try await session.poll(handle: handle) {
                     return result
                 }
             } catch let error as SPCredentialError {
@@ -251,9 +254,9 @@ struct CredentialIssuance {
             let interval = self.pollInterval
             await withTaskGroup(of: Void.self) { group in
                 group.addTask { try? await sleep(interval) }
-                group.addTask { await callbacks.waitForCallback(transactionID: ticket.transactionID) }
+                group.addTask { await callbacks.waitForCallback(transactionID: handle.transactionID) }
                 await group.next()
-                await callbacks.cancelWait(transactionID: ticket.transactionID)
+                await callbacks.cancelWait(transactionID: handle.transactionID)
                 group.cancelAll()
             }
         }
@@ -297,7 +300,7 @@ enum CredentialIssuanceAssembly {
         #if DEBUG
         return true
         #else
-        return false
+        return SigningBrokerSessionAssembly.isConfigured()
         #endif
     }
 
@@ -318,7 +321,14 @@ enum CredentialIssuanceAssembly {
                     : false
             })
         #else
-        return nil
+        guard let session = SigningBrokerSessionAssembly.make() else { return nil }
+        return CredentialIssuance(
+            session: session,
+            open: { url in
+                await MainActor.run { UIApplication.shared.canOpenURL(url) }
+                    ? await UIApplication.shared.open(url)
+                    : false
+            })
         #endif
     }
 }

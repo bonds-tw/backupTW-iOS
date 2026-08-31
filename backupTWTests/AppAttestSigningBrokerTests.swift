@@ -15,6 +15,10 @@ private let attestationChallenge = Data(repeating: 0x11, count: 32).base64URLEnc
 private let assertionChallenge = Data(repeating: 0x22, count: 32).base64URLEncoded
 private let brokerKeyID = Data(repeating: 0x33, count: 32).base64EncodedString()
 
+private func brokerDeepLink(transactionID: String) -> String {
+    "mobilemoica://sign?rtn_val=" + Data(transactionID.utf8).base64URLEncoded
+}
+
 private actor MemoryAppAttestKeyStore: AppAttestKeyRecordStoring {
     private(set) var record: AppAttestKeyRecord?
 
@@ -125,7 +129,7 @@ struct AppAttestSigningBrokerTests {
             response(["challenge": assertionChallenge, "expires_at": brokerExpiry]),
             response([
                 "session_token": "bst1.1.opaque",
-                "deep_link": "mobilemoica://sign?rtn_val=transaction-123",
+                "deep_link": brokerDeepLink(transactionID: "transaction-123"),
                 "expires_at": brokerExpiry,
                 "reused": false
             ]),
@@ -198,7 +202,7 @@ struct AppAttestSigningBrokerTests {
             response(["challenge": assertionChallenge, "expires_at": brokerExpiry]),
             response([
                 "session_token": "bst1.1.retry",
-                "deep_link": "mobilemoica://sign?rtn_val=retry-transaction",
+                "deep_link": brokerDeepLink(transactionID: "retry-transaction"),
                 "expires_at": brokerExpiry,
                 "reused": false
             ])
@@ -237,7 +241,7 @@ struct AppAttestSigningBrokerTests {
             response(["challenge": assertionChallenge, "expires_at": brokerExpiry]),
             response([
                 "session_token": "bst1.1.registration-retry",
-                "deep_link": "mobilemoica://sign?rtn_val=registration-retry",
+                "deep_link": brokerDeepLink(transactionID: "registration-retry"),
                 "expires_at": brokerExpiry,
                 "reused": false
             ])
@@ -280,7 +284,7 @@ struct AppAttestSigningBrokerTests {
             response(["challenge": assertionChallenge, "expires_at": brokerExpiry]),
             response([
                 "session_token": "bst1.1.recovered",
-                "deep_link": "mobilemoica://sign?rtn_val=recovered-transaction",
+                "deep_link": brokerDeepLink(transactionID: "recovered-transaction"),
                 "expires_at": brokerExpiry,
                 "reused": false
             ])
@@ -410,6 +414,34 @@ struct AppAttestSigningBrokerTests {
         }
     }
 
+    @Test func brokerDeepLinkRequiresABase64URLReturnTransaction() async throws {
+        let record = AppAttestKeyRecord(keyID: brokerKeyID,
+                                        scope: "test-scope",
+                                        registered: true,
+                                        pendingChallenge: nil,
+                                        pendingChallengeExpiresAt: nil,
+                                        pendingAttestationObject: nil)
+        let store = MemoryAppAttestKeyStore(record: record)
+        let appAttest = StubAppAttestService()
+        let sender = StubBrokerSender([
+            response(["challenge": assertionChallenge, "expires_at": brokerExpiry]),
+            response([
+                "session_token": "bst1.1.bad-return-value",
+                "deep_link": "mobilemoica://sign?rtn_val=transaction-123",
+                "expires_at": brokerExpiry,
+                "reused": false
+            ])
+        ])
+        let transport = try makeTransport(appAttest: appAttest, store: store, sender: sender)
+
+        await #expect(throws: SigningBrokerClientError.invalidResponse) {
+            _ = try await transport.start(
+                idNumber: "A123456789",
+                intent: SigningBrokerIntent(type: .zkHoldingProofV1, tbs: nil, consent: nil),
+                timeLimit: 600)
+        }
+    }
+
     @Test func concurrentAssertionsAreQueuedAndACancelledWaiterNeverReachesNetwork() async throws {
         let record = AppAttestKeyRecord(keyID: brokerKeyID,
                                         scope: "test-scope",
@@ -458,6 +490,18 @@ struct AppAttestSigningBrokerTests {
         }
     }
 
+    @Test func distributionAssemblyAcceptsOnlyAReviewedCodeSignedEndpoint() throws {
+        let allowed = try configurationBundle(baseURL: "https://signing-uat.bonds.tw")
+        defer { try? FileManager.default.removeItem(at: allowed.directory) }
+        #expect(SigningBrokerSessionAssembly.isConfigured(bundle: allowed.bundle))
+        #expect(SigningBrokerSessionAssembly.make(bundle: allowed.bundle) != nil)
+
+        let arbitrary = try configurationBundle(baseURL: "https://signing.attacker.example")
+        defer { try? FileManager.default.removeItem(at: arbitrary.directory) }
+        #expect(!SigningBrokerSessionAssembly.isConfigured(bundle: arbitrary.bundle))
+        #expect(SigningBrokerSessionAssembly.make(bundle: arbitrary.bundle) == nil)
+    }
+
     @Test func keyRecordRoundTripsInThisDeviceOnlyKeychainStorage() async throws {
         let store = KeychainAppAttestKeyRecordStore(
             service: "tw.bonds.backupTW.tests.app-attest",
@@ -500,6 +544,23 @@ struct AppAttestSigningBrokerTests {
             sender: sender,
             now: { brokerNow },
             makeRequestID: { "018f6c7e-1234-7123-8123-123456789abc" })
+    }
+
+    private func configurationBundle(baseURL: String) throws -> (bundle: Bundle, directory: URL) {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("bundle")
+        try FileManager.default.createDirectory(at: directory,
+                                                withIntermediateDirectories: true)
+        let info: [String: Any] = [
+            "CFBundleIdentifier": "tw.bonds.backupTW.tests.signing-broker",
+            "CFBundlePackageType": "BNDL",
+            "BondsSigningBrokerBaseURL": baseURL
+        ]
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: info, format: .xml, options: 0)
+        try data.write(to: directory.appendingPathComponent("Info.plist"), options: .atomic)
+        return (try #require(Bundle(url: directory)), directory)
     }
 
     private func response(_ object: [String: Any],

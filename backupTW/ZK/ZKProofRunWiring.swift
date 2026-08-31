@@ -402,8 +402,8 @@ protocol TWFidOSignSession: Sendable {
     func begin(idNumber: String,
                hint: String,
                signing: TWFidOSigningTarget,
-               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL)
-    func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult?
+               timeLimit: Int) async throws -> (handle: TWFidOSignHandle, deepLink: URL)
+    func poll(handle: TWFidOSignHandle) async throws -> TWFidOSignResult?
 }
 
 /// Waiting on the `backuptw://` return leg.
@@ -435,17 +435,18 @@ struct LiveTWFidOSignSession: TWFidOSignSession, @unchecked Sendable {
     func begin(idNumber: String,
                hint: String,
                signing: TWFidOSigningTarget,
-               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
-        try await client.requestSignAppToApp(
+               timeLimit: Int) async throws -> (handle: TWFidOSignHandle, deepLink: URL) {
+        let started = try await client.requestSignAppToApp(
             TWFidOSignRequest(idNumber: idNumber,
                               hint: hint,
                               signing: signing,
                               timeLimit: timeLimit),
             returnURL: returnURL)
+        return (.local(started.ticket), started.deepLink)
     }
 
-    func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult? {
-        try await client.fetchResult(for: ticket)
+    func poll(handle: TWFidOSignHandle) async throws -> TWFidOSignResult? {
+        try await client.fetchResult(for: handle.localTicket())
     }
 }
 
@@ -526,7 +527,7 @@ struct TWFidOHolderSigner: ZKHolderSigning {
     }
 
     func sign(challenge: ProofChallenge) async throws -> ProvingInputs {
-        let started: (ticket: TWFidOTicket, deepLink: URL)
+        let started: (handle: TWFidOSignHandle, deepLink: URL)
         do {
             // The relying-party identifier, not a credential digest, and the
             // choice is not stylistic. The circuit takes this exact string as
@@ -553,8 +554,9 @@ struct TWFidOHolderSigner: ZKHolderSigning {
                 "The 行動自然人憑證 app isn't installed on this device.", comment: ""))
         }
 
-        let deadline = now().addingTimeInterval(TimeInterval(timeLimit))
-        let result = try await awaitResult(ticket: started.ticket, deadline: deadline)
+        let deadline = started.handle.deadline(
+            fallback: now().addingTimeInterval(TimeInterval(timeLimit)))
+        let result = try await awaitResult(handle: started.handle, deadline: deadline)
 
         // Before `ProvingInputs`, so a refusal costs a millisecond rather than a
         // proof. See the type's doc comment for why this is not a security gate.
@@ -582,7 +584,8 @@ struct TWFidOHolderSigner: ZKHolderSigning {
     /// router holds the continuation in a dictionary and nothing else would ever
     /// resume it, so a wait abandoned here would strand a task for the life of
     /// the process — and the task group would never finish.
-    private func awaitResult(ticket: TWFidOTicket, deadline: Date) async throws -> TWFidOSignResult {
+    private func awaitResult(handle: TWFidOSignHandle,
+                             deadline: Date) async throws -> TWFidOSignResult {
         // Same shape as `CredentialIssuance.awaitResult`, for the same measured
         // reason: the first poll races this app's own backgrounding during the
         // `mobilemoica://` hand-off, and a socket the system killed is not the
@@ -591,7 +594,7 @@ struct TWFidOHolderSigner: ZKHolderSigning {
         while true {
             try Task.checkCancellation()
             do {
-                if let result = try await session.poll(ticket: ticket) {
+                if let result = try await session.poll(handle: handle) {
                     return result
                 }
             } catch let error as SPCredentialError {
@@ -615,7 +618,7 @@ struct TWFidOHolderSigner: ZKHolderSigning {
                 }
                 throw ZKRunError.signingTimedOut
             }
-            await raceCallbackAgainstSleep(transactionID: ticket.transactionID)
+            await raceCallbackAgainstSleep(transactionID: handle.transactionID)
         }
     }
 
@@ -672,7 +675,7 @@ enum ZKProofRunAssembly {
         #if DEBUG
         return true
         #else
-        return false
+        return SigningBrokerSessionAssembly.isConfigured()
         #endif
     }
 
@@ -691,13 +694,10 @@ enum ZKProofRunAssembly {
             session: LiveTWFidOSignSession(client: client, returnURL: returnURL),
             open: open)
         #else
-        // A distribution build must not hold the SP AES key. Until the bonds-tw
-        // backend exists there is nothing to route the request through, and
-        // returning nil is how that reaches the screen as a sentence instead of
-        // as a failure halfway through.
-        _ = idNumber
-        _ = open
-        return nil
+        guard let session = SigningBrokerSessionAssembly.make() else { return nil }
+        return TWFidOHolderSigner(idNumber: idNumber,
+                                  session: session,
+                                  open: open)
         #endif
     }
 

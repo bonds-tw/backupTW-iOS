@@ -1491,7 +1491,7 @@ private struct FakeSignSession: TWFidOSignSession {
     func begin(idNumber: String,
                hint: String,
                signing: TWFidOSigningTarget,
-               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
+               timeLimit: Int) async throws -> (handle: TWFidOSignHandle, deepLink: URL) {
         log.record("begin")
         // Recorded rather than stored, because the protocol's method is
         // non-mutating and this stub is a value type. What it pins is that the
@@ -1499,10 +1499,10 @@ private struct FakeSignSession: TWFidOSignSession {
         // a per-run TBS here would silently destroy nullifier stability.
         log.record("signing:" + signing.toBeSigned)
         if let beginFailure { throw beginFailure }
-        return (ticket, deepLink)
+        return (.local(ticket), deepLink)
     }
 
-    func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult? {
+    func poll(handle: TWFidOSignHandle) async throws -> TWFidOSignResult? {
         let index = log.count("poll")
         log.record("poll")
         if let pollFailure { throw pollFailure }
@@ -1671,6 +1671,50 @@ struct TWFidOHolderSignerTests {
             #expect(!message.contains("couldn't be completed"))
             #expect(!message.isEmpty)
         }
+    }
+
+    @Test("retryable broker failure reaches unknown result without restarting ZK signing")
+    func retryableBrokerFailureDoesNotRestartSigning() async throws {
+        let log = CallLog()
+        let session = FakeSignSession(
+            log: log,
+            pollFailure: SigningBrokerClientError.server(
+                code: "signing_unavailable", retryable: true))
+        let signer = makeSigner(session: session,
+                                callbacks: FakeCallbacks(log: log),
+                                timeLimit: 30)
+
+        do {
+            _ = try await signer.sign(challenge: Fixture.challenge)
+            Issue.record("expected an unknown-result failure")
+        } catch let error as ZKRunError {
+            guard case .signingFailed(let message) = error else {
+                Issue.record("expected .signingFailed, got \(error)")
+                return
+            }
+            #expect(!message.isEmpty)
+        } catch {
+            Issue.record("expected ZKRunError")
+        }
+        #expect(log.count("begin") == 1,
+                "an unknown poll result must never create a second FidO prompt")
+        #expect(log.count("poll") > 1)
+    }
+
+    @Test("terminal broker failure stops ZK polling immediately")
+    func terminalBrokerFailureStopsImmediately() async throws {
+        let log = CallLog()
+        let session = FakeSignSession(
+            log: log,
+            pollFailure: SigningBrokerClientError.server(
+                code: "session_expired", retryable: false))
+
+        await #expect(throws: ZKRunError.self) {
+            _ = try await makeSigner(session: session, callbacks: FakeCallbacks(log: log))
+                .sign(challenge: Fixture.challenge)
+        }
+        #expect(log.count("begin") == 1)
+        #expect(log.count("poll") == 1)
     }
 
     @Test("a certificate the issuer gate refuses never reaches the circuit")

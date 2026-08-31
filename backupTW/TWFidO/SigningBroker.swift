@@ -109,18 +109,35 @@ struct SigningBrokerSignSession: TWFidOSignSession, Sendable {
     func begin(idNumber: String,
                hint: String,
                signing: TWFidOSigningTarget,
-               timeLimit: Int) async throws -> (ticket: TWFidOTicket, deepLink: URL) {
+               timeLimit: Int) async throws -> (handle: TWFidOSignHandle, deepLink: URL) {
         let intent = try SigningBrokerIntent.make(from: signing)
         let start = try await transport.start(idNumber: idNumber,
                                               intent: intent,
                                               timeLimit: timeLimit)
-        return (TWFidOTicket(spTicket: start.sessionToken,
-                            transactionID: start.transactionID,
-                            spTicketID: "signing-broker-v1"),
+        return (.remote(sessionToken: start.sessionToken,
+                        transactionID: start.transactionID,
+                        expiresAt: start.expiresAt),
                 start.deepLink)
     }
 
-    func poll(ticket: TWFidOTicket) async throws -> TWFidOSignResult? {
-        try await transport.poll(sessionToken: ticket.spTicket)
+    func poll(handle: TWFidOSignHandle) async throws -> TWFidOSignResult? {
+        try await transport.poll(sessionToken: handle.remoteSessionToken())
+    }
+}
+
+/// The only factory a distribution assembly uses for signing. Absence of a
+/// reviewed code-signed endpoint keeps every Release entry point unavailable;
+/// there is no fallback to local credentials or an environment variable.
+enum SigningBrokerSessionAssembly {
+    static func isConfigured(bundle: Bundle = .main) -> Bool {
+        SigningBrokerEndpointConfiguration.fromBundle(bundle) != nil
+    }
+
+    static func make(bundle: Bundle = .main) -> SigningBrokerSignSession? {
+        guard let configuration = SigningBrokerEndpointConfiguration.fromBundle(bundle) else {
+            return nil
+        }
+        return SigningBrokerSignSession(
+            transport: AppAttestSigningBrokerTransport(configuration: configuration))
     }
 }

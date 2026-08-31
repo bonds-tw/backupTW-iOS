@@ -97,3 +97,43 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER=""
+
+      # Compile the distribution branch separately and inspect the product, not
+      # just source. The canary is present in the build environment on purpose:
+      # a Release path that ever reads local TW FidO credentials would make this
+      # step fail before an archive could be shipped.
+      - name: Release signing boundary
+        env:
+          TWFIDO_SP_SERVICE_ID: BACKUPTW_RELEASE_SERVICE_CANARY
+          TWFIDO_SP_AES_KEY: BACKUPTW_RELEASE_AES_CANARY
+        run: |
+          set -euo pipefail
+          derived="$RUNNER_TEMP/backuptw-release"
+          xcodebuild build \
+            -project backupTW.xcodeproj \
+            -scheme backupTW \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -configuration Release \
+            -derivedDataPath "$derived" \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+          binary="$derived/Build/Products/Release-iphonesimulator/backupTW.app/backupTW"
+          test -x "$binary"
+          strings_file="$derived/release-strings.txt"
+          strings "$binary" > "$strings_file"
+          forbidden=(
+            DevelopmentSPCredentialProvider
+            TWFIDO_SP_SERVICE_ID
+            TWFIDO_SP_AES_KEY
+            twfido-sp.json
+            BACKUPTW_RELEASE_SERVICE_CANARY
+            BACKUPTW_RELEASE_AES_CANARY
+          )
+          for value in "${forbidden[@]}"; do
+            if grep -Fq "$value" "$strings_file"; then
+              echo "Release binary contains forbidden local-signing marker: $value" >&2
+              exit 1
+            fi
+          done
