@@ -23,7 +23,9 @@
 
 Apple Development provisioning 只能對應 development App Attest。以 Xcode 直連手機測試時，使用建置時明確覆寫的 `signing-dev.mashbean.net`；它沒有 signing secrets，start／poll 都關閉。這個結果不得當成 TestFlight category `2` 證據。
 
-2026-08-31 23:09（Asia/Taipei），iPhone 14／iOS 27.0 以 Apple Development identity 對 `signing-dev.mashbean.net` 完成註冊，接著連續兩次 assertion 都回 200；physical-device XCTest 1 test、0 failures。實機產生的 attestation／assertion 沒有 Apple 2026 文件列出的 launch metadata，因此 dev broker 只在 `appattestdevelop` AAGUID 已驗證後，套用伺服器唯一固定的 category `3`／build `1` fallback。這個 fallback 不存在於 TestFlight UAT／production，不能當成實機直接證明 category／build 的證據。
+2026-08-31 23:05（Asia/Taipei；App 報告 `2026-08-31T15:05:00.076Z`），同一台 iPhone 的人工診斷第一次回 `server_attestation_invalid`。證據截圖的 SHA-256 是 `00de9d9bd8d9b983eb35a4f85d955809b371d12be8bcd5643e07a2f4ebade61`；截圖保留在使用者本機，未上傳 public repo。這個失敗發生在 development Worker 相容修正部署前；與前後版本差異及後續真機通過結果比對，原因是 iOS 27 development attestation／assertion 沒有 Apple 2026 文件列出的 launch metadata，而舊 parser 仍要求該欄位。這筆紀錄不能算 PASS，也不應被後續成功覆蓋。
+
+2026-08-31 23:09，dev broker 加入 development-only 相容路徑後，iPhone 14／iOS 27.0 以 Apple Development identity 對 `signing-dev.mashbean.net` 完成註冊，接著連續兩次 assertion 都回 200；physical-device XCTest 1 test、0 failures。相容路徑只在 `appattestdevelop` AAGUID 已驗證後，套用伺服器唯一固定的 category `3`／build `1` fallback。這個 fallback 不存在於 TestFlight UAT／production，不能當成實機直接證明 category／build 的證據。
 
 人工操作仍是「設定 → 診斷 → App Attest UAT 檢查」，先確認畫面 endpoint 為 `signing-dev.mashbean.net`，接著連續成功執行兩次以驗證註冊與遞增 counter。
 
