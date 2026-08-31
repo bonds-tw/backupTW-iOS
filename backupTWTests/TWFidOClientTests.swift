@@ -315,6 +315,24 @@ struct TWFidOClientTests {
         #expect(String(decoding: decoded, as: UTF8.self) == tbs)
     }
 
+    @Test func signDataCarriesTheDomainSeparatedOfficialDocumentConsent() async throws {
+        TWFidOStubURLProtocol.install(respondingWith: ticketResponse())
+        defer { TWFidOStubURLProtocol.reset() }
+
+        let consent = OfficialDocumentInboxConsent(
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000), nonce: "wire-test")
+        _ = try await makeClient().requestSignAppToApp(
+            signRequest(signing: .officialDocumentTBS(consent.signingTarget)),
+            returnURL: callback)
+
+        let signInfo = try #require(try lastBody()["sign_info"] as? [String: Any])
+        let signData = try #require(signInfo["sign_data"] as? String)
+        let decoded = try #require(Data(base64Encoded: signData))
+
+        #expect(String(decoding: decoded, as: UTF8.self) == consent.signingTarget)
+        #expect(consent.signingTarget.hasPrefix(OfficialDocumentInboxConsent.tbsDomainPrefix))
+    }
+
     /// `sp_checksum` has to cover the `sign_data` that was actually sent.
     ///
     /// This could not go wrong while `sign_data` was a constant — a checksum over

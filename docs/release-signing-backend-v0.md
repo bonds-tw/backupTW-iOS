@@ -12,7 +12,7 @@
 - SP service ID 與 AES-256 key 只存在後端；App 不得取得 `sp_checksum` 或 `idp_checksum` 的等價能力。
 - 正式服務以 Google Cloud Run `asia-east1`（台灣）為目標，SP key 使用同區域的 Regional Secret Manager；正式 API 不經 Cloudflare proxy。
 - iOS 以 App Attest 為敏感 API 的裝置／App 完整性門檻。Release 裝置不支援或無法完成 App Attest 時，保留查驗能力，但簽發身分證與建立 ZK 證明必須 fail closed。
-- 後端只接受兩種固定簽章意圖，不提供任意 `sign_data`、任意提示文字或 push 介面。
+- 後端只接受三種固定簽章意圖，不提供任意 `sign_data`、任意提示文字或 push 介面。
 - ZK challenge、nullifier 政策、verifying key 發布與撤銷 root 錨定各自留在正確的信任邊界，不塞進簽章代理。
 
 後端的第一個正式版本不重用 `bonds-wall` Worker，也不重用個人的 OIDC4VP verifier。三者處理的資料、管理者、生命週期與失效半徑不同，合併只會把身分證統一編號帶進原本刻意不識別簽署者的服務。
@@ -52,7 +52,7 @@
 | App 完整性 | 產生 App Attest key、attestation、逐次 assertion | 驗 certificate chain、RP ID、AAGUID、key ID、counter、challenge 與 canonical request hash | — | Apple App Attest root／service |
 | 身分證統一編號 | 僅在使用者啟動簽章時送出 | 只在 ATH-01 request 記憶體內處理；不得 log／persist | 不得收到 | 內政部 FidO 仍會收到 |
 | SP AES key／checksum | 永遠不得持有 | 以固定版本 secret 產生 `sp_checksum`、驗 `idp_checksum` | 不得持有 | 內政部與 bonds-tw SP 管理者 |
-| 簽章目標 | 建立 credential TBS，或選擇 ZK holding proof intent | 依 allowlist 重建／檢查實際 `sign_data`；拒絕任意字串 | 不得要求 broker 任意代簽 | — |
+| 簽章目標 | 建立 credential TBS、電子公文接收站同意 TBS，或選擇 ZK holding proof intent | 依 allowlist 重建／檢查實際 `sign_data`；拒絕任意字串 | 不得要求 broker 任意代簽 | — |
 | Certificate／signature | 以 pinned MOI trust anchor 再驗一次；只為目前流程使用 | ATH-02 驗 checksum 後直接回傳，不保存 | 只收到使用者明確出示的證明 | MOI CA trust anchor |
 | ZK challenge | 接受查驗方提供的 challenge | **不發放**，也不宣稱把它簽進 FidO signature | 每個 relying party 自己發放、驗證與消耗 | 公開訊號 FFI 必須先完成 |
 | Verifying key | 由使用者明確安裝，逐檔驗 pinned hash／manifest | **不承載、不授權** | 驗證端安裝 public key material | 公開唯讀發布來源 |
@@ -61,7 +61,7 @@
 
 這個切法刻意不把 signing broker 變成新的身分中心。它看得到一次 ATH-01 所需的身分證統一編號，但不應同時看得到使用者去過哪個查驗方、哪個 nullifier 或哪份 MyData 原始文件。
 
-## 允許的兩種簽章意圖
+## 允許的三種簽章意圖
 
 API 不接受任意 `hint` 或任意 `sign_data`，只接受以下 discriminated union：
 
@@ -73,6 +73,10 @@ API 不接受任意 `hint` 或任意 `sign_data`，只接受以下 discriminated
    - App 傳完整 `bonds-tw-credential-v1:<64 lowercase hex>` TBS。
    - 後端嚴格驗 prefix、總長、字元集與 API version，再送交 FidO。
    - 後端固定繁體中文提示；client 不能覆寫。
+3. `official_document_inbox_consent_v1`
+   - App 傳結構化的 consent version、固定 `local-prototype-only` scope、建立時間與 256-bit nonce；身分證統一編號只留在 ATH-01 的獨立欄位，不得進 consent。
+   - 後端以與 App 相同的 canonicalization 重建 SHA-256 與完整 `bonds-tw-official-document-consent-v1:<64 lowercase hex>` TBS，再送交 FidO；不接受 client 自帶的任意 digest，也不把這次簽章解讀成已取得 G2C 收件地址或已同意任何機關的法定電子送達。
+   - 後端固定繁體中文提示；client 不能覆寫。待檔案管理局／機關正式介接規則存在後，另立新版 intent 與 consent scope，不沿用這個 prototype 簽章擴權。
 
 v0 不做 ATH-03 push、不收 device alias、不讓呼叫端指定 return URL。回到 App 的 URL scheme 與提示文字都由 server-side configuration 固定，避免把服務做成任意推播／簽章 oracle。
 

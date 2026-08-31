@@ -23,13 +23,26 @@ final class backupTWUITests: XCTestCase {
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testOfficialDocumentInboxIsASeparateSectionBelowTheVault() throws {
         let app = XCUIApplication()
         app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        let inbox = app.descendants(matching: .any)["control.official-documents"]
+        for _ in 0..<4 where !inbox.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(inbox.waitForExistence(timeout: 10),
+                      "the independent official-document section did not appear below the vault")
+        inbox.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["officialDocuments.status"]
+            .waitForExistence(timeout: 10),
+                      "the receiving-status boundary was not visible")
+        XCTAssertTrue(app.descendants(matching: .any)["officialDocuments.empty"].exists,
+                      "the prototype did not disclose that no official documents are connected")
+        XCTAssertTrue(app.descendants(matching: .any)["officialDocuments.signConsent"].exists,
+                      "the 行動自然人憑證 pilot action was not visible")
     }
 
     @MainActor

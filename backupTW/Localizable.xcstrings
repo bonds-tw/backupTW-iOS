@@ -8575,6 +8575,237 @@
         }
       }
     },
+    "A secure signing request could not be created.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "無法建立安全的簽章請求。" }
+        }
+      }
+    },
+    "Anything already saved remains on this phone. Do not sign again until the storage problem is resolved.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "已保存的內容仍留在這支手機上。在儲存問題解決前，請勿再次簽署。" }
+        }
+      }
+    },
+    "Approve the request in 行動自然人憑證, then return here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "請在行動自然人憑證中核准請求，再回到這裡。" }
+        }
+      }
+    },
+    "Electronic official documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "電子公文" }
+        }
+      }
+    },
+    "Enter your ID number to ask 行動自然人憑證 for this signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "請輸入身分證統一編號，以透過行動自然人憑證提出這次簽章要求。" }
+        }
+      }
+    },
+    "ID number required": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "需要身分證統一編號" }
+        }
+      }
+    },
+    "No official documents yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "尚無電子公文" }
+        }
+      }
+    },
+    "Official documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "公文" }
+        }
+      }
+    },
+    "Official receiving is not active": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "尚未啟用正式收文" }
+        }
+      }
+    },
+    "Personal official document inbox": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "個人公文接收站" }
+        }
+      }
+    },
+    "Prototype consent signed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "已完成試辦同意簽章" }
+        }
+      }
+    },
+    "Prototype consent signed · Official receiving is not active yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "已完成試辦同意簽章 · 尚未啟用正式收文" }
+        }
+      }
+    },
+    "Receiving status": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "收文狀態" }
+        }
+      }
+    },
+    "Release signing must go through the bonds-tw backend so the Ministry of the Interior service key never enters the app. That backend is not connected yet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "Release 版簽章必須透過 bonds-tw 後端，確保內政部服務金鑰不會進入 App。該後端目前尚未接通。" }
+        }
+      }
+    },
+    "Send the number and sign": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "傳送統一編號並簽署" }
+        }
+      }
+    },
+    "Set up the 行動自然人憑證 signing pilot": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "設定行動自然人憑證簽章試辦" }
+        }
+      }
+    },
+    "Sign the electronic official document inbox pilot consent": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "簽署電子公文接收站試辦同意" }
+        }
+      }
+    },
+    "Sign the prototype consent": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "簽署試辦同意" }
+        }
+      }
+    },
+    "Sign with 行動自然人憑證": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "使用行動自然人憑證簽署" }
+        }
+      }
+    },
+    "Signed on %@. This is stored only as local prototype evidence; it has not registered an official receiving address.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "於 %@ 簽署。這只在本機保存為試辦證據；尚未註冊正式收件地址。" }
+        }
+      }
+    },
+    "Signing is not available in this build": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "此版本無法簽章" }
+        }
+      }
+    },
+    "The consent was not saved": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "未保存這份同意" }
+        }
+      }
+    },
+    "The local inbox record cannot be read right now": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "目前無法讀取本機公文匣紀錄" }
+        }
+      }
+    },
+    "The local inbox record could not be read": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "本機公文匣紀錄無法讀取" }
+        }
+      }
+    },
+    "The official document inbox could not be opened": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "無法開啟電子公文接收站" }
+        }
+      }
+    },
+    "The signature that came back does not match this consent, so it was not saved.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "回傳的簽章與這份同意不相符，因此沒有保存。" }
+        }
+      }
+    },
+    "The signing request could not be created": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "無法建立簽章請求" }
+        }
+      }
+    },
+    "The verified signature is stored on this phone. Official receiving is still inactive until a government G2C service accepts this app and issues a receiving address.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "已驗證的簽章保存在這支手機上。在政府 G2C 服務接受此 App 並核發收件地址前，正式收文仍未啟用。" }
+        }
+      }
+    },
+    "This app is not connected to the government's G2C exchange service yet. No agency can deliver a legally effective document here today.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "此 App 尚未連接政府 G2C 交換服務。目前沒有機關能在這裡送達具有法律效力的公文。" }
+        }
+      }
+    },
+    "This sends your ID number, the service identifier, and a prototype-consent digest to the Ministry of the Interior, which keeps a service record. 有備而來 does not save the ID number you type. The signature will not create an official mailbox.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "這會把你的身分證統一編號、服務識別碼與試辦同意摘要傳送給內政部，內政部會留下服務紀錄。有備而來不會保存你輸入的統一編號。這次簽章不會建立正式公文匣。" }
+        }
+      }
+    },
+    "This tests the app-to-app signature only. It does not activate legal electronic delivery.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "這只測試 App 間跳轉簽章，不會啟用具有法律效力的電子送達。" }
+        }
+      }
+    },
+    "Waiting for 行動自然人憑證": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "等待行動自然人憑證" }
+        }
+      }
+    },
+    "You can test the 行動自然人憑證 signing hand-off now. Official receiving still requires the Archives Administration's G2C exchange service and an agency delivery policy.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": { "state": "translated", "value": "你現在可以測試行動自然人憑證的簽章跳轉。正式收文仍須接上檔案管理局 G2C 交換服務，並有機關的送達規則。" }
+        }
+      }
+    },
     "Development sandbox · No production blockchain record": {
       "localizations": {
         "zh-Hant": {

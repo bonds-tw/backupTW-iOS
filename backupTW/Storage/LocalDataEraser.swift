@@ -84,6 +84,10 @@ struct LocalDataEraser {
     /// must take it too — `nil` only when Application Support cannot be resolved,
     /// the same condition under which nothing was ever written there.
     private let vaultArchive: MyDataVaultArchive?
+    /// Prototype consent and, later, original government envelopes plus delivery
+    /// evidence. A new on-disk identity surface belongs in the erase promise on
+    /// the same day it is introduced.
+    private let officialDocumentInbox: OfficialDocumentInboxArchive?
     private let documentsDirectory: URL?
     /// Where `ZKProver` works. `nil` only when Application Support cannot be
     /// resolved at all — the same condition under which nothing was ever written
@@ -102,6 +106,7 @@ struct LocalDataEraser {
     init(credentials: CredentialStoring,
          scratch: MyDataScratch = MyDataScratch(),
          vaultArchive: MyDataVaultArchive? = try? MyDataVaultArchive(),
+         officialDocumentInbox: OfficialDocumentInboxArchive? = try? OfficialDocumentInboxArchive(),
          documentsDirectory: URL? = FileManager.default.urls(for: .documentDirectory,
                                                              in: .userDomainMask).first,
          zkWorkingDirectory: URL? = try? CircuitAssets.defaultDirectory(),
@@ -112,6 +117,7 @@ struct LocalDataEraser {
         self.credentials = credentials
         self.scratch = scratch
         self.vaultArchive = vaultArchive
+        self.officialDocumentInbox = officialDocumentInbox
         self.documentsDirectory = documentsDirectory
         self.zkWorkingDirectory = zkWorkingDirectory
         self.keyTag = keyTag
@@ -170,6 +176,7 @@ struct LocalDataEraser {
                                             installRecord: installRecord) }
         attempt { try scratch.purge() }
         attempt { try vaultArchive?.purge() }
+        attempt { try officialDocumentInbox?.purge() }
         attempt { try eraseProofResidue() }
         if let documentsDirectory {
             attempt { try eraseLegacyPlaintext(in: documentsDirectory) }

@@ -37,6 +37,7 @@ final class LocalDataEraserTests: @unchecked Sendable {
     private let store: CredentialStore
     private let scratch: MyDataScratch
     private let vaultArchive: MyDataVaultArchive
+    private let officialDocumentInbox: OfficialDocumentInboxArchive
 
     /// Per-instance so parallel tests cannot erase each other's key, and so none
     /// of them can touch `DeviceKey.defaultTag` — the real key belonging to
@@ -68,6 +69,8 @@ final class LocalDataEraserTests: @unchecked Sendable {
         scratch = MyDataScratch(directory: scratchDirectory)
         vaultArchive = try MyDataVaultArchive(directory: root.appendingPathComponent("MyDataVaultArchive",
                                                                                      isDirectory: true))
+        officialDocumentInbox = try OfficialDocumentInboxArchive(
+            directory: root.appendingPathComponent("OfficialDocumentInbox", isDirectory: true))
     }
 
     deinit {
@@ -80,6 +83,7 @@ final class LocalDataEraserTests: @unchecked Sendable {
         LocalDataEraser(credentials: credentials ?? store,
                         scratch: scratch,
                         vaultArchive: vaultArchive,
+                        officialDocumentInbox: officialDocumentInbox,
                         documentsDirectory: documents,
                         zkWorkingDirectory: zkDirectory,
                         keyTag: keyTag,
@@ -195,6 +199,23 @@ final class LocalDataEraserTests: @unchecked Sendable {
         try? makeEraser().eraseEverything()
 
         #expect(!vaultArchive.has(id: "mydata-income"))
+    }
+
+    @Test func erasingEverythingTakesTheOfficialDocumentConsentToo() throws {
+        let consent = OfficialDocumentInboxConsent(
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000), nonce: "erase-me")
+        try officialDocumentInbox.store(OfficialDocumentInboxReceipt(
+            consent: consent,
+            certificate: "certificate",
+            signature: "signature",
+            recordedAt: Date(timeIntervalSince1970: 1_800_000_001)))
+        #expect(try officialDocumentInbox.receipt() != nil)
+
+        // The Keychain half may be unavailable on a host process, but every file
+        // location still receives its erase attempt.
+        try? makeEraser().eraseEverything()
+
+        #expect(!FileManager.default.fileExists(atPath: officialDocumentInbox.directory.path))
     }
 
     @Test func erasingTwiceInARowIsFine() throws {

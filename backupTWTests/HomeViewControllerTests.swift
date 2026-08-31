@@ -26,9 +26,21 @@ struct HomeViewControllerTests {
         return url
     }
 
-    private func mountedHome(store: CredentialStoring, archive: MyDataVaultArchive)
+    private func tempOfficialDocumentInbox() throws -> OfficialDocumentInboxArchive {
+        try OfficialDocumentInboxArchive(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("HomeOfficialDocumentTests-\(UUID().uuidString)",
+                                    isDirectory: true))
+    }
+
+    private func mountedHome(store: CredentialStoring,
+                             archive: MyDataVaultArchive,
+                             officialDocuments: OfficialDocumentInboxArchive? = nil)
         -> (HomeViewController, UINavigationController, UIWindow) {
-        let controller = HomeViewController(makeStore: { store }, makeVaultArchive: { archive })
+        let officialDocuments = officialDocuments ?? (try? tempOfficialDocumentInbox())
+        let controller = HomeViewController(
+            makeStore: { store },
+            makeVaultArchive: { archive },
+            makeOfficialDocumentInbox: { officialDocuments })
         let navigation = UINavigationController(rootViewController: controller)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         window.rootViewController = navigation
@@ -95,6 +107,20 @@ struct HomeViewControllerTests {
 
         #expect(controller.presentedViewController is UIAlertController)
         #expect(!(controller.presentedViewController is UINavigationController))
+    }
+
+    @Test func officialDocumentsAreASeparateSectionBelowTheMyDataVault() throws {
+        let store = MemoryStore()
+        let archive = try tempVault()
+        let inbox = try tempOfficialDocumentInbox()
+        let (controller, navigation, _) = mountedHome(
+            store: store, archive: archive, officialDocuments: inbox)
+
+        #expect(controller.collectionView.numberOfSections == 4)
+        #expect(controller.collectionView.numberOfItems(inSection: 3) == 1)
+        controller.collectionView(controller.collectionView,
+                                  didSelectItemAt: IndexPath(item: 0, section: 3))
+        #expect(navigation.topViewController is OfficialDocumentInboxViewController)
     }
 
     /// The 「刪除卡片」 menu is offered on a face that stands for a stored file and

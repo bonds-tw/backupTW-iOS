@@ -22,6 +22,12 @@ class HomeViewController: UICollectionViewController {
     /// that should be manufactured in `CredentialStore` just to make Home see it.
     private let makeVaultArchive: () -> MyDataVaultArchive?
 
+    /// Opens the electronic official-document store. It is a third persistence
+    /// boundary, not an alias for `CredentialStore` or `MyDataVaultArchive`:
+    /// delivery evidence and government envelopes are neither wallet cards nor
+    /// MyData originals.
+    private let makeOfficialDocumentInbox: () -> OfficialDocumentInboxArchive?
+
     /// The single device-motion source that drives every visible card's sheen and
     /// micro-tilt. Owned here (strong) and fed to the cards through a closure that
     /// captures `self` weakly, so there is no cycle. Runs only while this screen is
@@ -72,7 +78,7 @@ class HomeViewController: UICollectionViewController {
     /// `NSObject`-hashable in a way that is a trap to lean on inside a diffable
     /// item identity.
     private struct ControlRow: Hashable {
-        enum Kind: Hashable { case backup, governmentEmpty, importMyData }
+        enum Kind: Hashable { case backup, governmentEmpty, importMyData, officialDocuments }
         let id: String
         let kind: Kind
         let title: String
@@ -85,6 +91,13 @@ class HomeViewController: UICollectionViewController {
         static let backUp = NSLocalizedString("Back up my national ID", comment: "")
         static let governmentEmpty = NSLocalizedString("No government cards yet", comment: "home card group empty state")
         static let importMyData = NSLocalizedString("Import a MyData document", comment: "vault import row")
+        static let officialDocuments = NSLocalizedString("Personal official document inbox", comment: "home official document row")
+    }
+
+    private enum OfficialDocumentInboxState {
+        case unavailable
+        case notSigned
+        case prototypeSigned
     }
 
     /// Synthetic card identifiers — cards that do not stand for a stored
@@ -151,9 +164,21 @@ class HomeViewController: UICollectionViewController {
         // neither shape is likelier collected than ours gone wrong.
         let government = rows?.filter { $0.source == .twdiw || $0.source == .unrecognised }
 
+        let officialDocumentState: OfficialDocumentInboxState
+        if let inbox = makeOfficialDocumentInbox() {
+            do {
+                officialDocumentState = try inbox.receipt() == nil ? .notSigned : .prototypeSigned
+            } catch {
+                officialDocumentState = .unavailable
+            }
+        } else {
+            officialDocumentState = .unavailable
+        }
+
         return [nationalIDSection(rows: nationalID, store: store),
                 governmentSection(rows: government, store: store),
-                myDataSection(documents: archived, legacyCredentials: legacyVaultCredentials)]
+                myDataSection(documents: archived, legacyCredentials: legacyVaultCredentials),
+                officialDocumentSection(state: officialDocumentState)]
     }
 
     /// The national ID this app builds, kept with the 「更新備份」 control that
@@ -267,6 +292,31 @@ class HomeViewController: UICollectionViewController {
         return (section, items)
     }
 
+    /// A separate section immediately below the MyData vault. The one row opens
+    /// the inbox as a product of its own; it is never drawn as a credential card,
+    /// because a government document and its delivery receipt must retain their
+    /// original format and legal semantics.
+    private func officialDocumentSection(state: OfficialDocumentInboxState)
+        -> (HomeSection, [HomeItem]) {
+        let section = HomeSection(
+            id: "official-documents",
+            title: "📨 " + NSLocalizedString("Electronic official documents", comment: "home card group"))
+        let subtitle: String
+        switch state {
+        case .prototypeSigned:
+            subtitle = NSLocalizedString("Prototype consent signed · Official receiving is not active yet", comment: "home official document row")
+        case .notSigned:
+            subtitle = NSLocalizedString("Set up the 行動自然人憑證 signing pilot", comment: "home official document row")
+        case .unavailable:
+            subtitle = NSLocalizedString("The local inbox record cannot be read right now", comment: "home official document row")
+        }
+        return (section, [.control(ControlRow(
+            id: "control.official-documents",
+            kind: .officialDocuments,
+            title: Row.officialDocuments,
+            subtitle: subtitle))])
+    }
+
     /// The one sentence both card groups show when the store itself would not
     /// open — 「could not be read」, never 「you hold none」.
     private static let unreadableStoreMessage = NSLocalizedString(
@@ -276,9 +326,13 @@ class HomeViewController: UICollectionViewController {
     // MARK: - Setup
 
     init(makeStore: @escaping () -> CredentialStoring? = { try? CredentialStore() },
-         makeVaultArchive: @escaping () -> MyDataVaultArchive? = { try? MyDataVaultArchive() }) {
+         makeVaultArchive: @escaping () -> MyDataVaultArchive? = { try? MyDataVaultArchive() },
+         makeOfficialDocumentInbox: @escaping () -> OfficialDocumentInboxArchive? = {
+             try? OfficialDocumentInboxArchive()
+         }) {
         self.makeStore = makeStore
         self.makeVaultArchive = makeVaultArchive
+        self.makeOfficialDocumentInbox = makeOfficialDocumentInbox
         super.init(collectionViewLayout: UICollectionViewLayout())
         collectionView.collectionViewLayout = makeLayout()
     }
@@ -595,7 +649,11 @@ class HomeViewController: UICollectionViewController {
             case .importMyData:
                 content.image = UIImage(systemName: "tray.and.arrow.down.fill")?
                     .withTintColor(.tintColor, renderingMode: .alwaysOriginal)
+            case .officialDocuments:
+                content.image = UIImage(systemName: "doc.text.fill")?
+                    .withTintColor(.tintColor, renderingMode: .alwaysOriginal)
             }
+            cell.accessibilityIdentifier = row.id
             cell.contentConfiguration = content
             var background = UIBackgroundConfiguration.listGroupedCell()
             background.cornerRadius = 14
@@ -712,8 +770,24 @@ extension HomeViewController {
                 ScanToCollect.begin(on: navigationController)
             case .importMyData:
                 presentImportPicker()
+            case .officialDocuments:
+                openOfficialDocumentInbox()
             }
         }
+    }
+
+    private func openOfficialDocumentInbox() {
+        guard let archive = makeOfficialDocumentInbox() else {
+            let alert = UIAlertController(
+                title: NSLocalizedString("The official document inbox could not be opened", comment: "official document inbox"),
+                message: Self.unreadableStoreMessage,
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .cancel))
+            present(alert, animated: true)
+            return
+        }
+        navigationController?.pushViewController(
+            OfficialDocumentInboxViewController(archive: archive), animated: true)
     }
 
     /// The way into the vault: pick a MyData document type to import. Choosing one

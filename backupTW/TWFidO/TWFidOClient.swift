@@ -60,13 +60,18 @@ enum TWFidOSigningTarget: Equatable, Sendable {
     /// over a 64-hex-character value from doubling as a credential proof.
     case credentialTBS(String)
 
+    /// A domain-separated digest for the electronic official-document inbox.
+    /// Kept distinct from `credentialTBS` so a caller cannot accidentally store
+    /// a mailbox consent as a wallet credential proof, or vice versa.
+    case officialDocumentTBS(String)
+
     /// The TBS itself. `sign_data` is this string, base64-wrapped — the wrapping
     /// is what `tbs_encoding: "base64"` describes, and it is not part of what
     /// the key signs.
     var toBeSigned: String {
         switch self {
         case .relyingPartyIdentifier(let identifier): return identifier
-        case .credentialTBS(let tbs): return tbs
+        case .credentialTBS(let tbs), .officialDocumentTBS(let tbs): return tbs
         }
     }
 }
