@@ -41,10 +41,15 @@ enum ScanToPresent {
                 return .keepScanning(status: nil)
             }
             latch.fired = true
+            let requestStarted = VerificationClock.now()
             Task { @MainActor in
                 switch await OID4VPPresentation.request(from: scanned) {
                 case .ready(let request):
-                    push(request: request, on: navigationController)
+                    let elapsed = VerificationClock.milliseconds(
+                        from: requestStarted, to: VerificationClock.now())
+                    push(request: request,
+                         requestFetchMilliseconds: elapsed,
+                         on: navigationController)
                 case .failed(let message):
                     present(outcome: message, on: navigationController)
                 }
@@ -57,11 +62,15 @@ enum ScanToPresent {
     /// Replaces the (stopped) scanner with the disclosure screen, so Back from
     /// there returns to the list rather than to a dead camera.
     @MainActor
-    private static func push(request: OID4VPRequest, on navigationController: UINavigationController?) {
+    private static func push(request: OID4VPRequest,
+                             requestFetchMilliseconds: UInt64,
+                             on navigationController: UINavigationController?) {
         guard let navigationController else { return }
         var stack = navigationController.viewControllers
         if stack.last is QRScanningViewController { stack.removeLast() }
-        stack.append(DiscloseFieldsViewController(request: request))
+        stack.append(DiscloseFieldsViewController(
+            request: request,
+            requestFetchMilliseconds: requestFetchMilliseconds))
         navigationController.setViewControllers(stack, animated: true)
     }
 

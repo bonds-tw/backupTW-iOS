@@ -42,6 +42,14 @@ enum OID4VPPresentation {
         case failed(String)
     }
 
+    /// A person-facing result plus the machine-readable verdict needed by the
+    /// timing log. Inferring success by comparing a translated sentence would
+    /// make changing copy change the test result.
+    struct ResponseOutcome {
+        let message: String
+        let succeeded: Bool
+    }
+
     /// Fetches and verifies the verifier's request, or returns a person-facing
     /// reason it could not.
     ///
@@ -66,17 +74,21 @@ enum OID4VPPresentation {
     /// Discloses exactly `chosenClaims`, signs the token with the matching card's
     /// key, posts it, and returns a person-facing outcome line.
     @MainActor
-    static func respond(to request: OID4VPRequest, disclosing chosenClaims: Set<String>) async -> String {
+    static func respond(to request: OID4VPRequest,
+                        disclosing chosenClaims: Set<String>) async -> ResponseOutcome {
         do {
             let responder = OID4VPResponder(session: .shared,
                                             store: try CredentialStore(),
                                             keyring: .app())
             _ = try await responder.respond(to: request, disclosing: chosenClaims)
-            return NSLocalizedString("Presented. The verifier has your answer.",
-                                     comment: "presentation success")
+            return ResponseOutcome(
+                message: NSLocalizedString("Presented. The verifier has your answer.",
+                                           comment: "presentation success"),
+                succeeded: true)
         } catch {
             log.error("VP response failed: \(String(describing: error), privacy: .public)")
-            return UserFacingError.presentationMessage(for: error)
+            return ResponseOutcome(message: UserFacingError.presentationMessage(for: error),
+                                   succeeded: false)
         }
     }
 

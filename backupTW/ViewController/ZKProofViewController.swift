@@ -190,6 +190,7 @@ final class ZKProofViewController: UICollectionViewController {
     private var plan: ZKAssetPlan?
     private var snapshot: ZKRunSnapshot?
     private var isLoadingPlan = true
+    private var recordedReportStart: Date?
 
     /// `private(set)` rather than `private`, here and on `runner`, so a test can
     /// watch both of them go. See `endRun()` for what was wrong with the version
@@ -772,6 +773,30 @@ final class ZKProofViewController: UICollectionViewController {
     /// non-final update never clears a stage that has already settled.
     @MainActor
     private func apply(_ update: ZKRunSnapshot) {
+        if let report = update.report, recordedReportStart != report.startedAt {
+            recordedReportStart = report.startedAt
+            let succeeded: Bool?
+            let verificationMilliseconds: UInt64?
+            switch report.verification {
+            case .completed(let outcome):
+                succeeded = outcome.isFullyValid
+                verificationMilliseconds = outcome.totalMilliseconds
+            case .notAttempted, .errored:
+                succeeded = nil
+                verificationMilliseconds = nil
+            }
+            let record = VerificationRunRecord(
+                recordedAt: report.startedAt,
+                flow: .zeroKnowledgeProofCreation,
+                role: .holder,
+                credentialKind: .mobileCertificate,
+                transport: .local,
+                succeeded: succeeded,
+                preparationMilliseconds: report.proveWallClockMs,
+                verificationMilliseconds: verificationMilliseconds,
+                endToEndMilliseconds: report.totalWallClockMs)
+            try? VerificationRunStore.shared.append(record)
+        }
         guard let current = snapshot, !update.isFinished else {
             snapshot = update
             reload()

@@ -28,6 +28,7 @@ import UIKit
 final class DiscloseFieldsViewController: UITableViewController {
 
     private let request: OID4VPRequest
+    private let requestFetchMilliseconds: UInt64?
     /// The disclosable claims, in the order the verifier listed them.
     private let claims: [String]
     /// Claim name → whether it is currently on. Starts all-on.
@@ -54,8 +55,9 @@ final class DiscloseFieldsViewController: UITableViewController {
     }()
     #endif
 
-    init(request: OID4VPRequest) {
+    init(request: OID4VPRequest, requestFetchMilliseconds: UInt64? = nil) {
         self.request = request
+        self.requestFetchMilliseconds = requestFetchMilliseconds
         self.claims = request.requestedFields.compactMap(\.claimName)
         self.revealing = Dictionary(uniqueKeysWithValues: claims.map { ($0, true) })
         super.init(style: .insetGrouped)
@@ -143,18 +145,43 @@ final class DiscloseFieldsViewController: UITableViewController {
         presentButton.configuration?.showsActivityIndicator = true
 
         Task { @MainActor in
+            let started = VerificationClock.now()
             let outcome = await OID4VPPresentation.respond(to: request, disclosing: chosen)
-            self.finish(outcome: outcome)
+            let submitMilliseconds = VerificationClock.milliseconds(
+                from: started, to: VerificationClock.now())
+            let record = VerificationRunRecord(
+                flow: .oid4vpPresentation,
+                role: .holder,
+                credentialKind: .governmentWallet,
+                transport: .https,
+                succeeded: outcome.succeeded,
+                preparationMilliseconds: requestFetchMilliseconds,
+                endToEndMilliseconds: submitMilliseconds)
+            try? VerificationRunStore.shared.append(record)
+            self.finish(outcome: outcome.message,
+                        submitMilliseconds: submitMilliseconds)
         }
     }
 
     /// Pops back to where the flow began and reports the outcome there.
     @MainActor
-    private func finish(outcome: String) {
+    private func finish(outcome: String, submitMilliseconds: UInt64) {
         let nav = navigationController
         nav?.popToRootViewController(animated: true)
+        var timing: [String] = []
+        if let requestFetchMilliseconds {
+            timing.append(String(format: NSLocalizedString(
+                "Request retrieval and verification: %.2f seconds",
+                comment: "OID4VP request timing"),
+                Double(requestFetchMilliseconds) / 1_000))
+        }
+        timing.append(String(format: NSLocalizedString(
+            "Present to verifier response: %.2f seconds (wallet signing, network, and verifier processing)",
+            comment: "OID4VP end-to-end timing"),
+            Double(submitMilliseconds) / 1_000))
+        let message = ([outcome] + timing).joined(separator: "\n\n")
         let alert = UIAlertController(title: NSLocalizedString("Present a credential", comment: ""),
-                                      message: outcome, preferredStyle: .alert)
+                                      message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
 
         var presenter: UIViewController? = nav

@@ -65,6 +65,12 @@ final class VerifierViewController: UIViewController {
     /// Bytes` pins the halves that are testable without a radio.
     private var link: BluetoothLinkCentral?
 
+    /// Monotonic instant at which the current request became visible. The
+    /// request-to-payload duration includes the two humans aiming their screens;
+    /// it is an operational end-to-end number, not a claim about QR or Bluetooth
+    /// throughput.
+    private var requestShownAtNanoseconds: UInt64?
+
     private let scrollView = UIScrollView()
     private let contentStack = UIStackView()
     private let codeImageView = UIImageView()
@@ -142,6 +148,7 @@ final class VerifierViewController: UIViewController {
             return
         case .endCheck:
             session.cancel()
+            requestShownAtNanoseconds = nil
             stopLink()
             lowerTheScreen()
         }
@@ -375,10 +382,9 @@ final class VerifierViewController: UIViewController {
             // one on a phone, and the first device run looked instant — which is
             // exactly the shape of "it is fast" and "it never ran" being
             // indistinguishable. So the number goes on screen.
-            let started = Date()
-            session.check(presentationJWS: jws) { [weak self] result in
+            requestShownAtNanoseconds = VerificationClock.now()
+            verify(presentationJWS: jws, transport: .local) { [weak self] result, record in
                 guard let self else { return }
-                let elapsed = Date().timeIntervalSince(started) * 1000
                 let revocation: String
                 if case .checked(.verified(let presentation)) = result {
                     revocation = String(describing: presentation.revocation)
@@ -387,10 +393,10 @@ final class VerifierViewController: UIViewController {
                 }
                 self.presentPasteDiagnosis(
                     "出示內容 \(jws.utf8.count) bytes，\(frames.count) 張 frame。\n"
-                    + "查驗耗時 \(Int(elapsed.rounded())) ms。\n"
+                    + "查驗耗時 \(record.verificationMilliseconds ?? 0) ms。\n"
                     + "撤銷檢查：\(revocation)"
                 ) { [weak self] in
-                    _ = self?.finish(result)
+                    _ = self?.finish(result, timing: record)
                 }
             }
         } catch {
@@ -426,7 +432,7 @@ final class VerifierViewController: UIViewController {
                     _ = finish(.rejected(.presentationIsNotAJWS))
                     return
                 }
-                session.check(presentationJWS: jws) { [weak self] in _ = self?.finish($0) }
+                verify(presentationJWS: jws, transport: .file)
                 return
             }
         }
@@ -487,7 +493,7 @@ final class VerifierViewController: UIViewController {
                         _ = self.finish(.rejected(.presentationIsNotAJWS))
                         return
                     }
-                    self.session.check(presentationJWS: jws) { [weak self] in _ = self?.finish($0) }
+                    self.verify(presentationJWS: jws, transport: .file)
                     return
                 }
             }
@@ -525,6 +531,7 @@ final class VerifierViewController: UIViewController {
             unavailableLabel.isHidden = true
             retryButton.isHidden = true
             scanButton.isEnabled = true
+            requestShownAtNanoseconds = VerificationClock.now()
             startLink(for: request)
         } catch {
             // `PresentationRequest.generate` refuses rather than inventing a
@@ -540,6 +547,7 @@ final class VerifierViewController: UIViewController {
             unavailableLabel.isHidden = false
             scanButton.isEnabled = false
             retryButton.isHidden = false
+            requestShownAtNanoseconds = nil
             // No challenge means nothing this screen receives could be judged, so
             // the radio comes down with the code.
             stopLink()
@@ -614,7 +622,7 @@ final class VerifierViewController: UIViewController {
             // and push a second result on top of the first.
             stopLink()
             linkLabel.text = NSLocalizedString("Received over Bluetooth.", comment: "")
-            checkReceived(payload)
+            checkReceived(payload, transport: .bluetooth)
         }
     }
 
@@ -625,19 +633,13 @@ final class VerifierViewController: UIViewController {
     /// spending the challenge: bytes that reassembled and matched their digest
     /// were an answer, and leaving the challenge outstanding would let the same
     /// ones be retried against it.
-    private func checkReceived(_ payload: Data) {
+    private func checkReceived(_ payload: Data, transport: VerificationRunRecord.Transport) {
         guard let jws = String(data: payload, encoding: .utf8) else {
             session.cancel()
             show(.rejected(.presentationIsNotAJWS))
             return
         }
-        session.check(presentationJWS: jws) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .checked(let outcome): self.show(outcome)
-            case .noPendingRequest: self.show(nil)
-            }
-        }
+        verify(presentationJWS: jws, transport: transport)
     }
 
     /// Shown only when minting a challenge failed. A transient CSPRNG refusal
@@ -702,10 +704,48 @@ final class VerifierViewController: UIViewController {
             // gap is real — a revocation lookup rebuilds the tree from a 22 MB
             // snapshot — so the viewfinder is left with a line saying so rather
             // than frozen and silent.
-            session.check(presentationJWS: jws) { [weak self] result in
-                _ = self?.finish(result)
-            }
+            verify(presentationJWS: jws, transport: .qr)
             return .keepScanning(status: NSLocalizedString("Checking…", comment: "Shown while a scanned presentation is being verified"))
+        }
+    }
+
+    /// Times and records the one verification funnel shared by QR, Bluetooth,
+    /// file-drop and the DEBUG self-check. The record is written before the
+    /// result screen is shown so copying Diagnostics immediately after a run
+    /// cannot miss it.
+    private func verify(presentationJWS: String,
+                        transport: VerificationRunRecord.Transport,
+                        completion: ((VerifierSessionResult, VerificationRunRecord) -> Void)? = nil) {
+        let verificationStarted = VerificationClock.now()
+        let requestShown = requestShownAtNanoseconds ?? verificationStarted
+        session.check(presentationJWS: presentationJWS) { [weak self] result in
+            guard let self else { return }
+            let completed = VerificationClock.now()
+            let succeeded: Bool?
+            switch result {
+            case .checked(.verified): succeeded = true
+            case .checked(.rejected): succeeded = false
+            case .noPendingRequest: succeeded = nil
+            }
+            let record = VerificationRunRecord(
+                flow: .offlinePresentation,
+                role: .verifier,
+                credentialKind: .selfIssued,
+                transport: transport,
+                succeeded: succeeded,
+                transportMilliseconds: VerificationClock.milliseconds(
+                    from: requestShown, to: verificationStarted),
+                verificationMilliseconds: VerificationClock.milliseconds(
+                    from: verificationStarted, to: completed),
+                endToEndMilliseconds: VerificationClock.milliseconds(
+                    from: requestShown, to: completed))
+            try? VerificationRunStore.shared.append(record)
+            self.requestShownAtNanoseconds = nil
+            if let completion {
+                completion(result, record)
+            } else {
+                _ = self.finish(result, timing: record)
+            }
         }
     }
 
@@ -726,7 +766,8 @@ final class VerifierViewController: UIViewController {
         return .snapshot(at: url, provider: OpenACRevocationProofProvider())
     }
 
-    private func finish(_ result: VerifierSessionResult) -> QRScanningViewController.Decision {
+    private func finish(_ result: VerifierSessionResult,
+                        timing: VerificationRunRecord? = nil) -> QRScanningViewController.Decision {
         let outcome: VerificationOutcome?
         switch result {
         case .checked(let checked):
@@ -734,7 +775,7 @@ final class VerifierViewController: UIViewController {
         case .noPendingRequest:
             outcome = nil
         }
-        show(outcome)
+        show(outcome, timing: timing)
         return .stop
     }
 
@@ -743,13 +784,13 @@ final class VerifierViewController: UIViewController {
         return .stop
     }
 
-    private func show(_ outcome: VerificationOutcome?) {
+    private func show(_ outcome: VerificationOutcome?, timing: VerificationRunRecord? = nil) {
         // Pop the scanner and push the result in one transaction, so the camera
         // screen does not flash back into view between the two.
         guard let navigationController else { return }
         var stack = navigationController.viewControllers
         while stack.last is QRScanningViewController { stack.removeLast() }
-        stack.append(VerificationResultViewController(outcome: outcome))
+        stack.append(VerificationResultViewController(outcome: outcome, timing: timing))
         navigationController.setViewControllers(stack, animated: true)
     }
 
@@ -846,9 +887,11 @@ final class VerificationResultViewController: UIViewController {
     /// `VerificationFailure`: the nearest case there accuses the holder of
     /// replaying, and this is a fact about *our* device.
     private let outcome: VerificationOutcome?
+    private let timing: VerificationRunRecord?
 
-    init(outcome: VerificationOutcome?) {
+    init(outcome: VerificationOutcome?, timing: VerificationRunRecord? = nil) {
         self.outcome = outcome
+        self.timing = timing
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -930,6 +973,35 @@ final class VerificationResultViewController: UIViewController {
                 "This checker had no request outstanding. Each request can be answered once; start a new check and ask them to scan it again.", comment: "")))
             stack.addArrangedSubview(PresentationUI.mitigation(
                 NSLocalizedString("This is about this phone, not about the person presenting. What they showed was never examined, so nothing here counts against them.", comment: "")))
+        }
+
+        if let timing {
+            var lines: [String] = []
+            if let milliseconds = timing.transportMilliseconds {
+                lines.append(String(format: NSLocalizedString(
+                    "Request shown to complete payload: %.2f seconds (includes scanning and handling the phones)",
+                    comment: "offline presentation operational timing"),
+                    Double(milliseconds) / 1_000))
+            }
+            if let milliseconds = timing.verificationMilliseconds {
+                lines.append(String(format: NSLocalizedString(
+                    "Cryptographic verification on this device: %.2f seconds",
+                    comment: "offline local verification timing"),
+                    Double(milliseconds) / 1_000))
+            }
+            if let milliseconds = timing.endToEndMilliseconds {
+                lines.append(String(format: NSLocalizedString(
+                    "Request shown to result: %.2f seconds",
+                    comment: "offline verification end-to-end timing"),
+                    Double(milliseconds) / 1_000))
+            }
+            let card = PresentationUI.card(
+                title: NSLocalizedString("Verification time", comment: "verification result timing"),
+                body: lines.joined(separator: "\n"))
+            card.accessibilityIdentifier = "verificationResult.timing"
+            // Verdict and its immediate qualification stay first. The number is
+            // next, before any variable-length claim list can push it away.
+            stack.insertArrangedSubview(card, at: min(2, stack.arrangedSubviews.count))
         }
     }
 

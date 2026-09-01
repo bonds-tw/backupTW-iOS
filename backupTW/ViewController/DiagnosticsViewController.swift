@@ -61,6 +61,11 @@ final class DiagnosticsViewController: UICollectionViewController {
         reload()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if isViewLoaded { reload() }
+    }
+
     // MARK: - Collection
 
     private func configureDataSource() {
@@ -150,7 +155,81 @@ final class DiagnosticsViewController: UICollectionViewController {
     // MARK: - Facts
 
     private static func collect() -> [Group] {
-        [selfCheckGroup(), appAttestUATGroup(), myDataGroup(), signingGroup(), storageGroup(), assetsGroup()]
+        [selfCheckGroup(), verificationTimingGroup(), appAttestUATGroup(), myDataGroup(),
+         signingGroup(), storageGroup(), assetsGroup()]
+    }
+
+    /// The latest privacy-safe device measurements. This is the source copied
+    /// into the cross-device test report; it never contains a DID, claim, URL or
+    /// request identifier.
+    private static func verificationTimingGroup() -> Group {
+        let records = VerificationRunStore.shared.records().suffix(12).reversed()
+        guard !records.isEmpty else {
+            return Group(title: NSLocalizedString("Verification timing", comment: "diagnostics timing group"),
+                         rows: [Row(
+                            title: NSLocalizedString("No measured runs yet", comment: "diagnostics timing empty"),
+                            value: NSLocalizedString(
+                                "Complete an offline check, OIDC4VP presentation, or zero-knowledge proof run.",
+                                comment: "diagnostics timing empty detail"),
+                            passed: nil)])
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .medium
+
+        return Group(title: NSLocalizedString("Verification timing", comment: "diagnostics timing group"),
+                     rows: records.map { record in
+            var details = [
+                "\(formatter.string(from: record.recordedAt)) · \(transportName(record.transport))",
+                "\(record.deviceModel) · \(record.osVersion)"
+            ]
+            if let milliseconds = record.preparationMilliseconds {
+                details.append(String(format: NSLocalizedString("Preparation: %.2f seconds", comment: "timing"),
+                                      Double(milliseconds) / 1_000))
+            }
+            if let milliseconds = record.transportMilliseconds {
+                details.append(String(format: NSLocalizedString(
+                    "Request to payload: %.2f seconds (includes handling the phones)", comment: "timing"),
+                    Double(milliseconds) / 1_000))
+            }
+            if let milliseconds = record.verificationMilliseconds {
+                details.append(String(format: NSLocalizedString("Local verification: %.2f seconds", comment: "timing"),
+                                      Double(milliseconds) / 1_000))
+            }
+            if let milliseconds = record.endToEndMilliseconds {
+                let label = record.flow == .oid4vpPresentation
+                    ? NSLocalizedString("Present to verifier response: %.2f seconds", comment: "timing")
+                    : NSLocalizedString("End to end: %.2f seconds", comment: "timing")
+                details.append(String(format: label, Double(milliseconds) / 1_000))
+            }
+            return Row(title: flowName(record.flow),
+                       value: details.joined(separator: "\n"),
+                       passed: record.succeeded)
+        })
+    }
+
+    private static func flowName(_ flow: VerificationRunRecord.Flow) -> String {
+        switch flow {
+        case .offlinePresentation:
+            return NSLocalizedString("Offline credential verification", comment: "timing flow")
+        case .oid4vpPresentation:
+            return NSLocalizedString("Online OIDC4VP presentation", comment: "timing flow")
+        case .zeroKnowledgeProofCreation:
+            return NSLocalizedString("Zero-knowledge proof creation", comment: "timing flow")
+        case .zeroKnowledgeProofVerification:
+            return NSLocalizedString("Zero-knowledge proof verification", comment: "timing flow")
+        }
+    }
+
+    private static func transportName(_ transport: VerificationRunRecord.Transport) -> String {
+        switch transport {
+        case .qr: return "QR"
+        case .bluetooth: return "Bluetooth"
+        case .https: return "HTTPS"
+        case .file: return NSLocalizedString("File", comment: "verification transport")
+        case .local: return NSLocalizedString("On this device", comment: "verification transport")
+        }
     }
 
     private static func appAttestUATGroup() -> Group {
