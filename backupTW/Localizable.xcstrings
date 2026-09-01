@@ -8737,7 +8737,117 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖有備而來"
+            "value": "有備而來已上鎖"
+          }
+        }
+      }
+    },
+    "Confirm once, then return without another check for 10 minutes.": {
+      "comment": "wallet login grace period explanation",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認一次後，10 分鐘內切回有備而來不需再次辨識。"
+          }
+        }
+      }
+    },
+    "Your credentials stay protected on this device.": {
+      "comment": "wallet local protection explanation",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的證件保留在這台裝置上，生物辨識由系統完成。"
+          }
+        }
+      }
+    },
+    "Use Face ID to unlock": {
+      "comment": "wallet Face ID button",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Face ID 解鎖"
+          }
+        }
+      }
+    },
+    "Use Touch ID to unlock": {
+      "comment": "wallet Touch ID button",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Touch ID 解鎖"
+          }
+        }
+      }
+    },
+    "Use device passcode to unlock": {
+      "comment": "wallet passcode button",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用裝置密碼解鎖"
+          }
+        }
+      }
+    },
+    "Use device passcode": {
+      "comment": "biometric fallback",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "改用裝置密碼"
+          }
+        }
+      }
+    },
+    "Confirming…": {
+      "comment": "wallet authentication progress",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在確認…"
+          }
+        }
+      }
+    },
+    "Confirm it’s you to open 有備而來": {
+      "comment": "wallet authentication reason",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認是你本人後開啟有備而來"
+          }
+        }
+      }
+    },
+    "Set a passcode on this device before using the wallet.": {
+      "comment": "wallet login unavailable",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先為這台裝置設定解鎖密碼，才能使用有備而來。"
+          }
+        }
+      }
+    },
+    "Credentials are safely locked": {
+      "comment": "App switcher privacy cover",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證件已安全上鎖"
           }
         }
       }

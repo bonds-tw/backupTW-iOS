@@ -381,6 +381,13 @@ final class ConvenienceStorePickupQRCodeViewController: UIViewController {
             wakeLock.hold()
             holdsWakeLock = true
         }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // `viewWillAppear` runs before UIKit attaches the view to a window. The
+        // previous `startTimer()` call therefore hit its window guard and left
+        // the first rendered value (usually 04:59) frozen forever.
         startTimer()
     }
 
@@ -405,14 +412,16 @@ final class ConvenienceStorePickupQRCodeViewController: UIViewController {
     private func startTimer() {
         guard viewIfLoaded?.window != nil else { return }
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             self?.updateCountdown()
         }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
     private func updateCountdown() {
-        let expiry = barcodeSession.barcode.generatedAt.addingTimeInterval(barcodeSession.barcode.lifetime)
-        let remaining = max(0, Int(ceil(expiry.timeIntervalSinceNow)))
+        let remaining = ConvenienceStorePickupCountdown(barcode: barcodeSession.barcode)
+            .remainingSeconds(at: Date())
         if remaining == 0 {
             countdownLabel.text = NSLocalizedString("This QR code has expired", comment: "pickup QR expired")
             countdownLabel.textColor = .systemRed

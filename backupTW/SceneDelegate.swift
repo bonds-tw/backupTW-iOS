@@ -209,28 +209,25 @@ final class PrivacyShield {
     /// data visible-but-pretty, so the cover says what it is instead — which also
     /// makes a shield that fired look deliberate rather than like a crash.
     private static func makeCover(for window: UIWindow) -> UIView {
-        let cover = UIView(frame: window.bounds)
+        let cover = WalletLockBackdropView(frame: window.bounds)
         cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        cover.backgroundColor = .systemBackground
 
-        let symbol = UIImageView(image: UIImage(systemName: "eye.slash.fill"))
-        symbol.tintColor = .secondaryLabel
-        symbol.contentMode = .scaleAspectFit
+        let symbol = WalletLockArtwork.mark(symbolName: "lock.fill", size: 76)
 
         let title = UILabel()
-        title.text = NSLocalizedString("Hidden while this app is not in front",
-                                       comment: "App switcher privacy cover")
-        title.font = .preferredFont(forTextStyle: .headline)
+        title.text = "有備而來"
+        title.textColor = .white
+        title.font = .preferredFont(forTextStyle: .title2)
         title.adjustsFontForContentSizeCategory = true
         title.textAlignment = .center
         title.numberOfLines = 0
 
         let detail = UILabel()
-        detail.text = NSLocalizedString("So the details on this screen are not left behind in the app switcher.",
+        detail.text = NSLocalizedString("Credentials are safely locked",
                                         comment: "App switcher privacy cover")
-        detail.font = .preferredFont(forTextStyle: .footnote)
+        detail.font = .preferredFont(forTextStyle: .subheadline)
         detail.adjustsFontForContentSizeCategory = true
-        detail.textColor = .secondaryLabel
+        detail.textColor = UIColor.white.withAlphaComponent(0.78)
         detail.textAlignment = .center
         detail.numberOfLines = 0
 
@@ -241,7 +238,6 @@ final class PrivacyShield {
         stack.translatesAutoresizingMaskIntoConstraints = false
         cover.addSubview(stack)
         NSLayoutConstraint.activate([
-            symbol.heightAnchor.constraint(equalToConstant: 32),
             stack.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
             stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: cover.leadingAnchor, constant: 32),
@@ -256,9 +252,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
     private let privacyShield = PrivacyShield()
+    private let unlockSession = WalletUnlockSession()
     private var mainRootViewController: UIViewController?
     private weak var unlockViewController: WalletUnlockViewController?
-    private var needsUnlock = true
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
@@ -309,7 +305,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // does not compile this branch, so no launch environment can unlock a
         // shipped wallet.
         if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] == "1" {
-            needsUnlock = false
+            unlockSession.recordAuthentication()
             window.rootViewController = tabBarController
             window.makeKeyAndVisible()
             self.window = window
@@ -411,7 +407,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        guard needsUnlock else {
+        guard unlockSession.requiresAuthentication else {
             privacyShield.uncover()
             return
         }
@@ -433,12 +429,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
-        // Called as the scene transitions from the foreground to the background.
-        // Save data, release shared resources, and store enough scene-specific
-        // state to restore the scene later. The privacy cover is deliberately
-        // *not* installed here: the system has already taken its snapshot by the
-        // time this runs. See `PrivacyShield.coverIfNeeded`.
-        needsUnlock = true
+        // Authentication remains valid for a short, process-local grace period.
+        // The opaque privacy cover was already installed in
+        // `sceneWillResignActive`, so app-switcher snapshots stay protected even
+        // when returning within that grace period.
     }
 
     // MARK: - App unlock
@@ -448,7 +442,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         unlock.modalPresentationStyle = .fullScreen
         unlock.onUnlocked = { [weak self, weak unlock] in
             guard let self else { return }
-            self.needsUnlock = false
+            self.unlockSession.recordAuthentication()
             if initial {
                 guard let root = self.mainRootViewController else { return }
                 self.window?.rootViewController = root

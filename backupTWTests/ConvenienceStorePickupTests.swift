@@ -69,6 +69,20 @@ struct ConvenienceStorePickupTests {
         #expect(barcode.generatedAt == generated)
     }
 
+    @Test func verifierLifetimeCountsDownFromAnAbsoluteDeadline() {
+        let barcode = ConvenienceStorePickupBarcode(
+            imageData: Data(),
+            lifetime: 300,
+            generatedAt: Date(timeIntervalSince1970: 1_000))
+        let countdown = ConvenienceStorePickupCountdown(barcode: barcode)
+
+        #expect(countdown.remainingSeconds(at: Date(timeIntervalSince1970: 1_000)) == 300)
+        #expect(countdown.remainingSeconds(at: Date(timeIntervalSince1970: 1_001.2)) == 299)
+        #expect(countdown.remainingSeconds(at: Date(timeIntervalSince1970: 1_060)) == 240)
+        #expect(countdown.remainingSeconds(at: Date(timeIntervalSince1970: 1_300)) == 0)
+        #expect(countdown.remainingSeconds(at: Date(timeIntervalSince1970: 1_400)) == 0)
+    }
+
     @Test func aNonPNGOrServerRefusalIsNeverShownAsABarcode() throws {
         let textImage = Data("not a png".utf8).base64EncodedString()
         let malformed = try JSONSerialization.data(withJSONObject: [

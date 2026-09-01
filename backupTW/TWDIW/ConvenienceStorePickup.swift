@@ -114,6 +114,22 @@ struct ConvenienceStorePickupBarcode {
     let generatedAt: Date
 }
 
+/// Converts the verifier-provided lifetime into an absolute, testable deadline.
+/// The screen always asks this value again rather than decrementing a counter,
+/// so time spent in the background, in Face ID, or scrolling cannot make an
+/// expired store token look current.
+struct ConvenienceStorePickupCountdown {
+    let expiresAt: Date
+
+    init(barcode: ConvenienceStorePickupBarcode) {
+        expiresAt = barcode.generatedAt.addingTimeInterval(barcode.lifetime)
+    }
+
+    func remainingSeconds(at now: Date) -> Int {
+        max(0, Int(ceil(expiresAt.timeIntervalSince(now))))
+    }
+}
+
 struct ConvenienceStorePickupBarcodeSession {
     let context: ConvenienceStorePickupContext
     let receipt: OID4VPPresentationReceipt
