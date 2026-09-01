@@ -4353,12 +4353,12 @@
         }
       }
     },
-    "One of the chosen fields is not on the card, so nothing was presented.": {
+    "None of the matching cards on this phone carries one of the fields the verifier requested, so nothing was presented.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "你選的欄位其中一個這張卡沒有，所以沒有出示。"
+            "value": "這支手機上符合類型的卡片，沒有查驗方要求的其中一個欄位，所以沒有出示。"
           }
         }
       }

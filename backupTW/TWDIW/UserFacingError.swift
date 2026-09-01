@@ -215,7 +215,7 @@ enum UserFacingError {
             return NSLocalizedString("Your wallet has no credential of the kind this verifier asked for.",
                                      comment: "vp response error: no matching card")
         case .requestedClaimNotAvailable:
-            return NSLocalizedString("One of the chosen fields is not on the card, so nothing was presented.",
+            return NSLocalizedString("None of the matching cards on this phone carries one of the fields the verifier requested, so nothing was presented.",
                                      comment: "vp response error: claim not available")
         case .holderKeyUnavailable:
             return NSLocalizedString("This phone could not find the card's key, so it could not be presented.",
