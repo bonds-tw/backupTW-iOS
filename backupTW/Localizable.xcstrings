@@ -1,6 +1,206 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Complete an offline check, OIDC4VP presentation, or zero-knowledge proof run.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成一次離線查驗、OIDC4VP 出示或零知識證明流程後，這裡會顯示實測時間。"
+          }
+        }
+      }
+    },
+    "Cryptographic verification on this device: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機密碼查驗：%.2f 秒"
+          }
+        }
+      }
+    },
+    "End to end: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全程：%.2f 秒"
+          }
+        }
+      }
+    },
+    "File": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案"
+          }
+        }
+      }
+    },
+    "Local verification: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機查驗：%.2f 秒"
+          }
+        }
+      }
+    },
+    "No measured runs yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有實測紀錄"
+          }
+        }
+      }
+    },
+    "Offline credential verification": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離線憑證查驗"
+          }
+        }
+      }
+    },
+    "On this device": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機"
+          }
+        }
+      }
+    },
+    "Online OIDC4VP presentation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "線上 OIDC4VP 出示"
+          }
+        }
+      }
+    },
+    "Preparation: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備：%.2f 秒"
+          }
+        }
+      }
+    },
+    "Present to verifier response: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按下出示至驗證端回應：%.2f 秒"
+          }
+        }
+      }
+    },
+    "Present to verifier response: %.2f seconds (wallet signing, network, and verifier processing)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按下出示至驗證端回應：%.2f 秒（包含皮夾簽章、網路與驗證端處理）"
+          }
+        }
+      }
+    },
+    "Request retrieval and verification: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取得並核對驗證請求：%.2f 秒"
+          }
+        }
+      }
+    },
+    "Request shown to complete payload: %.2f seconds (includes scanning and handling the phones)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示請求至完整收到資料：%.2f 秒（包含掃描與操作手機）"
+          }
+        }
+      }
+    },
+    "Request shown to result: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示請求至結果：%.2f 秒"
+          }
+        }
+      }
+    },
+    "Request to payload: %.2f seconds (includes handling the phones)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請求至收到資料：%.2f 秒（包含操作手機）"
+          }
+        }
+      }
+    },
+    "Verification time": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗時間"
+          }
+        }
+      }
+    },
+    "Verification timing": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證計時"
+          }
+        }
+      }
+    },
+    "Zero-knowledge proof creation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立零知識證明"
+          }
+        }
+      }
+    },
+    "Zero-knowledge proof verification": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗零知識證明"
+          }
+        }
+      }
+    },
     "Arbitrum block: %@": {
       "localizations": {
         "zh-Hant": {
