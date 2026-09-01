@@ -130,7 +130,8 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ONLY_ACTIVE_ARCH=YES
           binary="$derived/Build/Products/Release-iphonesimulator/backupTW.app/backupTW"
           test -x "$binary"
           info_plist="$derived/Build/Products/Release-iphonesimulator/backupTW.app/Info.plist"
