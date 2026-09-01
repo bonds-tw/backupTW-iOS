@@ -7,7 +7,9 @@ import Foundation
 // Depending on the consumer's build setup, the low-level FFI code
 // might be in a separate module, or it might be compiled inline into
 // this module. This is a bit of light hackery to work with both.
-#if canImport(openac_age_mobile_appFFI)
+#if canImport(COpenACAgeFFI)
+import COpenACAgeFFI
+#elseif canImport(openac_age_mobile_appFFI)
 import openac_age_mobile_appFFI
 #endif
 
