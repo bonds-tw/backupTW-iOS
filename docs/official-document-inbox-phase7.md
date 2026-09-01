@@ -1,6 +1,6 @@
 # 電子公文接收站 Phase 7：實體自然人憑證開發簽章
 
-- 狀態：**App 與 Mac 工具已實作；待讀卡機／真卡實測**
+- 狀態：**iPhone 14 與實體自然人憑證完整往返已通過**
 - 日期：2026-09-01
 - 範圍：DEBUG-only 一次性同意請求、配對 USB 往返、實體自然人憑證 SIGN 私鑰簽章、
   MOICA 憑證鏈與確切 consent 驗章、本機證據保存
@@ -28,6 +28,22 @@ anchor、憑證效期與確切簽章。差別只在私鑰操作發生於行動�
 
 它不能驗到行動自然人憑證的 app-to-app callback、內政部服務紀錄、App Attest 或任何 G2C
 交換契約；這些門檻仍各自保留。
+
+## 2026-09-01 真機結果
+
+- 裝置：iPhone 14、iOS 27.0、DEBUG `1.0 (1)`；以 USB 連接 Mac。
+- 讀卡環境：macOS 系統 CCID driver `1.5.1`，讀卡機由 PC/SC 顯示為
+  `Generic Smart Card Reader Interface`；`open-gpki-pkcs11` 成功辨識一張 GPKI 卡。
+- Mac 從 iPhone App data container 拉取一次性 request，重建並顯示確切 TBS digest；PIN
+  僅在終端機隱藏提示輸入一次，簽章成功後 response 以 `0600` 權限推回同一 container。
+- iPhone 顯示「驗證實體卡簽章」，並成功通過 request 對應、MOICA 憑證鏈與 RSA 簽章驗證；
+  最終 receipt 的 `signingChannel` 為 `physicalNaturalPersonCertificate`。
+- 驗證後的只讀稽核確認 `physical-card-request.json` 與
+  `physical-card-response.json` 均已被消耗，只留下 `prototype-consent.json`；原有合成
+  EN／DI／ESW 測試套件未被刪除。
+
+目前 helper 不輸出卡片世代，所以本次結果只證明這張實卡與上述 reader 組合通過，不能外推為
+所有第一代／第二代卡片與讀卡機皆已驗證。
 
 ## PIN 與個資邊界
 
@@ -60,7 +76,8 @@ anchor、憑證效期與確切簽章。差別只在私鑰操作發生於行動�
 commit `4684289400322b892e2c9ebcd8d56c1e852aefd2`（v0.1.1，LGPL-2.1-or-later）。
 上游明確標示非政府官方實作；README 列出 macOS、第一／二代自然人憑證、`SIGN`／`KEYX`、
 `SHA256-RSA-PKCS` 與實卡測試狀態。Mac 端使用系統 `PCSC.framework`；目前本機系統 CCID
-reader driver 已存在，但沒有連接中的 reader，因此自動測試可完成，真卡結果仍待硬體接上。
+reader driver 與插卡 reader 均可用，本次 `SIGN` 實卡往返已完成；未測的 reader／卡片世代
+組合仍不可視為通過。
 
 平台參考：
 
@@ -77,10 +94,7 @@ reader driver 已存在，但沒有連接中的 reader，因此自動測試可�
 
 ## 下一個完成門檻
 
-1. 插入可被 macOS PC/SC 看見的讀卡機與有效自然人憑證，跑一次 request → card SIGN →
-   response → App verify 真卡往返；記錄 reader／card 世代相容性，但不記姓名、卡號、憑證或 PIN。
-2. 另外修正或安裝有 `BONDS_SIGNING_BROKER_BASE_URL` 的 TestFlight/Release build，再做 App
+1. 另外修正或安裝有 `BONDS_SIGNING_BROKER_BASE_URL` 的 TestFlight/Release build，再做 App
    Attest UAT；不能拿本階段成功代替它。
-3. 未向主管機關申請以前，正式 G2C 地址、來源簽章、ESW 解密與收文確認維持不可用，畫面與
+2. 未向主管機關申請以前，正式 G2C 地址、來源簽章、ESW 解密與收文確認維持不可用，畫面與
    model 繼續 fail closed。
-
