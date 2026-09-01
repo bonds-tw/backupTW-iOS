@@ -21,13 +21,21 @@ import UIKit
 final class DiagnosticsViewController: UICollectionViewController {
 
     private struct Row: Hashable {
+        /// Diffable data sources require every item identifier to be unique,
+        /// even when two measured runs happen to have identical display text.
+        let id: String
         let title: String
         let value: String
         /// nil where there is nothing to judge — a fact, not a check.
         let passed: Bool?
         let opensAppAttestUAT: Bool
 
-        init(title: String, value: String, passed: Bool?, opensAppAttestUAT: Bool = false) {
+        init(id: String = UUID().uuidString,
+             title: String,
+             value: String,
+             passed: Bool?,
+             opensAppAttestUAT: Bool = false) {
+            self.id = id
             self.title = title
             self.value = value
             self.passed = passed
@@ -59,11 +67,6 @@ final class DiagnosticsViewController: UICollectionViewController {
             style: .plain, target: self, action: #selector(copyReport))
         configureDataSource()
         reload()
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if isViewLoaded { reload() }
     }
 
     // MARK: - Collection
@@ -203,7 +206,8 @@ final class DiagnosticsViewController: UICollectionViewController {
                     : NSLocalizedString("End to end: %.2f seconds", comment: "timing")
                 details.append(String(format: label, Double(milliseconds) / 1_000))
             }
-            return Row(title: flowName(record.flow),
+            return Row(id: "verification.\(record.id.uuidString)",
+                       title: flowName(record.flow),
                        value: details.joined(separator: "\n"),
                        passed: record.succeeded)
         })
