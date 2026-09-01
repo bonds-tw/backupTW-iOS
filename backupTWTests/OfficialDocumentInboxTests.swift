@@ -26,6 +26,37 @@ struct OfficialDocumentInboxTests {
         "This sends your ID number, the service identifier, and a prototype-consent digest to the Ministry of the Interior, which keeps a service record. 有備而來 does not save the ID number you type. The signature will not create an official mailbox.",
         "Send the number and sign",
         "The verified signature is stored on this phone. Official receiving is still inactive until a government G2C service accepts this app and issues a receiving address.",
+        "The stored consent evidence has invalid metadata, so it cannot be trusted.",
+        "The saved consent evidence could not be verified. It will not be shown as signed, and the app will not overwrite it.",
+        "Signed on %@. The saved evidence was reverified; it has not registered an official receiving address.",
+        "Consent evidence needs attention",
+        "Resolve the protected-storage problem before signing again.",
+        "Review signed consent evidence",
+        "Inspect the signed scope and fingerprints, or remove the local evidence from this iPhone.",
+        "Signed consent evidence",
+        "Current state",
+        "Local prototype evidence — not an official inbox",
+        "The saved signature was checked again before this screen opened. No government G2C service has accepted this app or issued a receiving address.",
+        "Signed consent",
+        "Signature completed",
+        "Signed scope",
+        "Local prototype only",
+        "What this proves",
+        "The holder approved this exact local-prototype consent with 行動自然人憑證.",
+        "What this does not prove",
+        "It does not prove government enrolment, a receiving address, sender authentication, document receipt or legal delivery.",
+        "Evidence fingerprints",
+        "Consent fingerprint (SHA-256)",
+        "Certificate fingerprint (SHA-256)",
+        "Signature fingerprint (SHA-256)",
+        "Keep these fingerprints private",
+        "A certificate fingerprint can link signatures made with the same certificate. 有備而來 does not transmit, log or share the fingerprints on this screen.",
+        "Remove consent evidence from this iPhone",
+        "Deletes only the local certificate and signature. It cannot erase the service record kept by the Ministry of the Interior.",
+        "Remove this local consent evidence?",
+        "This deletes the certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and it cannot erase the service record kept by the Ministry of the Interior.",
+        "Remove from this iPhone",
+        "The local consent evidence was not removed",
         "Load a synthetic EN / DI / ESW package",
         "Developer test only — this did not come from a government agency and creates no receipt.",
         "Synthetic test package — not an official delivery",
@@ -43,6 +74,12 @@ struct OfficialDocumentInboxTests {
                                     isDirectory: true)
     }
 
+    /// Most archive tests exercise persistence rather than the MOICA chain. The
+    /// cryptographic cases below use a real throwaway RSA fixture explicitly.
+    private func archive() throws -> OfficialDocumentInboxArchive {
+        try OfficialDocumentInboxArchive(directory: directory(), verifyReceipt: { _ in })
+    }
+
     private func consent() -> OfficialDocumentInboxConsent {
         OfficialDocumentInboxConsent(
             createdAt: Date(timeIntervalSince1970: 1_800_000_000.125),
@@ -52,9 +89,26 @@ struct OfficialDocumentInboxTests {
     private func receipt() -> OfficialDocumentInboxReceipt {
         OfficialDocumentInboxReceipt(
             consent: consent(),
-            certificate: "certificate-base64",
-            signature: "signature-base64",
+            certificate: Data("certificate".utf8).base64EncodedString(),
+            signature: Data("signature".utf8).base64EncodedString(),
             recordedAt: Date(timeIntervalSince1970: 1_800_000_010.5))
+    }
+
+    private func cryptographicReceipt(nonceByte: UInt8 = 0x2a) throws
+        -> OfficialDocumentInboxReceipt {
+        let nonce = Data(repeating: nonceByte, count: 32).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let consent = OfficialDocumentInboxConsent(
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            nonce: nonce)
+        let signature = try cardSignature(over: Data(consent.signingTarget.utf8))
+        return OfficialDocumentInboxReceipt(
+            consent: consent,
+            certificate: holderCertificateDER,
+            signature: signature.base64EncodedString(),
+            recordedAt: Date(timeIntervalSince1970: 1_800_000_100))
     }
 
     @Test func consentIsDomainSeparatedAndContainsNoIdentityNumber() {
@@ -69,7 +123,7 @@ struct OfficialDocumentInboxTests {
     }
 
     @Test func archiveRoundTripsThePrototypeReceiptAndPurgesIt() throws {
-        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let archive = try archive()
         let expected = receipt()
 
         try archive.store(expected)
@@ -85,11 +139,70 @@ struct OfficialDocumentInboxTests {
     }
 
     @Test func corruptedReceiptIsNotSilentlyReportedAsUnsigned() throws {
-        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let archive = try archive()
         try Data("not json".utf8).write(
             to: archive.directory.appendingPathComponent("prototype-consent.json"))
 
         #expect(throws: (any Error).self) { _ = try archive.receipt() }
+    }
+
+    @Test func persistedConsentEvidenceIsCryptographicallyRechecked() throws {
+        let holder = try X509Certificate.parse(base64DER: holderCertificateDER)
+        let receipt = try cryptographicReceipt()
+
+        try receipt.verifySignature(signedBy: holder)
+        #expect(receipt.consentFingerprint.count == 64)
+        #expect(receipt.certificateFingerprint?.count == 64)
+        #expect(receipt.signatureFingerprint?.count == 64)
+        #expect(receipt.consentFingerprint.contains(receipt.certificate) == false)
+        #expect(receipt.signatureFingerprint?.contains(receipt.signature) == false)
+
+        let differentConsent = try cryptographicReceipt(nonceByte: 0x2b).consent
+        let tampered = OfficialDocumentInboxReceipt(
+            consent: differentConsent,
+            certificate: receipt.certificate,
+            signature: receipt.signature,
+            recordedAt: receipt.recordedAt)
+        #expect(throws: OfficialDocumentInboxError.signatureInvalid) {
+            try tampered.verifySignature(signedBy: holder)
+        }
+    }
+
+    @Test func archiveRejectsChangedEvidenceAndLocalRemovalKeepsDocuments() throws {
+        let holder = try X509Certificate.parse(base64DER: holderCertificateDER)
+        let archive = try OfficialDocumentInboxArchive(
+            directory: directory(),
+            verifyReceipt: { try $0.verifySignature(signedBy: holder) })
+        let receipt = try cryptographicReceipt()
+        try archive.store(receipt)
+        try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
+
+        let replacement = try cryptographicReceipt(nonceByte: 0x2b)
+        let tampered = OfficialDocumentInboxReceipt(
+            consent: replacement.consent,
+            certificate: receipt.certificate,
+            signature: receipt.signature,
+            recordedAt: replacement.recordedAt)
+        #expect(throws: OfficialDocumentInboxError.signatureInvalid) {
+            try archive.store(tampered)
+        }
+        #expect(try archive.receipt() == receipt)
+
+        try archive.removeReceipt()
+        #expect(try archive.receipt() == nil)
+        #expect(try archive.packages().count == 1)
+    }
+
+    @Test func invalidReceiptMetadataFailsBeforeTrustIsPresented() throws {
+        let receipt = OfficialDocumentInboxReceipt(
+            consent: consent(),
+            certificate: Data("certificate".utf8).base64EncodedString(),
+            signature: Data(repeating: 0, count: 256).base64EncodedString(),
+            recordedAt: Date(timeIntervalSince1970: 1_800_000_010))
+
+        #expect(throws: OfficialDocumentInboxError.receiptMetadataInvalid) {
+            try receipt.verify()
+        }
     }
 
     @Test func theInboxDecisionAndLimitsReachTraditionalChineseReaders() {
@@ -129,7 +242,7 @@ struct OfficialDocumentInboxTests {
     }
 
     @Test func packageWithAMismatchedDIIsRefusedBeforeStorage() throws {
-        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let archive = try archive()
         let fixture = OfficialDocumentSyntheticFixture.make()
         let document = try #require(fixture.document)
         let tampered = OfficialDocumentImportPayload(
@@ -146,7 +259,7 @@ struct OfficialDocumentInboxTests {
     }
 
     @Test func archivePreservesSourcesAndMovesOnlyTheLocalReadState() throws {
-        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let archive = try archive()
         let fixture = OfficialDocumentSyntheticFixture.make(
             receivedAt: Date(timeIntervalSince1970: 1_800_002_000))
         let stored = try archive.importSynthetic(
@@ -165,7 +278,7 @@ struct OfficialDocumentInboxTests {
     }
 
     @Test func identicalRepeatIsIdempotentButConflictingApplicationIDIsRefused() throws {
-        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let archive = try archive()
         let firstPayload = OfficialDocumentSyntheticFixture.make(
             applicationID: "SYNTHETIC-SAME-ID",
             receivedAt: Date(timeIntervalSince1970: 1_800_003_000))
@@ -203,7 +316,7 @@ struct OfficialDocumentInboxTests {
     }
 
     @Test @MainActor func inboxListsTheSyntheticPackageAndOpensItsDedicatedDetail() throws {
-        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let archive = try archive()
         let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
         let controller = OfficialDocumentInboxViewController(archive: archive,
                                                              makeSigning: { nil })
@@ -225,7 +338,7 @@ struct OfficialDocumentInboxTests {
     }
 
     @Test @MainActor func openingDetailMarksOnlyTheLocalViewingState() throws {
-        let archive = try OfficialDocumentInboxArchive(directory: directory())
+        let archive = try archive()
         let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
         let controller = OfficialDocumentDetailViewController(packageID: package.id,
                                                               archive: archive)
@@ -246,6 +359,39 @@ struct OfficialDocumentInboxTests {
         #expect(receipt.accessibilityIdentifier == "officialDocuments.detail.receipt")
         #expect(receipt.detailTextLabel?.text?.contains("sends nothing") == true
                 || receipt.detailTextLabel?.text?.contains("不會送出") == true)
+    }
+
+    @Test @MainActor func signedConsentOpensVerifiedEvidenceInsteadOfSigningAgain() throws {
+        let archive = try archive()
+        let receipt = receipt()
+        try archive.store(receipt)
+        let controller = OfficialDocumentInboxViewController(archive: archive,
+                                                             makeSigning: { nil })
+        let navigation = UINavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        controller.loadViewIfNeeded()
+
+        let action = controller.tableView(
+            controller.tableView,
+            cellForRowAt: IndexPath(row: 0, section: 2))
+        #expect(action.accessibilityIdentifier == "officialDocuments.reviewConsent")
+
+        controller.tableView(controller.tableView,
+                             didSelectRowAt: IndexPath(row: 0, section: 2))
+        let evidence = try #require(
+            navigation.topViewController as? OfficialDocumentConsentEvidenceViewController)
+        #expect(evidence.numberOfSections(in: evidence.tableView) == 4)
+        let boundary = evidence.tableView(
+            evidence.tableView,
+            cellForRowAt: IndexPath(row: 0, section: 0))
+        let remove = evidence.tableView(
+            evidence.tableView,
+            cellForRowAt: IndexPath(row: 0, section: 3))
+        #expect(boundary.accessibilityIdentifier == "officialDocuments.consentEvidence.boundary")
+        #expect(remove.accessibilityIdentifier == "officialDocuments.consentEvidence.remove")
+        #expect(remove.textLabel?.textColor == .systemRed)
     }
 }
 

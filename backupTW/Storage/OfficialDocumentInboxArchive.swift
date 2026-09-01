@@ -32,7 +32,10 @@ extension OfficialDocumentInboxArchiveError: LocalizedError {
 /// packages for end-to-end product testing; official exchange envelopes and
 /// delivery receipts still require a government G2C interface and test fixtures.
 final class OfficialDocumentInboxArchive {
+    typealias ReceiptVerifier = (OfficialDocumentInboxReceipt) throws -> Void
+
     let directory: URL
+    private let verifyReceipt: ReceiptVerifier
 
     private static let receiptFilename = "prototype-consent.json"
     private static let packagesDirectoryName = "packages"
@@ -42,8 +45,10 @@ final class OfficialDocumentInboxArchive {
     private static let encryptedSwitchFilename = "source.esw"
     private static let maximumIdentifierUTF8Count = 256
 
-    init(directory: URL? = nil) throws {
+    init(directory: URL? = nil,
+         verifyReceipt: @escaping ReceiptVerifier = { try $0.verify() }) throws {
         self.directory = try directory ?? Self.defaultDirectory()
+        self.verifyReceipt = verifyReceipt
         try prepareDirectory()
     }
 
@@ -69,16 +74,31 @@ final class OfficialDocumentInboxArchive {
     func receipt() throws -> OfficialDocumentInboxReceipt? {
         let url = directory.appendingPathComponent(Self.receiptFilename)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return try JSONDecoder().decode(OfficialDocumentInboxReceipt.self,
-                                        from: Data(contentsOf: url))
+        let receipt = try JSONDecoder().decode(OfficialDocumentInboxReceipt.self,
+                                               from: Data(contentsOf: url))
+        try verifyReceipt(receipt)
+        return receipt
     }
 
     func store(_ receipt: OfficialDocumentInboxReceipt) throws {
+        // A UI or future transport must not be able to bypass the receipt
+        // factory and make arbitrary decoded JSON appear as signed evidence.
+        try verifyReceipt(receipt)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let data = try encoder.encode(receipt)
         try data.write(to: directory.appendingPathComponent(Self.receiptFilename),
                        options: [.atomic, .completeFileProtectionUnlessOpen])
+    }
+
+    /// Removes only the on-device prototype certificate and signature. No
+    /// official inbox exists in this phase, and this method deliberately does
+    /// not claim to revoke a Ministry of the Interior service record or a future
+    /// government receiving address.
+    func removeReceipt() throws {
+        let url = directory.appendingPathComponent(Self.receiptFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
     }
 
     // MARK: - Synthetic EN / DI / ESW packages

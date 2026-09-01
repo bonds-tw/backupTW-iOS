@@ -10089,6 +10089,116 @@
         }
       }
     },
+    "Certificate fingerprint (SHA-256)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證指紋（SHA-256）"
+          }
+        }
+      }
+    },
+    "Consent evidence needs attention": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同意證據需要處理"
+          }
+        }
+      }
+    },
+    "Consent fingerprint (SHA-256)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同意內容指紋（SHA-256）"
+          }
+        }
+      }
+    },
+    "Current state": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前狀態"
+          }
+        }
+      }
+    },
+    "Deletes only the local certificate and signature. It cannot erase the service record kept by the Ministry of the Interior.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只會刪除本機憑證與簽章，無法刪除內政部保存的服務紀錄。"
+          }
+        }
+      }
+    },
+    "Evidence fingerprints": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證據指紋"
+          }
+        }
+      }
+    },
+    "Inspect the signed scope and fingerprints, or remove the local evidence from this iPhone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檢查已簽署範圍與指紋，或從這支 iPhone 移除本機證據。"
+          }
+        }
+      }
+    },
+    "Keep these fingerprints private": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保護這些指紋"
+          }
+        }
+      }
+    },
+    "It does not prove government enrolment, a receiving address, sender authentication, document receipt or legal delivery.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這不能證明已向政府註冊、取得收件地址、驗證發文者、完成收文或具有法律送達效果。"
+          }
+        }
+      }
+    },
+    "Local prototype evidence — not an official inbox": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機試辦證據 — 不是正式公文匣"
+          }
+        }
+      }
+    },
+    "Local prototype only": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅限本機試辦"
+          }
+        }
+      }
+    },
     "No official documents yet": {
       "localizations": {
         "zh-Hant": {
@@ -10145,6 +10255,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "已完成試辦同意簽章 · 尚未啟用正式收文"
+          }
+        }
+      }
+    },
+    "Remove consent evidence from this iPhone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從這支 iPhone 移除同意證據"
+          }
+        }
+      }
+    },
+    "Remove from this iPhone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從這支 iPhone 移除"
+          }
+        }
+      }
+    },
+    "Remove this local consent evidence?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要移除這份本機同意證據嗎？"
+          }
+        }
+      }
+    },
+    "Resolve the protected-storage problem before signing again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先解決受保護儲存空間的問題，再重新簽署。"
+          }
+        }
+      }
+    },
+    "Review signed consent evidence": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看已簽署的同意證據"
           }
         }
       }
@@ -10219,6 +10379,66 @@
         }
       }
     },
+    "Signature completed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成簽章"
+          }
+        }
+      }
+    },
+    "Signature fingerprint (SHA-256)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章指紋（SHA-256）"
+          }
+        }
+      }
+    },
+    "Signed consent": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已簽署的同意"
+          }
+        }
+      }
+    },
+    "Signed consent evidence": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已簽署的同意證據"
+          }
+        }
+      }
+    },
+    "Signed on %@. The saved evidence was reverified; it has not registered an official receiving address.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "於 %@ 簽署。已再次驗證保存證據；尚未註冊正式收件地址。"
+          }
+        }
+      }
+    },
+    "Signed scope": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署範圍"
+          }
+        }
+      }
+    },
     "Signed on %@. This is stored only as local prototype evidence; it has not registered an official receiving address.": {
       "localizations": {
         "zh-Hant": {
@@ -10282,6 +10502,16 @@
         }
       }
     },
+    "The holder approved this exact local-prototype consent with 行動自然人憑證.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "持有人已使用行動自然人憑證，同意這份內容完全一致的本機試辦同意。"
+          }
+        }
+      }
+    },
     "The local inbox record cannot be read right now": {
       "localizations": {
         "zh-Hant": {
@@ -10292,12 +10522,42 @@
         }
       }
     },
+    "The local consent evidence was not removed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未移除本機同意證據"
+          }
+        }
+      }
+    },
     "The local inbox record could not be read": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "本機公文匣紀錄無法讀取"
+          }
+        }
+      }
+    },
+    "The saved consent evidence could not be verified. It will not be shown as signed, and the app will not overwrite it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證已儲存的同意證據。App 不會顯示為已簽署，也不會覆寫它。"
+          }
+        }
+      }
+    },
+    "The saved signature was checked again before this screen opened. No government G2C service has accepted this app or issued a receiving address.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟此畫面前已再次驗證保存的簽章。尚無政府 G2C 服務接受此 App 或核發收件地址。"
           }
         }
       }
@@ -10318,6 +10578,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "回傳的簽章與這份同意不相符，因此沒有保存。"
+          }
+        }
+      }
+    },
+    "The stored consent evidence has invalid metadata, so it cannot be trusted.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存的同意證據中繼資料無效，因此不能信任。"
           }
         }
       }
@@ -10352,6 +10622,26 @@
         }
       }
     },
+    "A certificate fingerprint can link signatures made with the same certificate. 有備而來 does not transmit, log or share the fingerprints on this screen.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證指紋可以連結同一張憑證所做的不同簽章。有備而來不會傳送、記錄或分享此畫面上的指紋。"
+          }
+        }
+      }
+    },
+    "This deletes the certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and it cannot erase the service record kept by the Ministry of the Interior.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會從這支 iPhone 刪除憑證與簽章。它不會撤銷正式公文匣——因為尚未建立——也無法刪除內政部保存的服務紀錄。"
+          }
+        }
+      }
+    },
     "This sends your ID number, the service identifier, and a prototype-consent digest to the Ministry of the Interior, which keeps a service record. 有備而來 does not save the ID number you type. The signature will not create an official mailbox.": {
       "localizations": {
         "zh-Hant": {
@@ -10368,6 +10658,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "這只測試 App 間跳轉簽章，不會啟用具有法律效力的電子送達。"
+          }
+        }
+      }
+    },
+    "What this does not prove": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這不能證明什麼"
+          }
+        }
+      }
+    },
+    "What this proves": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這能證明什麼"
           }
         }
       }

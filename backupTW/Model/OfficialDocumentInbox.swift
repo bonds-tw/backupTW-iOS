@@ -11,6 +11,7 @@ import Security
 
 enum OfficialDocumentInboxError: Error, Equatable {
     case randomUnavailable
+    case receiptMetadataInvalid
     case malformedSignature
     case signatureInvalid
 }
@@ -20,6 +21,8 @@ extension OfficialDocumentInboxError: LocalizedError {
         switch self {
         case .randomUnavailable:
             return NSLocalizedString("A secure signing request could not be created.", comment: "official document inbox")
+        case .receiptMetadataInvalid:
+            return NSLocalizedString("The stored consent evidence has invalid metadata, so it cannot be trusted.", comment: "official document inbox")
         case .malformedSignature, .signatureInvalid:
             return NSLocalizedString("The signature that came back does not match this consent, so it was not saved.", comment: "official document inbox")
         }
@@ -94,6 +97,11 @@ struct OfficialDocumentInboxConsent: Codable, Equatable, Sendable {
 /// both deliberately absent.
 struct OfficialDocumentInboxReceipt: Codable, Equatable, Sendable {
     static let tbsConstruction = "bonds-tw-official-document-consent-v1/payload-sha256-hex/RSASSA-PKCS1-v1_5-SHA256"
+    /// The signing session is currently limited to ten minutes. Allow five
+    /// additional minutes for callback and persistence, but do not let an
+    /// editable local `recordedAt` move certificate validation to an arbitrary
+    /// point in history.
+    private static let maximumRecordingDelay: TimeInterval = 15 * 60
 
     enum Environment: String, Codable, Sendable {
         case localPrototypeOnly
@@ -118,6 +126,21 @@ struct OfficialDocumentInboxReceipt: Codable, Equatable, Sendable {
         self.certificate = certificate
         self.signature = signature
         self.recordedAt = recordedAt
+    }
+
+    /// SHA-256 identifiers let a holder compare the exact evidence without
+    /// exposing the certificate or signature bytes in the UI, logs or sharing.
+    var consentFingerprint: String { String(consent.signingTarget.dropFirst(
+        OfficialDocumentInboxConsent.tbsDomainPrefix.count)) }
+
+    var certificateFingerprint: String? {
+        guard let data = Data(base64Encoded: certificate) else { return nil }
+        return Self.sha256(data)
+    }
+
+    var signatureFingerprint: String? {
+        guard let data = Data(base64Encoded: signature) else { return nil }
+        return Self.sha256(data)
     }
 
     /// Refuses to create a receipt until both the MOICA G3 chain and the returned
@@ -146,5 +169,51 @@ struct OfficialDocumentInboxReceipt: Codable, Equatable, Sendable {
                     certificate: signResult.cert,
                     signature: signResult.signedResponse,
                     recordedAt: now)
+    }
+
+    /// Re-checks persisted evidence every time it is presented as signed. A
+    /// successfully decoded JSON file is not evidence: its construction,
+    /// one-use nonce, bounded timestamps and signature all still have to match.
+    ///
+    /// Certificate validity is checked at the locally recorded completion time,
+    /// which is allowed to trail the signed consent creation time by at most the
+    /// signing-session window above. This preserves historical evidence after a
+    /// card certificate later expires without letting an edited timestamp choose
+    /// an unrelated validity window.
+    func verify(anchor: IssuerCertificate? = nil) throws {
+        guard tbsConstruction == Self.tbsConstruction,
+              let nonce = MOICASignedCredential.base64URLDecoded(consent.nonce),
+              nonce.count == 32,
+              recordedAt >= consent.createdAt,
+              recordedAt.timeIntervalSince(consent.createdAt) <= Self.maximumRecordingDelay else {
+            throw OfficialDocumentInboxError.receiptMetadataInvalid
+        }
+
+        let trustAnchor: IssuerCertificate
+        if let anchor {
+            trustAnchor = anchor
+        } else {
+            trustAnchor = try IssuerCertificate.loadBundled()
+        }
+        let holder = try trustAnchor.validateHolderCertificate(base64DER: certificate,
+                                                                now: recordedAt)
+        try verifySignature(signedBy: holder)
+    }
+
+    /// Internal seam for deterministic cryptographic tests. Production callers
+    /// use `verify(anchor:)`, which first validates the holder certificate chain.
+    func verifySignature(signedBy holder: X509Certificate) throws {
+        guard let signature = Data(base64Encoded: signature),
+              signature.count == MOICACredentialProof.signatureByteCount else {
+            throw OfficialDocumentInboxError.malformedSignature
+        }
+        guard try holder.verifiesPKCS1SHA256(signature,
+                                             over: Data(consent.signingTarget.utf8)) else {
+            throw OfficialDocumentInboxError.signatureInvalid
+        }
+    }
+
+    private static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }

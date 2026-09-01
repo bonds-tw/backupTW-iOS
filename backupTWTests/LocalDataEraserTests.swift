@@ -70,7 +70,8 @@ final class LocalDataEraserTests: @unchecked Sendable {
         vaultArchive = try MyDataVaultArchive(directory: root.appendingPathComponent("MyDataVaultArchive",
                                                                                      isDirectory: true))
         officialDocumentInbox = try OfficialDocumentInboxArchive(
-            directory: root.appendingPathComponent("OfficialDocumentInbox", isDirectory: true))
+            directory: root.appendingPathComponent("OfficialDocumentInbox", isDirectory: true),
+            verifyReceipt: { _ in })
     }
 
     deinit {
