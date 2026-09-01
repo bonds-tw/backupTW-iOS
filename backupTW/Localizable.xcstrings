@@ -11645,6 +11645,286 @@
         }
       }
     },
+    "A verified prototype consent is already stored. Review or remove it before starting another signing request.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存一份通過驗證的試辦同意證據。請先查看或移除，再建立新的簽章請求。"
+          }
+        }
+      }
+    },
+    "Create a new physical-card signing request on this iPhone first.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先在這支 iPhone 建立新的實體卡簽章請求。"
+          }
+        }
+      }
+    },
+    "Create one-time request": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立一次性請求"
+          }
+        }
+      }
+    },
+    "Deletes only the local certificate and signature. This development path did not create a Ministry of the Interior service record.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只刪除本機的憑證與簽章。這條開發測試路徑沒有建立內政部服務紀錄。"
+          }
+        }
+      }
+    },
+    "Development only. Creates an identity-free one-time request for an attached Mac card reader; it does not contact the government or activate official receiving.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅供開發。為連接 Mac 的讀卡機建立不含身分資料的一次性請求；不會連線政府，也不會啟用正式收文。"
+          }
+        }
+      }
+    },
+    "Keep this iPhone unlocked and connected to the Mac. In the backupTW-iOS repository, run ./scripts/physical-card-consent.sh --device mashbean14 within 15 minutes. Insert the card and enter its PIN only at the hidden terminal prompt. When the helper finishes, return here and tap the physical-card row again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保持這支 iPhone 解鎖並連接 Mac。在 15 分鐘內，到 backupTW-iOS repo 執行 ./scripts/physical-card-consent.sh --device mashbean14。插入卡片，只在終端機不顯示內容的提示中輸入 PIN。工具完成後回到這裡，再點一次實體卡測試列。"
+          }
+        }
+      }
+    },
+    "Physical natural-person certificate via the local Mac development helper": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "透過本機 Mac 開發輔助工具使用實體自然人憑證"
+          }
+        }
+      }
+    },
+    "Physical-card consent verified": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實體卡同意已驗證"
+          }
+        }
+      }
+    },
+    "Physical-card development signing": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實體卡開發簽章"
+          }
+        }
+      }
+    },
+    "Physical-card request ready": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實體卡請求已備妥"
+          }
+        }
+      }
+    },
+    "Run the paired-USB helper on the Mac, then tap here again to check for and verify its result.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 執行已配對 USB 輔助工具，完成後再點這裡檢查並驗證結果。"
+          }
+        }
+      }
+    },
+    "Signing method": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽章方式"
+          }
+        }
+      }
+    },
+    "Test with a physical natural-person certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用實體自然人憑證測試"
+          }
+        }
+      }
+    },
+    "The Mac has not returned a physical-card signing result to this iPhone yet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 尚未把實體卡簽章結果回傳到這支 iPhone。"
+          }
+        }
+      }
+    },
+    "The Mac returned a result. This iPhone will now check the exact consent, MOICA certificate chain and RSA signature before saving it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 已回傳結果。這支 iPhone 會先核對確切同意內容、MOICA 憑證鏈與 RSA 簽章，通過後才保存。"
+          }
+        }
+      }
+    },
+    "The holder used the physical natural-person certificate private key to approve this exact local-prototype consent.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "持有人使用實體自然人憑證的私鑰，核可了這份確切的本機試辦同意內容。"
+          }
+        }
+      }
+    },
+    "The physical-card certificate chain and signature over this exact local-prototype consent were verified and stored on this iPhone. This is still not an official receiving address or legal delivery.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實體卡憑證鏈與針對這份確切本機試辦同意內容的簽章已通過驗證，並保存於這支 iPhone。這仍不是正式收件地址，也不構成法定送達。"
+          }
+        }
+      }
+    },
+    "The physical-card request was not created": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未建立實體卡請求"
+          }
+        }
+      }
+    },
+    "The physical-card result was not saved": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存實體卡結果"
+          }
+        }
+      }
+    },
+    "The physical-card signing request is invalid or no longer matches this consent.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實體卡簽章請求無效，或已不再符合這份同意內容。"
+          }
+        }
+      }
+    },
+    "The physical-card signing result is invalid or belongs to a different request.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實體卡簽章結果無效，或屬於另一份請求。"
+          }
+        }
+      }
+    },
+    "This deletes the physical-card certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and the development helper created no government service record.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會從這支 iPhone 刪除實體卡憑證與簽章。它不會撤銷正式公文匣——因為尚未建立——而且這個開發輔助工具沒有建立政府服務紀錄。"
+          }
+        }
+      }
+    },
+    "This development path creates a one-time request containing only the consent version, local-prototype scope, timestamp and random nonce. The paired Mac asks for the card PIN in a hidden terminal prompt; the PIN is not stored or sent to this app. It does not contact the Ministry of the Interior or create an official inbox.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這條開發路徑會建立一次性請求，內容只有同意版本、本機試辦範圍、時間戳與隨機 nonce。已配對的 Mac 只會在不顯示輸入內容的終端機提示中要求卡片 PIN；PIN 不會被保存或傳送到這個 App。它不會連線內政部，也不會建立正式公文匣。"
+          }
+        }
+      }
+    },
+    "Unavailable while signed consent evidence exists or needs attention.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已有簽署同意證據或證據需要處理時，無法使用。"
+          }
+        }
+      }
+    },
+    "Use a physical natural-person certificate?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用實體自然人憑證？"
+          }
+        }
+      }
+    },
+    "Verify the physical-card signature": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證實體卡簽章"
+          }
+        }
+      }
+    },
+    "Waiting for the Mac physical-card helper": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待 Mac 實體卡輔助工具"
+          }
+        }
+      }
+    },
+    "行動自然人憑證 app-to-app": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行動自然人憑證 App 間跳轉"
+          }
+        }
+      }
+    },
     "Verification files were not prepared": {
       "localizations": {
         "zh-Hant": {

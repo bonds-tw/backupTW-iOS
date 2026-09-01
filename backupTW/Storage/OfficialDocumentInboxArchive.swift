@@ -9,6 +9,9 @@ enum OfficialDocumentInboxArchiveError: Error, Equatable {
     case invalidIdentifier
     case conflictingApplicationID(String)
     case packageMissing
+    case consentAlreadySigned
+    case physicalCardRequestMissing
+    case physicalCardResponseMissing
 }
 
 extension OfficialDocumentInboxArchiveError: LocalizedError {
@@ -20,6 +23,12 @@ extension OfficialDocumentInboxArchiveError: LocalizedError {
             return NSLocalizedString("A package with the same application ID but different bytes is already stored. The new package was refused.", comment: "official document inbox")
         case .packageMissing:
             return NSLocalizedString("This electronic official document is no longer stored on this phone.", comment: "official document inbox")
+        case .consentAlreadySigned:
+            return NSLocalizedString("A verified prototype consent is already stored. Review or remove it before starting another signing request.", comment: "official document inbox")
+        case .physicalCardRequestMissing:
+            return NSLocalizedString("Create a new physical-card signing request on this iPhone first.", comment: "official document inbox")
+        case .physicalCardResponseMissing:
+            return NSLocalizedString("The Mac has not returned a physical-card signing result to this iPhone yet.", comment: "official document inbox")
         }
     }
 }
@@ -38,6 +47,8 @@ final class OfficialDocumentInboxArchive {
     private let verifyReceipt: ReceiptVerifier
 
     private static let receiptFilename = "prototype-consent.json"
+    private static let physicalCardRequestFilename = "physical-card-request.json"
+    private static let physicalCardResponseFilename = "physical-card-response.json"
     private static let packagesDirectoryName = "packages"
     private static let metadataFilename = "metadata.json"
     private static let envelopeFilename = "source.en"
@@ -97,8 +108,97 @@ final class OfficialDocumentInboxArchive {
     /// government receiving address.
     func removeReceipt() throws {
         let url = directory.appendingPathComponent(Self.receiptFilename)
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
-        try FileManager.default.removeItem(at: url)
+        if FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.removeItem(at: url)
+        }
+        try removePhysicalCardSigningArtifacts()
+    }
+
+    // MARK: - Development physical-card signing hand-off
+
+    /// Writes a fresh identity-free request into Application Support so the
+    /// development Mac helper can pull it over the paired-device USB channel.
+    /// No Files/iCloud export and no national ID number are involved.
+    @discardableResult
+    func preparePhysicalCardSigningRequest() throws
+        -> OfficialDocumentPhysicalCardSigningRequest {
+        guard try receipt() == nil else {
+            throw OfficialDocumentInboxArchiveError.consentAlreadySigned
+        }
+        try removePhysicalCardSigningArtifacts()
+        let request = OfficialDocumentPhysicalCardSigningRequest(
+            consent: try OfficialDocumentInboxConsent.make())
+        try writeJSON(request, filename: Self.physicalCardRequestFilename)
+        return request
+    }
+
+    func physicalCardSigningRequest() throws
+        -> OfficialDocumentPhysicalCardSigningRequest? {
+        let url = directory.appendingPathComponent(Self.physicalCardRequestFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let request = try JSONDecoder().decode(
+            OfficialDocumentPhysicalCardSigningRequest.self,
+            from: Data(contentsOf: url))
+        _ = try request.validatedConsent(at: Date())
+        return request
+    }
+
+    var hasPhysicalCardSigningResponse: Bool {
+        FileManager.default.fileExists(atPath: directory
+            .appendingPathComponent(Self.physicalCardResponseFilename).path)
+    }
+
+    /// Imports only a response for the exact pending request, then performs the
+    /// same MOICA G3 chain and RSA signature verification as the mobile route.
+    /// The response is never accepted merely because JSON decoding succeeded.
+    @discardableResult
+    func importPhysicalCardSigningResponse(
+        makeReceipt: OfficialDocumentPhysicalCardSigningResponse.ReceiptFactory = {
+            consent, certificate, signature, signedAt in
+            try OfficialDocumentInboxReceipt.issue(
+                consent: consent,
+                certificate: certificate,
+                signature: signature,
+                signingChannel: .physicalNaturalPersonCertificate,
+                now: signedAt)
+        })
+        throws -> OfficialDocumentInboxReceipt {
+        guard try receipt() == nil else {
+            throw OfficialDocumentInboxArchiveError.consentAlreadySigned
+        }
+        guard let request = try physicalCardSigningRequest() else {
+            throw OfficialDocumentInboxArchiveError.physicalCardRequestMissing
+        }
+        let responseURL = directory.appendingPathComponent(Self.physicalCardResponseFilename)
+        guard FileManager.default.fileExists(atPath: responseURL.path) else {
+            throw OfficialDocumentInboxArchiveError.physicalCardResponseMissing
+        }
+        let response = try JSONDecoder().decode(
+            OfficialDocumentPhysicalCardSigningResponse.self,
+            from: Data(contentsOf: responseURL))
+        let receipt = try response.issueReceipt(matching: request,
+                                                makeReceipt: makeReceipt)
+        try store(receipt)
+        try removePhysicalCardSigningArtifacts()
+        return receipt
+    }
+
+    func removePhysicalCardSigningArtifacts() throws {
+        for filename in [Self.physicalCardRequestFilename,
+                         Self.physicalCardResponseFilename] {
+            let url = directory.appendingPathComponent(filename)
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
+    private func writeJSON<T: Encodable>(_ value: T, filename: String) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(value).write(
+            to: directory.appendingPathComponent(filename),
+            options: [.atomic, .completeFileProtectionUnlessOpen])
     }
 
     // MARK: - Synthetic EN / DI / ESW packages

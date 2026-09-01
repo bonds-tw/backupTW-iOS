@@ -43,6 +43,12 @@ struct OfficialDocumentInboxTests {
         "Local prototype only",
         "What this proves",
         "The holder approved this exact local-prototype consent with 行動自然人憑證.",
+        "Signing method",
+        "行動自然人憑證 app-to-app",
+        "Physical natural-person certificate via the local Mac development helper",
+        "The holder used the physical natural-person certificate private key to approve this exact local-prototype consent.",
+        "Deletes only the local certificate and signature. This development path did not create a Ministry of the Interior service record.",
+        "This deletes the physical-card certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and the development helper created no government service record.",
         "What this does not prove",
         "It does not prove government enrolment, a receiving address, sender authentication, document receipt or legal delivery.",
         "Evidence fingerprints",
@@ -57,6 +63,28 @@ struct OfficialDocumentInboxTests {
         "This deletes the certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and it cannot erase the service record kept by the Ministry of the Interior.",
         "Remove from this iPhone",
         "The local consent evidence was not removed",
+        "Physical-card development signing",
+        "Unavailable while signed consent evidence exists or needs attention.",
+        "Verify the physical-card signature",
+        "The Mac returned a result. This iPhone will now check the exact consent, MOICA certificate chain and RSA signature before saving it.",
+        "Waiting for the Mac physical-card helper",
+        "Run the paired-USB helper on the Mac, then tap here again to check for and verify its result.",
+        "Test with a physical natural-person certificate",
+        "Development only. Creates an identity-free one-time request for an attached Mac card reader; it does not contact the government or activate official receiving.",
+        "Physical-card consent verified",
+        "The physical-card certificate chain and signature over this exact local-prototype consent were verified and stored on this iPhone. This is still not an official receiving address or legal delivery.",
+        "The physical-card result was not saved",
+        "Use a physical natural-person certificate?",
+        "This development path creates a one-time request containing only the consent version, local-prototype scope, timestamp and random nonce. The paired Mac asks for the card PIN in a hidden terminal prompt; the PIN is not stored or sent to this app. It does not contact the Ministry of the Interior or create an official inbox.",
+        "Create one-time request",
+        "The physical-card request was not created",
+        "Physical-card request ready",
+        "Keep this iPhone unlocked and connected to the Mac. In the backupTW-iOS repository, run ./scripts/physical-card-consent.sh --device mashbean14 within 15 minutes. Insert the card and enter its PIN only at the hidden terminal prompt. When the helper finishes, return here and tap the physical-card row again.",
+        "The physical-card signing request is invalid or no longer matches this consent.",
+        "The physical-card signing result is invalid or belongs to a different request.",
+        "A verified prototype consent is already stored. Review or remove it before starting another signing request.",
+        "Create a new physical-card signing request on this iPhone first.",
+        "The Mac has not returned a physical-card signing result to this iPhone yet.",
         "Load a synthetic EN / DI / ESW package",
         "Developer test only — this did not come from a government agency and creates no receipt.",
         "Synthetic test package — not an official delivery",
@@ -120,6 +148,116 @@ struct OfficialDocumentInboxTests {
         #expect(canonical.contains(OfficialDocumentInboxConsent.version))
         #expect(canonical.contains(OfficialDocumentInboxConsent.scope))
         #expect(canonical.contains("A123456789") == false)
+    }
+
+    @Test func physicalCardRequestRebuildsTheExactIdentityFreeConsent() throws {
+        let nonce = Data(repeating: 0x31, count: 32).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let consent = OfficialDocumentInboxConsent(
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000.125),
+            nonce: nonce)
+        let request = OfficialDocumentPhysicalCardSigningRequest(consent: consent)
+
+        #expect(try request.validatedConsent() == consent)
+        let json = String(decoding: try JSONEncoder().encode(request), as: UTF8.self)
+        #expect(json.contains("idNumber") == false)
+        #expect(json.contains("hashed_id_num") == false)
+        #expect(json.contains(consent.signingTarget))
+
+        let altered = json.replacingOccurrences(of: consent.signingTarget,
+                                                 with: consent.signingTarget + "0")
+        let decoded = try JSONDecoder().decode(
+            OfficialDocumentPhysicalCardSigningRequest.self,
+            from: Data(altered.utf8))
+        #expect(throws: OfficialDocumentInboxError.physicalCardRequestInvalid) {
+            _ = try decoded.validatedConsent()
+        }
+        #expect(throws: OfficialDocumentInboxError.physicalCardRequestInvalid) {
+            _ = try request.validatedConsent(
+                at: consent.createdAt.addingTimeInterval(15 * 60 + 0.001))
+        }
+    }
+
+    @Test func physicalCardResponseMustMatchThePendingRequestAndSignature() throws {
+        let nonce = Data(repeating: 0x42, count: 32).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let consent = OfficialDocumentInboxConsent(
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            nonce: nonce)
+        let request = OfficialDocumentPhysicalCardSigningRequest(consent: consent)
+        let signature = try cardSignature(over: Data(consent.signingTarget.utf8))
+        let response = OfficialDocumentPhysicalCardSigningResponse(
+            request: request,
+            certificateDERBase64: holderCertificateDER,
+            signatureBase64: signature.base64EncodedString(),
+            signedAtUnixMilliseconds: 1_800_000_100_000)
+
+        let receipt = try response.issueReceipt(matching: request) {
+            consent, certificate, signature, signedAt in
+            OfficialDocumentInboxReceipt(
+                consent: consent,
+                certificate: certificate,
+                signature: signature,
+                recordedAt: signedAt,
+                signingChannel: .physicalNaturalPersonCertificate)
+        }
+        #expect(receipt.signingChannel == .physicalNaturalPersonCertificate)
+        try receipt.verifySignature(signedBy:
+            X509Certificate.parse(base64DER: holderCertificateDER))
+
+        let otherConsent = OfficialDocumentInboxConsent(
+            createdAt: consent.createdAt,
+            nonce: Data(repeating: 0x43, count: 32).base64EncodedString()
+                .replacingOccurrences(of: "+", with: "-")
+                .replacingOccurrences(of: "/", with: "_")
+                .replacingOccurrences(of: "=", with: ""))
+        #expect(throws: OfficialDocumentInboxError.physicalCardResponseInvalid) {
+            _ = try response.issueReceipt(
+                matching: OfficialDocumentPhysicalCardSigningRequest(consent: otherConsent))
+        }
+    }
+
+    @Test func physicalCardArchiveRoundTripIsOneRequestAndDeletesTransportFiles() throws {
+        let holder = try X509Certificate.parse(base64DER: holderCertificateDER)
+        let archive = try OfficialDocumentInboxArchive(
+            directory: directory(),
+            verifyReceipt: { try $0.verifySignature(signedBy: holder) })
+        let request = try archive.preparePhysicalCardSigningRequest()
+        let consent = try request.validatedConsent()
+        let response = OfficialDocumentPhysicalCardSigningResponse(
+            request: request,
+            certificateDERBase64: holderCertificateDER,
+            signatureBase64: try cardSignature(
+                over: Data(consent.signingTarget.utf8)).base64EncodedString(),
+            signedAtUnixMilliseconds: Int64(
+                (consent.createdAt.addingTimeInterval(1).timeIntervalSince1970 * 1_000)
+                    .rounded(.down)))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(response).write(
+            to: archive.directory.appendingPathComponent("physical-card-response.json"),
+            options: .atomic)
+
+        let imported = try archive.importPhysicalCardSigningResponse {
+            consent, certificate, signature, signedAt in
+            OfficialDocumentInboxReceipt(
+                consent: consent,
+                certificate: certificate,
+                signature: signature,
+                recordedAt: signedAt,
+                signingChannel: .physicalNaturalPersonCertificate)
+        }
+
+        #expect(try archive.receipt() == imported)
+        #expect(try archive.physicalCardSigningRequest() == nil)
+        #expect(archive.hasPhysicalCardSigningResponse == false)
+        #expect(throws: OfficialDocumentInboxArchiveError.consentAlreadySigned) {
+            _ = try archive.preparePhysicalCardSigningRequest()
+        }
     }
 
     @Test func archiveRoundTripsThePrototypeReceiptAndPurgesIt() throws {

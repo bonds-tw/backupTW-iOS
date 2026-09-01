@@ -25,6 +25,8 @@ final class OfficialDocumentInboxViewController: UITableViewController {
     private var isSigning = false
     private var receipt: OfficialDocumentInboxReceipt?
     private var receiptUnavailable = false
+    private var physicalCardRequestPending = false
+    private var physicalCardResponseReady = false
     private var packages: [OfficialDocumentPackage] = []
     private var packagesUnavailable = false
 
@@ -68,7 +70,7 @@ final class OfficialDocumentInboxViewController: UITableViewController {
             return packages.isEmpty || packagesUnavailable ? 1 : packages.count
         case .action:
             #if DEBUG
-            return 2
+            return 3
             #else
             return 1
             #endif
@@ -108,6 +110,8 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         case .action:
             if indexPath.row == 0 {
                 configureSigningAction(cell)
+            } else if indexPath.row == 1 {
+                configurePhysicalCardAction(cell)
             } else {
                 configureSyntheticAction(cell)
             }
@@ -235,6 +239,36 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         #endif
     }
 
+    private func configurePhysicalCardAction(_ cell: UITableViewCell) {
+        #if DEBUG
+        cell.accessibilityIdentifier = "officialDocuments.physicalCardConsent"
+        cell.imageView?.image = UIImage(systemName: "creditcard.and.123")
+        cell.imageView?.tintColor = .systemOrange
+        cell.textLabel?.textColor = .systemOrange
+        if receipt != nil || receiptUnavailable {
+            cell.textLabel?.text = NSLocalizedString("Physical-card development signing", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("Unavailable while signed consent evidence exists or needs attention.", comment: "official document inbox")
+            cell.selectionStyle = .none
+            return
+        }
+        if physicalCardResponseReady {
+            cell.imageView?.image = UIImage(systemName: "checkmark.shield")
+            cell.imageView?.tintColor = .systemGreen
+            cell.textLabel?.textColor = .systemGreen
+            cell.textLabel?.text = NSLocalizedString("Verify the physical-card signature", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("The Mac returned a result. This iPhone will now check the exact consent, MOICA certificate chain and RSA signature before saving it.", comment: "official document inbox")
+        } else if physicalCardRequestPending {
+            cell.textLabel?.text = NSLocalizedString("Waiting for the Mac physical-card helper", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("Run the paired-USB helper on the Mac, then tap here again to check for and verify its result.", comment: "official document inbox")
+        } else {
+            cell.textLabel?.text = NSLocalizedString("Test with a physical natural-person certificate", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("Development only. Creates an identity-free one-time request for an attached Mac card reader; it does not contact the government or activate official receiving.", comment: "official document inbox")
+        }
+        cell.accessoryType = .disclosureIndicator
+        cell.selectionStyle = .default
+        #endif
+    }
+
     override func tableView(_ tableView: UITableView,
                             didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
@@ -252,6 +286,11 @@ final class OfficialDocumentInboxViewController: UITableViewController {
             } else {
                 beginConsentSigning()
             }
+        case .action where indexPath.row == 1:
+            #if DEBUG
+            guard receipt == nil, !receiptUnavailable else { return }
+            handlePhysicalCardSigning()
+            #endif
         case .action:
             #if DEBUG
             loadSyntheticPackage()
@@ -270,6 +309,13 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         } catch {
             receipt = nil
             receiptUnavailable = true
+        }
+        do {
+            physicalCardRequestPending = try archive.physicalCardSigningRequest() != nil
+            physicalCardResponseReady = archive.hasPhysicalCardSigningResponse
+        } catch {
+            physicalCardRequestPending = false
+            physicalCardResponseReady = false
         }
         do {
             packages = try archive.packages()
@@ -292,6 +338,60 @@ final class OfficialDocumentInboxViewController: UITableViewController {
     }
 
     #if DEBUG
+    private func handlePhysicalCardSigning() {
+        if physicalCardResponseReady {
+            do {
+                _ = try archive.importPhysicalCardSigningResponse()
+                reloadPackages()
+                presentMessage(
+                    title: NSLocalizedString("Physical-card consent verified", comment: "official document inbox"),
+                    message: NSLocalizedString("The physical-card certificate chain and signature over this exact local-prototype consent were verified and stored on this iPhone. This is still not an official receiving address or legal delivery.", comment: "official document inbox"))
+            } catch {
+                presentMessage(
+                    title: NSLocalizedString("The physical-card result was not saved", comment: "official document inbox"),
+                    message: error.localizedDescription)
+            }
+            return
+        }
+
+        if physicalCardRequestPending {
+            reloadPackages()
+            if physicalCardResponseReady {
+                handlePhysicalCardSigning()
+            } else {
+                presentPhysicalCardInstructions()
+            }
+            return
+        }
+
+        let alert = UIAlertController(
+            title: NSLocalizedString("Use a physical natural-person certificate?", comment: "official document inbox"),
+            message: NSLocalizedString("This development path creates a one-time request containing only the consent version, local-prototype scope, timestamp and random nonce. The paired Mac asks for the card PIN in a hidden terminal prompt; the PIN is not stored or sent to this app. It does not contact the Ministry of the Interior or create an official inbox.", comment: "official document inbox"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Create one-time request", comment: "official document inbox"),
+            style: .default) { [weak self] _ in
+                guard let self else { return }
+                do {
+                    _ = try self.archive.preparePhysicalCardSigningRequest()
+                    self.reloadPackages()
+                    self.presentPhysicalCardInstructions()
+                } catch {
+                    self.presentMessage(
+                        title: NSLocalizedString("The physical-card request was not created", comment: "official document inbox"),
+                        message: error.localizedDescription)
+                }
+            })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func presentPhysicalCardInstructions() {
+        presentMessage(
+            title: NSLocalizedString("Physical-card request ready", comment: "official document inbox"),
+            message: NSLocalizedString("Keep this iPhone unlocked and connected to the Mac. In the backupTW-iOS repository, run ./scripts/physical-card-consent.sh --device mashbean14 within 15 minutes. Insert the card and enter its PIN only at the hidden terminal prompt. When the helper finishes, return here and tap the physical-card row again.", comment: "official document inbox"))
+    }
+
     private func loadSyntheticPackage() {
         do {
             let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())

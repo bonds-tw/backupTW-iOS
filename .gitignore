@@ -87,3 +87,4 @@ backupTWTests/ReplayLocal*.swift
 build/
 build-device/
 build-sim/
+tools/official-document-physical-card-signer/target/

@@ -66,9 +66,12 @@ final class OfficialDocumentConsentEvidenceViewController: UITableViewController
                     Row(id: "scope",
                         title: NSLocalizedString("Signed scope", comment: "official document consent evidence"),
                         value: NSLocalizedString("Local prototype only", comment: "official document consent evidence")),
+                    Row(id: "signingChannel",
+                        title: NSLocalizedString("Signing method", comment: "official document consent evidence"),
+                        value: signingMethod),
                     Row(id: "proof",
                         title: NSLocalizedString("What this proves", comment: "official document consent evidence"),
-                        value: NSLocalizedString("The holder approved this exact local-prototype consent with 行動自然人憑證.", comment: "official document consent evidence")),
+                        value: proofStatement),
                     Row(id: "limits",
                         title: NSLocalizedString("What this does not prove", comment: "official document consent evidence"),
                         value: NSLocalizedString("It does not prove government enrolment, a receiving address, sender authentication, document receipt or legal delivery.", comment: "official document consent evidence"))
@@ -94,8 +97,35 @@ final class OfficialDocumentConsentEvidenceViewController: UITableViewController
             Group(title: "", rows: [Row(
                 id: "remove",
                 title: NSLocalizedString("Remove consent evidence from this iPhone", comment: "official document consent evidence"),
-                value: NSLocalizedString("Deletes only the local certificate and signature. It cannot erase the service record kept by the Ministry of the Interior.", comment: "official document consent evidence"))])
+                value: removalSummary)])
         ]
+    }
+
+    private var signingMethod: String {
+        switch receipt.signingChannel {
+        case .physicalNaturalPersonCertificate:
+            return NSLocalizedString("Physical natural-person certificate via the local Mac development helper", comment: "official document consent evidence")
+        case .mobileNaturalPersonCertificate, .none:
+            return NSLocalizedString("行動自然人憑證 app-to-app", comment: "official document consent evidence")
+        }
+    }
+
+    private var proofStatement: String {
+        switch receipt.signingChannel {
+        case .physicalNaturalPersonCertificate:
+            return NSLocalizedString("The holder used the physical natural-person certificate private key to approve this exact local-prototype consent.", comment: "official document consent evidence")
+        case .mobileNaturalPersonCertificate, .none:
+            return NSLocalizedString("The holder approved this exact local-prototype consent with 行動自然人憑證.", comment: "official document consent evidence")
+        }
+    }
+
+    private var removalSummary: String {
+        switch receipt.signingChannel {
+        case .physicalNaturalPersonCertificate:
+            return NSLocalizedString("Deletes only the local certificate and signature. This development path did not create a Ministry of the Interior service record.", comment: "official document consent evidence")
+        case .mobileNaturalPersonCertificate, .none:
+            return NSLocalizedString("Deletes only the local certificate and signature. It cannot erase the service record kept by the Ministry of the Interior.", comment: "official document consent evidence")
+        }
     }
 
     override func numberOfSections(in tableView: UITableView) -> Int { groups.count }
@@ -151,13 +181,22 @@ final class OfficialDocumentConsentEvidenceViewController: UITableViewController
     private func presentRemovalConfirmation() {
         let alert = UIAlertController(
             title: NSLocalizedString("Remove this local consent evidence?", comment: "official document consent evidence"),
-            message: NSLocalizedString("This deletes the certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and it cannot erase the service record kept by the Ministry of the Interior.", comment: "official document consent evidence"),
+            message: removalConfirmation,
             preferredStyle: .alert)
         alert.addAction(UIAlertAction(
             title: NSLocalizedString("Remove from this iPhone", comment: "official document consent evidence"),
             style: .destructive) { [weak self] _ in self?.removeEvidence() })
         alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
         present(alert, animated: true)
+    }
+
+    private var removalConfirmation: String {
+        switch receipt.signingChannel {
+        case .physicalNaturalPersonCertificate:
+            return NSLocalizedString("This deletes the physical-card certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and the development helper created no government service record.", comment: "official document consent evidence")
+        case .mobileNaturalPersonCertificate, .none:
+            return NSLocalizedString("This deletes the certificate and signature from this iPhone. It does not revoke an official inbox — none exists — and it cannot erase the service record kept by the Ministry of the Interior.", comment: "official document consent evidence")
+        }
     }
 
     private func removeEvidence() {
