@@ -158,7 +158,7 @@ final class DiagnosticsViewController: UICollectionViewController {
     // MARK: - Facts
 
     private static func collect() -> [Group] {
-        [selfCheckGroup(), verificationTimingGroup(), appAttestUATGroup(), myDataGroup(),
+        [selfCheckGroup(), verificationTimingGroup(), bluetoothTransportGroup(), appAttestUATGroup(), myDataGroup(),
          signingGroup(), storageGroup(), assetsGroup()]
     }
 
@@ -233,6 +233,62 @@ final class DiagnosticsViewController: UICollectionViewController {
         case .https: return "HTTPS"
         case .file: return NSLocalizedString("File", comment: "verification transport")
         case .local: return NSLocalizedString("On this device", comment: "verification transport")
+        }
+    }
+
+    /// The last radio state on each side, without service identifiers or payload
+    /// data. A QR timing row proves that the camera completed; these two rows
+    /// explain whether Bluetooth was unavailable, stayed waiting, began moving,
+    /// or actually delivered first.
+    private static func bluetoothTransportGroup() -> Group {
+        let records = BluetoothLinkDiagnosticStore.shared.records()
+        guard !records.isEmpty else {
+            return Group(title: NSLocalizedString("Bluetooth transfer", comment: "diagnostics group"),
+                         rows: [Row(
+                            title: NSLocalizedString("No Bluetooth attempt recorded yet", comment: "diagnostics empty"),
+                            value: NSLocalizedString(
+                                "Start an offline credential check on two devices. No document data or device identifier is saved here.",
+                                comment: "diagnostics empty detail"),
+                            passed: nil)])
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .medium
+
+        return Group(title: NSLocalizedString("Bluetooth transfer", comment: "diagnostics group"),
+                     rows: records.map { record in
+            var details = [bluetoothPhaseName(record.phase)]
+            if let progress = record.progressPercent, record.phase == .transferring {
+                details[0] += " \(progress)%"
+            }
+            if let detail = record.detail { details.append(detail) }
+            details.append(String(format: NSLocalizedString("Last update: %@", comment: "diagnostics timestamp"),
+                                  formatter.string(from: record.recordedAt)))
+
+            let passed: Bool?
+            switch record.phase {
+            case .finished: passed = true
+            case .failed, .unavailable: passed = false
+            case .starting, .waiting, .transferring: passed = nil
+            }
+            return Row(id: "bluetooth.\(record.role.rawValue)",
+                       title: record.role == .holder
+                            ? NSLocalizedString("Holder (sending)", comment: "Bluetooth role")
+                            : NSLocalizedString("Verifier (receiving)", comment: "Bluetooth role"),
+                       value: details.joined(separator: "\n"),
+                       passed: passed)
+        })
+    }
+
+    private static func bluetoothPhaseName(_ phase: BluetoothLinkDiagnosticRecord.Phase) -> String {
+        switch phase {
+        case .starting: return NSLocalizedString("Starting", comment: "Bluetooth phase")
+        case .waiting: return NSLocalizedString("Waiting for the other device", comment: "Bluetooth phase")
+        case .transferring: return NSLocalizedString("Transferring", comment: "Bluetooth phase")
+        case .finished: return NSLocalizedString("Delivered", comment: "Bluetooth phase")
+        case .unavailable: return NSLocalizedString("Unavailable", comment: "Bluetooth phase")
+        case .failed: return NSLocalizedString("Transfer failed", comment: "Bluetooth phase")
         }
     }
 

@@ -328,4 +328,23 @@ struct PresentationRadioLifetimeTests {
         #expect(!controller.radioIsAdvertisingForReview,
                 "one stop left a second peripheral advertising")
     }
+
+    /// Once the checker acknowledges receipt, neither the moving QR fallback
+    /// nor the one-time BLE service should imply that work remains.
+    @Test func anAcknowledgementEndsAdvertisingWithoutErasingTheSuccessMessage() async {
+        let (controller, window) = Self.onScreen()
+        defer { window.isHidden = true }
+        controller.prepareLinkForReview(serviceID: UUID(), payload: Data("presentation".utf8))
+        controller.applyForReview(.startShowing)
+        #expect(controller.radioIsAdvertisingForReview)
+
+        controller.applyLinkStateForReview(.finished(payload: Data()))
+        await Task.yield()
+
+        #expect(!controller.radioIsAdvertisingForReview)
+        let line = controller.linkLineForReview ?? ""
+        let delivered = NSLocalizedString("The checker's phone has the document.", comment: "")
+        #expect(line == delivered, "completion message was replaced with: \(line)")
+        #expect(!line.contains("stopped") && !line.contains("已停止"))
+    }
 }

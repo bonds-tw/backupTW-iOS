@@ -93,15 +93,26 @@ final class PresentCredentialViewController: UIViewController {
     private var frameIndex = 0
     private var carousel: Timer?
     private let frameImageView = UIImageView()
+    /// Retained so a Bluetooth acknowledgement can replace the moving QR with
+    /// an unambiguous completion state instead of leaving twenty changing codes
+    /// on screen after the checker already has the document.
+    private weak var frameContainer: UIView?
+    private weak var transferTitleLabel: UILabel?
+    private weak var dynamicQRExplanationLabel: UILabel?
     private let frameCountLabel = UILabel()
     /// Filled in step with the carousel, so the eye has somewhere to see 「it is
     /// moving forward」 that is not a two-digit number.
     private let frameProgress = UIProgressView(progressViewStyle: .default)
-    /// Alive only while the frames are on screen. Torn down in `stopCarousel`
-    /// together with everything else that makes this phone discoverable — a
-    /// peripheral that outlived the screen would keep advertising after the
-    /// holder had put the phone away.
+    /// Alive only while the frames are on screen, or until the checker
+    /// acknowledges delivery. Torn down on either boundary — a peripheral that
+    /// outlived the exchange would keep advertising after the holder had put the
+    /// phone away.
     private var link: BluetoothLinkPeripheral?
+    /// Terminal evidence from the checker wins over late CoreBluetooth state
+    /// callbacks. Releasing a peripheral manager can still deliver a final
+    /// unavailable/unsupported callback (notably in Simulator); that must not
+    /// replace a delivery acknowledgement with a new warning.
+    private var linkDeliveryAcknowledged = false
     private let linkLabel = UILabel()
     /// The signed presentation itself, kept so the radio sends the document
     /// rather than the QR frames of it — the two transports carry the same
@@ -646,8 +657,10 @@ final class PresentCredentialViewController: UIViewController {
             return
         }
 
-        contentStack.addArrangedSubview(PresentationUI.title(
-            NSLocalizedString("Hold this up to the checker", comment: "")))
+        let titleLabel = PresentationUI.title(
+            NSLocalizedString("Sending one document", comment: "Presentation transfer title"))
+        transferTitleLabel = titleLabel
+        contentStack.addArrangedSubview(titleLabel)
 
         frameImageView.translatesAutoresizingMaskIntoConstraints = false
         frameImageView.contentMode = .scaleAspectFit
@@ -658,6 +671,7 @@ final class PresentCredentialViewController: UIViewController {
         frameImageView.accessibilityLabel = NSLocalizedString("Document code", comment: "")
 
         let container = UIView()
+        frameContainer = container
         container.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(frameImageView)
         NSLayoutConstraint.activate([
@@ -677,9 +691,11 @@ final class PresentCredentialViewController: UIViewController {
         frameCountLabel.font = UIFontMetrics(forTextStyle: .headline)
             .scaledFont(for: .monospacedDigitSystemFont(ofSize: 17, weight: .semibold))
         frameCountLabel.adjustsFontForContentSizeCategory = true
+        frameCountLabel.textColor = .label
         contentStack.addArrangedSubview(frameCountLabel)
 
         if frames.count > 1 {
+            frameProgress.isHidden = false
             frameProgress.progressTintColor = .systemBlue
             frameProgress.trackTintColor = .systemFill
             contentStack.addArrangedSubview(frameProgress)
@@ -693,6 +709,7 @@ final class PresentCredentialViewController: UIViewController {
             // scan wants to hold one still so the checker can point at it, and
             // there was no way to do that except walk away.
             isCarouselPaused = false
+            pauseButton.isHidden = false
             updatePauseButton()
             pauseButton.addTarget(self, action: #selector(togglePause), for: .touchUpInside)
             contentStack.addArrangedSubview(pauseButton)
@@ -706,9 +723,11 @@ final class PresentCredentialViewController: UIViewController {
             let cycleSeconds = Int((Double(frames.count)
                                     * Self.frameInterval(reduceMotion: UIAccessibility.isReduceMotionEnabled))
                                        .rounded())
-            contentStack.addArrangedSubview(PresentationUI.body(String(
-                format: NSLocalizedString("This document does not fit in one code, so it cycles through %1$d — one full cycle takes about %2$d seconds. Keep the screen still until the checker's phone says it has them all; the order does not matter.", comment: ""),
-                frames.count, cycleSeconds)))
+            let explanation = PresentationUI.body(String(
+                format: NSLocalizedString("This is one document split into %1$d transfer parts — not %1$d separate steps. One full cycle takes about %2$d seconds. Keep the phone still; the checker finishes automatically after receiving every part.", comment: "Dynamic QR explanation"),
+                frames.count, cycleSeconds))
+            dynamicQRExplanationLabel = explanation
+            contentStack.addArrangedSubview(explanation)
         }
         // Body weight, not footnote: this is the only sentence on the screen
         // with a deadline in it, and blowing the deadline restarts the whole
@@ -745,7 +764,7 @@ final class PresentCredentialViewController: UIViewController {
             linkLabel.font = .preferredFont(forTextStyle: .subheadline)
             linkLabel.adjustsFontForContentSizeCategory = true
             linkLabel.textColor = .secondaryLabel
-            linkLabel.text = NSLocalizedString("Also sending this over Bluetooth, so the checker does not have to scan every code.", comment: "")
+            linkLabel.text = NSLocalizedString("Bluetooth is also active. If it connects, the transfer finishes without waiting for every QR part.", comment: "")
             contentStack.addArrangedSubview(linkLabel)
             startLinkIfPossible()
         }
@@ -982,6 +1001,7 @@ final class PresentCredentialViewController: UIViewController {
                 guard let self else { return }
                 switch result {
                 case .success(let signed):
+                    self.linkDeliveryAcknowledged = false
                     self.presentationPayload = signed.payload
                     self.stage = .showing(frames: signed.frames, request: request)
                 case .failure(let error):
@@ -1083,7 +1103,7 @@ final class PresentCredentialViewController: UIViewController {
         frameProgress.setProgress(Float(shownFrames.count) / Float(max(renderedFrames.count, 1)),
                                   animated: true)
         frameCountLabel.text = renderedFrames.count > 1
-            ? String(format: NSLocalizedString("Code %1$d of %2$d", comment: "Carousel position"),
+            ? String(format: NSLocalizedString("Dynamic QR · part %1$d of %2$d", comment: "Carousel position"),
                      index + 1, renderedFrames.count)
             : nil
         frameCountLabel.isHidden = renderedFrames.count <= 1
@@ -1093,6 +1113,10 @@ final class PresentCredentialViewController: UIViewController {
     /// never a raw error. A holder who is told 「CBErrorDomain 7」 has been given
     /// a fact they cannot act on.
     private func showLink(_ state: BluetoothLinkState) {
+        if linkDeliveryAcknowledged {
+            guard case .finished = state else { return }
+        }
+        try? BluetoothLinkDiagnosticStore.shared.record(role: .holder, state: state)
         switch state {
         case .unavailable(let reason):
             linkLabel.text = reason
@@ -1107,7 +1131,30 @@ final class PresentCredentialViewController: UIViewController {
             linkLabel.text = String(format: NSLocalizedString("Sending over Bluetooth… %d%%", comment: ""),
                                     Int((fraction * 100).rounded()))
         case .finished:
+            linkDeliveryAcknowledged = true
+            // An acknowledgement is stronger evidence than one completed QR
+            // cycle. Stop the visual fallback immediately and replace it with a
+            // completion state; leaving twenty symbols rotating here made the
+            // holder reasonably think there were twenty more screens to finish.
+            stopCarousel()
+            frameContainer?.isHidden = true
+            frameProgress.isHidden = true
+            pauseButton.isHidden = true
+            dynamicQRExplanationLabel?.isHidden = true
+            frameCountLabel.isHidden = false
+            frameCountLabel.text = NSLocalizedString("You can put your phone down.", comment: "Bluetooth delivery completed")
+            frameCountLabel.textColor = .systemGreen
+            transferTitleLabel?.text = NSLocalizedString("Delivered to the checker", comment: "Bluetooth delivery completed")
             linkLabel.text = NSLocalizedString("The checker's phone has the document.", comment: "")
+            linkLabel.textColor = .systemGreen
+            // Let `didReceiveWrite` send its ATT response before releasing the
+            // peripheral manager, then stop advertising this spent one-time
+            // service. Calling `stopLink()` here would overwrite the completion
+            // sentence with 「Bluetooth sending has stopped」.
+            DispatchQueue.main.async { [weak self] in
+                self?.link?.stop()
+                self?.link = nil
+            }
             // The only non-visual signal in the app, at the only moment there is
             // evidence for one.
             //
@@ -1172,6 +1219,7 @@ final class PresentCredentialViewController: UIViewController {
 
     /// Stands in for the frame render having happened.
     func prepareLinkForReview(serviceID: UUID, payload: Data) {
+        linkDeliveryAcknowledged = false
         linkServiceID = serviceID
         presentationPayload = payload
     }
@@ -1181,6 +1229,8 @@ final class PresentCredentialViewController: UIViewController {
     var linkLineForReview: String? { linkLabel.text }
 
     func applyForReview(_ effect: PresentationScreenLifecycle.Effect) { apply(effect) }
+
+    func applyLinkStateForReview(_ state: BluetoothLinkState) { showLink(state) }
 
     private func startLinkIfPossible() {
         guard link == nil, let serviceID = linkServiceID, let payload = presentationPayload else { return }

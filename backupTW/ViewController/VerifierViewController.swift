@@ -584,6 +584,7 @@ final class VerifierViewController: UIViewController {
             return
         }
         linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        try? BluetoothLinkDiagnosticStore.shared.record(role: .verifier, state: .starting)
         let link = BluetoothLinkCentral(serviceID: serviceID,
                                         vocabulary: .credential) { [weak self] state in
             self?.receiveOverLink(state)
@@ -604,6 +605,7 @@ final class VerifierViewController: UIViewController {
     /// One line, in the same register as everything else on this screen: what is
     /// happening, never an error code.
     private func receiveOverLink(_ state: BluetoothLinkState) {
+        try? BluetoothLinkDiagnosticStore.shared.record(role: .verifier, state: state)
         switch state {
         case .unavailable(let reason):
             linkLabel.text = reason

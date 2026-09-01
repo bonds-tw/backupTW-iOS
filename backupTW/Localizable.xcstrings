@@ -1,12 +1,63 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Bluetooth is also active. If it connects, the transfer finishes without waiting for every QR part.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同時也在使用藍牙。連線成功後會直接完成，不必等動態 QR 每個片段都被掃到。"
+          }
+        }
+      }
+    },
+    "Bluetooth transfer": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "藍牙傳輸狀態"
+          }
+        }
+      }
+    },
     "Complete an offline check, OIDC4VP presentation, or zero-knowledge proof run.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "完成一次離線查驗、OIDC4VP 出示或零知識證明流程後，這裡會顯示實測時間。"
+          }
+        }
+      }
+    },
+    "Delivered": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已送達"
+          }
+        }
+      }
+    },
+    "Delivered to the checker": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已傳送給查驗方"
+          }
+        }
+      }
+    },
+    "Dynamic QR · part %1$d of %2$d": {
+      "comment": "Carousel position",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動態 QR・第 %1$d／%2$d 段"
           }
         }
       }
@@ -41,6 +92,26 @@
         }
       }
     },
+    "Holder (sending)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "持證方（傳送）"
+          }
+        }
+      }
+    },
+    "Last update: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最後更新：%@"
+          }
+        }
+      }
+    },
     "Local verification: %.2f seconds": {
       "localizations": {
         "zh-Hant": {
@@ -61,12 +132,115 @@
         }
       }
     },
+    "No Bluetooth attempt recorded yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有藍牙傳輸紀錄"
+          }
+        }
+      }
+    },
     "Offline credential verification": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "離線憑證查驗"
+          }
+        }
+      }
+    },
+    "Sending one document": {
+      "comment": "Presentation transfer title",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在傳送一份證件"
+          }
+        }
+      }
+    },
+    "Start an offline credential check on two devices. No document data or device identifier is saved here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在兩台裝置開始一次離線證件查驗。這裡不會保存證件內容或裝置識別資訊。"
+          }
+        }
+      }
+    },
+    "Starting": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在啟動"
+          }
+        }
+      }
+    },
+    "This is one document split into %1$d transfer parts — not %1$d separate steps. One full cycle takes about %2$d seconds. Keep the phone still; the checker finishes automatically after receiving every part.": {
+      "comment": "Dynamic QR explanation",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是同一份證件拆成 %1$d 個傳輸片段，不是 %1$d 個操作步驟。完整輪播一輪約 %2$d 秒。請保持手機穩定；查驗方收齊後會自動完成。"
+          }
+        }
+      }
+    },
+    "Transfer failed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "傳輸失敗"
+          }
+        }
+      }
+    },
+    "Transferring": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "傳送中"
+          }
+        }
+      }
+    },
+    "Verifier (receiving)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方（接收）"
+          }
+        }
+      }
+    },
+    "Waiting for the other device": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在等待另一台裝置"
+          }
+        }
+      }
+    },
+    "You can put your phone down.": {
+      "comment": "Bluetooth delivery completed",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以收回手機了。"
           }
         }
       }

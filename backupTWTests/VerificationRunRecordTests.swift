@@ -47,6 +47,47 @@ struct VerificationRunRecordTests {
         #expect(!json.contains("session"))
     }
 
+    @Test func bluetoothDiagnosticsKeepOnlyTheLatestStatePerRole() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = BluetoothLinkDiagnosticStore(
+            fileURL: directory.appendingPathComponent("bluetooth-link.json"))
+
+        try store.record(role: .holder, state: .starting,
+                         now: Date(timeIntervalSince1970: 1))
+        try store.record(role: .holder, state: .transferring(fraction: 0.63),
+                         now: Date(timeIntervalSince1970: 2))
+        try store.record(role: .verifier, state: .waiting,
+                         now: Date(timeIntervalSince1970: 3))
+
+        let records = store.records()
+        #expect(records.count == 2)
+        #expect(records[0].role == .holder)
+        #expect(records[0].phase == .transferring)
+        #expect(records[0].progressPercent == 50)
+        #expect(records[1].role == .verifier)
+        #expect(records[1].phase == .waiting)
+    }
+
+    @Test func bluetoothDiagnosticsNeverPersistTheTransferredPayload() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("bluetooth-link.json")
+        let store = BluetoothLinkDiagnosticStore(fileURL: file)
+        let privatePayload = Data("did:key:zPrivate credentialSubject response_uri".utf8)
+
+        try store.record(role: .verifier, state: .finished(payload: privatePayload))
+
+        let json = try String(contentsOf: file, encoding: .utf8)
+        #expect(!json.contains("did:key"))
+        #expect(!json.contains("credentialSubject"))
+        #expect(!json.contains("response_uri"))
+        #expect(store.records().first?.phase == .finished)
+        #expect(store.records().first?.progressPercent == 100)
+    }
+
     private static func record(id: UUID, milliseconds: UInt64) -> VerificationRunRecord {
         VerificationRunRecord(id: id,
                               recordedAt: Date(timeIntervalSince1970: 1),

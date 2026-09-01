@@ -196,3 +196,157 @@ final class VerificationRunStore {
         case applicationSupportUnavailable
     }
 }
+
+/// The last Bluetooth transport state seen by each side of a check.
+///
+/// Timing tells us that a successful run used QR, but it cannot tell us why the
+/// radio did not win the race. This record deliberately contains no service
+/// UUID, peer identifier, payload, DID, claim, request or error-domain dump. It
+/// keeps only the role, a coarse state and (while moving) a 25% progress bucket,
+/// which is enough to distinguish 「Bluetooth was off」, 「both phones waited but
+/// never found each other」 and 「the link broke halfway through」 on real devices.
+struct BluetoothLinkDiagnosticRecord: Codable, Hashable {
+
+    enum Role: String, Codable, CaseIterable {
+        case holder
+        case verifier
+    }
+
+    enum Phase: String, Codable {
+        case starting
+        case waiting
+        case transferring
+        case finished
+        case unavailable
+        case failed
+    }
+
+    let recordedAt: Date
+    let role: Role
+    let phase: Phase
+    let progressPercent: Int?
+    /// Already-human-readable and bounded before persistence; nil for ordinary
+    /// lifecycle states. The raw `Error`, service UUID and peer never enter it.
+    let detail: String?
+}
+
+/// A two-row, privacy-safe snapshot used by Diagnostics during device tests.
+///
+/// There is one record per role rather than an event log. A transfer can emit a
+/// state callback for every frame; retaining all of them would add I/O and still
+/// not answer the field-test question any better than the latest state does.
+final class BluetoothLinkDiagnosticStore {
+
+    static let shared = BluetoothLinkDiagnosticStore()
+
+    private let fileURL: URL?
+    private let lock = NSLock()
+
+    init(fileURL: URL? = nil) {
+        if let fileURL {
+            self.fileURL = fileURL
+        } else {
+            let support = try? FileManager.default.url(for: .applicationSupportDirectory,
+                                                       in: .userDomainMask,
+                                                       appropriateFor: nil,
+                                                       create: true)
+            self.fileURL = support?
+                .appendingPathComponent("Diagnostics", isDirectory: true)
+                .appendingPathComponent("bluetooth-link.json")
+        }
+    }
+
+    func records() -> [BluetoothLinkDiagnosticRecord] {
+        lock.lock()
+        defer { lock.unlock() }
+        return Self.ordered(loadUnlocked())
+    }
+
+    func record(role: BluetoothLinkDiagnosticRecord.Role,
+                state: BluetoothLinkState,
+                now: Date = Date()) throws {
+        let phase: BluetoothLinkDiagnosticRecord.Phase
+        let progress: Int?
+        let detail: String?
+        switch state {
+        case .starting:
+            phase = .starting
+            progress = nil
+            detail = nil
+        case .waiting:
+            phase = .waiting
+            progress = nil
+            detail = nil
+        case .transferring(let fraction):
+            phase = .transferring
+            // Four checkpoints are enough to show where a link stopped. The
+            // clamp also keeps a malformed callback from escaping 0...100.
+            let clamped = min(max(fraction, 0), 1)
+            progress = min(Int(clamped * 4) * 25, 100)
+            detail = nil
+        case .finished:
+            phase = .finished
+            progress = 100
+            detail = nil
+        case .unavailable(let reason):
+            phase = .unavailable
+            progress = nil
+            detail = String(reason.prefix(500))
+        case .failed(let reason):
+            phase = .failed
+            progress = nil
+            detail = String(reason.prefix(500))
+        }
+
+        lock.lock()
+        defer { lock.unlock() }
+        guard let fileURL else { throw StorageError.applicationSupportUnavailable }
+
+        var current = loadUnlocked()
+        if let previous = current.first(where: { $0.role == role }),
+           previous.phase == phase,
+           previous.progressPercent == progress,
+           previous.detail == detail {
+            return
+        }
+        current.removeAll { $0.role == role }
+        current.append(BluetoothLinkDiagnosticRecord(recordedAt: now,
+                                                     role: role,
+                                                     phase: phase,
+                                                     progressPercent: progress,
+                                                     detail: detail))
+
+        let directory = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory,
+                                                withIntermediateDirectories: true)
+        var excluded = URLResourceValues()
+        excluded.isExcludedFromBackup = true
+        var mutableDirectory = directory
+        try mutableDirectory.setResourceValues(excluded)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(Self.ordered(current))
+            .write(to: fileURL, options: [.atomic, .completeFileProtectionUnlessOpen])
+    }
+
+    private func loadUnlocked() -> [BluetoothLinkDiagnosticRecord] {
+        guard let fileURL,
+              let data = try? Data(contentsOf: fileURL) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode([BluetoothLinkDiagnosticRecord].self, from: data)) ?? []
+    }
+
+    private static func ordered(_ records: [BluetoothLinkDiagnosticRecord])
+        -> [BluetoothLinkDiagnosticRecord] {
+        BluetoothLinkDiagnosticRecord.Role.allCases.compactMap { role in
+            records.first { $0.role == role }
+        }
+    }
+
+    private enum StorageError: Error {
+        case applicationSupportUnavailable
+    }
+}
