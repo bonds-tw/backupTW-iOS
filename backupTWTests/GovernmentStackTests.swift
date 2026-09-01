@@ -165,7 +165,7 @@ struct GovernmentStackTests {
         #expect(expandedSecond.minY >= expandedHero.maxY)
     }
 
-    /// The collapsed MyData stack reveals exactly the top 48pt of every covered
+    /// The collapsed MyData stack now uses the same 60pt rhythm as government
     /// card. The document name therefore belongs inside that strip, not in the
     /// lower metadata area that the next card obscures.
     @Test func myDataCardNameFitsInsideTheCollapsedPeek() throws {
@@ -181,8 +181,37 @@ struct GovernmentStackTests {
         let title = try #require(findView(identifier: "wallet.vault.title", in: card) as? UILabel)
         let titleFrame = title.convert(title.bounds, to: card)
         #expect(titleFrame.minY >= 0)
-        #expect(titleFrame.maxY <= 48,
-                "MyData title must remain visible in the collapsed 48pt peek; frame was \(titleFrame)")
+        #expect(titleFrame.maxY <= 60,
+                "MyData title must remain visible in the collapsed 60pt peek; frame was \(titleFrame)")
+    }
+
+    @Test func myDataAndGovernmentStacksShareTheSameCollapsedSpacing() throws {
+        let (government, _) = home(try seeded(3))
+        let governmentGap = abs(try frame(government, item: 2).minY
+                                - frame(government, item: 1).minY)
+        let (myData, _) = try myDataHome(count: 3)
+        let myDataGap = abs(try myDataFrame(myData, item: 2).minY
+                            - myDataFrame(myData, item: 1).minY)
+        #expect(abs(governmentGap - 60) < 1)
+        #expect(abs(myDataGap - governmentGap) < 1)
+    }
+
+    @Test func continuityTransformMapsTheNewFrameBackToTheOldViewportFrame() {
+        let old = CGRect(x: 16, y: 412, width: 358, height: 220)
+        let final = CGRect(x: 16, y: 292, width: 358, height: 220)
+        let transform = HomeViewController.stackContinuityTransform(oldFrame: old,
+                                                                     finalFrame: final)
+        #expect(abs(final.applying(transform).minY - old.minY) < 0.001)
+        #expect(abs(final.applying(transform).minX - old.minX) < 0.001)
+    }
+
+    @Test func disabledAnimationsNeverLeaveTheCollectionLocked() throws {
+        let (controller, window) = home(try seeded(3))
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(true) }
+        controller.setGovernmentStackExpanded(true, animated: true)
+        #expect(controller.collectionView.isUserInteractionEnabled)
+        withExtendedLifetime(window) {}
     }
 
     private func findView(identifier: String, in root: UIView) -> UIView? {

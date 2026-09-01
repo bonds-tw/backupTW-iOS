@@ -21,7 +21,7 @@ final class MyDataVaultUITests: XCTestCase {
         app.launch()
 
         let document = app.staticTexts.matching(
-            NSPredicate(format: "label IN {'財力／所得證明', 'Income / financial proof'}"))
+            NSPredicate(format: "label IN {'個人所得資料', 'Income / financial proof'}"))
             .firstMatch
         XCTAssertTrue(document.waitForExistence(timeout: 15),
                       "the stored MyData original did not appear on Home")
@@ -50,7 +50,7 @@ final class MyDataVaultUITests: XCTestCase {
         app.launch()
 
         let income = app.staticTexts.matching(
-            NSPredicate(format: "label IN {'財力／所得證明', 'Income / financial proof'}"))
+            NSPredicate(format: "label IN {'個人所得資料', 'Income / financial proof'}"))
             .firstMatch
         XCTAssertTrue(income.waitForExistence(timeout: 15))
         for _ in 0..<4 where !income.isHittable { app.swipeUp() }

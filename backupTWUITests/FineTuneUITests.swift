@@ -7,6 +7,33 @@ import XCTest
 
 final class FineTuneUITests: XCTestCase {
 
+    func testMyDataPreparationUsesOneCompactLinkedFlow() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
+        app.launchEnvironment["BONDSTW_UI_TEST_MYDATA_FLOW_PREVIEW"] = "1"
+        app.launch()
+
+        let cover = app.descendants(matching: .any)["mydataOnboard.cover"]
+        let flow = app.descendants(matching: .any)["mydata.flow.steps"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        XCTAssertTrue(flow.waitForExistence(timeout: 5))
+        XCTAssertLessThan(cover.frame.height, 130,
+                          "the MyData summary should not return to a hero-sized icon card")
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "label IN {'個人所得資料', 'Income / financial proof'}"))
+            .firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.matching(
+            NSPredicate(format: "label IN {'文件類型', 'Document type'}"))
+            .firstMatch.exists,
+                       "preflight should not repeat document/source/storage rows")
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "MyData linked preparation flow"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testSuccessfulFormalDocumentUsesACompactResponsiveLayout() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

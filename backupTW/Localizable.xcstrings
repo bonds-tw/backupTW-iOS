@@ -3431,7 +3431,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "財力／所得證明"
+            "value": "個人所得資料"
           }
         }
       }
@@ -12137,6 +12137,186 @@
           "stringUnit": {
             "state": "translated",
             "value": "零知識證明"
+          }
+        }
+      }
+    },
+    "Details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填資料"
+          }
+        }
+      }
+    },
+    "Certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證簽署"
+          }
+        }
+      }
+    },
+    "Return": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返回"
+          }
+        }
+      }
+    },
+    "Completed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成"
+          }
+        }
+      }
+    },
+    "Four steps": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共四個步驟"
+          }
+        }
+      }
+    },
+    "Step %lld of 4: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %1$lld 步，共 4 步：%2$@"
+          }
+        }
+      }
+    },
+    "MyData may take about %lld minutes. You can leave and continue later from Personal documents.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 可能需要約 %lld 分鐘。你可以先離開，稍後從「個人文件」繼續。"
+          }
+        }
+      }
+    },
+    "After signing, return here to download and save the file in this iPhone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署後回到這裡下載，檔案會保存在這支 iPhone。"
+          }
+        }
+      }
+    },
+    "Import from Taiwan MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從台灣 MyData 匯入"
+          }
+        }
+      }
+    },
+    "The downloaded original will be protected in the data vault on this iPhone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載的原始檔會保存在這支 iPhone 的資料保險箱。"
+          }
+        }
+      }
+    },
+    "Fill in MyData details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填寫 MyData 資料"
+          }
+        }
+      }
+    },
+    "Complete the request there, then return to Bonds.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在行動自然人憑證完成簽署後，再回到有備而來。"
+          }
+        }
+      }
+    },
+    "Continue in Bonds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回到有備而來繼續"
+          }
+        }
+      }
+    },
+    "You are back. MyData will continue on the page below.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已回到有備而來，MyData 會在下方頁面接著進行。"
+          }
+        }
+      }
+    },
+    "Wait for MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待 MyData 完成"
+          }
+        }
+      }
+    },
+    "Download from Personal documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從「個人文件」下載"
+          }
+        }
+      }
+    },
+    "Open the completed document and download it here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打開已完成的文件，並在這裡下載。"
+          }
+        }
+      }
+    },
+    "Saving to the data vault": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在存入資料保險箱"
           }
         }
       }

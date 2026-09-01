@@ -45,12 +45,17 @@ class HomeViewController: UICollectionViewController {
     /// section header. Keeping the state by section prevents one group from
     /// changing the other when both are visible.
     private var expandedStackSections: Set<String> = []
+    /// The stack transition owns cell/header transforms for one short, non-spring
+    /// animation. Keeping it separate from the collection layout prevents UIKit's
+    /// transition layout from also changing the scroll offset mid-flight.
+    private var stackTransitionAnimator: UIViewPropertyAnimator?
 
     /// The stable id of the government group, shared by the section builder, the
     /// stack layout, and the tap routing so they always mean the same section.
     private static let governmentSectionID = "government"
     private static let myDataSectionID = "mydata"
     private static let myDataActionsSectionID = "mydata-actions"
+    private static let vaultDisplayNameRepairKey = "mydata.vault.display-name-repair.v1"
     /// How much of each peeking card's top shows — a sliver (一角) with its name,
     /// Apple-Wallet style. The full 「hero」 card sits at the bottom of the stack and
     /// the peeks fan up above it, each casting a shadow onto the card below.
@@ -156,6 +161,19 @@ class HomeViewController: UICollectionViewController {
 
         let archived: [MyDataVaultArchive.Document]?
         if let archive = makeVaultArchive() {
+            // Older Personal-documents imports were filed under the neutral
+            // 「MyData 文件」 title. Repair those locally from the PDF heading
+            // once before drawing Home; no document text leaves this phone and
+            // later visits do not repeatedly parse an unknown large PDF.
+            if !UserDefaults.standard.bool(forKey: Self.vaultDisplayNameRepairKey) {
+                do {
+                    try archive.repairGenericDisplayNames()
+                    UserDefaults.standard.set(true, forKey: Self.vaultDisplayNameRepairKey)
+                } catch {
+                    // Retry next visit; Data Protection may have made the file
+                    // temporarily unavailable while the device was locked.
+                }
+            }
             archived = try? archive.documents()
         } else {
             archived = nil
@@ -436,7 +454,7 @@ class HomeViewController: UICollectionViewController {
         return StackConfiguration(sectionID: id, cardCount: cardCount,
                                   aspectRatio: id == Self.myDataSectionID ? Self.vaultAspect
                                                                          : Self.credentialAspect,
-                                  peekHeight: id == Self.myDataSectionID ? 48 : Self.stackPeekHeight)
+                                  peekHeight: Self.stackPeekHeight)
     }
 
     private func sectionIsStackable(_ sectionID: String) -> Bool {
@@ -463,26 +481,136 @@ class HomeViewController: UICollectionViewController {
         setStackExpanded(expanded, sectionID: Self.governmentSectionID, animated: animated)
     }
 
-    /// One native collection-layout transition, with no simultaneous diffable
-    /// reconfiguration. The former two-animation sequence rebuilt cells while
-    /// their frames were moving, which produced the visible jump/reversal during
-    /// expand and collapse.
+    /// Reflows the section without asking UICollectionView to animate its layout.
+    /// A transition layout also owns `contentOffset`; when the section height
+    /// changes substantially it can first clamp the scroll position and then
+    /// spring the cards, producing the up/down jump seen on a real phone.
+    ///
+    /// Instead, the final layout and its clamped offset are committed without
+    /// animation. Visible cells and headers are then translated back to their old
+    /// viewport positions and eased to identity. The first rendered frame is
+    /// therefore pixel-continuous with the frame before the tap, while the final
+    /// scroll position is always valid — no overscroll and no bounce-back.
     func setStackExpanded(_ expanded: Bool, sectionID: String, animated: Bool = true) {
         guard dataSource != nil, sectionIsStackable(sectionID),
+              stackTransitionAnimator == nil,
               expanded != expandedStackSections.contains(sectionID) else { return }
         collectionView.layoutIfNeeded()
+
+        let oldViews = visibleTransitionViews()
+        let oldFrames = oldViews.mapValues { $0.convert($0.bounds, to: view) }
+        let oldHeaderY = sectionHeaderViewportY(sectionID: sectionID)
+
         if expanded { expandedStackSections.insert(sectionID) }
         else { expandedStackSections.remove(sectionID) }
         collectionView.isUserInteractionEnabled = false
-        collectionView.setCollectionViewLayout(makeLayout(), animated: animated) { [weak self] _ in
-            guard let self else { return }
-            self.collectionView.isUserInteractionEnabled = true
-            self.refreshStackHeader(sectionID: sectionID)
-        }
-        if !animated {
-            collectionView.isUserInteractionEnabled = true
+
+        UIView.performWithoutAnimation {
+            collectionView.setCollectionViewLayout(makeLayout(), animated: false)
+            collectionView.layoutIfNeeded()
+            if let oldHeaderY {
+                preserveSectionHeader(sectionID: sectionID, viewportY: oldHeaderY)
+                collectionView.layoutIfNeeded()
+            }
             refreshStackHeader(sectionID: sectionID)
         }
+
+        let finalViews = visibleTransitionViews()
+        if !animated || UIAccessibility.isReduceMotionEnabled || !UIView.areAnimationsEnabled {
+            finalViews.values.forEach {
+                $0.transform = .identity
+                $0.alpha = 1
+            }
+            collectionView.isUserInteractionEnabled = true
+            return
+        }
+
+        var movingViews: [UIView] = []
+        for (key, finalView) in finalViews {
+            guard let oldFrame = oldFrames[key] else { continue }
+            let finalFrame = finalView.convert(finalView.bounds, to: view)
+            let translation = Self.stackContinuityTransform(oldFrame: oldFrame,
+                                                            finalFrame: finalFrame)
+            guard !translation.isIdentity else { continue }
+            finalView.transform = translation
+            movingViews.append(finalView)
+        }
+
+        let animator = UIViewPropertyAnimator(duration: 0.34, curve: .easeInOut) {
+            movingViews.forEach { $0.transform = .identity }
+        }
+        stackTransitionAnimator = animator
+        animator.addCompletion { [weak self] _ in
+            guard let self else { return }
+            movingViews.forEach {
+                $0.transform = .identity
+                $0.alpha = 1
+            }
+            self.stackTransitionAnimator = nil
+            self.collectionView.isUserInteractionEnabled = true
+        }
+        animator.startAnimation()
+    }
+
+    /// Kept as a pure geometry operation so the first-frame guarantee remains
+    /// testable even when the unit-test host disables Core Animation.
+    static func stackContinuityTransform(oldFrame: CGRect, finalFrame: CGRect) -> CGAffineTransform {
+        CGAffineTransform(translationX: oldFrame.midX - finalFrame.midX,
+                          y: oldFrame.midY - finalFrame.midY)
+    }
+
+    private enum StackTransitionElement: Hashable {
+        case item(HomeItem)
+        case header(String)
+    }
+
+    /// Every visible object whose movement should read as one reflow. Including
+    /// following sections matters: otherwise the cards ease while their headers
+    /// teleport when the changed section grows or shrinks.
+    private func visibleTransitionViews() -> [StackTransitionElement: UIView] {
+        var result: [StackTransitionElement: UIView] = [:]
+        for cell in collectionView.visibleCells {
+            guard let indexPath = collectionView.indexPath(for: cell),
+                  let item = dataSource.itemIdentifier(for: indexPath) else { continue }
+            result[.item(item)] = cell
+        }
+        for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(
+            ofKind: UICollectionView.elementKindSectionHeader) {
+            guard let id = sectionID(at: indexPath.section),
+                  let header = collectionView.supplementaryView(
+                    forElementKind: UICollectionView.elementKindSectionHeader,
+                    at: indexPath) else { continue }
+            result[.header(id)] = header
+        }
+        return result
+    }
+
+    private func sectionHeaderViewportY(sectionID: String) -> CGFloat? {
+        guard let sectionIndex = dataSource.snapshot().sectionIdentifiers
+                .firstIndex(where: { $0.id == sectionID }),
+              let attributes = collectionView.collectionViewLayout
+                .layoutAttributesForSupplementaryView(
+                    ofKind: UICollectionView.elementKindSectionHeader,
+                    at: IndexPath(item: 0, section: sectionIndex)) else { return nil }
+        return attributes.frame.minY - collectionView.contentOffset.y
+    }
+
+    private func preserveSectionHeader(sectionID: String, viewportY: CGFloat) {
+        guard let sectionIndex = dataSource.snapshot().sectionIdentifiers
+                .firstIndex(where: { $0.id == sectionID }),
+              let attributes = collectionView.collectionViewLayout
+                .layoutAttributesForSupplementaryView(
+                    ofKind: UICollectionView.elementKindSectionHeader,
+                    at: IndexPath(item: 0, section: sectionIndex)) else { return }
+        let proposed = attributes.frame.minY - viewportY
+        let minimum = -collectionView.adjustedContentInset.top
+        let maximum = max(minimum,
+                          collectionView.contentSize.height - collectionView.bounds.height
+                            + collectionView.adjustedContentInset.bottom)
+        collectionView.setContentOffset(
+            CGPoint(x: collectionView.contentOffset.x,
+                    y: min(max(proposed, minimum), maximum)),
+            animated: false)
     }
 
     /// Sets a section header's 疊卡 disclosure: a chevron + header-tap toggle for a

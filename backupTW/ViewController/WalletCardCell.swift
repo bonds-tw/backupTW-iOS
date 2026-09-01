@@ -118,6 +118,10 @@ final class WalletCardCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        // Home uses the cell itself as the stack-reflow layer. A cell recycled
+        // during or just after that transition must never carry its old offset.
+        transform = .identity
+        alpha = 1
         cardView.transform = .identity
         // A reused cell must show its front and carry neither the previous card's
         // flip nor its tilt into new content: reset the flip first (so it lands on

@@ -19,6 +19,7 @@ class MyDataWebViewController : UIViewController {
     private enum FlowStage {
         case details, certificate, returning, waiting, personalDocuments, downloaded
     }
+    private var flowStage: FlowStage = .details
 
     /// Owns every file this flow creates, outside Documents and outside backups,
     /// and is emptied the moment the PDF has been read. See `MyDataScratch`.
@@ -33,6 +34,7 @@ class MyDataWebViewController : UIViewController {
     /// Used only as display metadata after a successful import; never used as a
     /// path and never shown when it does not match a known registry title.
     private var archiveDisplayName: String?
+    private var archiveKnownType: MyDataDocumentType?
     private var openedCertificateApp = false
     private let guideView = MyDataFlowGuideView()
 
@@ -158,7 +160,11 @@ class MyDataWebViewController : UIViewController {
     }
 
     @objc private func appDidBecomeActive() {
-        guard openedCertificateApp else { return }
+        // Foreground notifications also arrive after opening Share sheets,
+        // Personal documents, and system alerts. Only the exact certificate
+        // hand-off is allowed to advance step 2 to step 3.
+        guard openedCertificateApp, flowStage == .certificate else { return }
+        openedCertificateApp = false
         updateGuide(.returning)
     }
 
@@ -169,32 +175,39 @@ class MyDataWebViewController : UIViewController {
     }
 
     private func updateGuide(_ stage: FlowStage, detail: String? = nil) {
-        let content: (String, String, Bool)
+        flowStage = stage
+        let content: (MyDataFlowStep, String, String, Bool, Bool)
         switch stage {
         case .details:
-            content = (NSLocalizedString("Step 1 of 4 · MyData details", comment: "MyData web guide"),
+            content = (.details,
+                       NSLocalizedString("Fill in MyData details", comment: "MyData web guide"),
                        detail ?? NSLocalizedString("Fill in the official page. Saved details are filled only here.", comment: "MyData web guide"),
-                       documentType.entryMode == .personalDocuments)
+                       documentType.entryMode == .personalDocuments, false)
         case .certificate:
-            content = (NSLocalizedString("Step 2 of 4 · Approve the signature", comment: "MyData web guide"),
-                       NSLocalizedString("Complete the request in 行動自然人憑證, then come back to Bonds.", comment: "MyData web guide"), false)
+            content = (.certificate,
+                       NSLocalizedString("Approve in 行動自然人憑證", comment: "MyData web guide"),
+                       NSLocalizedString("Complete the request there, then return to Bonds.", comment: "MyData web guide"), false, false)
         case .returning:
-            content = (NSLocalizedString("Step 3 of 4 · Back in Bonds", comment: "MyData web guide"),
-                       NSLocalizedString("Keep this page open while MyData finishes the verification.", comment: "MyData web guide"), false)
+            content = (.returnToBonds,
+                       NSLocalizedString("Continue in Bonds", comment: "MyData web guide"),
+                       NSLocalizedString("You are back. MyData will continue on the page below.", comment: "MyData web guide"), false, false)
         case .waiting:
             let wait = documentType.estimatedMinutes.map {
                 String(format: NSLocalizedString("MyData estimates about %lld minutes. You may leave now and return from Personal documents after the notification.", comment: "MyData waiting guide"), Int64($0))
             } ?? NSLocalizedString("You may leave now and return from Personal documents after MyData's notification.", comment: "MyData waiting guide")
-            content = (NSLocalizedString("Step 4 of 4 · Waiting for MyData", comment: "MyData web guide"), wait, true)
+            content = (.download,
+                       NSLocalizedString("Wait for MyData", comment: "MyData web guide"), wait, true, false)
         case .personalDocuments:
-            content = (NSLocalizedString("MyData · Personal documents", comment: "MyData web guide"),
-                       NSLocalizedString("Sign in, open Personal documents, then download the completed file here.", comment: "MyData web guide"), true)
+            content = (.download,
+                       NSLocalizedString("Download from Personal documents", comment: "MyData web guide"),
+                       NSLocalizedString("Open the completed document and download it here.", comment: "MyData web guide"), false, false)
         case .downloaded:
-            content = (NSLocalizedString("Downloaded · sealing in the vault", comment: "MyData web guide"),
-                       NSLocalizedString("Bonds is checking the file and keeping the PDF when the archive contains one.", comment: "MyData web guide"), false)
+            content = (.download,
+                       NSLocalizedString("Saving to the data vault", comment: "MyData web guide"),
+                       NSLocalizedString("Bonds is checking the file and keeping the PDF when the archive contains one.", comment: "MyData web guide"), false, true)
         }
-        guideView.configure(title: content.0, detail: content.1,
-                            showsPersonalDocuments: content.2)
+        guideView.configure(step: content.0, title: content.1, detail: content.2,
+                            showsPersonalDocuments: content.3, completed: content.4)
     }
 
     /// Never autofill a subframe or a lookalike domain. The native Keychain values
@@ -205,6 +218,7 @@ class MyDataWebViewController : UIViewController {
         webView.evaluateJavaScript(MyDataAutofillScript.script(for: profile)) { [weak self] result, _ in
             guard let count = (result as? NSNumber)?.intValue, count > 0 else { return }
             let detail = String(format: NSLocalizedString("Filled %lld saved field(s) on the official MyData page.", comment: "MyData autofill result"), Int64(count))
+            guard self?.flowStage == .details else { return }
             self?.updateGuide(.details, detail: detail)
         }
     }
@@ -286,7 +300,8 @@ extension MyDataWebViewController : WKDownloadDelegate {
             archiveURL = destination
             archiveFileExtension = Self.safeFileExtension(suggestedFilename: suggestedFilename,
                                                           mimeType: response.mimeType)
-            archiveDisplayName = Self.knownDisplayName(suggestedFilename: suggestedFilename)
+            archiveKnownType = MyDataDocumentRegistry.knownDocument(in: suggestedFilename)
+            archiveDisplayName = archiveKnownType?.title
             return destination
         } catch {
             archiveURL = nil
@@ -325,9 +340,17 @@ extension MyDataWebViewController : WKDownloadDelegate {
         if documentType.id != MyDataDocumentRegistry.nationalID.id {
             do {
                 guard let vaultArchive else { throw CocoaError(.fileNoSuchFile) }
-                let id = documentType.id == MyDataDocumentRegistry.personalDocuments.id
-                    ? "mydata-file-\(UUID().uuidString.lowercased())"
-                    : documentType.id
+                // A file reached through Personal documents gets the registered
+                // stable slot whenever its official filename identifies it. This
+                // fixes both the generic title and duplicate copies of the same
+                // income document. Unknown MyData files still receive an opaque,
+                // local UUID and never inherit a server-controlled path/name.
+                let id: String
+                if documentType.id == MyDataDocumentRegistry.personalDocuments.id {
+                    id = archiveKnownType?.id ?? "mydata-file-\(UUID().uuidString.lowercased())"
+                } else {
+                    id = documentType.id
+                }
                 let displayName = documentType.entryMode == .personalDocuments
                     ? (archiveDisplayName ?? (documentType.id == MyDataDocumentRegistry.personalDocuments.id
                         ? NSLocalizedString("MyData document", comment: "generic MyData document")
@@ -443,15 +466,6 @@ extension MyDataWebViewController : WKDownloadDelegate {
         }
     }
 
-    /// A downloaded filename can contain the holder's name. It is never shown or
-    /// persisted verbatim. Only a known, pre-localised document title is allowed
-    /// through; everything else receives the neutral 「MyData document」 title.
-    private static func knownDisplayName(suggestedFilename: String) -> String? {
-        MyDataDocumentRegistry.vaultDocuments.first { type in
-            suggestedFilename.localizedCaseInsensitiveContains(type.title)
-        }?.title
-    }
-
     /// The download completed but the bytes were not the national-ID shape. Release
     /// builds show only the plain message; DEBUG builds append a structure-only
     /// detail (never a field value) so a new document's format can be identified.
@@ -464,6 +478,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
     private func discardDownloadedFiles() {
         archiveURL = nil
         archiveDisplayName = nil
+        archiveKnownType = nil
         try? scratch.purge()
     }
 
@@ -557,6 +572,7 @@ private final class MyDataFlowGuideView: UIView {
     var onPersonalDocuments: (() -> Void)?
     var onClose: (() -> Void)?
 
+    private let progress = MyDataFlowProgressView()
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let personalDocumentsButton = UIButton(type: .system)
@@ -568,7 +584,7 @@ private final class MyDataFlowGuideView: UIView {
 
         titleLabel.font = .preferredFont(forTextStyle: .headline)
         titleLabel.adjustsFontForContentSizeCategory = true
-        titleLabel.numberOfLines = 1
+        titleLabel.numberOfLines = 2
         detailLabel.font = .preferredFont(forTextStyle: .caption1)
         detailLabel.adjustsFontForContentSizeCategory = true
         detailLabel.textColor = .secondaryLabel
@@ -589,36 +605,51 @@ private final class MyDataFlowGuideView: UIView {
         closeButton.accessibilityLabel = NSLocalizedString("Close", comment: "")
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
-        let text = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
+        let text = UIStackView(arrangedSubviews: [titleLabel, detailLabel, personalDocumentsButton])
         text.axis = .vertical
-        text.spacing = 2
-        let actions = UIStackView(arrangedSubviews: [personalDocumentsButton, closeButton])
-        actions.axis = .horizontal
-        actions.alignment = .center
-        actions.spacing = 4
-        let row = UIStackView(arrangedSubviews: [text, actions])
-        row.axis = .horizontal
-        row.alignment = .center
-        row.spacing = 10
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
+        text.alignment = .leading
+        text.spacing = 4
+        text.setCustomSpacing(9, after: detailLabel)
+        progress.translatesAutoresizingMaskIntoConstraints = false
+        text.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(progress)
+        addSubview(text)
+        addSubview(closeButton)
         NSLayoutConstraint.activate([
-            row.topAnchor.constraint(equalTo: topAnchor, constant: 9),
-            row.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -9),
-            closeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 36),
+            progress.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            progress.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
+            progress.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -6),
+            closeButton.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            closeButton.widthAnchor.constraint(equalToConstant: 44),
+            closeButton.heightAnchor.constraint(equalToConstant: 44),
+            text.topAnchor.constraint(equalTo: progress.bottomAnchor, constant: 9),
+            text.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
+            text.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
+            text.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            titleLabel.heightAnchor.constraint(greaterThanOrEqualToConstant:
+                                                ceil(titleLabel.font.lineHeight * 2)),
+            detailLabel.heightAnchor.constraint(greaterThanOrEqualToConstant:
+                                                 ceil(detailLabel.font.lineHeight * 2)),
+            personalDocumentsButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 34),
         ])
-        text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        actions.setContentCompressionResistancePriority(.required, for: .horizontal)
+        accessibilityIdentifier = "mydata.web.guide"
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(title: String, detail: String, showsPersonalDocuments: Bool) {
+    func configure(step: MyDataFlowStep, title: String, detail: String,
+                   showsPersonalDocuments: Bool, completed: Bool) {
+        progress.configure(current: step, completed: completed)
         titleLabel.text = title
         detailLabel.text = detail
-        personalDocumentsButton.isHidden = !showsPersonalDocuments
+        // Preserve the action row's height in every stage. Collapsing an arranged
+        // subview moved the WKWebView's top edge by ~40pt whenever the flow
+        // advanced, which looked like the government page itself jumped.
+        personalDocumentsButton.alpha = showsPersonalDocuments ? 1 : 0
+        personalDocumentsButton.isUserInteractionEnabled = showsPersonalDocuments
+        personalDocumentsButton.accessibilityElementsHidden = !showsPersonalDocuments
         titleLabel.accessibilityLabel = "\(title). \(detail)"
     }
 
