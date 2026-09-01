@@ -174,7 +174,10 @@ struct PresentedRequestFreshnessTests {
     /// `.nothingToShow`, and never has to produce it: none of these tests signs.
     private struct StubStore: CredentialStoring {
         func save(jws: String, id: String) throws {}
-        func load(id: String) throws -> String? { nil }
+        // `HolderPresentation` now selects by document source instead of taking
+        // the first identifier. A JSON object is enough to model the historical
+        // self-issued storage shape; these screen tests never parse or sign it.
+        func load(id: String) throws -> String? { "{}" }
         func allIDs() throws -> [String] { ["urn:test:credential"] }
         func delete(id: String) throws {}
         func deleteAll() throws {}

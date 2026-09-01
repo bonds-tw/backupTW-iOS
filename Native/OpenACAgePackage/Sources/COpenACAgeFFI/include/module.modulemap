@@ -1,0 +1,5 @@
+module openac_age_mobile_appFFI {
+    header "openac_age_mobile_appFFI.h"
+    export *
+}
+
