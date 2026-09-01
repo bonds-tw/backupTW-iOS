@@ -63,3 +63,6 @@ receipt 存在時繼續顯示簽署動作，可能讓第二次簽章直接覆寫
 3. 由主管機關提供私人收件的同意版本、註冊 response、收件地址、狀態查詢、撤回與紙本
    fallback 語意後，再新增 `official` environment；在此之前維持 `localPrototypeOnly`／
    `syntheticFixtureOnly` fail closed。
+
+正式介接的 live 查核、公開地址簿元件與主管機關最小交接包接續記錄於
+[`official-document-inbox-phase6.md`](official-document-inbox-phase6.md)。

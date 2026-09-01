@@ -315,6 +315,75 @@ struct OfficialDocumentInboxTests {
         #expect(package.encryptedSwitch != nil)
     }
 
+    @Test func officialAddressBookProvesOnlyAnActiveDirectoryListing() throws {
+        let checkedAt = Date(timeIntervalSince1970: 1_800_004_000)
+        let data = Data("""
+        ORGID,ORGNAME,STATUSCODE,UPDATETIME\r
+        200000000A,總統府,T,2025-12-08 11:23:23\r
+        QUOTED001,"測試,機關",T,2026-08-31 10:20:30\r
+        """.utf8)
+        let snapshot = try OfficialDocumentAddressBookSnapshot(data: data,
+                                                                checkedAt: checkedAt)
+        let evidence = try snapshot.evidence(for: .init(
+            organizationID: "QUOTED001",
+            organizationName: "測試,機關"))
+
+        #expect(snapshot.records.count == 2)
+        #expect(snapshot.sha256.count == 64)
+        #expect(snapshot.source == OfficialDocumentAddressBookSnapshot.sourceURL)
+        #expect(evidence.scope == .activeDirectoryListingOnly)
+        #expect(evidence.organizationID == "QUOTED001")
+        #expect(evidence.directorySHA256 == snapshot.sha256)
+        #expect(evidence.checkedAt == checkedAt)
+    }
+
+    @Test func addressBookRefusesAmbiguousOrUnlistedSenderClaims() throws {
+        let data = Data("""
+        ORGID,ORGNAME,STATUSCODE,UPDATETIME
+        AGENCY001,正確機關名稱,T,2026-08-31 10:20:30
+        """.utf8)
+        let snapshot = try OfficialDocumentAddressBookSnapshot(data: data)
+
+        #expect(throws: OfficialDocumentAddressBookError.senderNameMismatch(
+            expected: "正確機關名稱", actual: "冒名機關")) {
+            _ = try snapshot.evidence(for: .init(
+                organizationID: "AGENCY001", organizationName: "冒名機關"))
+        }
+        #expect(throws: OfficialDocumentAddressBookError.senderNotListed("MISSING")) {
+            _ = try snapshot.evidence(for: .init(
+                organizationID: "MISSING", organizationName: "未登錄"))
+        }
+    }
+
+    @Test func addressBookRejectsDuplicateInactiveAndMalformedRows() throws {
+        let duplicate = Data("""
+        ORGID,ORGNAME,STATUSCODE,UPDATETIME
+        AGENCY001,機關一,T,2026-08-31 10:20:30
+        AGENCY001,機關二,T,2026-08-31 10:20:31
+        """.utf8)
+        #expect(throws: OfficialDocumentAddressBookError.duplicateOrganizationID("AGENCY001")) {
+            _ = try OfficialDocumentAddressBookSnapshot(data: duplicate)
+        }
+
+        let inactive = Data("""
+        ORGID,ORGNAME,STATUSCODE,UPDATETIME
+        AGENCY002,停用機關,F,2026-08-31 10:20:30
+        """.utf8)
+        let inactiveSnapshot = try OfficialDocumentAddressBookSnapshot(data: inactive)
+        #expect(throws: OfficialDocumentAddressBookError.inactiveOrganization("AGENCY002")) {
+            _ = try inactiveSnapshot.evidence(for: .init(
+                organizationID: "AGENCY002", organizationName: "停用機關"))
+        }
+
+        let malformed = Data("""
+        ORGID,ORGNAME,STATUSCODE,UPDATETIME
+        AGENCY003,"未結束欄位,T,2026-08-31 10:20:30
+        """.utf8)
+        #expect(throws: OfficialDocumentAddressBookError.malformedCSV(row: 2)) {
+            _ = try OfficialDocumentAddressBookSnapshot(data: malformed)
+        }
+    }
+
     @Test @MainActor func inboxListsTheSyntheticPackageAndOpensItsDedicatedDetail() throws {
         let archive = try archive()
         let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
