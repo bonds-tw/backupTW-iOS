@@ -104,6 +104,13 @@ struct LocalDataEraser {
     /// record ensures the next UAT/signing action creates a new installation
     /// key instead of silently preserving linkage after "erase everything".
     private let appAttestRecordEraser: (() throws -> Void)?
+    /// The optional MyData autofill profile contains the two identity values the
+    /// user explicitly asked this phone to remember. It is a Keychain item and
+    /// therefore has to be named here; deleting files alone cannot reach it.
+    private let myDataProfileEraser: (() throws -> Void)?
+    /// Slow-request continuation metadata contains no identity values, but an
+    /// erase must also stop the app saying that an old request is still pending.
+    private let pendingRequestEraser: (() -> Void)?
 
     /// `keyTag` and `installRecord` are injectable for the same reason the
     /// directories are: the Keychain is a process-wide namespace, so a test that
@@ -119,7 +126,9 @@ struct LocalDataEraser {
          installRecord: UserDefaults? = .standard,
          holderKeyring: HolderKeyring? = nil,
          walletIdentityTag: String? = nil,
-         appAttestRecordEraser: (() throws -> Void)? = nil) {
+         appAttestRecordEraser: (() throws -> Void)? = nil,
+         myDataProfileEraser: (() throws -> Void)? = nil,
+         pendingRequestEraser: (() -> Void)? = nil) {
         self.credentials = credentials
         self.scratch = scratch
         self.vaultArchive = vaultArchive
@@ -131,6 +140,8 @@ struct LocalDataEraser {
         self.holderKeyring = holderKeyring
         self.walletIdentityTag = walletIdentityTag
         self.appAttestRecordEraser = appAttestRecordEraser
+        self.myDataProfileEraser = myDataProfileEraser
+        self.pendingRequestEraser = pendingRequestEraser
     }
 
     /// The app's own wiring: the real store, in the real locations.
@@ -138,7 +149,9 @@ struct LocalDataEraser {
         self.init(credentials: try CredentialStore(),
                   holderKeyring: .app(),
                   walletIdentityTag: WalletIdentity.keyTag,
-                  appAttestRecordEraser: KeychainAppAttestKeyRecordStore.deleteDefaultRecord)
+                  appAttestRecordEraser: KeychainAppAttestKeyRecordStore.deleteDefaultRecord,
+                  myDataProfileEraser: MyDataAutofillProfileStore.delete,
+                  pendingRequestEraser: { MyDataPendingRequestStore.clear() })
     }
 
     /// Erases everything, then reports the first thing that went wrong.
@@ -176,6 +189,8 @@ struct LocalDataEraser {
         // an interrupted erase would leave a living identity behind.
         attempt { _ = try holderKeyring?.destroyAll() }
         attempt { try appAttestRecordEraser?() }
+        attempt { try myDataProfileEraser?() }
+        pendingRequestEraser?()
         if let walletIdentityTag, walletIdentityTag != keyTag {
             attempt { try DeviceKey.deleteKey(tag: walletIdentityTag,
                                               installRecord: installRecord) }

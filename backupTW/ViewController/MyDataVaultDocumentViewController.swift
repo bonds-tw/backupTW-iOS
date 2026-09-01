@@ -37,7 +37,7 @@ extension MyDataVaultPreviewError: LocalizedError {
 final class MyDataVaultDocumentViewController: UICollectionViewController {
 
     private struct Row: Hashable {
-        enum Kind: Hashable { case fact, viewOriginal, replace, delete }
+        enum Kind: Hashable { case fact, viewOriginal, share, credentialUseCases, replace, delete }
         let id: String
         let title: String
         let value: String
@@ -92,7 +92,8 @@ final class MyDataVaultDocumentViewController: UICollectionViewController {
     private func reload() {
         document = (try? archive.documents())?.first { $0.id == documentID }
         integrity = (try? archive.integrity(id: documentID)) ?? .fileMissing
-        title = MyDataDocumentRegistry.lookup(id: documentID)?.title
+        title = document?.entry?.displayName
+            ?? MyDataDocumentRegistry.lookup(id: documentID)?.title
             ?? NSLocalizedString("MyData document", comment: "vault document detail title")
         applySnapshot()
     }
@@ -125,7 +126,7 @@ final class MyDataVaultDocumentViewController: UICollectionViewController {
         } ?? NSLocalizedString("Unknown", comment: "")
         let facts = Group(id: "facts", title: NSLocalizedString("This document", comment: ""), rows: [
             Row(id: "type", title: NSLocalizedString("Document type", comment: ""),
-                value: type?.title ?? UntrustedText.term(document.id).text, kind: .fact),
+                value: entry?.displayName ?? type?.title ?? UntrustedText.term(document.id).text, kind: .fact),
             Row(id: "source", title: NSLocalizedString("Source", comment: ""),
                 value: NSLocalizedString("Taiwan MyData", comment: ""), kind: .fact),
             Row(id: "imported", title: NSLocalizedString("Imported", comment: ""),
@@ -144,6 +145,13 @@ final class MyDataVaultDocumentViewController: UICollectionViewController {
             Row(id: "view", title: NSLocalizedString("View original document", comment: ""),
                 value: NSLocalizedString("Open the protected copy stored on this phone.", comment: ""),
                 kind: .viewOriginal),
+            Row(id: "share", title: NSLocalizedString("Export or share a copy", comment: "MyData vault action"),
+                value: NSLocalizedString("Choose an iOS app or person. The exported copy leaves the vault.", comment: "MyData vault share warning"),
+                kind: .share),
+            Row(id: "credential-use-cases",
+                title: NSLocalizedString("Selective-disclosure credential scenarios", comment: "MyData vault action"),
+                value: NSLocalizedString("See what this document could prove without sharing the whole file.", comment: "MyData VC scenarios action"),
+                kind: .credentialUseCases),
             Row(id: "replace", title: NSLocalizedString("Replace from MyData", comment: ""),
                 value: NSLocalizedString("Download this document again and replace the stored original.", comment: ""),
                 kind: .replace),
@@ -183,7 +191,7 @@ final class MyDataVaultDocumentViewController: UICollectionViewController {
             switch row.kind {
             case .fact:
                 break
-            case .viewOriginal, .replace:
+            case .viewOriginal, .share, .credentialUseCases, .replace:
                 content.textProperties.color = .tintColor
                 cell.accessories = [.disclosureIndicator()]
             case .delete:
@@ -235,6 +243,8 @@ final class MyDataVaultDocumentViewController: UICollectionViewController {
         switch row.kind {
         case .fact: break
         case .viewOriginal: showOriginal()
+        case .share: confirmShare()
+        case .credentialUseCases: showCredentialUseCases()
         case .replace: replaceFromMyData()
         case .delete: confirmDelete()
         }
@@ -278,11 +288,87 @@ final class MyDataVaultDocumentViewController: UICollectionViewController {
     }
 
     private func replaceFromMyData() {
-        guard let type = MyDataDocumentRegistry.lookup(id: documentID) else { return }
+        guard let document else { return }
+        let type = MyDataDocumentRegistry.lookup(id: documentID)
+            ?? MyDataDocumentRegistry.personalDocuments(
+                replacing: documentID,
+                title: document.entry?.displayName
+                    ?? NSLocalizedString("MyData document", comment: "vault document detail title"))
         let controller = MyDataOnboardViewController(documentType: type)
         let navigation = UINavigationController(rootViewController: controller)
         navigation.modalPresentationStyle = .fullScreen
         present(navigation, animated: true)
+    }
+
+    private func confirmShare() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("Export a copy?", comment: "MyData vault share confirmation"),
+            message: NSLocalizedString(
+                "The copy you choose to share is no longer protected by this vault. Check the recipient and destination before continuing.",
+                comment: "MyData vault share confirmation"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Continue", comment: ""),
+                                      style: .default) { [weak self] _ in self?.shareCopy() })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func shareCopy() {
+        guard let document,
+              let original = archive.originalURL(id: documentID) else {
+            presentError(MyDataVaultPreviewError.originalMissing.localizedDescription)
+            return
+        }
+        do {
+            let exportDirectory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MyDataVaultExport-\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: exportDirectory,
+                                                    withIntermediateDirectories: true)
+            var excludedDirectory = exportDirectory
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try? excludedDirectory.setResourceValues(values)
+
+            let fileExtension = Self.safeFileExtension(document.entry?.fileExtension)
+            let baseName = Self.safeExportName(document.entry?.displayName
+                ?? MyDataDocumentRegistry.lookup(id: documentID)?.title
+                ?? NSLocalizedString("MyData document", comment: "vault document detail title"))
+            let output = exportDirectory.appendingPathComponent(baseName)
+                .appendingPathExtension(fileExtension)
+            try Data(contentsOf: original).write(
+                to: output, options: [.atomic, .completeFileProtectionUnlessOpen])
+
+            let activity = UIActivityViewController(activityItems: [output], applicationActivities: nil)
+            activity.completionWithItemsHandler = { _, _, _, _ in
+                try? FileManager.default.removeItem(at: exportDirectory)
+            }
+            activity.popoverPresentationController?.sourceView = view
+            activity.popoverPresentationController?.sourceRect = CGRect(
+                x: view.bounds.midX, y: view.bounds.maxY - 40, width: 1, height: 1)
+            present(activity, animated: true)
+        } catch {
+            presentError(error.localizedDescription)
+        }
+    }
+
+    static func safeExportName(_ candidate: String) -> String {
+        let scalars = candidate.unicodeScalars.filter { scalar in
+            CharacterSet.alphanumerics.contains(scalar)
+                || scalar == "-" || scalar == "_" || scalar == " "
+        }
+        let cleaned = String(String.UnicodeScalarView(scalars))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "MyData-document" : String(cleaned.prefix(80))
+    }
+
+    static func safeFileExtension(_ candidate: String?) -> String {
+        let cleaned = (candidate ?? "").lowercased().filter { $0.isASCII && $0.isLetter }
+        return cleaned.isEmpty ? "data" : String(cleaned.prefix(8))
+    }
+
+    private func showCredentialUseCases() {
+        navigationController?.pushViewController(
+            MyDataCredentialUseCasesViewController(documentTitle: title ?? ""), animated: true)
     }
 
     private func confirmDelete() {

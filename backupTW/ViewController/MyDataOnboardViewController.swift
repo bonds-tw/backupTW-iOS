@@ -21,7 +21,7 @@ class MyDataOnboardViewController: UICollectionViewController {
     }
 
     private enum Section: Int, CaseIterable {
-        case cover, data
+        case cover, guidance, profile, data
     }
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     /// # Why the cover states the build's limit before anything is spent
@@ -48,6 +48,42 @@ class MyDataOnboardViewController: UICollectionViewController {
 
     private var isNationalID: Bool { documentType.id == MyDataDocumentRegistry.nationalID.id }
     private var canProceed: Bool { !isNationalID || CredentialIssuanceAssembly.isAvailable }
+
+    private var guidanceItems: [Item] {
+        var rows = [
+            Item(image: UIImage(systemName: "1.circle.fill"),
+                 title: NSLocalizedString("Fill in your MyData details", comment: "MyData flow step"),
+                 secondaryText: NSLocalizedString("Saved details can be filled for you on the official MyData page.", comment: "MyData flow step"),
+                 identifier: "mydata.step.details"),
+            Item(image: UIImage(systemName: "2.circle.fill"),
+                 title: NSLocalizedString("Approve in 行動自然人憑證", comment: "MyData flow step"),
+                 secondaryText: NSLocalizedString("Bonds opens the certificate app. Confirm there, then return here.", comment: "MyData flow step"),
+                 identifier: "mydata.step.certificate"),
+            Item(image: UIImage(systemName: "3.circle.fill"),
+                 title: NSLocalizedString("Return to Bonds", comment: "MyData flow step"),
+                 secondaryText: NSLocalizedString("The MyData page stays open and continues after the signature.", comment: "MyData flow step"),
+                 identifier: "mydata.step.return"),
+        ]
+        let finalText = documentType.estimatedMinutes.map {
+            String(format: NSLocalizedString("This document may take about %lld minutes. You can leave and later continue from MyData personal documents.", comment: "MyData slow document step"), Int64($0))
+        } ?? NSLocalizedString("Download the completed file; it is then sealed in the data vault.", comment: "MyData flow step")
+        rows.append(Item(image: UIImage(systemName: "4.circle.fill"),
+                         title: NSLocalizedString("Download or continue later", comment: "MyData flow step"),
+                         secondaryText: finalText,
+                         identifier: "mydata.step.download"))
+        return rows
+    }
+
+    private var profileItem: Item {
+        let saved = MyDataAutofillProfileStore.load() != nil
+        return Item(
+            image: UIImage(systemName: saved ? "checkmark.shield.fill" : "person.crop.circle.badge.plus"),
+            title: NSLocalizedString("Remember MyData details on this iPhone", comment: "MyData profile row"),
+            secondaryText: saved
+                ? NSLocalizedString("Saved in Keychain · tap to change or forget", comment: "MyData profile row")
+                : NSLocalizedString("Optional · saves repeated ID number and birth-date entry", comment: "MyData profile row"),
+            identifier: "mydata.profile")
+    }
 
     init(documentType: MyDataDocumentType = MyDataDocumentRegistry.nationalID) {
         self.documentType = documentType
@@ -118,7 +154,7 @@ class MyDataOnboardViewController: UICollectionViewController {
         proceed.isEnabled = canProceed
         navigationItem.rightBarButtonItem = proceed
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
-        collectionView.allowsSelection = false
+        collectionView.allowsSelection = true
 
         configureDataSource()
         applySnapshot()
@@ -126,13 +162,14 @@ class MyDataOnboardViewController: UICollectionViewController {
 
     private func configureDataSource() {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
-            let isCover = (indexPath.section == Section.cover.rawValue)
+            let section = Section(rawValue: indexPath.section)
+            let isCover = section == .cover
             // The household address is structurally a long field, even when a
             // particular test value happens to be short.  Keeping it in the
             // trailing-value layout makes the value fight the title for width
             // and produces the clipped row seen on an iPhone.  Other long
             // MyData values get the same stacked treatment automatically.
-            let isHouseholdAddress = self.isNationalID && indexPath.item == 4 && !isCover
+            let isHouseholdAddress = self.isNationalID && section == .data && indexPath.item == 4
             let usesStackedValue = isHouseholdAddress
                 || item.secondaryText.count > 18
                 || item.secondaryText.contains("\n")
@@ -165,7 +202,10 @@ class MyDataOnboardViewController: UICollectionViewController {
             cell.contentConfiguration = content
             cell.accessibilityIdentifier = isCover
                 ? "mydataOnboard.cover"
-                : "mydataOnboard.data.\(indexPath.item)"
+                : section == .profile ? "mydataOnboard.profile"
+                : "mydataOnboard.\(section?.rawValue ?? -1).\(indexPath.item)"
+            cell.accessories = section == .profile ? [.disclosureIndicator()] : []
+            cell.isUserInteractionEnabled = section == .profile
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
             collectionView, indexPath, item in
@@ -173,12 +213,28 @@ class MyDataOnboardViewController: UICollectionViewController {
         }
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { headerView, elementKind, indexPath in
             var content = headerView.defaultContentConfiguration()
-            content.text = NSLocalizedString("Document information", comment: "")
+            switch Section(rawValue: indexPath.section) {
+            case .guidance:
+                content.text = NSLocalizedString("What happens next", comment: "MyData guidance header")
+            case .profile:
+                content.text = NSLocalizedString("Make the next visit easier", comment: "MyData profile header")
+            case .data:
+                content.text = NSLocalizedString("Document information", comment: "")
+            default:
+                content.text = nil
+            }
             headerView.contentConfiguration = content
         }
         let footerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionFooter) { footerView, elementKind, indexPath in
             var content = footerView.defaultContentConfiguration()
-            content.text = NSLocalizedString("All information are stored only on your phone.", comment: "")
+            switch Section(rawValue: indexPath.section) {
+            case .profile:
+                content.text = NSLocalizedString("Remembered details are stored in the iOS Keychain on this iPhone and filled only on mydata.nat.gov.tw.", comment: "MyData profile footer")
+            case .data:
+                content.text = NSLocalizedString("All information are stored only on your phone.", comment: "")
+            default:
+                content.text = nil
+            }
             footerView.contentConfiguration = content
         }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
@@ -194,11 +250,23 @@ class MyDataOnboardViewController: UICollectionViewController {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.cover])
         snapshot.appendItems([coverItem])
+        snapshot.appendSections([.guidance])
+        snapshot.appendItems(guidanceItems)
+        snapshot.appendSections([.profile])
+        snapshot.appendItems([profileItem])
         snapshot.appendSections([.data])
         for item in items {
             snapshot.appendItems([item])
         }
         dataSource.apply(snapshot, animatingDifferences: true)
+    }
+
+    override func collectionView(_ collectionView: UICollectionView,
+                                 didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        guard Section(rawValue: indexPath.section) == .profile else { return }
+        navigationController?.pushViewController(
+            MyDataProfileViewController { [weak self] in self?.applySnapshot() }, animated: true)
     }
 
     @objc private func cancel() {

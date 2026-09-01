@@ -75,14 +75,14 @@ class UseViewController: UICollectionViewController {
         return [onlineSection(hasAnyCard: hasAnyCard, hasTelecomCard: hasTelecomCard),
                 offlineSection(hasDocument: rows?.contains { $0.source == .selfIssued } ?? false,
                                storeIsReadable: rows != nil),
-                experimentalSection()]
+                zeroKnowledgeSection()]
     }
 
-    /// 「實驗中」 — the verification tracks still being built, gathered here in 使用
-    /// rather than hidden in Settings. Creating and checking are two distinct
-    /// actions and appear together with different icons.
-    private func experimentalSection() -> Section {
-        Section(title: "🧪 " + NSLocalizedString("Experimental", comment: "use section"), items: [
+    /// The two zero-knowledge actions gathered under their actual capability name.
+    /// Creating and checking are distinct actions and appear together with
+    /// different icons.
+    private func zeroKnowledgeSection() -> Section {
+        Section(title: "🧪 " + NSLocalizedString("Zero-knowledge proofs", comment: "use section"), items: [
             Item(image: UIImage(systemName: "lock.shield.fill")?
                     .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
                  title: Row.createProof,

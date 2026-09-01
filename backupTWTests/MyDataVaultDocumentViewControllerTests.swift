@@ -50,4 +50,12 @@ struct MyDataVaultDocumentViewControllerTests {
         #expect(messages[1].localizedCaseInsensitiveContains("warning")
                 || messages[1].contains("警告"))
     }
+
+    @Test func exportedFilenamesCannotEscapeTheTemporaryDirectory() {
+        #expect(MyDataVaultDocumentViewController.safeExportName("../../所得/資料") == "所得資料")
+        #expect(MyDataVaultDocumentViewController.safeExportName("///") == "MyData-document")
+        #expect(MyDataVaultDocumentViewController.safeFileExtension("PDF") == "pdf")
+        #expect(MyDataVaultDocumentViewController.safeFileExtension("../zip") == "zip")
+        #expect(MyDataVaultDocumentViewController.safeFileExtension(nil) == "data")
+    }
 }

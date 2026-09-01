@@ -16,6 +16,10 @@ enum MyDataImportResult {
 
 class MyDataWebViewController : UIViewController {
 
+    private enum FlowStage {
+        case details, certificate, returning, waiting, personalDocuments, downloaded
+    }
+
     /// Owns every file this flow creates, outside Documents and outside backups,
     /// and is emptied the moment the PDF has been read. See `MyDataScratch`.
     private let scratch = MyDataScratch()
@@ -26,6 +30,11 @@ class MyDataWebViewController : UIViewController {
     /// a short alphanumeric suffix is retained so the vault can reopen the raw
     /// original with the right parser later.
     private var archiveFileExtension = ""
+    /// Used only as display metadata after a successful import; never used as a
+    /// path and never shown when it does not match a known registry title.
+    private var archiveDisplayName: String?
+    private var openedCertificateApp = false
+    private let guideView = MyDataFlowGuideView()
 
     private var progressObservation: NSKeyValueObservation?
     private lazy var progressView: UIProgressView = {
@@ -82,7 +91,22 @@ class MyDataWebViewController : UIViewController {
     }
 
     override func loadView() {
-        view = webview
+        let root = UIView()
+        root.backgroundColor = .systemBackground
+        guideView.translatesAutoresizingMaskIntoConstraints = false
+        webview.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(guideView)
+        root.addSubview(webview)
+        NSLayoutConstraint.activate([
+            guideView.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor),
+            guideView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            guideView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            webview.topAnchor.constraint(equalTo: guideView.bottomAnchor),
+            webview.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            webview.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            webview.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+        view = root
     }
 
     override func viewDidLoad() {
@@ -93,6 +117,13 @@ class MyDataWebViewController : UIViewController {
         // PDF behind. Opening this screen is the last moment at which those can
         // still be nobody's business, so clear them before adding more.
         try? scratch.purge()
+
+        guideView.onPersonalDocuments = { [weak self] in self?.openPersonalDocuments() }
+        guideView.onClose = { [weak self] in self?.dismiss(animated: true) }
+        updateGuide(.details)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
 
         progressObservation = webview.observe(\.estimatedProgress, options: [.new]) { webview, change in
             guard let progress = change.newValue else { return }
@@ -111,7 +142,7 @@ class MyDataWebViewController : UIViewController {
         progressView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(progressView)
         NSLayoutConstraint.activate([
-            progressView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            progressView.topAnchor.constraint(equalTo: webview.topAnchor),
             progressView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             progressView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             progressView.heightAnchor.constraint(equalToConstant: 2)
@@ -125,15 +156,66 @@ class MyDataWebViewController : UIViewController {
         let url = URL(string: urlString)!
         webview.load(URLRequest(url: url))
     }
+
+    @objc private func appDidBecomeActive() {
+        guard openedCertificateApp else { return }
+        updateGuide(.returning)
+    }
+
+    private func openPersonalDocuments() {
+        updateGuide(.personalDocuments)
+        guard let url = URL(string: "https://mydata.nat.gov.tw/signin") else { return }
+        webview.load(URLRequest(url: url))
+    }
+
+    private func updateGuide(_ stage: FlowStage, detail: String? = nil) {
+        let content: (String, String, Bool)
+        switch stage {
+        case .details:
+            content = (NSLocalizedString("Step 1 of 4 · MyData details", comment: "MyData web guide"),
+                       detail ?? NSLocalizedString("Fill in the official page. Saved details are filled only here.", comment: "MyData web guide"),
+                       documentType.entryMode == .personalDocuments)
+        case .certificate:
+            content = (NSLocalizedString("Step 2 of 4 · Approve the signature", comment: "MyData web guide"),
+                       NSLocalizedString("Complete the request in 行動自然人憑證, then come back to Bonds.", comment: "MyData web guide"), false)
+        case .returning:
+            content = (NSLocalizedString("Step 3 of 4 · Back in Bonds", comment: "MyData web guide"),
+                       NSLocalizedString("Keep this page open while MyData finishes the verification.", comment: "MyData web guide"), false)
+        case .waiting:
+            let wait = documentType.estimatedMinutes.map {
+                String(format: NSLocalizedString("MyData estimates about %lld minutes. You may leave now and return from Personal documents after the notification.", comment: "MyData waiting guide"), Int64($0))
+            } ?? NSLocalizedString("You may leave now and return from Personal documents after MyData's notification.", comment: "MyData waiting guide")
+            content = (NSLocalizedString("Step 4 of 4 · Waiting for MyData", comment: "MyData web guide"), wait, true)
+        case .personalDocuments:
+            content = (NSLocalizedString("MyData · Personal documents", comment: "MyData web guide"),
+                       NSLocalizedString("Sign in, open Personal documents, then download the completed file here.", comment: "MyData web guide"), true)
+        case .downloaded:
+            content = (NSLocalizedString("Downloaded · sealing in the vault", comment: "MyData web guide"),
+                       NSLocalizedString("Bonds is checking the file and keeping the PDF when the archive contains one.", comment: "MyData web guide"), false)
+        }
+        guideView.configure(title: content.0, detail: content.1,
+                            showsPersonalDocuments: content.2)
+    }
+
+    /// Never autofill a subframe or a lookalike domain. The native Keychain values
+    /// only enter JavaScript after this exact top-level origin check.
+    private func autofillRememberedDetailsIfPossible(_ webView: WKWebView) {
+        guard webView.url?.scheme == "https", webView.url?.host?.lowercased() == "mydata.nat.gov.tw",
+              let profile = MyDataAutofillProfileStore.load() else { return }
+        webView.evaluateJavaScript(MyDataAutofillScript.script(for: profile)) { [weak self] result, _ in
+            guard let count = (result as? NSNumber)?.intValue, count > 0 else { return }
+            let detail = String(format: NSLocalizedString("Filled %lld saved field(s) on the official MyData page.", comment: "MyData autofill result"), Int64(count))
+            self?.updateGuide(.details, detail: detail)
+        }
+    }
 }
 
 extension MyDataWebViewController : WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
-        if navigationResponse.canShowMIMEType,
-           let response = navigationResponse.response as? HTTPURLResponse,
-           let contentType = response.value(forHTTPHeaderField: "Content-Type"),
-           contentType.range(of: "attachment", options: .caseInsensitive) != nil {
+        if let response = navigationResponse.response as? HTTPURLResponse,
+           let disposition = response.value(forHTTPHeaderField: "Content-Disposition"),
+           disposition.range(of: "attachment", options: .caseInsensitive) != nil {
             return .download
         }
         return .allow
@@ -147,7 +229,11 @@ extension MyDataWebViewController : WKNavigationDelegate {
         if let scheme = url.scheme,
            scheme == "mobilemoica",
            UIApplication.shared.canOpenURL(url) {
+            openedCertificateApp = true
+            updateGuide(.certificate)
             UIApplication.shared.open(url)
+            decisionHandler(.cancel)
+            return
         }
         if url.absoluteString == "https://mydata.nat.gov.tw/inquiry/docs" {
             // The webpage may be redirected to homepage of MyData. Reload the webview to Mobilemoica in case the user needs to start over.
@@ -157,6 +243,27 @@ extension MyDataWebViewController : WKNavigationDelegate {
             decisionHandler(.download)
         } else {
             decisionHandler(.allow)
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        autofillRememberedDetailsIfPossible(webView)
+        guard webView.url?.host?.lowercased() == "mydata.nat.gov.tw" else { return }
+        let script = """
+        (() => {
+          const text = document.body?.innerText || '';
+          return {
+            verified: text.includes('已驗證您的身分'),
+            wait: text.includes('無須在此頁面等待') && text.includes('個人文件')
+          };
+        })();
+        """
+        webView.evaluateJavaScript(script) { [weak self] result, _ in
+            guard let self, let state = result as? [String: Any],
+                  state["verified"] as? Bool == true,
+                  state["wait"] as? Bool == true else { return }
+            MyDataPendingRequestStore.remember(documentID: self.documentType.id)
+            self.updateGuide(.waiting)
         }
     }
 
@@ -179,6 +286,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
             archiveURL = destination
             archiveFileExtension = Self.safeFileExtension(suggestedFilename: suggestedFilename,
                                                           mimeType: response.mimeType)
+            archiveDisplayName = Self.knownDisplayName(suggestedFilename: suggestedFilename)
             return destination
         } catch {
             archiveURL = nil
@@ -196,6 +304,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
     }
 
     func downloadDidFinish(_ download: WKDownload) {
+        updateGuide(.downloaded)
         // Everything below this line touches the user's household registration in
         // the clear. The `defer` is what makes that acceptable: it runs on the
         // success path, on every `guard` failure, and on a throw from inside the
@@ -213,12 +322,42 @@ extension MyDataWebViewController : WKDownloadDelegate {
         // insurance or property PDF into `NationalIDModel.parse` is what made the
         // UI show 身分證 fields under every MyData item and could mint the wrong
         // credential if a coincidental label matched.
-        if MyDataDocumentRegistry.isVaultDocument(id: documentType.id) {
+        if documentType.id != MyDataDocumentRegistry.nationalID.id {
             do {
                 guard let vaultArchive else { throw CocoaError(.fileNoSuchFile) }
-                let entry = try vaultArchive.store(originalAt: archiveURL,
-                                                   id: documentType.id,
-                                                   fileExtension: archiveFileExtension)
+                let id = documentType.id == MyDataDocumentRegistry.personalDocuments.id
+                    ? "mydata-file-\(UUID().uuidString.lowercased())"
+                    : documentType.id
+                let displayName = documentType.entryMode == .personalDocuments
+                    ? (archiveDisplayName ?? (documentType.id == MyDataDocumentRegistry.personalDocuments.id
+                        ? NSLocalizedString("MyData document", comment: "generic MyData document")
+                        : documentType.title))
+                    : documentType.title
+                let entry: MyDataVaultArchive.Entry
+                if archiveFileExtension == "pdf" {
+                    let data = try Data(contentsOf: archiveURL)
+                    guard PDFDocument(data: data) != nil else { throw MyDataScratchError.noPDFInArchive }
+                    entry = try vaultArchive.store(data: data, id: id,
+                                                   fileExtension: "pdf", displayName: displayName)
+                } else if archiveFileExtension == "zip" {
+                    // Reject zip-slip before either extracting or retaining an
+                    // archive. If it contains a PDF, keep that PDF — not the ZIP
+                    // transport wrapper. A safe CSV-only archive remains original.
+                    try MyDataScratch.rejectUnsafeEntries(inArchiveAt: archiveURL)
+                    if let pdfData = try? scratch.pdfData(fromArchiveAt: archiveURL),
+                       PDFDocument(data: pdfData) != nil {
+                        entry = try vaultArchive.store(data: pdfData, id: id,
+                                                       fileExtension: "pdf", displayName: displayName)
+                    } else {
+                        entry = try vaultArchive.store(originalAt: archiveURL, id: id,
+                                                       fileExtension: "zip", displayName: displayName)
+                    }
+                } else {
+                    entry = try vaultArchive.store(originalAt: archiveURL, id: id,
+                                                   fileExtension: archiveFileExtension,
+                                                   displayName: displayName)
+                }
+                MyDataPendingRequestStore.resolve(documentID: documentType.id)
                 completion(.vaultDocument(entry))
                 dismiss(animated: true)
             } catch {
@@ -304,6 +443,15 @@ extension MyDataWebViewController : WKDownloadDelegate {
         }
     }
 
+    /// A downloaded filename can contain the holder's name. It is never shown or
+    /// persisted verbatim. Only a known, pre-localised document title is allowed
+    /// through; everything else receives the neutral 「MyData document」 title.
+    private static func knownDisplayName(suggestedFilename: String) -> String? {
+        MyDataDocumentRegistry.vaultDocuments.first { type in
+            suggestedFilename.localizedCaseInsensitiveContains(type.title)
+        }?.title
+    }
+
     /// The download completed but the bytes were not the national-ID shape. Release
     /// builds show only the plain message; DEBUG builds append a structure-only
     /// detail (never a field value) so a new document's format can be identified.
@@ -315,6 +463,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
     /// Drops the whole scratch directory and forgets what was in it.
     private func discardDownloadedFiles() {
         archiveURL = nil
+        archiveDisplayName = nil
         try? scratch.purge()
     }
 
@@ -399,6 +548,82 @@ extension MyDataWebViewController : WKDownloadDelegate {
         }
         return NationalIDModel.parse(fromPDFText: pdfText)
     }
+}
+
+/// A small persistent guide above the government page. It does not infer that a
+/// signature or download succeeded; it only says which hand-off the holder is in
+/// and keeps the official Personal documents continuation one tap away.
+private final class MyDataFlowGuideView: UIView {
+    var onPersonalDocuments: (() -> Void)?
+    var onClose: (() -> Void)?
+
+    private let titleLabel = UILabel()
+    private let detailLabel = UILabel()
+    private let personalDocumentsButton = UIButton(type: .system)
+    private let closeButton = UIButton(type: .system)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .secondarySystemBackground
+
+        titleLabel.font = .preferredFont(forTextStyle: .headline)
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.numberOfLines = 1
+        detailLabel.font = .preferredFont(forTextStyle: .caption1)
+        detailLabel.adjustsFontForContentSizeCategory = true
+        detailLabel.textColor = .secondaryLabel
+        detailLabel.numberOfLines = 2
+
+        var personal = UIButton.Configuration.tinted()
+        personal.title = NSLocalizedString("Personal documents", comment: "MyData continuation button")
+        personal.image = UIImage(systemName: "folder")
+        personal.imagePadding = 5
+        personal.cornerStyle = .capsule
+        personalDocumentsButton.configuration = personal
+        personalDocumentsButton.addTarget(self, action: #selector(personalDocumentsTapped),
+                                           for: .touchUpInside)
+
+        var close = UIButton.Configuration.plain()
+        close.image = UIImage(systemName: "xmark")
+        closeButton.configuration = close
+        closeButton.accessibilityLabel = NSLocalizedString("Close", comment: "")
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+
+        let text = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
+        text.axis = .vertical
+        text.spacing = 2
+        let actions = UIStackView(arrangedSubviews: [personalDocumentsButton, closeButton])
+        actions.axis = .horizontal
+        actions.alignment = .center
+        actions.spacing = 4
+        let row = UIStackView(arrangedSubviews: [text, actions])
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = 10
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.topAnchor.constraint(equalTo: topAnchor, constant: 9),
+            row.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -9),
+            closeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 36),
+        ])
+        text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        actions.setContentCompressionResistancePriority(.required, for: .horizontal)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func configure(title: String, detail: String, showsPersonalDocuments: Bool) {
+        titleLabel.text = title
+        detailLabel.text = detail
+        personalDocumentsButton.isHidden = !showsPersonalDocuments
+        titleLabel.accessibilityLabel = "\(title). \(detail)"
+    }
+
+    @objc private func personalDocumentsTapped() { onPersonalDocuments?() }
+    @objc private func closeTapped() { onClose?() }
 }
 
 // MARK: - JavaScript dialogs (WKUIDelegate)

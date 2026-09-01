@@ -40,15 +40,17 @@ class HomeViewController: UICollectionViewController {
     /// notification cannot make on its own, unlike `viewWillAppear`.
     private var isHomeVisible = false
 
-    /// Phase 2c 疊卡. The government group collapses to a stack — the first card
-    /// full, the rest peeking their headers — whenever it holds two or more cards.
-    /// A tap on the stack expands it to the full list (and a tap on the header
-    /// collapses it again); `false` is the resting, collapsed state.
-    private var isGovernmentStackExpanded = false
+    /// Government credentials and MyData documents use the same disclosure model:
+    /// two or more cards rest as a stack, expand on tap, and collapse from their
+    /// section header. Keeping the state by section prevents one group from
+    /// changing the other when both are visible.
+    private var expandedStackSections: Set<String> = []
 
     /// The stable id of the government group, shared by the section builder, the
     /// stack layout, and the tap routing so they always mean the same section.
     private static let governmentSectionID = "government"
+    private static let myDataSectionID = "mydata"
+    private static let myDataActionsSectionID = "mydata-actions"
     /// How much of each peeking card's top shows — a sliver (一角) with its name,
     /// Apple-Wallet style. The full 「hero」 card sits at the bottom of the stack and
     /// the peeks fan up above it, each casting a shadow onto the card below.
@@ -56,6 +58,14 @@ class HomeViewController: UICollectionViewController {
     /// Every collapsed-stack card is a 數位憑證皮夾 credential face, so its height is
     /// its width over this one aspect ratio.
     private static let credentialAspect: CGFloat = 1.585
+    private static let vaultAspect: CGFloat = 1.9
+
+    private struct StackConfiguration {
+        let sectionID: String
+        let cardCount: Int
+        let aspectRatio: CGFloat
+        let peekHeight: CGFloat
+    }
 
     /// A section of the home screen, identified by a stable id so its header and
     /// its place survive a rebuild even as its cards change.
@@ -186,6 +196,7 @@ class HomeViewController: UICollectionViewController {
         return [nationalIDSection(rows: nationalID, store: store),
                 governmentSection(rows: government, store: store),
                 myDataSection(documents: archived, legacyCredentials: legacyVaultCredentials),
+                myDataActionsSection(documentCount: archived?.count),
                 officialDocumentSection(state: officialDocumentState)]
     }
 
@@ -291,13 +302,33 @@ class HomeViewController: UICollectionViewController {
         if items.isEmpty {
             items.append(.card(id: CardID.vault, content: WalletCardFactory.vaultContent()))
         }
-        // The way in: import another document from MyData.
-        items.append(.control(ControlRow(
-            id: "control.import-mydata", kind: .importMyData,
-            title: Row.importMyData,
-            subtitle: NSLocalizedString("Bring a financial, insurance, or academic document in from MyData.",
-                                        comment: "vault import subtitle"))))
         return (section, items)
+    }
+
+    /// The import control keeps its existing place immediately below the vault,
+    /// but lives outside the card section so MyData cards can overlap without a
+    /// list row being pulled into the custom stack geometry. The pending count is
+    /// continuation, not a promise that MyData has finished.
+    private func myDataActionsSection(documentCount: Int?) -> (HomeSection, [HomeItem]) {
+        let pending = MyDataPendingRequestStore.all().count
+        let subtitle: String
+        if pending > 0 {
+            subtitle = String(format: NSLocalizedString(
+                "%lld request(s) may be ready · continue from MyData Personal documents",
+                comment: "vault import pending subtitle"), Int64(pending))
+        } else if (documentCount ?? 0) > 0 {
+            subtitle = NSLocalizedString(
+                "Add another file, including one already waiting in MyData Personal documents.",
+                comment: "vault import subtitle")
+        } else {
+            subtitle = NSLocalizedString(
+                "Any file you can download from MyData can be kept here.",
+                comment: "vault import subtitle")
+        }
+        return (HomeSection(id: Self.myDataActionsSectionID, title: ""), [
+            .control(ControlRow(id: "control.import-mydata", kind: .importMyData,
+                                title: Row.importMyData, subtitle: subtitle))
+        ])
     }
 
     /// A separate section immediately below the MyData vault. The one row opens
@@ -363,10 +394,11 @@ class HomeViewController: UICollectionViewController {
     /// height and no list separators — but the two headers are preserved exactly.
     private func makeLayout() -> UICollectionViewLayout {
         let layout = UICollectionViewCompositionalLayout { [weak self] index, environment in
-            if let self, let count = self.collapsedStackCardCount(atSectionIndex: index) {
-                return Self.collapsedStackSection(cardCount: count, environment: environment)
+            if let self, let stack = self.collapsedStackConfiguration(atSectionIndex: index) {
+                return Self.collapsedStackSection(configuration: stack, environment: environment)
             }
-            return Self.normalCardSection()
+            let sectionID = self?.sectionID(at: index)
+            return Self.normalCardSection(showsHeader: sectionID != Self.myDataActionsSectionID)
         }
         let brand = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
@@ -383,30 +415,40 @@ class HomeViewController: UICollectionViewController {
     /// as a stack. `nil` in every other case (use the normal one-per-row layout):
     /// a single card, an empty-state control, the unreadable face, or an already
     /// expanded stack.
-    private func collapsedStackCardCount(atSectionIndex index: Int) -> Int? {
-        guard !isGovernmentStackExpanded, dataSource != nil else { return nil }
+    private func sectionID(at index: Int) -> String? {
+        guard dataSource != nil else { return nil }
+        let sections = dataSource.snapshot().sectionIdentifiers
+        return index < sections.count ? sections[index].id : nil
+    }
+
+    private func collapsedStackConfiguration(atSectionIndex index: Int) -> StackConfiguration? {
+        guard dataSource != nil else { return nil }
         let snapshot = dataSource.snapshot()
         let sections = snapshot.sectionIdentifiers
-        guard index < sections.count, sections[index].id == Self.governmentSectionID else { return nil }
+        guard index < sections.count else { return nil }
+        let id = sections[index].id
+        guard [Self.governmentSectionID, Self.myDataSectionID].contains(id),
+              !expandedStackSections.contains(id) else { return nil }
         let cardCount = snapshot.itemIdentifiers(inSection: sections[index]).filter {
             if case .card = $0 { return true } else { return false }
         }.count
-        return cardCount >= 2 ? cardCount : nil
+        guard cardCount >= 2 else { return nil }
+        return StackConfiguration(sectionID: id, cardCount: cardCount,
+                                  aspectRatio: id == Self.myDataSectionID ? Self.vaultAspect
+                                                                         : Self.credentialAspect,
+                                  peekHeight: id == Self.myDataSectionID ? 48 : Self.stackPeekHeight)
     }
 
-    /// Whether the government group holds two or more cards — the condition for the
-    /// stack (and its header chevron) to exist at all, whether it is currently
-    /// collapsed or expanded. `collapsedStackCardCount` answers the narrower
-    /// 「and collapsed right now」 the layout asks.
-    private func governmentIsStackable() -> Bool {
-        governmentCardItems(in: dataSource.snapshot()).count >= 2
+    private func sectionIsStackable(_ sectionID: String) -> Bool {
+        cardItems(in: sectionID, snapshot: dataSource.snapshot()).count >= 2
     }
 
     /// The `.card` items in the government group, in order — the ones the stack
     /// lays out and the ones a toggle must reconfigure so their peek/full mode
     /// tracks the new state.
-    private func governmentCardItems(in snapshot: NSDiffableDataSourceSnapshot<HomeSection, HomeItem>) -> [HomeItem] {
-        guard let section = snapshot.sectionIdentifiers.first(where: { $0.id == Self.governmentSectionID })
+    private func cardItems(in sectionID: String,
+                           snapshot: NSDiffableDataSourceSnapshot<HomeSection, HomeItem>) -> [HomeItem] {
+        guard let section = snapshot.sectionIdentifiers.first(where: { $0.id == sectionID })
         else { return [] }
         return snapshot.itemIdentifiers(inSection: section).filter {
             if case .card = $0 { return true } else { return false }
@@ -418,20 +460,29 @@ class HomeViewController: UICollectionViewController {
     /// fresh layout (which reads the new state) with an animated transition — the
     /// stack springs open to the full list, or the list gathers back into a stack.
     func setGovernmentStackExpanded(_ expanded: Bool, animated: Bool = true) {
-        guard expanded != isGovernmentStackExpanded, dataSource != nil else { return }
-        isGovernmentStackExpanded = expanded
+        setStackExpanded(expanded, sectionID: Self.governmentSectionID, animated: animated)
+    }
 
-        var snapshot = dataSource.snapshot()
-        let cards = governmentCardItems(in: snapshot)
-        guard !cards.isEmpty else { return }
-        snapshot.reconfigureItems(cards)
-        dataSource.apply(snapshot, animatingDifferences: false)
-
-        collectionView.setCollectionViewLayout(makeLayout(), animated: animated)
-        // The layout swap repositions the live header without re-running its
-        // registration, so the chevron and its VoiceOver label would otherwise lag
-        // the new state — push it on directly.
-        refreshGovernmentHeader()
+    /// One native collection-layout transition, with no simultaneous diffable
+    /// reconfiguration. The former two-animation sequence rebuilt cells while
+    /// their frames were moving, which produced the visible jump/reversal during
+    /// expand and collapse.
+    func setStackExpanded(_ expanded: Bool, sectionID: String, animated: Bool = true) {
+        guard dataSource != nil, sectionIsStackable(sectionID),
+              expanded != expandedStackSections.contains(sectionID) else { return }
+        collectionView.layoutIfNeeded()
+        if expanded { expandedStackSections.insert(sectionID) }
+        else { expandedStackSections.remove(sectionID) }
+        collectionView.isUserInteractionEnabled = false
+        collectionView.setCollectionViewLayout(makeLayout(), animated: animated) { [weak self] _ in
+            guard let self else { return }
+            self.collectionView.isUserInteractionEnabled = true
+            self.refreshStackHeader(sectionID: sectionID)
+        }
+        if !animated {
+            collectionView.isUserInteractionEnabled = true
+            refreshStackHeader(sectionID: sectionID)
+        }
     }
 
     /// Sets a section header's 疊卡 disclosure: a chevron + header-tap toggle for a
@@ -439,35 +490,33 @@ class HomeViewController: UICollectionViewController {
     /// nothing at all for any other header. The single source of truth shared by
     /// the header registration and `refreshGovernmentHeader`.
     private func configureDisclosure(on header: CustomHeaderView, sectionID: String) {
-        guard sectionID == Self.governmentSectionID, governmentIsStackable() else {
+        guard [Self.governmentSectionID, Self.myDataSectionID].contains(sectionID),
+              sectionIsStackable(sectionID) else {
             header.setDisclosure(expanded: nil)   // also clears onTap
             return
         }
-        header.setDisclosure(expanded: isGovernmentStackExpanded)
+        header.setDisclosure(expanded: expandedStackSections.contains(sectionID))
         header.onTap = { [weak self] in
             guard let self else { return }
-            self.setGovernmentStackExpanded(!self.isGovernmentStackExpanded)
+            self.setStackExpanded(!self.expandedStackSections.contains(sectionID),
+                                  sectionID: sectionID)
         }
     }
 
-    /// Pushes the government group's current disclosure state onto its live header.
-    /// A stack toggle and a content rebuild both reposition that header without
-    /// re-dequeuing it, so its chevron/label must be refreshed by hand or it lags
-    /// the state (and, after a delete to one card, keeps a stale, live chevron).
-    private func refreshGovernmentHeader() {
+    private func refreshStackHeader(sectionID: String) {
         guard dataSource != nil,
               let index = dataSource.snapshot().sectionIdentifiers
-                  .firstIndex(where: { $0.id == Self.governmentSectionID }),
+                  .firstIndex(where: { $0.id == sectionID }),
               let header = collectionView.supplementaryView(
                   forElementKind: UICollectionView.elementKindSectionHeader,
                   at: IndexPath(item: 0, section: index)) as? CustomHeaderView
         else { return }
-        configureDisclosure(on: header, sectionID: Self.governmentSectionID)
+        configureDisclosure(on: header, sectionID: sectionID)
     }
 
     /// The normal one-card-per-row section: a self-sizing full-width item, 12pt
     /// gaps, and the group header.
-    private static func normalCardSection() -> NSCollectionLayoutSection {
+    private static func normalCardSection(showsHeader: Bool = true) -> NSCollectionLayoutSection {
         let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
                                               heightDimension: .estimated(220))
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
@@ -475,7 +524,7 @@ class HomeViewController: UICollectionViewController {
         let section = NSCollectionLayoutSection(group: group)
         section.interGroupSpacing = 12
         section.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16)
-        section.boundarySupplementaryItems = [groupHeader()]
+        section.boundarySupplementaryItems = showsHeader ? [groupHeader()] : []
         return section
     }
 
@@ -484,7 +533,7 @@ class HomeViewController: UICollectionViewController {
     /// tucked behind and offset up by `stackPeekHeight`, so only its rounded top
     /// (a sliver with its name) shows. No clipping; the lower card covers the body
     /// of the one above.
-    private static func collapsedStackSection(cardCount: Int,
+    private static func collapsedStackSection(configuration: StackConfiguration,
                                               environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
         // A custom group does NOT honour the section's horizontal contentInsets for
         // its item frames — they came out full-bleed, wider than every other card.
@@ -493,9 +542,9 @@ class HomeViewController: UICollectionViewController {
         // at 0, matching the normal one-per-row cards exactly.
         let inset: CGFloat = 16
         let cardWidth = environment.container.effectiveContentSize.width - inset * 2
-        let cardHeight = cardWidth / credentialAspect
-        let peek = stackPeekHeight    // visible sliver of each stacked card's top
-        let totalHeight = cardHeight + CGFloat(cardCount - 1) * peek
+        let cardHeight = cardWidth / configuration.aspectRatio
+        let peek = configuration.peekHeight
+        let totalHeight = cardHeight + CGFloat(configuration.cardCount - 1) * peek
         let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
                                                heightDimension: .absolute(totalHeight))
         // Apple-Wallet stack: every card is a FULL rounded card, and they overlap so
@@ -507,10 +556,10 @@ class HomeViewController: UICollectionViewController {
         // rounded top — no notch, no pill.
         let group = NSCollectionLayoutGroup.custom(layoutSize: groupSize) { env in
             let w = env.container.effectiveContentSize.width - inset * 2
-            let h = w / credentialAspect
-            return (0..<cardCount).map { i in
-                let y = i == 0 ? CGFloat(cardCount - 1) * peek : CGFloat(i - 1) * peek
-                let z = i == 0 ? cardCount : i   // hero in front; each lower card in front of the one above
+            let h = w / configuration.aspectRatio
+            return (0..<configuration.cardCount).map { i in
+                let y = i == 0 ? CGFloat(configuration.cardCount - 1) * peek : CGFloat(i - 1) * peek
+                let z = i == 0 ? configuration.cardCount : i
                 return NSCollectionLayoutGroupCustomItem(
                     frame: CGRect(x: inset, y: y, width: w, height: h), zIndex: z)
             }
@@ -663,8 +712,9 @@ class HomeViewController: UICollectionViewController {
                 content.image = UIImage(systemName: "qrcode.viewfinder")?
                     .withTintColor(.systemGray, renderingMode: .alwaysOriginal)
             case .importMyData:
-                content.image = UIImage(systemName: "tray.and.arrow.down.fill")?
-                    .withTintColor(.tintColor, renderingMode: .alwaysOriginal)
+                content.image = UIImage(systemName: "plus.circle.fill")?
+                    .withTintColor(.secondaryLabel, renderingMode: .alwaysOriginal)
+                content.textProperties.font = .preferredFont(forTextStyle: .subheadline)
             case .officialDocuments:
                 content.image = UIImage(systemName: "doc.text.fill")?
                     .withTintColor(.tintColor, renderingMode: .alwaysOriginal)
@@ -673,6 +723,17 @@ class HomeViewController: UICollectionViewController {
             cell.contentConfiguration = content
             var background = UIBackgroundConfiguration.listGroupedCell()
             background.cornerRadius = 14
+            if row.kind == .importMyData {
+                // This is a continuation affordance attached to the vault, not a
+                // second primary card. A quiet fill and secondary icon keep its
+                // useful grid position without visually competing with documents.
+                background.backgroundColor = .secondarySystemGroupedBackground
+                background.strokeColor = .separator.withAlphaComponent(0.35)
+                background.strokeWidth = 0.5
+                cell.accessories = [.disclosureIndicator()]
+            } else {
+                cell.accessories = []
+            }
             cell.backgroundConfiguration = background
         }
 
@@ -731,10 +792,14 @@ class HomeViewController: UICollectionViewController {
         // state, so a later repopulation (a card scanned back in) defaults to
         // collapsed rather than inheriting a stale 「expanded」 from before it
         // dropped below two cards.
-        if !governmentIsStackable() { isGovernmentStackExpanded = false }
+        for sectionID in [Self.governmentSectionID, Self.myDataSectionID]
+            where !sectionIsStackable(sectionID) {
+            expandedStackSections.remove(sectionID)
+        }
         // The header persists across a rebuild without its registration re-running,
         // so push the current disclosure state (or none) onto it directly.
-        refreshGovernmentHeader()
+        refreshStackHeader(sectionID: Self.governmentSectionID)
+        refreshStackHeader(sectionID: Self.myDataSectionID)
     }
 }
 
@@ -751,8 +816,8 @@ extension HomeViewController {
             // Collapsed 疊卡: a tap anywhere on the stack opens it — expand to the
             // full list rather than flip the tapped card. Once expanded, a tap is
             // the flip below; the header chevron collapses it again.
-            if collapsedStackCardCount(atSectionIndex: indexPath.section) != nil {
-                setGovernmentStackExpanded(true)
+            if let stack = collapsedStackConfiguration(atSectionIndex: indexPath.section) {
+                setStackExpanded(true, sectionID: stack.sectionID)
                 return
             }
             // A flippable card (credential, real national ID) turns to show its
@@ -815,8 +880,15 @@ extension HomeViewController {
     private func presentImportPicker() {
         let sheet = UIAlertController(
             title: NSLocalizedString("Import from MyData", comment: "vault import picker title"),
-            message: NSLocalizedString("Choose a document to bring in from Taiwan's MyData service.", comment: ""),
+            message: NSLocalizedString(
+                "Continue from Personal documents for any downloaded MyData file, or use a shortcut below to request a common document.",
+                comment: "vault import picker message"),
             preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(
+            title: NSLocalizedString("Open MyData Personal documents", comment: "vault import inbox action"),
+            style: .default) { [weak self] _ in
+                self?.beginImport(of: MyDataDocumentRegistry.personalDocuments)
+            })
         for type in MyDataDocumentRegistry.vaultDocuments {
             sheet.addAction(UIAlertAction(title: type.title, style: .default) { [weak self] _ in
                 self?.beginImport(of: type)

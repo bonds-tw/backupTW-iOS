@@ -10605,6 +10605,736 @@
         }
       }
     },
+    "%lld request(s) may be ready · continue from MyData Personal documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可能有 %lld 筆調閱已完成 · 前往 MyData 個人文件繼續"
+          }
+        }
+      }
+    },
+    "A PDF downloaded from MyData is not automatically a government-issued VC. The verifier must label the claim as derived and signed by the holder, show the source-file fingerprint and extraction rules, and never display a government-issued badge unless an authority signature was actually verified.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從 MyData 下載的 PDF 不會自動成為政府簽發的 VC。驗證端必須標示這是由持有人衍生並簽署的主張、顯示來源檔案指紋與擷取規則；除非真的驗過機關簽章，絕不能顯示政府簽發標章。"
+          }
+        }
+      }
+    },
+    "Add another file, including one already waiting in MyData Personal documents.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加入另一份文件，也可以接續 MyData 個人文件中已完成的檔案。"
+          }
+        }
+      }
+    },
+    "Any file you can download from MyData can be kept here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只要能從 MyData 下載的文件，都可以保存在這裡。"
+          }
+        }
+      }
+    },
+    "Approve in 行動自然人憑證": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到行動自然人憑證核准"
+          }
+        }
+      }
+    },
+    "Available only while this iPhone is unlocked": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只有這支 iPhone 解鎖時可用"
+          }
+        }
+      }
+    },
+    "Before enabling creation, each document type needs a tested parser, stable claim definitions, selective-disclosure signing, and matching verification at verifier.mashbean.net. Export and sharing are available now; credential creation stays gated until those checks exist.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟用製作功能前，每種文件都要有通過測試的解析器、穩定的主張定義、選擇性揭露簽章，以及 verifier.mashbean.net 對應的驗證。現在已可匯出與分享；這些檢查完成前，憑證製作仍會保持關閉。"
+          }
+        }
+      }
+    },
+    "Birth date (YYYYMMDD)": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出生日期（西元 YYYYMMDD）"
+          }
+        }
+      }
+    },
+    "Bonds is checking the file and keeping the PDF when the archive contains one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有備而來正在檢查檔案；如果壓縮檔內有 PDF，會保存 PDF。"
+          }
+        }
+      }
+    },
+    "Bonds opens the certificate app. Confirm there, then return here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有備而來會開啟行動自然人憑證；請在那裡確認，再回到這裡。"
+          }
+        }
+      }
+    },
+    "Choose an iOS app or person. The exported copy leaves the vault.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇 iOS App 或對象；匯出的副本會離開保險箱。"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉"
+          }
+        }
+      }
+    },
+    "Complete the request in 行動自然人憑證, then come back to Bonds.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請在行動自然人憑證完成簽署，再回到有備而來。"
+          }
+        }
+      }
+    },
+    "Continue from Personal documents for any downloaded MyData file, or use a shortcut below to request a common document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從「個人文件」接續並下載任何 MyData 文件，或使用下方捷徑調閱常用文件。"
+          }
+        }
+      }
+    },
+    "Could not save remembered details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法儲存常用資料"
+          }
+        }
+      }
+    },
+    "Details to fill on MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填入 MyData 的資料"
+          }
+        }
+      }
+    },
+    "Download or continue later": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載，或稍後繼續"
+          }
+        }
+      }
+    },
+    "Download the completed file; it is then sealed in the data vault.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載完成的文件，接著會封存到資料保險箱。"
+          }
+        }
+      }
+    },
+    "Downloaded · sealing in the vault": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已下載 · 正在封存到保險箱"
+          }
+        }
+      }
+    },
+    "Enter a valid Taiwan national ID number.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請輸入有效的臺灣身分證統一編號。"
+          }
+        }
+      }
+    },
+    "Enter the birth date as YYYYMMDD, for example 19880101.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請以西元 YYYYMMDD 輸入出生日期，例如 19880101。"
+          }
+        }
+      }
+    },
+    "Export a copy?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要匯出副本嗎？"
+          }
+        }
+      }
+    },
+    "Export or share a copy": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯出或分享副本"
+          }
+        }
+      }
+    },
+    "Fill in the official page. Saved details are filled only here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請填寫官方頁面；已儲存的常用資料只會填入這裡。"
+          }
+        }
+      }
+    },
+    "Fill in your MyData details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填寫 MyData 資料"
+          }
+        }
+      }
+    },
+    "Filled %lld saved field(s) on the official MyData page.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在 MyData 官方頁面填入 %lld 個常用欄位。"
+          }
+        }
+      }
+    },
+    "For a rental or benefit application, reveal the tax year and whether income falls inside the requested range — not the exact amount or every payer.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用於租屋或補助申請時，只揭露所得年度及是否落在要求區間，不揭露精確金額或所有給付單位。"
+          }
+        }
+      }
+    },
+    "Forget": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "忘記"
+          }
+        }
+      }
+    },
+    "Forget MyData details?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要忘記 MyData 常用資料嗎？"
+          }
+        }
+      }
+    },
+    "Good first test scenarios": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適合先測試的情境"
+          }
+        }
+      }
+    },
+    "Holder-derived evidence": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由持有人衍生的證據"
+          }
+        }
+      }
+    },
+    "Income qualification": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所得資格"
+          }
+        }
+      }
+    },
+    "Insurance status": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "投保狀態"
+          }
+        }
+      }
+    },
+    "Keep this page open while MyData finishes the verification.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保持此頁開啟，等待 MyData 完成驗證。"
+          }
+        }
+      }
+    },
+    "Keychain · this device only": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鑰匙圈 · 僅限這支裝置"
+          }
+        }
+      }
+    },
+    "Make the next visit easier": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "讓下次使用更省事"
+          }
+        }
+      }
+    },
+    "MyData estimates about %lld minutes. You may leave now and return from Personal documents after the notification.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 預估約需 %lld 分鐘。你可以先離開，收到通知後從「個人文件」回來繼續。"
+          }
+        }
+      }
+    },
+    "MyData personal documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 個人文件"
+          }
+        }
+      }
+    },
+    "MyData remembered details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 常用資料"
+          }
+        }
+      }
+    },
+    "MyData · Personal documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData · 個人文件"
+          }
+        }
+      }
+    },
+    "Open MyData Personal documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟 MyData 個人文件"
+          }
+        }
+      }
+    },
+    "Optional · saves repeated ID number and birth-date entry": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選填 · 免去重複輸入身分證字號與出生日期"
+          }
+        }
+      }
+    },
+    "Personal documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "個人文件"
+          }
+        }
+      }
+    },
+    "Pilot readiness": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "試辦準備狀態"
+          }
+        }
+      }
+    },
+    "Prove a city, district, residence, or ownership condition without exposing a complete address, household, parcel, or encumbrance record.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明縣市、行政區、居住或所有權條件，不揭露完整地址、戶籍、地號或他項權利紀錄。"
+          }
+        }
+      }
+    },
+    "Prove coverage was active on a requested date without revealing employer history, salary basis, or unrelated periods.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明指定日期的投保有效，不揭露雇主紀錄、投保薪資或無關期間。"
+          }
+        }
+      }
+    },
+    "Remember MyData details on this iPhone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這支 iPhone 記住 MyData 常用資料"
+          }
+        }
+      }
+    },
+    "Remembered details are stored in the iOS Keychain on this iPhone and filled only on mydata.nat.gov.tw.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用資料會保存在這支 iPhone 的 iOS 鑰匙圈，且只會填入 mydata.nat.gov.tw。"
+          }
+        }
+      }
+    },
+    "Residence or property predicate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "居住或不動產條件"
+          }
+        }
+      }
+    },
+    "Return to Bonds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回到有備而來"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存"
+          }
+        }
+      }
+    },
+    "Saved details can be filled for you on the official MyData page.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可在 MyData 官方頁面自動填入已儲存的常用資料。"
+          }
+        }
+      }
+    },
+    "Saved in Keychain · tap to change or forget": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已存入鑰匙圈 · 點一下可修改或忘記"
+          }
+        }
+      }
+    },
+    "See what this document could prove without sharing the whole file.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看這份文件能在不分享整份檔案的情況下證明什麼。"
+          }
+        }
+      }
+    },
+    "Selective-disclosure credential scenarios": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇性揭露憑證情境"
+          }
+        }
+      }
+    },
+    "Selective-disclosure scenarios": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇性揭露情境"
+          }
+        }
+      }
+    },
+    "Sign in, open Personal documents, then download the completed file here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入後開啟「個人文件」，再從這裡下載已完成的檔案。"
+          }
+        }
+      }
+    },
+    "Step 1 of 4 · MyData details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步驟 1／4 · MyData 資料"
+          }
+        }
+      }
+    },
+    "Step 2 of 4 · Approve the signature": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步驟 2／4 · 核准簽署"
+          }
+        }
+      }
+    },
+    "Step 3 of 4 · Back in Bonds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步驟 3／4 · 回到有備而來"
+          }
+        }
+      }
+    },
+    "Step 4 of 4 · Waiting for MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步驟 4／4 · 等待 MyData"
+          }
+        }
+      }
+    },
+    "Stored on this iPhone": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存在這支 iPhone"
+          }
+        }
+      }
+    },
+    "Taiwan national ID number": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "臺灣身分證統一編號"
+          }
+        }
+      }
+    },
+    "The MyData page stays open and continues after the signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 頁面會保持開啟，簽署後接續進行。"
+          }
+        }
+      }
+    },
+    "The copy you choose to share is no longer protected by this vault. Check the recipient and destination before continuing.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你選擇分享的副本將不再受到這個保險箱保護。繼續前請確認收件人與目的地。"
+          }
+        }
+      }
+    },
+    "The original stays in your vault. A future credential should disclose only the answer a verifier needs, not attach this whole document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原始文件會留在保險箱。未來的憑證應只揭露驗證端需要的答案，不應附上整份文件。"
+          }
+        }
+      }
+    },
+    "The saved ID number and birth date will be removed from this iPhone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存的身分證字號與出生日期會從這支 iPhone 移除。"
+          }
+        }
+      }
+    },
+    "These details stay in the iOS Keychain on this iPhone. They are filled only on the official mydata.nat.gov.tw site, never sent to Bonds or included in backup.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些資料只保存在這支 iPhone 的 iOS 鑰匙圈，只會填入官方 mydata.nat.gov.tw 網站，不會傳給有備而來，也不會納入備份。"
+          }
+        }
+      }
+    },
+    "This document may take about %lld minutes. You can leave and later continue from MyData personal documents.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份文件可能需要約 %lld 分鐘。你可以先離開，稍後從 MyData 個人文件繼續。"
+          }
+        }
+      }
+    },
+    "What happens next": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接下來會發生什麼"
+          }
+        }
+      }
+    },
+    "What the verifier must show": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驗證端必須顯示什麼"
+          }
+        }
+      }
+    },
+    "You may leave now and return from Personal documents after MyData's notification.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你可以先離開；收到 MyData 通知後，再從「個人文件」回來。"
+          }
+        }
+      }
+    },
+    "Zero-knowledge proofs": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "零知識證明"
+          }
+        }
+      }
+    },
     "Verification files were not prepared": {
       "localizations": {
         "zh-Hant": {

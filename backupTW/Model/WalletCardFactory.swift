@@ -271,7 +271,8 @@ enum WalletCardFactory {
     /// signature or disclosure semantics, so a credential face would promise
     /// properties it does not have and would also expose a meaningless flip side.
     static func vaultDocumentContent(_ document: MyDataVaultArchive.Document) -> WalletCardContent {
-        let title = MyDataDocumentRegistry.lookup(id: document.id)?.title
+        let title = document.entry?.displayName
+            ?? MyDataDocumentRegistry.lookup(id: document.id)?.title
             ?? UntrustedText.term(document.id).text
         let format = document.entry.flatMap { entry in
             entry.fileExtension.isEmpty
