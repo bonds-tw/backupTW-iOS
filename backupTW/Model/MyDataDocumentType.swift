@@ -43,6 +43,12 @@ struct MyDataDocumentType: Equatable {
     let estimatedMinutes: Int?
     let entryMode: EntryMode
 
+    /// Direct item pages finish after one requested document. The Personal
+    /// documents inbox is different: once the holder has signed in, keep that
+    /// same official web session open so several already-completed files can be
+    /// downloaded without signing in to the inbox again.
+    var keepsWebSessionOpenAfterImport: Bool { entryMode == .personalDocuments }
+
     init(id: String, vcType: String, title: String, systemImage: String,
          myDataItemPath: String?, estimatedMinutes: Int? = nil,
          entryMode: EntryMode = .directItem) {

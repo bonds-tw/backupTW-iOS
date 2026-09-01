@@ -162,9 +162,13 @@ private final class MyDataFlowOverviewCell: UICollectionViewCell {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(estimatedMinutes: Int?) {
+    func configure(estimatedMinutes: Int?, entryMode: MyDataDocumentType.EntryMode) {
         progress.configure(current: nil)
-        if let estimatedMinutes {
+        if entryMode == .personalDocuments {
+            note.text = NSLocalizedString(
+                "Sign in once, then keep this screen open and download all completed files. MyData may still require identity verification for each new request.",
+                comment: "MyData Personal documents multi-file overview")
+        } else if let estimatedMinutes {
             note.text = String(format: NSLocalizedString("MyData may take about %lld minutes. You can leave and continue later from Personal documents.", comment: "MyData slow document overview"), Int64(estimatedMinutes))
         } else {
             note.text = NSLocalizedString("After signing, return here to download and save the file in this iPhone.", comment: "MyData flow overview")
@@ -238,10 +242,18 @@ class MyDataOnboardViewController: UICollectionViewController {
                        secondaryText: NSLocalizedString("Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.", comment: ""))
             self.items = []
         } else {
+            let summary: String
+            if documentType.entryMode == .personalDocuments {
+                summary = NSLocalizedString(
+                    "Sign in once, then keep this screen open and download all completed files. MyData may still require identity verification for each new request.",
+                    comment: "MyData Personal documents multi-file overview")
+            } else {
+                summary = NSLocalizedString("The downloaded original will be protected in the data vault on this iPhone.", comment: "")
+            }
             self.coverItem = Item(
                 image: Self.statusImage("tray.and.arrow.down.fill", colour: .systemBlue),
                 title: NSLocalizedString("Import from Taiwan MyData", comment: "MyData document import title"),
-                secondaryText: NSLocalizedString("The downloaded original will be protected in the data vault on this iPhone.", comment: ""))
+                secondaryText: summary)
             self.items = []
         }
         let layout = UICollectionViewCompositionalLayout() { sectionIndex, layoutEnvironment in
@@ -340,7 +352,8 @@ class MyDataOnboardViewController: UICollectionViewController {
         }
         let flowRegistration = UICollectionView.CellRegistration<MyDataFlowOverviewCell, Item> {
             [weak self] cell, _, _ in
-            cell.configure(estimatedMinutes: self?.documentType.estimatedMinutes)
+            cell.configure(estimatedMinutes: self?.documentType.estimatedMinutes,
+                           entryMode: self?.documentType.entryMode ?? .directItem)
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
             collectionView, indexPath, item in

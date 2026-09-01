@@ -14,6 +14,24 @@ enum MyDataImportResult {
     case vaultDocument(MyDataVaultArchive.Entry)
 }
 
+enum MyDataImportContinuation: Equatable {
+    case dismiss
+    case keepPersonalDocumentsOpen(savedCount: Int)
+}
+
+/// State for one official MyData web session. It deliberately knows nothing
+/// about cookies or certificate assertions; it only decides whether the screen
+/// stays open after the app has safely archived a download.
+struct MyDataWebImportSession {
+    private(set) var savedCount = 0
+
+    mutating func didStoreDocument(of type: MyDataDocumentType) -> MyDataImportContinuation {
+        guard type.keepsWebSessionOpenAfterImport else { return .dismiss }
+        savedCount += 1
+        return .keepPersonalDocumentsOpen(savedCount: savedCount)
+    }
+}
+
 class MyDataWebViewController : UIViewController {
 
     private enum FlowStage {
@@ -36,6 +54,7 @@ class MyDataWebViewController : UIViewController {
     private var archiveDisplayName: String?
     private var archiveKnownType: MyDataDocumentType?
     private var openedCertificateApp = false
+    private var importSession = MyDataWebImportSession()
     private let guideView = MyDataFlowGuideView()
 
     private var progressObservation: NSKeyValueObservation?
@@ -45,7 +64,14 @@ class MyDataWebViewController : UIViewController {
         return progressView
     }()
     private lazy var webview: WKWebView = {
-        let webview = WKWebView()
+        let configuration = WKWebViewConfiguration()
+        // Make the boundary explicit: MyData's own cookies may continue inside
+        // its normal persistent website store, but no certificate assertion or
+        // downloaded document is copied out of the government-controlled flow.
+        // This cannot bypass a new verification required by MyData; it only lets
+        // one Personal documents sign-in serve several completed downloads.
+        configuration.websiteDataStore = .default()
+        let webview = WKWebView(frame: .zero, configuration: configuration)
         webview.navigationDelegate = self
         // The identity-verification step (TWCA 自然人憑證 middleware, and the idpaas
         // libraries behind it) drives the user with native `alert()` — dozens of
@@ -200,7 +226,7 @@ class MyDataWebViewController : UIViewController {
         case .personalDocuments:
             content = (.download,
                        NSLocalizedString("Download from Personal documents", comment: "MyData web guide"),
-                       NSLocalizedString("Open the completed document and download it here.", comment: "MyData web guide"), false, false)
+                       detail ?? NSLocalizedString("Open the completed document and download it here.", comment: "MyData web guide"), false, false)
         case .downloaded:
             content = (.download,
                        NSLocalizedString("Saving to the data vault", comment: "MyData web guide"),
@@ -380,9 +406,20 @@ extension MyDataWebViewController : WKDownloadDelegate {
                                                    fileExtension: archiveFileExtension,
                                                    displayName: displayName)
                 }
-                MyDataPendingRequestStore.resolve(documentID: documentType.id)
+                // When an inbox filename identifies a known document, clear the
+                // pending request for that document rather than the generic inbox.
+                MyDataPendingRequestStore.resolve(documentID: id)
                 completion(.vaultDocument(entry))
-                dismiss(animated: true)
+                switch importSession.didStoreDocument(of: documentType) {
+                case .keepPersonalDocumentsOpen(let savedCount):
+                    let detail = String(format: NSLocalizedString(
+                        "%lld file(s) saved. Keep this screen open and download another completed file.",
+                        comment: "MyData multi-file import result"),
+                        Int64(savedCount))
+                    updateGuide(.personalDocuments, detail: detail)
+                case .dismiss:
+                    dismiss(animated: true)
+                }
             } catch {
                 presentProcessingError(detail: nil)
             }

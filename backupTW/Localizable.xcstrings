@@ -9593,6 +9593,16 @@
         }
       }
     },
+    "%lld file(s) saved. Keep this screen open and download another completed file.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存 %lld 份文件。請保持此畫面開啟，繼續下載另一份已完成的文件。"
+          }
+        }
+      }
+    },
     "Set a passcode on this phone before using the wallet.": {
       "comment": "wallet login unavailable",
       "localizations": {
@@ -11547,6 +11557,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "從「個人文件」接續並下載任何 MyData 文件，或使用下方捷徑調閱常用文件。"
+          }
+        }
+      }
+    },
+    "Sign in once to Personal documents and import completed files one after another, or use a shortcut below to request a new document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入一次「個人文件」後，可連續匯入多份已完成文件；或使用下方捷徑調閱新文件。"
+          }
+        }
+      }
+    },
+    "Sign in once, then keep this screen open and download all completed files. MyData may still require identity verification for each new request.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入一次後，保持此畫面開啟，即可連續下載所有已完成文件。每次調閱新文件時，MyData 仍可能要求身分驗證。"
           }
         }
       }

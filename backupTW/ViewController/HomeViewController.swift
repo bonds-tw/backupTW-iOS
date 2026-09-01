@@ -1009,7 +1009,7 @@ extension HomeViewController {
         let sheet = UIAlertController(
             title: NSLocalizedString("Import from MyData", comment: "vault import picker title"),
             message: NSLocalizedString(
-                "Continue from Personal documents for any downloaded MyData file, or use a shortcut below to request a common document.",
+                "Sign in once to Personal documents and import completed files one after another, or use a shortcut below to request a new document.",
                 comment: "vault import picker message"),
             preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(

@@ -97,11 +97,28 @@ struct MyDataDocumentRegistryTests {
         #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.estimatedMinutes == 120)
         #expect(MyDataDocumentRegistry.personalDocuments.entryMode == .personalDocuments)
         #expect(MyDataDocumentRegistry.personalDocuments.myDataItemPath == "signin")
+        #expect(MyDataDocumentRegistry.personalDocuments.keepsWebSessionOpenAfterImport)
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.keepsWebSessionOpenAfterImport == false)
 
         let arbitrary = MyDataDocumentRegistry.personalDocuments(
             replacing: "mydata-file-arbitrary", title: "任意 MyData 文件")
         #expect(arbitrary.id == "mydata-file-arbitrary")
         #expect(arbitrary.entryMode == .personalDocuments)
+    }
+
+    @Test func personalDocumentsKeepsOneSessionOpenAcrossSeveralDownloads() {
+        var session = MyDataWebImportSession()
+
+        #expect(session.didStoreDocument(of: MyDataDocumentRegistry.personalDocuments)
+                == .keepPersonalDocumentsOpen(savedCount: 1))
+        #expect(session.didStoreDocument(of: MyDataDocumentRegistry.personalDocuments)
+                == .keepPersonalDocumentsOpen(savedCount: 2))
+        #expect(session.savedCount == 2)
+
+        var directSession = MyDataWebImportSession()
+        let income = MyDataDocumentRegistry.lookup(id: "mydata-income")!
+        #expect(directSession.didStoreDocument(of: income) == .dismiss)
+        #expect(directSession.savedCount == 0)
     }
 }
 
