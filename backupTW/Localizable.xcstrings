@@ -8261,17 +8261,6 @@
         }
       }
     },
-    "Copy did:key": {
-      "comment": "wallet identity action",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "複製 did:key"
-          }
-        }
-      }
-    },
     "Create a zero-knowledge proof": {
       "comment": "ZK proof screen title",
       "localizations": {
@@ -8459,6 +8448,69 @@
         }
       }
     },
+    "Official API": {
+      "comment": "trust record source",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方 API"
+          }
+        }
+      }
+    },
+    "Connected · This record was loaded successfully": {
+      "comment": "trust record API status",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已連線 · 這筆紀錄已成功載入"
+          }
+        }
+      }
+    },
+    "Blockchain integrity": {
+      "comment": "trust record source",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "區塊鏈完整性"
+          }
+        }
+      }
+    },
+    "Official API connected · Blockchain integrity also verified": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方 API 已連線 · 區塊鏈完整性也已確認"
+          }
+        }
+      }
+    },
+    "Official API connected · No blockchain record is reported": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方 API 已連線 · 未提供區塊鏈紀錄"
+          }
+        }
+      }
+    },
+    "Official API connected · Blockchain check is temporarily unavailable": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方 API 已連線 · 區塊鏈查核暫時無法使用"
+          }
+        }
+      }
+    },
     "Official API matches the current Arbitrum registry state": {
       "localizations": {
         "zh-Hant": {
@@ -8485,6 +8537,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "開啟官方 API 紀錄"
+          }
+        }
+      }
+    },
+    "frontend.wallet.gov.tw · Original record": {
+      "comment": "short API link label",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "frontend.wallet.gov.tw · 原始紀錄"
+          }
+        }
+      }
+    },
+    "Loaded %d organisations from the official API. A green check means the API record is available; a shield means its current blockchain record also matches.": {
+      "comment": "trust list status legend",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已從官方 API 載入 %d 個機構。綠勾代表 API 紀錄可用；盾牌代表目前的區塊鏈紀錄也相符。"
           }
         }
       }
@@ -8738,17 +8812,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "有備而來已上鎖"
-          }
-        }
-      }
-    },
-    "Confirm once, then return without another check for 10 minutes.": {
-      "comment": "wallet login grace period explanation",
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "確認一次後，10 分鐘內切回有備而來不需再次辨識。"
           }
         }
       }

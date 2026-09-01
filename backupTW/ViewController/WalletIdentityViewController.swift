@@ -14,7 +14,6 @@ final class WalletIdentityViewController: UICollectionViewController {
         case did(String)
         case backing(String)
         case note(String)
-        case copy
     }
 
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
@@ -33,6 +32,7 @@ final class WalletIdentityViewController: UICollectionViewController {
         super.viewDidLoad()
         title = NSLocalizedString("Wallet identity", comment: "settings screen title")
         navigationController?.navigationBar.prefersLargeTitles = false
+        collectionView.allowsSelection = false
         loadIdentity()
         configureDataSource()
         applySnapshot()
@@ -72,15 +72,11 @@ final class WalletIdentityViewController: UICollectionViewController {
                 content.text = note
                 content.textProperties.color = .secondaryLabel
                 content.textProperties.font = .preferredFont(forTextStyle: .footnote)
-            case .copy:
-                content.text = NSLocalizedString("Copy did:key", comment: "wallet identity action")
-                content.textProperties.color = .tintColor
-                content.image = UIImage(systemName: "doc.on.doc")
             }
             content.textProperties.numberOfLines = 0
             content.secondaryTextProperties.numberOfLines = 0
             cell.contentConfiguration = content
-            cell.accessories = item == .copy ? [.disclosureIndicator()] : []
+            cell.accessories = []
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
             collectionView, indexPath, item in
@@ -109,7 +105,7 @@ final class WalletIdentityViewController: UICollectionViewController {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.identity])
         if let walletDID {
-            snapshot.appendItems([.did(walletDID), .backing(backingDescription), .copy], toSection: .identity)
+            snapshot.appendItems([.did(walletDID), .backing(backingDescription)], toSection: .identity)
         } else {
             snapshot.appendItems([.backing(backingDescription)], toSection: .identity)
         }
@@ -120,9 +116,4 @@ final class WalletIdentityViewController: UICollectionViewController {
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
-    override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        collectionView.deselectItem(at: indexPath, animated: true)
-        guard dataSource.itemIdentifier(for: indexPath) == .copy, let walletDID else { return }
-        UIPasteboard.general.string = walletDID
-    }
 }

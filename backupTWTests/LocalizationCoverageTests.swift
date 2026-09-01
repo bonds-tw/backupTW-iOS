@@ -248,9 +248,13 @@ struct LocalizationCoverageTests {
         }
 
         let evidenceLabels = [
-            "%d organisations on 數位發展部信任清單. A card is accepted only when its matching API entry also matches the current Arbitrum registry state.",
-            "Each row shows the official API record and independently checks its transaction and current state on Arbitrum. Open a row to inspect both records.",
-            "Official API matches the current Arbitrum registry state",
+            "Loaded %d organisations from the official API. A green check means the API record is available; a shield means its current blockchain record also matches.",
+            "Official API connected · Blockchain integrity also verified",
+            "Official API connected · No blockchain record is reported",
+            "Official API connected · Blockchain check is temporarily unavailable",
+            "Connected · This record was loaded successfully",
+            "Blockchain integrity",
+            "frontend.wallet.gov.tw · Original record",
             "Development sandbox · No production blockchain record",
             "Verified: the successful Arbitrum transaction and the contract's current, non-revoked record contain the same DID document, organisation and category values as the official API.",
             "Development sandbox: this entry has no production Arbitrum record and is never trusted by a Release build.",

@@ -53,9 +53,11 @@ class MyDataOnboardViewController: UICollectionViewController {
         self.documentType = documentType
         if documentType.id == MyDataDocumentRegistry.nationalID.id {
             self.coverItem = CredentialIssuanceAssembly.isAvailable
-                ? Item(title: NSLocalizedString("Create a Valid Document", comment: ""),
+                ? Item(image: Self.statusImage("person.text.rectangle", colour: .systemBlue),
+                       title: NSLocalizedString("Create a Valid Document", comment: ""),
                        secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
-                : Item(title: NSLocalizedString("This version cannot create a document", comment: ""),
+                : Item(image: Self.statusImage("xmark.shield.fill", colour: .systemOrange),
+                       title: NSLocalizedString("This version cannot create a document", comment: ""),
                        secondaryText: NSLocalizedString("Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.", comment: ""))
             self.items = [
                 Item(title: NSLocalizedString("Nationality", comment: ""), secondaryText: ""),
@@ -66,6 +68,7 @@ class MyDataOnboardViewController: UICollectionViewController {
             ]
         } else {
             self.coverItem = Item(
+                image: Self.statusImage("tray.and.arrow.down.fill", colour: .systemBlue),
                 title: String(format: NSLocalizedString("Import %@", comment: "MyData document import title"), documentType.title),
                 secondaryText: NSLocalizedString("Download this document from Taiwan's MyData service and keep the original in your on-device data vault.", comment: ""))
             self.items = [
@@ -123,41 +126,46 @@ class MyDataOnboardViewController: UICollectionViewController {
 
     private func configureDataSource() {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
-            var content = UIListContentConfiguration.valueCell()
             let isCover = (indexPath.section == Section.cover.rawValue)
-            let textStyle: UIFont.TextStyle = isCover ? .largeTitle : .headline
-            let secondaryStyle: UIFont.TextStyle = isCover ? .body : .subheadline
-            content.textProperties.alignment = isCover ? .center : .natural
-            content.secondaryTextProperties.alignment = isCover ? .center : .natural
-            content.textToSecondaryTextVerticalPadding = isCover ? 12.0 : 3.0
-            let title = NSMutableAttributedString(
-                string: item.title,
-                attributes: [.font: UIFont.preferredFont(forTextStyle: textStyle)]
-            )
+            // The household address is structurally a long field, even when a
+            // particular test value happens to be short.  Keeping it in the
+            // trailing-value layout makes the value fight the title for width
+            // and produces the clipped row seen on an iPhone.  Other long
+            // MyData values get the same stacked treatment automatically.
+            let isHouseholdAddress = self.isNationalID && indexPath.item == 4 && !isCover
+            let usesStackedValue = isHouseholdAddress
+                || item.secondaryText.count > 18
+                || item.secondaryText.contains("\n")
+            var content = isCover || usesStackedValue
+                ? UIListContentConfiguration.subtitleCell()
+                : UIListContentConfiguration.valueCell()
+
             if isCover {
-                // A symbol hero, not a 60pt emoji: 📋 read as a placeholder and
-                // sat oddly against the rest of the app, which is SF Symbols
-                // throughout. `person.text.rectangle` is the ID-card glyph, drawn
-                // in the app's card tint at a hero size and centred above the
-                // title with a blank line between.
-                let config = UIImage.SymbolConfiguration(pointSize: 52, weight: .regular)
-                if let symbol = UIImage(systemName: self.documentType.systemImage, withConfiguration: config)?
-                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
-                    let attachment = NSTextAttachment(image: symbol)
-                    let hero = NSMutableAttributedString(attachment: attachment)
-                    hero.append(NSAttributedString(string: "\n\n"))
-                    hero.addAttributes([.font: UIFont.preferredFont(forTextStyle: textStyle)],
-                                       range: NSRange(location: hero.length - 2, length: 2))
-                    title.insert(hero, at: 0)
-                }
+                // Keep the result readable as a compact status card. Embedding a
+                // hero symbol and emoji inside large attributed text made the
+                // cell several hundred points tall and broke at real-device
+                // Dynamic Type sizes.
+                content.image = item.image
+                content.imageProperties.maximumSize = CGSize(width: 52, height: 52)
+                content.textProperties.font = .preferredFont(forTextStyle: .title2)
+                content.textProperties.color = .label
+                content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
+                content.directionalLayoutMargins = NSDirectionalEdgeInsets(
+                    top: 20, leading: 18, bottom: 20, trailing: 18)
+            } else {
+                content.textProperties.font = .preferredFont(forTextStyle: .headline)
+                content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
             }
-            content.attributedText = title
-            content.secondaryAttributedText = NSAttributedString(
-                string: item.secondaryText,
-                attributes: [.foregroundColor: UIColor.secondaryLabel,
-                             .font: UIFont.preferredFont(forTextStyle: secondaryStyle)]
-            )
+            content.text = item.title
+            content.secondaryText = item.secondaryText
+            content.textProperties.numberOfLines = 0
+            content.secondaryTextProperties.numberOfLines = 0
+            content.secondaryTextProperties.color = .secondaryLabel
+            content.textToSecondaryTextVerticalPadding = isCover ? 6 : 3
             cell.contentConfiguration = content
+            cell.accessibilityIdentifier = isCover
+                ? "mydataOnboard.cover"
+                : "mydataOnboard.data.\(indexPath.item)"
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
             collectionView, indexPath, item in
@@ -261,7 +269,8 @@ class MyDataOnboardViewController: UICollectionViewController {
 
     private func finishVaultImport(_ entry: MyDataVaultArchive.Entry) {
         coverItem = Item(
-            title: "✅\n" + NSLocalizedString("Saved in MyData vault", comment: ""),
+            image: Self.statusImage("checkmark.circle.fill", colour: .systemGreen),
+            title: NSLocalizedString("Saved in MyData vault", comment: ""),
             secondaryText: NSLocalizedString("The original file is protected on this phone. It was not turned into national-ID data or a self-issued credential.", comment: ""))
         items = [
             Item(title: NSLocalizedString("Document type", comment: ""), secondaryText: documentType.title),
@@ -285,7 +294,8 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// `finishIssuance(_:)`.
     private func showParsedDocument(_ nationalIDModel: NationalIDModel) {
         coverItem = Item(
-            title: "⏳\n" + NSLocalizedString("Waiting for you to sign in 行動自然人憑證", comment: ""),
+            image: Self.statusImage("signature", colour: .systemIndigo),
+            title: NSLocalizedString("Waiting for you to sign in 行動自然人憑證", comment: ""),
             // The wait is not this app's — it is a hand-off to another app and
             // back, and a screen that said only 「處理中」 would leave somebody
             // watching a spinner while the prompt they need to tap sits behind
@@ -384,7 +394,8 @@ class MyDataOnboardViewController: UICollectionViewController {
         switch result {
         case .success:
             coverItem = Item(
-                title: "✅\n" + NSLocalizedString("The valid document has been created", comment: ""),
+                image: Self.statusImage("checkmark.seal.fill", colour: .systemGreen),
+                title: NSLocalizedString("The valid document has been created", comment: ""),
                 secondaryText: "")
         case .failure(let error):
             // The five fields below are still on screen and still correct — what
@@ -395,12 +406,35 @@ class MyDataOnboardViewController: UICollectionViewController {
             // no credential and no explanation would reasonably assume they had
             // one.
             coverItem = Item(
-                title: "⚠️\n" + NSLocalizedString("The document could not be signed", comment: ""),
+                image: Self.statusImage("exclamationmark.triangle.fill", colour: .systemOrange),
+                title: NSLocalizedString("The document could not be signed", comment: ""),
                 secondaryText: error.localizedDescription)
             presentIssuanceFailure(error)
         }
         applySnapshot()
     }
+
+    private static func statusImage(_ name: String, colour: UIColor) -> UIImage? {
+        UIImage(systemName: name,
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold))?
+            .withTintColor(colour, renderingMode: .alwaysOriginal)
+    }
+
+    #if DEBUG
+    /// A deterministic, non-personal fixture for layout and screenshot tests.
+    /// It exercises the same post-signing state that previously expanded into a
+    /// broken hero card on real devices.
+    func seedSuccessfulNationalIDPreviewForUITest() {
+        guard isNationalID else { return }
+        showParsedDocument(NationalIDModel(
+            nationality: "中華民國（臺灣）",
+            unifiedNo: "TEST000001",
+            name: "版面測試",
+            birthdate: "民國 100 年 01 月 01 日",
+            addressOfHousehold: "測試市測試區第一里第二鄰測試路三段四十二巷五號十二樓之十"))
+        finishIssuance(.success(()))
+    }
+    #endif
 
     /// Reports a signing failure once the screen is actually able to show it.
     ///

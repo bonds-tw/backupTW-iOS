@@ -306,6 +306,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // shipped wallet.
         if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] == "1" {
             unlockSession.recordAuthentication()
+            if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_FORMAL_DOCUMENT_PREVIEW"] == "1" {
+                let preview = MyDataOnboardViewController()
+                let navigation = UINavigationController(rootViewController: preview)
+                window.rootViewController = navigation
+                window.makeKeyAndVisible()
+                preview.loadViewIfNeeded()
+                preview.seedSuccessfulNationalIDPreviewForUITest()
+                self.window = window
+                return
+            }
             window.rootViewController = tabBarController
             window.makeKeyAndVisible()
             self.window = window

@@ -39,7 +39,7 @@ final class TrustRecordDetailViewController: UICollectionViewController {
     }
 
     private func configureDataSource() {
-        let registration = UICollectionView.CellRegistration<UICollectionViewListCell, Row> { cell, _, row in
+        let registration = UICollectionView.CellRegistration<UICollectionViewListCell, Row> { [weak self] cell, _, row in
             var content = UIListContentConfiguration.subtitleCell()
             cell.accessories = []
             content.text = row.title
@@ -54,6 +54,17 @@ final class TrustRecordDetailViewController: UICollectionViewController {
                 content.textProperties.color = .tintColor
                 cell.accessories = [.disclosureIndicator()]
             }
+            switch row.id {
+            case "api.status":
+                content.image = UIImage(systemName: "checkmark.circle.fill")?
+                    .withTintColor(.systemGreen, renderingMode: .alwaysOriginal)
+            case "chain.status":
+                let appearance = Self.chainAppearance(self?.verification)
+                content.image = UIImage(systemName: appearance.symbol)?
+                    .withTintColor(appearance.colour, renderingMode: .alwaysOriginal)
+            default:
+                break
+            }
             cell.contentConfiguration = content
             cell.accessibilityIdentifier = row.id
         }
@@ -65,7 +76,9 @@ final class TrustRecordDetailViewController: UICollectionViewController {
 
     private func applySnapshot() {
         var rows: [Row] = [
-            Row(id: "status", title: NSLocalizedString("Integrity check", comment: ""),
+            Row(id: "api.status", title: NSLocalizedString("Official API", comment: "trust record source"),
+                value: NSLocalizedString("Connected · This record was loaded successfully", comment: "trust record API status"), url: nil),
+            Row(id: "chain.status", title: NSLocalizedString("Blockchain integrity", comment: "trust record source"),
                 value: statusDescription, url: nil),
             Row(id: "did", title: "did:key", value: issuer.did, url: nil),
         ]
@@ -78,7 +91,8 @@ final class TrustRecordDetailViewController: UICollectionViewController {
         let apiURL = URL(string: "https://frontend.wallet.gov.tw/api/did")?
             .appendingPathComponent(issuer.did)
         rows.append(Row(id: "api.open", title: NSLocalizedString("Open official API record", comment: ""),
-                        value: apiURL?.absoluteString ?? "", url: apiURL))
+                        value: NSLocalizedString("frontend.wallet.gov.tw · Original record", comment: "short API link label"),
+                        url: apiURL))
 
         if let record = issuer.onChainRecords.last {
             rows.append(Row(id: "contract", title: NSLocalizedString("Registry contract", comment: ""),
@@ -118,6 +132,18 @@ final class TrustRecordDetailViewController: UICollectionViewController {
             return NSLocalizedString("Development sandbox: this entry has no production Arbitrum record and is never trusted by a Release build.", comment: "")
         case nil:
             return NSLocalizedString("Checking the blockchain record…", comment: "")
+        }
+    }
+
+    private static func chainAppearance(_ result: TWDIWOnChainVerification?)
+        -> (symbol: String, colour: UIColor) {
+        switch result {
+        case .verified: return ("checkmark.shield.fill", .systemGreen)
+        case .mismatch: return ("exclamationmark.shield.fill", .systemRed)
+        case .notAnchored: return ("link.badge.plus", .systemOrange)
+        case .unavailable: return ("wifi.exclamationmark", .systemOrange)
+        case .developmentSandbox: return ("hammer.fill", .systemOrange)
+        case nil: return ("ellipsis.circle", .secondaryLabel)
         }
     }
 

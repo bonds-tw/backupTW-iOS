@@ -122,14 +122,14 @@ final class WalletUnlockViewController: UIViewController {
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 0
 
-        detailLabel.text = NSLocalizedString(
-            "Confirm once, then return without another check for 10 minutes.",
-            comment: "wallet login grace period explanation")
         detailLabel.font = .preferredFont(forTextStyle: .body)
         detailLabel.adjustsFontForContentSizeCategory = true
         detailLabel.textColor = UIColor.white.withAlphaComponent(0.82)
         detailLabel.textAlignment = .center
         detailLabel.numberOfLines = 0
+        // Keep the calm lock screen free of implementation details. This label
+        // is revealed only when authentication cannot proceed or is cancelled.
+        detailLabel.isHidden = true
 
         methodIcon.contentMode = .scaleAspectFit
         methodIcon.tintColor = .systemIndigo
@@ -175,7 +175,7 @@ final class WalletUnlockViewController: UIViewController {
         authStack.alignment = .center
         authStack.spacing = 18
         authStack.setCustomSpacing(24, after: mark)
-        authStack.setCustomSpacing(30, after: detailLabel)
+        authStack.setCustomSpacing(24, after: detailLabel)
         authStack.translatesAutoresizingMaskIntoConstraints = false
         authenticationSurface.addSubview(authStack)
         NSLayoutConstraint.activate([
@@ -252,6 +252,7 @@ final class WalletUnlockViewController: UIViewController {
     @objc private func authenticate() {
         guard !authenticationInProgress else { return }
         authenticationInProgress = true
+        detailLabel.isHidden = true
         unlockButton.isEnabled = false
         unlockButton.configuration?.showsActivityIndicator = true
         unlockButton.configuration?.title = NSLocalizedString("Confirming…", comment: "wallet authentication progress")
@@ -293,6 +294,7 @@ final class WalletUnlockViewController: UIViewController {
     private func restoreAfterAuthentication(message: String) {
         authenticationInProgress = false
         detailLabel.text = message
+        detailLabel.isHidden = false
         unlockButton.configuration?.showsActivityIndicator = false
         unlockButton.configuration?.title = unlockButtonTitle
         unlockButton.isEnabled = true

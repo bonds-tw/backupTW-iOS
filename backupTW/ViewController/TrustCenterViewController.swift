@@ -107,11 +107,8 @@ final class TrustCenterViewController: UICollectionViewController {
                 snapshot.appendItems([.note(NSLocalizedString("The trust list could not be loaded. Check your connection and reopen this screen.", comment: ""))])
             case .loaded(let issuers):
                 snapshot.appendItems([.note(String(
-                    format: NSLocalizedString("%d organisations on 數位發展部信任清單. A card is accepted only when its matching API entry also matches the current Arbitrum registry state.", comment: ""),
-                    issuers.count)),
-                    .note(NSLocalizedString(
-                        "Each row shows the official API record and independently checks its transaction and current state on Arbitrum. Open a row to inspect both records.",
-                        comment: "trust list evidence explanation"))])
+                    format: NSLocalizedString("Loaded %d organisations from the official API. A green check means the API record is available; a shield means its current blockchain record also matches.", comment: "trust list status legend"),
+                    issuers.count))])
                 snapshot.appendItems(issuers.map {
                     // Head+tail so the did:key prefix and the distinguishing last
                     // characters both show (did:key:z6Mk…AbCd), not a tail-only slice.
@@ -165,32 +162,33 @@ final class TrustCenterViewController: UICollectionViewController {
             animated: true)
     }
 
-    private static func verificationSummary(_ result: TWDIWOnChainVerification?) -> String {
+    static func verificationSummary(_ result: TWDIWOnChainVerification?) -> String {
         switch result {
         case nil:
             return NSLocalizedString("Official API loaded · Checking Arbitrum…", comment: "")
         case .verified:
-            return NSLocalizedString("Official API matches the current Arbitrum registry state", comment: "")
+            return NSLocalizedString("Official API connected · Blockchain integrity also verified", comment: "")
         case .notAnchored:
-            return NSLocalizedString("The API has no blockchain record for this entry", comment: "")
+            return NSLocalizedString("Official API connected · No blockchain record is reported", comment: "")
         case .mismatch:
             return NSLocalizedString("Warning: the API and blockchain records do not match", comment: "")
         case .unavailable:
-            return NSLocalizedString("Official API loaded · Arbitrum is temporarily unavailable", comment: "")
+            return NSLocalizedString("Official API connected · Blockchain check is temporarily unavailable", comment: "")
         case .developmentSandbox:
             return NSLocalizedString("Development sandbox · No production blockchain record", comment: "")
         }
     }
 
-    private static func verificationAppearance(_ result: TWDIWOnChainVerification?)
+    static func verificationAppearance(_ result: TWDIWOnChainVerification?)
         -> (symbol: String, colour: UIColor) {
         switch result {
         case .verified: return ("checkmark.shield.fill", .systemGreen)
         case .mismatch: return ("exclamationmark.shield.fill", .systemRed)
-        case .notAnchored: return ("link.badge.plus", .systemOrange)
-        case .unavailable: return ("wifi.exclamationmark", .systemOrange)
+        // The API record is already present in these states. Use the plain
+        // green check for that confirmed source; the shield is reserved for the
+        // stronger two-source match above.
+        case .notAnchored, .unavailable, nil: return ("checkmark.circle.fill", .systemGreen)
         case .developmentSandbox: return ("hammer.fill", .systemOrange)
-        case nil: return ("ellipsis.shield", .secondaryLabel)
         }
     }
 }
