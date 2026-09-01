@@ -93,7 +93,44 @@ struct OfficialDocumentInboxTests {
         "Not verified — this package is synthetic and has no official exchange signature or address-book proof.",
         "Not created — viewing this test package changes only this phone's local state and sends nothing.",
         "有備而來 does not yet have an official ESW decryption contract or recipient key. It will not pretend the content was opened.",
-        "A file does not match the SHA-256 fingerprint listed in the envelope, so the package was not stored."
+        "A file does not match the SHA-256 fingerprint listed in the envelope, so the package was not stored.",
+        "%@ · %@ · G2C development sandbox",
+        "Creates a non-routable test address and receives one signed, encrypted fixture. It has no legal effect.",
+        "Decrypted from the sandbox ESW and parsed for display",
+        "Decrypted · %@ · %lld sandbox recipient",
+        "Delivery confirmation",
+        "Enable G2C development sandbox receiving?",
+        "Enable G2C sandbox receiving",
+        "Enable and receive test document",
+        "Enable the G2C development sandbox inbox before receiving a test document.",
+        "Exercises sender verification, ESW decryption, duplicate protection and a local simulated confirmation.",
+        "G2C development sandbox — not a legal delivery",
+        "G2C sandbox receiving was not enabled",
+        "G2C sandbox record needs attention",
+        "G2C sandbox test document",
+        "Legal effect",
+        "None — this is a local development simulation. No agency policy or government exchange service recognizes it as delivery.",
+        "Not recorded yet. You can create a local simulated confirmation below; it will have no legal effect.",
+        "Only a G2C development sandbox document can create a simulated confirmation.",
+        "Receive another G2C sandbox document",
+        "Record a simulated receipt confirmation?",
+        "Record simulated confirmation",
+        "Record simulated receipt confirmation",
+        "Recorded locally by the development simulator on %@. Nothing was sent to a government service.",
+        "Records a local technical acknowledgement only. It does not notify an agency or create legal delivery.",
+        "Sandbox confirmation recorded",
+        "The G2C sandbox document was addressed to a different test inbox.",
+        "The G2C sandbox document was refused",
+        "The G2C sandbox package configuration is invalid.",
+        "The G2C sandbox sender signature is invalid, so the document was refused.",
+        "The encrypted G2C sandbox document could not be decrypted, so it was refused.",
+        "The protected sandbox registration could not be read. No test document will be accepted.",
+        "The sandbox confirmation was not recorded",
+        "The technical receive lifecycle is complete in this development simulator. No government service was contacted, and legal delivery remains inactive.",
+        "This creates a non-routable address beginning with G2C-SANDBOX-NOT-ROUTABLE and receives one repository-owned test document. The sender key, recipient key and confirmation all stay in this development build. No government service is contacted, and no legal delivery is created.",
+        "This records an idempotent acknowledgement only inside this iPhone's development sandbox. It sends no network request and cannot establish legal delivery.",
+        "This repository-owned simulator exercised a non-routable address, sender signature, encrypted content and local confirmation. No government service sent or received it.",
+        "Verified with the repository-owned G2C sandbox sender key. This is not a government agency certificate or official exchange signature."
     ]
 
     private func directory() -> URL {
@@ -453,6 +490,86 @@ struct OfficialDocumentInboxTests {
         #expect(package.encryptedSwitch != nil)
     }
 
+    @Test func G2CDevelopmentSandboxDecryptsAuthenticatesAndConfirmsLocally() throws {
+        let archive = try archive()
+        let registeredAt = Date(timeIntervalSince1970: 1_800_005_000)
+        let registration = try archive.enableDevelopmentSandboxReceiving(
+            at: registeredAt,
+            identifier: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!)
+        #expect(registration.receivingAddress ==
+            "G2C-SANDBOX-NOT-ROUTABLE-11111111-2222-3333-4444-555555555555")
+        #expect(try archive.sandboxRegistration() == registration)
+
+        let receivedAt = Date(timeIntervalSince1970: 1_800_005_100)
+        let checkedAt = Date(timeIntervalSince1970: 1_800_005_101)
+        let payload = try OfficialDocumentG2CSandboxFixture.make(
+            registration: registration,
+            applicationID: "G2C-SANDBOX-ROUNDTRIP",
+            receivedAt: receivedAt)
+        let package = try archive.importDevelopmentSandbox(
+            payload, checkedAt: checkedAt)
+
+        #expect(package.environment == .developmentG2CSandbox)
+        #expect(package.sourceAuthentication == .verifiedDevelopmentSandboxKey)
+        #expect(package.contentAvailability == .developmentSandboxDecrypted)
+        #expect(package.document?.subject == "G2C 沙盒測試：防災演練通知")
+        #expect(package.document?.bodyText?.contains("不是政府機關送達") == true)
+        #expect(package.sandboxDelivery?.receivingAddress == registration.receivingAddress)
+        #expect(package.sandboxDelivery?.senderKeyFingerprint.count == 64)
+        #expect(package.sandboxDelivery?.sourceSignatureFingerprint.count == 64)
+        #expect(package.sandboxDelivery?.legalEffect == .noneDevelopmentSimulation)
+        #expect(package.sandboxDelivery?.confirmation == nil)
+        #expect(try archive.sourceData(id: package.id, fileExtension: "en") ==
+            payload.envelope.data)
+        #expect(try archive.sourceData(id: package.id, fileExtension: "esw") ==
+            payload.encryptedSwitch?.data)
+        #expect(try archive.sourceData(id: package.id, fileExtension: "di") != nil)
+
+        let confirmationAt = Date(timeIntervalSince1970: 1_800_005_200)
+        let confirmed = try archive.recordDevelopmentSandboxConfirmation(
+            id: package.id, at: confirmationAt)
+        #expect(confirmed.sandboxDelivery?.confirmation?.status ==
+            .recordedByLocalSimulator)
+        #expect(confirmed.sandboxDelivery?.confirmation?.recordedAt == confirmationAt)
+        #expect(confirmed.sandboxDelivery?.confirmation?.id.count == 64)
+
+        let repeated = try archive.recordDevelopmentSandboxConfirmation(
+            id: package.id,
+            at: confirmationAt.addingTimeInterval(60))
+        #expect(repeated.sandboxDelivery?.confirmation ==
+            confirmed.sandboxDelivery?.confirmation)
+    }
+
+    @Test func G2CSandboxRefusesWrongRecipientAndAlteredSenderClaim() throws {
+        let registration = OfficialDocumentDevelopmentSandboxRegistration(
+            receivingAddress: "G2C-SANDBOX-NOT-ROUTABLE-AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+            createdAt: Date(timeIntervalSince1970: 1_800_006_000))
+        let payload = try OfficialDocumentG2CSandboxFixture.make(
+            registration: registration,
+            applicationID: "G2C-SANDBOX-TAMPER")
+        let other = OfficialDocumentDevelopmentSandboxRegistration(
+            receivingAddress: "G2C-SANDBOX-NOT-ROUTABLE-FFFFFFFF-1111-2222-3333-444444444444",
+            createdAt: registration.createdAt)
+        #expect(throws: OfficialDocumentPackageError.sandboxRecipientMismatch) {
+            _ = try OfficialDocumentPackageParser.parseDevelopmentSandbox(
+                payload, registration: other)
+        }
+
+        let changedEnvelope = String(decoding: payload.envelope.data, as: UTF8.self)
+            .replacingOccurrences(of: "BONDS-SANDBOX-SENDER",
+                                  with: "BONDS-SANDBOX-IMPOSTOR")
+        let altered = OfficialDocumentImportPayload(
+            envelope: .init(filename: payload.envelope.filename,
+                            data: Data(changedEnvelope.utf8)),
+            document: nil,
+            encryptedSwitch: payload.encryptedSwitch,
+            receivedAt: payload.receivedAt)
+        #expect(throws: OfficialDocumentPackageError.sandboxSourceSignatureInvalid) {
+            _ = try OfficialDocumentPackageParser.parseDevelopmentSandbox(
+                altered, registration: registration)
+        }
+    }
+
     @Test func officialAddressBookProvesOnlyAnActiveDirectoryListing() throws {
         let checkedAt = Date(timeIntervalSince1970: 1_800_004_000)
         let data = Data("""
@@ -542,6 +659,20 @@ struct OfficialDocumentInboxTests {
         controller.tableView(controller.tableView,
                              didSelectRowAt: IndexPath(row: 0, section: 1))
         #expect(navigation.topViewController is OfficialDocumentDetailViewController)
+    }
+
+    @Test @MainActor func inboxExposesAnExplicitG2CSandboxActionInDebug() throws {
+        let archive = try archive()
+        let controller = OfficialDocumentInboxViewController(archive: archive,
+                                                             makeSigning: { nil })
+        controller.loadViewIfNeeded()
+
+        #expect(controller.tableView.numberOfRows(inSection: 2) == 4)
+        let cell = controller.tableView(
+            controller.tableView,
+            cellForRowAt: IndexPath(row: 2, section: 2))
+        #expect(cell.accessibilityIdentifier == "officialDocuments.g2cSandbox")
+        #expect(cell.textLabel?.text?.contains("G2C") == true)
     }
 
     @Test @MainActor func openingDetailMarksOnlyTheLocalViewingState() throws {

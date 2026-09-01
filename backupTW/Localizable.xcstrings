@@ -11915,6 +11915,376 @@
         }
       }
     },
+    "%@ · %@ · G2C development sandbox": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ · G2C 開發沙盒"
+          }
+        }
+      }
+    },
+    "Creates a non-routable test address and receives one signed, encrypted fixture. It has no legal effect.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立不可路由的測試地址，並接收一份已簽章、已加密的測試資料；不具法律效力。"
+          }
+        }
+      }
+    },
+    "Decrypted from the sandbox ESW and parsed for display": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已從沙盒 ESW 解密並解析顯示"
+          }
+        }
+      }
+    },
+    "Decrypted · %@ · %lld sandbox recipient": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已解密 · %@ · %lld 個沙盒收件者"
+          }
+        }
+      }
+    },
+    "Delivery confirmation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送達確認"
+          }
+        }
+      }
+    },
+    "Enable G2C development sandbox receiving?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要啟用 G2C 開發沙盒收件嗎？"
+          }
+        }
+      }
+    },
+    "Enable G2C sandbox receiving": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟用 G2C 沙盒收件"
+          }
+        }
+      }
+    },
+    "Enable and receive test document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟用並接收測試公文"
+          }
+        }
+      }
+    },
+    "Enable the G2C development sandbox inbox before receiving a test document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先啟用 G2C 開發沙盒收件匣，再接收測試公文。"
+          }
+        }
+      }
+    },
+    "Exercises sender verification, ESW decryption, duplicate protection and a local simulated confirmation.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "測試來源驗章、ESW 解密、重複收文防護與本機模擬確認。"
+          }
+        }
+      }
+    },
+    "G2C development sandbox — not a legal delivery": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "G2C 開發沙盒——不是法定送達"
+          }
+        }
+      }
+    },
+    "G2C sandbox receiving was not enabled": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未啟用 G2C 沙盒收件"
+          }
+        }
+      }
+    },
+    "G2C sandbox record needs attention": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "G2C 沙盒紀錄需要處理"
+          }
+        }
+      }
+    },
+    "G2C sandbox test document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "G2C 沙盒測試公文"
+          }
+        }
+      }
+    },
+    "Legal effect": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "法律效力"
+          }
+        }
+      }
+    },
+    "None — this is a local development simulation. No agency policy or government exchange service recognizes it as delivery.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無——這是本機開發模擬。沒有任何機關規則或政府交換服務承認它構成送達。"
+          }
+        }
+      }
+    },
+    "Not recorded yet. You can create a local simulated confirmation below; it will have no legal effect.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未記錄。你可以在下方建立本機模擬確認；它不具法律效力。"
+          }
+        }
+      }
+    },
+    "Only a G2C development sandbox document can create a simulated confirmation.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只有 G2C 開發沙盒公文可以建立模擬確認。"
+          }
+        }
+      }
+    },
+    "Receive another G2C sandbox document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再接收一份 G2C 沙盒公文"
+          }
+        }
+      }
+    },
+    "Record a simulated receipt confirmation?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要記錄模擬收文確認嗎？"
+          }
+        }
+      }
+    },
+    "Record simulated confirmation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記錄模擬確認"
+          }
+        }
+      }
+    },
+    "Record simulated receipt confirmation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記錄模擬收文確認"
+          }
+        }
+      }
+    },
+    "Recorded locally by the development simulator on %@. Nothing was sent to a government service.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已於 %@ 由開發模擬器記錄在本機；沒有向政府服務送出任何資料。"
+          }
+        }
+      }
+    },
+    "Records a local technical acknowledgement only. It does not notify an agency or create legal delivery.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只記錄本機技術確認；不會通知機關，也不會構成法定送達。"
+          }
+        }
+      }
+    },
+    "Sandbox confirmation recorded": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已記錄沙盒確認"
+          }
+        }
+      }
+    },
+    "The G2C sandbox document was addressed to a different test inbox.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份 G2C 沙盒公文是寄給另一個測試收件匣，因此已拒收。"
+          }
+        }
+      }
+    },
+    "The G2C sandbox document was refused": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已拒收 G2C 沙盒公文"
+          }
+        }
+      }
+    },
+    "The G2C sandbox package configuration is invalid.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "G2C 沙盒套件設定無效。"
+          }
+        }
+      }
+    },
+    "The G2C sandbox sender signature is invalid, so the document was refused.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "G2C 沙盒發文者簽章無效，因此已拒收公文。"
+          }
+        }
+      }
+    },
+    "The encrypted G2C sandbox document could not be decrypted, so it was refused.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法解密 G2C 沙盒公文，因此已拒收。"
+          }
+        }
+      }
+    },
+    "The protected sandbox registration could not be read. No test document will be accepted.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取受保護的沙盒註冊資料，因此不會接受任何測試公文。"
+          }
+        }
+      }
+    },
+    "The sandbox confirmation was not recorded": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未記錄沙盒確認"
+          }
+        }
+      }
+    },
+    "The technical receive lifecycle is complete in this development simulator. No government service was contacted, and legal delivery remains inactive.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開發模擬器中的技術收文生命週期已完成。沒有連線政府服務，法定送達仍未啟用。"
+          }
+        }
+      }
+    },
+    "This creates a non-routable address beginning with G2C-SANDBOX-NOT-ROUTABLE and receives one repository-owned test document. The sender key, recipient key and confirmation all stay in this development build. No government service is contacted, and no legal delivery is created.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會建立以 G2C-SANDBOX-NOT-ROUTABLE 開頭、不可路由的地址，並接收一份由此程式庫產生的測試公文。發文者金鑰、收件者金鑰與確認都只留在這個開發版本；不會連線政府服務，也不會構成法定送達。"
+          }
+        }
+      }
+    },
+    "This records an idempotent acknowledgement only inside this iPhone's development sandbox. It sends no network request and cannot establish legal delivery.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這只會在此 iPhone 的開發沙盒中記錄可重複執行而結果不變的確認；不會送出網路請求，也不能建立法定送達。"
+          }
+        }
+      }
+    },
+    "This repository-owned simulator exercised a non-routable address, sender signature, encrypted content and local confirmation. No government service sent or received it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個由程式庫自有的模擬器測試了不可路由地址、發文者簽章、加密內容與本機確認；沒有政府服務送出或接收它。"
+          }
+        }
+      }
+    },
+    "Verified with the repository-owned G2C sandbox sender key. This is not a government agency certificate or official exchange signature.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已使用程式庫自有的 G2C 沙盒發文者金鑰驗證；這不是政府機關憑證或正式交換簽章。"
+          }
+        }
+      }
+    },
     "行動自然人憑證 app-to-app": {
       "localizations": {
         "zh-Hant": {

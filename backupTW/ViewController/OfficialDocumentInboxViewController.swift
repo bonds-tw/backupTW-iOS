@@ -29,6 +29,10 @@ final class OfficialDocumentInboxViewController: UITableViewController {
     private var physicalCardResponseReady = false
     private var packages: [OfficialDocumentPackage] = []
     private var packagesUnavailable = false
+    #if DEBUG
+    private var sandboxRegistration: OfficialDocumentDevelopmentSandboxRegistration?
+    private var sandboxRegistrationUnavailable = false
+    #endif
 
     init(archive: OfficialDocumentInboxArchive,
          makeSigning: @escaping () -> OfficialDocumentSigning? = {
@@ -70,7 +74,7 @@ final class OfficialDocumentInboxViewController: UITableViewController {
             return packages.isEmpty || packagesUnavailable ? 1 : packages.count
         case .action:
             #if DEBUG
-            return 3
+            return 4
             #else
             return 1
             #endif
@@ -112,6 +116,8 @@ final class OfficialDocumentInboxViewController: UITableViewController {
                 configureSigningAction(cell)
             } else if indexPath.row == 1 {
                 configurePhysicalCardAction(cell)
+            } else if indexPath.row == 2 {
+                configureG2CSandboxAction(cell)
             } else {
                 configureSyntheticAction(cell)
             }
@@ -218,7 +224,9 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         let state = package.localState == .unread
             ? NSLocalizedString("Unread on this phone", comment: "official document inbox")
             : NSLocalizedString("Viewed on this phone", comment: "official document inbox")
-        let format = NSLocalizedString("%@ · %@ · Synthetic test data", comment: "official document inbox")
+        let format = package.environment == .developmentG2CSandbox
+            ? NSLocalizedString("%@ · %@ · G2C development sandbox", comment: "official document inbox")
+            : NSLocalizedString("%@ · %@ · Synthetic test data", comment: "official document inbox")
         cell.detailTextLabel?.text = String(
             format: format,
             UntrustedText.value(package.envelope.sender.organizationName).text,
@@ -236,6 +244,33 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         cell.textLabel?.text = NSLocalizedString("Load a synthetic EN / DI / ESW package", comment: "official document inbox")
         cell.detailTextLabel?.text = NSLocalizedString("Developer test only — this did not come from a government agency and creates no receipt.", comment: "official document inbox")
         cell.accessoryType = .disclosureIndicator
+        #endif
+    }
+
+    private func configureG2CSandboxAction(_ cell: UITableViewCell) {
+        #if DEBUG
+        cell.accessibilityIdentifier = "officialDocuments.g2cSandbox"
+        cell.imageView?.image = UIImage(systemName: "network.badge.shield.half.filled")
+        cell.imageView?.tintColor = .systemPurple
+        cell.textLabel?.textColor = .systemPurple
+        if sandboxRegistrationUnavailable {
+            cell.imageView?.image = UIImage(systemName: "exclamationmark.triangle")
+            cell.imageView?.tintColor = .systemOrange
+            cell.textLabel?.textColor = .label
+            cell.textLabel?.text = NSLocalizedString("G2C sandbox record needs attention", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("The protected sandbox registration could not be read. No test document will be accepted.", comment: "official document inbox")
+            cell.selectionStyle = .none
+            return
+        }
+        if sandboxRegistration == nil {
+            cell.textLabel?.text = NSLocalizedString("Enable G2C sandbox receiving", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("Creates a non-routable test address and receives one signed, encrypted fixture. It has no legal effect.", comment: "official document inbox")
+        } else {
+            cell.textLabel?.text = NSLocalizedString("Receive another G2C sandbox document", comment: "official document inbox")
+            cell.detailTextLabel?.text = NSLocalizedString("Exercises sender verification, ESW decryption, duplicate protection and a local simulated confirmation.", comment: "official document inbox")
+        }
+        cell.accessoryType = .disclosureIndicator
+        cell.selectionStyle = .default
         #endif
     }
 
@@ -291,6 +326,11 @@ final class OfficialDocumentInboxViewController: UITableViewController {
             guard receipt == nil, !receiptUnavailable else { return }
             handlePhysicalCardSigning()
             #endif
+        case .action where indexPath.row == 2:
+            #if DEBUG
+            guard !sandboxRegistrationUnavailable else { return }
+            handleG2CSandboxReceiving()
+            #endif
         case .action:
             #if DEBUG
             loadSyntheticPackage()
@@ -324,6 +364,15 @@ final class OfficialDocumentInboxViewController: UITableViewController {
             packages = []
             packagesUnavailable = true
         }
+        #if DEBUG
+        do {
+            sandboxRegistration = try archive.sandboxRegistration()
+            sandboxRegistrationUnavailable = false
+        } catch {
+            sandboxRegistration = nil
+            sandboxRegistrationUnavailable = true
+        }
+        #endif
         if isViewLoaded { tableView.reloadData() }
     }
 
@@ -390,6 +439,51 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         presentMessage(
             title: NSLocalizedString("Physical-card request ready", comment: "official document inbox"),
             message: NSLocalizedString("Keep this iPhone unlocked and connected to the Mac. In the backupTW-iOS repository, run ./scripts/physical-card-consent.sh --device mashbean14 within 15 minutes. Insert the card and enter its PIN only at the hidden terminal prompt. When the helper finishes, return here and tap the physical-card row again.", comment: "official document inbox"))
+    }
+
+    private func handleG2CSandboxReceiving() {
+        if let registration = sandboxRegistration {
+            receiveG2CSandboxDocument(registration: registration)
+            return
+        }
+        let alert = UIAlertController(
+            title: NSLocalizedString("Enable G2C development sandbox receiving?", comment: "official document inbox"),
+            message: NSLocalizedString("This creates a non-routable address beginning with G2C-SANDBOX-NOT-ROUTABLE and receives one repository-owned test document. The sender key, recipient key and confirmation all stay in this development build. No government service is contacted, and no legal delivery is created.", comment: "official document inbox"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Enable and receive test document", comment: "official document inbox"),
+            style: .default) { [weak self] _ in
+                guard let self else { return }
+                do {
+                    let registration = try self.archive.enableDevelopmentSandboxReceiving()
+                    self.sandboxRegistration = registration
+                    self.receiveG2CSandboxDocument(registration: registration)
+                } catch {
+                    self.presentMessage(
+                        title: NSLocalizedString("G2C sandbox receiving was not enabled", comment: "official document inbox"),
+                        message: error.localizedDescription)
+                }
+            })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func receiveG2CSandboxDocument(
+        registration: OfficialDocumentDevelopmentSandboxRegistration) {
+        do {
+            let payload = try OfficialDocumentG2CSandboxFixture.make(
+                registration: registration)
+            let package = try archive.importDevelopmentSandbox(payload)
+            reloadPackages()
+            navigationController?.pushViewController(
+                OfficialDocumentDetailViewController(packageID: package.id,
+                                                     archive: archive),
+                animated: true)
+        } catch {
+            presentMessage(
+                title: NSLocalizedString("The G2C sandbox document was refused", comment: "official document inbox"),
+                message: error.localizedDescription)
+        }
     }
 
     private func loadSyntheticPackage() {

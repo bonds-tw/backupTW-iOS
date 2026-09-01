@@ -12,6 +12,8 @@ enum OfficialDocumentInboxArchiveError: Error, Equatable {
     case consentAlreadySigned
     case physicalCardRequestMissing
     case physicalCardResponseMissing
+    case sandboxRegistrationMissing
+    case sandboxPackageRequired
 }
 
 extension OfficialDocumentInboxArchiveError: LocalizedError {
@@ -29,6 +31,10 @@ extension OfficialDocumentInboxArchiveError: LocalizedError {
             return NSLocalizedString("Create a new physical-card signing request on this iPhone first.", comment: "official document inbox")
         case .physicalCardResponseMissing:
             return NSLocalizedString("The Mac has not returned a physical-card signing result to this iPhone yet.", comment: "official document inbox")
+        case .sandboxRegistrationMissing:
+            return NSLocalizedString("Enable the G2C development sandbox inbox before receiving a test document.", comment: "official document inbox")
+        case .sandboxPackageRequired:
+            return NSLocalizedString("Only a G2C development sandbox document can create a simulated confirmation.", comment: "official document inbox")
         }
     }
 }
@@ -37,9 +43,9 @@ extension OfficialDocumentInboxArchiveError: LocalizedError {
 ///
 /// It is separate from both `CredentialStore` and `MyDataVaultArchive`: an
 /// official document is not a wallet credential, and its delivery evidence must
-/// not be mixed with a MyData original. This phase also stores synthetic source
-/// packages for end-to-end product testing; official exchange envelopes and
-/// delivery receipts still require a government G2C interface and test fixtures.
+/// not be mixed with a MyData original. Debug builds may also store synthetic
+/// packages and a cryptographically closed development-sandbox exchange. Neither
+/// path is an official exchange address or a legally effective delivery receipt.
 final class OfficialDocumentInboxArchive {
     typealias ReceiptVerifier = (OfficialDocumentInboxReceipt) throws -> Void
 
@@ -49,6 +55,7 @@ final class OfficialDocumentInboxArchive {
     private static let receiptFilename = "prototype-consent.json"
     private static let physicalCardRequestFilename = "physical-card-request.json"
     private static let physicalCardResponseFilename = "physical-card-response.json"
+    private static let sandboxRegistrationFilename = "g2c-sandbox-registration.json"
     private static let packagesDirectoryName = "packages"
     private static let metadataFilename = "metadata.json"
     private static let envelopeFilename = "source.en"
@@ -201,16 +208,88 @@ final class OfficialDocumentInboxArchive {
             options: [.atomic, .completeFileProtectionUnlessOpen])
     }
 
+    // MARK: - DEBUG G2C development sandbox
+
+    #if DEBUG
+    func sandboxRegistration() throws
+        -> OfficialDocumentDevelopmentSandboxRegistration? {
+        let url = directory.appendingPathComponent(Self.sandboxRegistrationFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let registration = try JSONDecoder().decode(
+            OfficialDocumentDevelopmentSandboxRegistration.self,
+            from: Data(contentsOf: url))
+        try registration.validate()
+        return registration
+    }
+
+    @discardableResult
+    func enableDevelopmentSandboxReceiving(
+        at date: Date = Date(),
+        identifier: UUID = UUID()) throws
+        -> OfficialDocumentDevelopmentSandboxRegistration {
+        if let existing = try sandboxRegistration() { return existing }
+        let registration = OfficialDocumentDevelopmentSandboxRegistration(
+            receivingAddress:
+                OfficialDocumentDevelopmentSandboxRegistration.addressPrefix +
+                identifier.uuidString,
+            createdAt: date)
+        try registration.validate()
+        try writeJSON(registration, filename: Self.sandboxRegistrationFilename)
+        return registration
+    }
+
+    @discardableResult
+    func importDevelopmentSandbox(
+        _ payload: OfficialDocumentImportPayload,
+        checkedAt: Date = Date()) throws -> OfficialDocumentPackage {
+        guard let registration = try sandboxRegistration() else {
+            throw OfficialDocumentInboxArchiveError.sandboxRegistrationMissing
+        }
+        let result = try OfficialDocumentPackageParser.parseDevelopmentSandbox(
+            payload,
+            registration: registration,
+            checkedAt: checkedAt)
+        return try storeImported(result.package,
+                                 payload: payload,
+                                 decryptedDocument: result.decryptedDocument)
+    }
+
+    @discardableResult
+    func recordDevelopmentSandboxConfirmation(
+        id: String,
+        at date: Date = Date()) throws -> OfficialDocumentPackage {
+        let url = try packageDirectory(id: id)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw OfficialDocumentInboxArchiveError.packageMissing
+        }
+        let package = try readMetadata(in: url)
+        guard package.environment == .developmentG2CSandbox,
+              package.sandboxDelivery != nil else {
+            throw OfficialDocumentInboxArchiveError.sandboxPackageRequired
+        }
+        let updated = package.recordingSandboxConfirmation(at: date)
+        try writeMetadata(updated, in: url)
+        return updated
+    }
+    #endif
+
     // MARK: - Synthetic EN / DI / ESW packages
 
-    /// The only import path in this phase. Naming it `importSynthetic` prevents
-    /// a caller from accidentally treating parser success as official G2C
-    /// sender authentication or a legally effective receipt.
+    /// The legacy plaintext fixture path. Naming it `importSynthetic` prevents a
+    /// caller from accidentally treating parser success as official G2C sender
+    /// authentication or a legally effective receipt.
     @discardableResult
     func importSynthetic(_ payload: OfficialDocumentImportPayload,
                          checkedAt: Date = Date()) throws -> OfficialDocumentPackage {
         let package = try OfficialDocumentPackageParser.parseSynthetic(payload,
                                                                         checkedAt: checkedAt)
+        return try storeImported(package, payload: payload, decryptedDocument: nil)
+    }
+
+    private func storeImported(_ package: OfficialDocumentPackage,
+                               payload: OfficialDocumentImportPayload,
+                               decryptedDocument: Data?) throws
+        -> OfficialDocumentPackage {
         if let existing = try packages().first(where: {
             $0.envelope.applicationID == package.envelope.applicationID
         }) {
@@ -240,8 +319,8 @@ final class OfficialDocumentInboxArchive {
         try payload.envelope.data.write(
             to: temporary.appendingPathComponent(Self.envelopeFilename),
             options: [.atomic, .completeFileProtectionUnlessOpen])
-        if let document = payload.document {
-            try document.data.write(
+        if let documentData = decryptedDocument ?? payload.document?.data {
+            try documentData.write(
                 to: temporary.appendingPathComponent(Self.documentFilename),
                 options: [.atomic, .completeFileProtectionUnlessOpen])
         }
