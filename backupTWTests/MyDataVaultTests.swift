@@ -92,6 +92,17 @@ struct MyDataDocumentRegistryTests {
         #expect(MyDataDocumentRegistry.vaultDocuments.allSatisfy { MyDataDocumentRegistry.isVaultDocument(id: $0.id) })
         #expect(!MyDataDocumentRegistry.isVaultDocument(id: StoredNationalID.credentialID))
     }
+
+    @Test func incomeNamesItsSlowRequestAndPersonalDocumentsIsTheGenericContinuation() {
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.estimatedMinutes == 120)
+        #expect(MyDataDocumentRegistry.personalDocuments.entryMode == .personalDocuments)
+        #expect(MyDataDocumentRegistry.personalDocuments.myDataItemPath == "signin")
+
+        let arbitrary = MyDataDocumentRegistry.personalDocuments(
+            replacing: "mydata-file-arbitrary", title: "任意 MyData 文件")
+        #expect(arbitrary.id == "mydata-file-arbitrary")
+        #expect(arbitrary.entryMode == .personalDocuments)
+    }
 }
 
 struct VaultClassificationTests {

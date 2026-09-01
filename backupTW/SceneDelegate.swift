@@ -112,6 +112,7 @@ extension GovernmentCardViewController: PrivacyShieldedScreen {}
 /// neither may survive in the app-switcher snapshot.
 extension MyDataVaultDocumentViewController: PrivacyShieldedScreen {}
 extension MyDataVaultPDFViewController: PrivacyShieldedScreen {}
+extension MyDataCredentialUseCasesViewController: PrivacyShieldedScreen {}
 
 // MARK: - The shield
 
@@ -341,21 +342,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// UI tests run in a different process and cannot inject Home's archive
     /// factory. This narrow launch seam creates one content-free PDF-shaped
-    /// original in the test app's own sandbox. It is DEBUG-only, requires an
-    /// explicit environment flag, and contains no personal/test-card data.
+    /// original in the test app's own sandbox. A layout test may request up to
+    /// three content-free originals to exercise the stack. It is DEBUG-only,
+    /// requires an explicit environment flag, and contains no personal/test-card
+    /// data.
     private static func seedVaultForUITestIfRequested() {
         guard ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_SEED_VAULT"] == "1",
               let archive = try? MyDataVaultArchive() else { return }
-        let source = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ui-test-vault-\(UUID().uuidString).pdf")
-        defer { try? FileManager.default.removeItem(at: source) }
-        do {
-            try Data("%PDF-1.4 UI test only\n%%EOF\n".utf8).write(to: source,
-                                                                     options: .atomic)
-            try archive.store(originalAt: source, id: "mydata-income", fileExtension: "pdf")
-        } catch {
-            // The UI assertion reports the missing card with the screen's visible
-            // labels; a launch-time test fixture must never crash the app.
+        let requested = Int(ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_SEED_VAULT_COUNT"] ?? "1") ?? 1
+        let ids = ["mydata-income", "mydata-health-insurance", "mydata-land"]
+        for (index, id) in ids.prefix(max(1, min(requested, ids.count))).enumerated() {
+            let source = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ui-test-vault-\(UUID().uuidString).pdf")
+            defer { try? FileManager.default.removeItem(at: source) }
+            do {
+                try Data("%PDF-1.4 UI test only \(index)\n%%EOF\n".utf8).write(
+                    to: source, options: .atomic)
+                try archive.store(originalAt: source, id: id, fileExtension: "pdf")
+            } catch {
+                // The UI assertion reports the missing card with the screen's
+                // visible labels; a launch-time fixture must never crash the app.
+            }
         }
     }
     #endif

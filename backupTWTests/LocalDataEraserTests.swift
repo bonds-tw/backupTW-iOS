@@ -81,7 +81,9 @@ final class LocalDataEraserTests: @unchecked Sendable {
 
     private func makeEraser(
         credentials: CredentialStoring? = nil,
-        appAttestRecordEraser: (() throws -> Void)? = nil
+        appAttestRecordEraser: (() throws -> Void)? = nil,
+        myDataProfileEraser: (() throws -> Void)? = nil,
+        pendingRequestEraser: (() -> Void)? = nil
     ) -> LocalDataEraser {
         LocalDataEraser(credentials: credentials ?? store,
                         scratch: scratch,
@@ -91,7 +93,9 @@ final class LocalDataEraserTests: @unchecked Sendable {
                         zkWorkingDirectory: zkDirectory,
                         keyTag: keyTag,
                         installRecord: defaults,
-                        appAttestRecordEraser: appAttestRecordEraser)
+                        appAttestRecordEraser: appAttestRecordEraser,
+                        myDataProfileEraser: myDataProfileEraser,
+                        pendingRequestEraser: pendingRequestEraser)
     }
 
     /// Leaves the working directory exactly as a proof run killed by jetsam
@@ -242,6 +246,25 @@ final class LocalDataEraserTests: @unchecked Sendable {
         try makeEraser(appAttestRecordEraser: { probe.calls += 1 }).eraseEverything()
 
         #expect(probe.calls == 1)
+    }
+
+    @Test func erasingEverythingForgetsMyDataAutofillAndContinuationMetadata() throws {
+        final class Probe: @unchecked Sendable {
+            var profileCalls = 0
+            var pendingCalls = 0
+        }
+        let probe = Probe()
+
+        // A simulator test process without the Keychain entitlement may report
+        // the independent identity-key erase as failed. `eraseEverything` still
+        // attempts every location, which is the property under test here.
+        try? makeEraser(
+            myDataProfileEraser: { probe.profileCalls += 1 },
+            pendingRequestEraser: { probe.pendingCalls += 1 }
+        ).eraseEverything()
+
+        #expect(probe.profileCalls == 1)
+        #expect(probe.pendingCalls == 1)
     }
 
     // MARK: - The ZK working directory

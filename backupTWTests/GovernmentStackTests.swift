@@ -63,6 +63,31 @@ struct GovernmentStackTests {
             at: IndexPath(item: item, section: Self.governmentSection))?.frame)
     }
 
+    private func myDataHome(count: Int) throws -> (HomeViewController, UIWindow) {
+        let store = SeededStore()
+        let archive = try MyDataVaultArchive(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("MyDataStackTests-\(UUID().uuidString)", isDirectory: true))
+        for index in 0..<count {
+            try archive.store(data: Data("%PDF-\(index)".utf8),
+                              id: "mydata-file-\(index)", fileExtension: "pdf",
+                              displayName: "MyData 文件 \(index + 1)")
+        }
+        let controller = HomeViewController(makeStore: { store }, makeVaultArchive: { archive })
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 900))
+        window.rootViewController = UINavigationController(rootViewController: controller)
+        window.isHidden = false
+        controller.loadViewIfNeeded()
+        controller.viewWillAppear(false)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        window.layoutIfNeeded()
+        return (controller, window)
+    }
+
+    private func myDataFrame(_ controller: HomeViewController, item: Int) throws -> CGRect {
+        try #require(controller.collectionView.layoutAttributesForItem(
+            at: IndexPath(item: item, section: 2))?.frame)
+    }
+
     @Test func collapsedStackTucksTheHeroUnderFullOverlappingCards() throws {
         let (controller, _) = home(try seeded(3))
         let hero = try frame(controller, item: 0)
@@ -121,5 +146,22 @@ struct GovernmentStackTests {
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         window.layoutIfNeeded()
         #expect(try frame(controller, item: 0).minY > frame(controller, item: 1).minY)  // collapsed again
+    }
+
+    @Test func myDataDocumentsUseTheSameCollapsedAndExpandedInteraction() throws {
+        let (controller, window) = try myDataHome(count: 3)
+        let collapsedHero = try myDataFrame(controller, item: 0)
+        let collapsedPeek = try myDataFrame(controller, item: 1)
+        #expect(collapsedHero.minY > collapsedPeek.minY)
+        #expect(collapsedPeek.maxY > collapsedHero.minY)
+
+        controller.collectionView(controller.collectionView,
+                                  didSelectItemAt: IndexPath(item: 0, section: 2))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        window.layoutIfNeeded()
+        let expandedHero = try myDataFrame(controller, item: 0)
+        let expandedSecond = try myDataFrame(controller, item: 1)
+        #expect(expandedHero.minY < expandedSecond.minY)
+        #expect(expandedSecond.minY >= expandedHero.maxY)
     }
 }
