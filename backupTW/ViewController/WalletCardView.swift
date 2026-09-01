@@ -121,13 +121,22 @@ struct CredentialCard: Hashable {
     let backFields: [WalletCardField]
 }
 
-/// The 石墨 MyData 資料保險箱 face: a lock in a tinted tile, a status dot, and the
-/// standing note that nothing is kept here.
+/// The 石墨 MyData 資料保險箱 face. Its symbol and title form a compact header that
+/// remains readable inside the home screen's 48pt collapsed-stack peek.
 struct VaultCard: Hashable {
     let title: String
     let message: String
     /// e.g. 「已封存」.
     let status: String
+    /// A document-specific SF Symbol; the empty vault keeps the lock.
+    let systemImage: String
+
+    init(title: String, message: String, status: String, systemImage: String = "lock.fill") {
+        self.title = title
+        self.message = message
+        self.status = status
+        self.systemImage = systemImage
+    }
 }
 
 /// One label/value pair on a card face. The value is already masked when it
@@ -817,25 +826,50 @@ final class WalletCardView: UIView {
         let accent = UIColor(red: 0x5f/255, green: 0xe3/255, blue: 0xc0/255, alpha: 1)
         let ink = UIColor(red: 0xe7/255, green: 0xe9/255, blue: 0xef/255, alpha: 1)
 
-        // Lock tile — SF Symbol, a standard UI glyph, in a rounded tinted square.
-        let lockTile = UIView()
-        lockTile.backgroundColor = accent.withAlphaComponent(0.12)
-        lockTile.layer.cornerRadius = 11
-        lockTile.layer.cornerCurve = .continuous
-        lockTile.layer.borderWidth = 1
-        lockTile.layer.borderColor = accent.withAlphaComponent(0.3).cgColor
-        let lock = UIImageView(image: UIImage(systemName: "lock.fill"))
-        lock.tintColor = accent
-        lock.contentMode = .scaleAspectFit
-        lock.translatesAutoresizingMaskIntoConstraints = false
-        lockTile.addSubview(lock)
-        add(lockTile)
+        // The first 48pt is a deliberate collapsed-stack header: every covered
+        // card still exposes its document symbol and name. Keep all other metadata
+        // below the hairline so the visible strip has one clear job.
+        let symbolTile = UIView()
+        symbolTile.backgroundColor = accent.withAlphaComponent(0.12)
+        symbolTile.layer.cornerRadius = 9
+        symbolTile.layer.cornerCurve = .continuous
+        symbolTile.layer.borderWidth = 1
+        symbolTile.layer.borderColor = accent.withAlphaComponent(0.3).cgColor
+        let symbol = UIImageView(image: UIImage(systemName: card.systemImage))
+        symbol.tintColor = accent
+        symbol.contentMode = .scaleAspectFit
+        symbol.translatesAutoresizingMaskIntoConstraints = false
+        symbolTile.addSubview(symbol)
+        add(symbolTile)
+
+        let title = makeLabel(card.title, font: .systemFont(ofSize: 16, weight: .bold), color: ink)
+        title.numberOfLines = 1
+        title.lineBreakMode = .byTruncatingTail
+        title.accessibilityIdentifier = "wallet.vault.title"
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        add(title)
+
+        let headerHairline = makeHairline(accent.withAlphaComponent(0.22))
+        headerHairline.accessibilityIdentifier = "wallet.vault.peekBoundary"
+        add(headerHairline)
+
         NSLayoutConstraint.activate([
-            lockTile.widthAnchor.constraint(equalToConstant: 38),
-            lockTile.heightAnchor.constraint(equalToConstant: 38),
-            lock.centerXAnchor.constraint(equalTo: lockTile.centerXAnchor),
-            lock.centerYAnchor.constraint(equalTo: lockTile.centerYAnchor),
-            lock.widthAnchor.constraint(equalToConstant: 18),
+            symbolTile.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 9),
+            symbolTile.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+            symbolTile.widthAnchor.constraint(equalToConstant: 30),
+            symbolTile.heightAnchor.constraint(equalToConstant: 30),
+            symbol.centerXAnchor.constraint(equalTo: symbolTile.centerXAnchor),
+            symbol.centerYAnchor.constraint(equalTo: symbolTile.centerYAnchor),
+            symbol.widthAnchor.constraint(equalToConstant: 15),
+            symbol.heightAnchor.constraint(equalToConstant: 15),
+
+            title.leadingAnchor.constraint(equalTo: symbolTile.trailingAnchor, constant: 10),
+            title.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+            title.centerYAnchor.constraint(equalTo: symbolTile.centerYAnchor),
+
+            headerHairline.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 47),
+            headerHairline.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
+            headerHairline.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
         ])
 
         // Status: a filled dot + 已封存 in caps.
@@ -856,26 +890,20 @@ final class WalletCardView: UIView {
         statusRow.alignment = .center
         add(statusRow)
 
-        let title = makeLabel(card.title, font: .systemFont(ofSize: 19, weight: .bold), color: ink)
-        title.numberOfLines = 2
-        add(title)
         let message = makeLabel(card.message, font: .systemFont(ofSize: 11.5), color: UIColor(red: 0xa6/255, green: 0xab/255, blue: 0xb7/255, alpha: 1))
         message.numberOfLines = 0
+        message.accessibilityIdentifier = "wallet.vault.metadata"
         add(message)
 
         NSLayoutConstraint.activate([
-            lockTile.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 20),
-            lockTile.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            statusRow.centerYAnchor.constraint(equalTo: lockTile.centerYAnchor),
-            statusRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
+            statusRow.topAnchor.constraint(equalTo: headerHairline.bottomAnchor, constant: 14),
+            statusRow.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            statusRow.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
 
-            message.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            message.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
-            message.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
-            title.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            title.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
-            title.bottomAnchor.constraint(equalTo: message.topAnchor, constant: -6),
-            title.topAnchor.constraint(greaterThanOrEqualTo: lockTile.bottomAnchor, constant: 12),
+            message.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            message.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
+            message.topAnchor.constraint(greaterThanOrEqualTo: statusRow.bottomAnchor, constant: 10),
+            message.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -18),
         ])
     }
 

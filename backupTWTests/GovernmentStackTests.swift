@@ -164,4 +164,29 @@ struct GovernmentStackTests {
         #expect(expandedHero.minY < expandedSecond.minY)
         #expect(expandedSecond.minY >= expandedHero.maxY)
     }
+
+    /// The collapsed MyData stack reveals exactly the top 48pt of every covered
+    /// card. The document name therefore belongs inside that strip, not in the
+    /// lower metadata area that the next card obscures.
+    @Test func myDataCardNameFitsInsideTheCollapsedPeek() throws {
+        let card = WalletCardView(frame: CGRect(x: 0, y: 0, width: 354, height: 354 / 1.9))
+        card.configure(.vault(VaultCard(
+            title: "個人所得資料",
+            message: "PDF · 2026/9/1 匯入",
+            status: "已儲存原始檔",
+            systemImage: "banknote.fill")))
+        card.setNeedsLayout()
+        card.layoutIfNeeded()
+
+        let title = try #require(findView(identifier: "wallet.vault.title", in: card) as? UILabel)
+        let titleFrame = title.convert(title.bounds, to: card)
+        #expect(titleFrame.minY >= 0)
+        #expect(titleFrame.maxY <= 48,
+                "MyData title must remain visible in the collapsed 48pt peek; frame was \(titleFrame)")
+    }
+
+    private func findView(identifier: String, in root: UIView) -> UIView? {
+        if root.accessibilityIdentifier == identifier { return root }
+        return root.subviews.lazy.compactMap { findView(identifier: identifier, in: $0) }.first
+    }
 }

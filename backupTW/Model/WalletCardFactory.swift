@@ -292,7 +292,9 @@ enum WalletCardFactory {
         return .vault(VaultCard(
             title: title,
             message: "\(format) · \(imported)",
-            status: NSLocalizedString("Original stored", comment: "vault document card")))
+            status: NSLocalizedString("Original stored", comment: "vault document card"),
+            systemImage: MyDataDocumentRegistry.lookup(id: document.id)?.systemImage
+                ?? "doc.text.fill"))
     }
 
     // MARK: - Tint selection (a colour is not a claim)
