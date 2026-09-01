@@ -58,6 +58,22 @@
 
 同一安裝的既有行動自然人憑證／實體自然人憑證同意證據不會被移除。
 
+## 2026-09-01 真機結果
+
+- 裝置：iPhone 14、iOS 27.0、DEBUG `1.0 (1)`；以覆蓋安裝保留原有 App container。
+- 使用者在 App 內明確啟用沙盒、接收加密測試公文並記錄模擬收文確認。
+- 從 App container 做只讀稽核後，registration version 與
+  `G2C-SANDBOX-NOT-ROUTABLE-` 地址前綴均有效。
+- metadata 為 `developmentG2CSandbox`／`developmentSandboxDecrypted`／
+  `verifiedDevelopmentSandboxKey`／`viewedLocally`，解密演算法為
+  `AES-256-GCM-DEVELOPMENT-SANDBOX`。
+- 重新計算保存的 EN、解密後 DI 與加密 ESW SHA-256，三者都與 metadata 完全一致；sender
+  key 與 source signature 指紋均為完整 32-byte SHA-256 hex。
+- confirmation 已存在，狀態為 `recordedByLocalSimulator`，確認識別碼為完整 SHA-256；
+  `legalEffect` 仍是 `noneDevelopmentSimulation`。
+- 原有合成 EN／DI／ESW 套件與自然人憑證同意證據仍留在手機，未被此次測試清除；Mac 上只讀
+  稽核所用的五份一次性副本已在驗證後逐檔移除。
+
 ## 自動化證據
 
 - Swift unit tests：正向加密收件與確認、錯誤收件地址、竄改 sender claim、明確 action wiring。
