@@ -30,7 +30,13 @@ enum OID4VPResponseError: Error, Equatable {
 
 struct OID4VPPresentedCredential {
     let descriptorID: String
+    let format: OID4VPCredentialFormat
     let serialized: String
+}
+
+private struct OID4VPResponseMaterial {
+    let holderKey: DeviceKey
+    let presentations: [OID4VPPresentedCredential]
 }
 
 /// A successful VP receipt. The convenience-store follow-up must be signed by
@@ -86,17 +92,14 @@ struct OID4VPResponder {
 
     func respondWithReceipt(to request: OID4VPRequest,
                             disclosing chosenClaims: Set<String>) async throws -> OID4VPPresentationReceipt {
-        let (credential, presentations) = try presentationMaterial(request,
-                                                                   chosenClaims: chosenClaims)
-        guard let holderKey = try? keyring.key(matchingPublicKeyX963: credential.holderKey.x963Representation) else {
-            throw OID4VPResponseError.holderKeyUnavailable
-        }
+        let material = try responseMaterial(request, chosenClaims: chosenClaims)
+        let holderKey = material.holderKey
+        let presentations = material.presentations
         let holderDID = try JWKDIDKey.did(fromP256PublicKeyX963: holderKey.publicKeyX963)
         let vpToken = try buildVPToken(request: request,
                                        presented: presentations.map(\.serialized),
                                        holderKey: holderKey)
-        let submission = presentationSubmission(for: request,
-                                                  descriptorIDs: presentations.map(\.descriptorID))
+        let submission = presentationSubmission(for: request, presented: presentations)
         let status = try await post(vpToken: vpToken, submission: submission,
                                     state: request.state, to: request.responseURI)
         return OID4VPPresentationReceipt(statusCode: status,
@@ -182,6 +185,7 @@ struct OID4VPResponder {
                 let descriptorClaims = Set(descriptor.requestedFields.compactMap(\.claimName))
                 return OID4VPPresentedCredential(
                     descriptorID: descriptor.id,
+                    format: .sdJWT,
                     serialized: Self.reserialise(
                         credential,
                         disclosing: chosenClaims.intersection(descriptorClaims)))
@@ -192,6 +196,127 @@ struct OID4VPResponder {
             throw OID4VPResponseError.requestedClaimNotAvailable(missing)
         }
         throw OID4VPResponseError.noMatchingCredential
+    }
+
+    /// Chooses the inner credential family from the descriptor's declared
+    /// format. A request for this project's `vc+moica` extension never falls
+    /// through to a government SD-JWT, and an unlabelled official request keeps
+    /// the established TWDIW behaviour for compatibility.
+    private func responseMaterial(_ request: OID4VPRequest,
+                                  chosenClaims: Set<String>) throws -> OID4VPResponseMaterial {
+        let formats = Set(request.inputDescriptors.compactMap(\.credentialFormat))
+        if formats.contains(.moica) {
+            guard formats.count == 1 else { throw OID4VPResponseError.noMatchingCredential }
+            return try selfIssuedMaterial(request, chosenClaims: chosenClaims)
+        }
+
+        let (credential, presentations) = try presentationMaterial(request,
+                                                                   chosenClaims: chosenClaims)
+        guard let holderKey = try? keyring.key(
+            matchingPublicKeyX963: credential.holderKey.x963Representation) else {
+            throw OID4VPResponseError.holderKeyUnavailable
+        }
+        return OID4VPResponseMaterial(holderKey: holderKey, presentations: presentations)
+    }
+
+    /// Presents a MyData/national-ID envelope through OIDC4VP. The OIDC request,
+    /// challenge and outer holder proof are standard; `vc+moica` is a named
+    /// project extension whose verifier checks both the per-card DID signature
+    /// and the citizen-certificate signature.
+    private func selfIssuedMaterial(_ request: OID4VPRequest,
+                                    chosenClaims: Set<String>) throws -> OID4VPResponseMaterial {
+        let requested = Set(request.requestedFields.compactMap(\.claimName))
+        if let unrequested = chosenClaims.first(where: { !requested.contains($0) }) {
+            throw OID4VPResponseError.requestedClaimNotAvailable(unrequested)
+        }
+
+        var missingOnSomeCard: String?
+        for id in (try? store.allIDs()) ?? [] {
+            guard let serialized = try? store.load(id: id),
+                  StoredCardSource.source(of: serialized) == .selfIssued,
+                  var envelope = try? MOICASignedCredential.parse(serialized),
+                  envelope.issuerJWS != nil,
+                  let credential = try? envelope.credential(),
+                  let subjectDID = credential.credentialSubject["id"],
+                  credential.issuer == subjectDID else { continue }
+
+            let matching = request.inputDescriptors.filter { descriptor in
+                descriptor.credentialFormat == .moica
+                    && (descriptor.credentialType == nil
+                        || credential.type.contains(descriptor.credentialType!))
+            }
+            guard !matching.isEmpty else { continue }
+
+            let available: Set<String>
+            if let committed = credential.sd,
+               let revealed = try? SelectiveDisclosure.reveal(
+                    disclosures: envelope.disclosures,
+                    committedDigests: committed) {
+                available = Set(revealed.map(\.name))
+            } else {
+                available = Set(credential.credentialSubject.keys).subtracting(["id"])
+            }
+            if let missing = chosenClaims.first(where: { !available.contains($0) }) {
+                missingOnSomeCard = missing
+                continue
+            }
+
+            guard let descriptor = matching.first(where: {
+                let claims = Set($0.requestedFields.compactMap(\.claimName))
+                return claims.isEmpty || chosenClaims.isSubset(of: claims)
+            }) else { continue }
+
+            // A legacy clear-text envelope cannot selectively withhold claims.
+            // New production issuance always has commitments; refuse to imply a
+            // choice the wire document cannot honour.
+            guard credential.sd != nil else {
+                let clearClaims = Set(credential.credentialSubject.keys).subtracting(["id"])
+                guard chosenClaims == clearClaims else {
+                    if let withheld = clearClaims.subtracting(chosenClaims).first {
+                        missingOnSomeCard = withheld
+                    }
+                    continue
+                }
+                guard let key = try selfIssuedKey(subjectDID: subjectDID) else {
+                    throw OID4VPResponseError.holderKeyUnavailable
+                }
+                return OID4VPResponseMaterial(
+                    holderKey: key,
+                    presentations: [.init(descriptorID: descriptor.id,
+                                           format: .moica,
+                                           serialized: try envelope.serialized())])
+            }
+
+            envelope.disclosures = envelope.disclosures.filter { encoded in
+                guard let disclosure = Disclosure(encoded: encoded) else { return false }
+                return chosenClaims.contains(disclosure.claimName)
+            }
+            guard let key = try selfIssuedKey(subjectDID: subjectDID) else {
+                throw OID4VPResponseError.holderKeyUnavailable
+            }
+            return OID4VPResponseMaterial(
+                holderKey: key,
+                presentations: [.init(descriptorID: descriptor.id,
+                                       format: .moica,
+                                       serialized: try envelope.serialized())])
+        }
+
+        if let missingOnSomeCard {
+            throw OID4VPResponseError.requestedClaimNotAvailable(missingOnSomeCard)
+        }
+        throw OID4VPResponseError.noMatchingCredential
+    }
+
+    private func selfIssuedKey(subjectDID: String) throws -> DeviceKey? {
+        let publicKey: P256.Signing.PublicKey
+        if let key = try? DIDKey.p256PublicKey(fromDID: subjectDID) {
+            publicKey = key
+        } else if let key = try? JWKDIDKey.p256PublicKey(fromDID: subjectDID) {
+            publicKey = key
+        } else {
+            return nil
+        }
+        return try? keyring.key(matchingPublicKeyX963: publicKey.x963Representation)
     }
 
     /// Rebuilds a TWDIW SD-JWT keeping only the chosen disclosures.
@@ -303,20 +428,34 @@ struct OID4VPResponder {
 
     func presentationSubmission(for request: OID4VPRequest,
                                 descriptorIDs: [String]) -> [String: Any] {
+        presentationSubmission(
+            for: request,
+            presented: descriptorIDs.map {
+                OID4VPPresentedCredential(descriptorID: $0,
+                                          format: .sdJWT,
+                                          serialized: "")
+            })
+    }
+
+    func presentationSubmission(for request: OID4VPRequest,
+                                presented: [OID4VPPresentedCredential]) -> [String: Any] {
         [
             // A stable id derived from the exchange rather than random, so a test
             // can assert on it. The verifier requires only a non-empty string;
             // the official app happens to use a UUID, which this need not copy.
             "id": "submission-" + request.state,
             "definition_id": request.definitionID,
-            "descriptor_map": descriptorIDs.enumerated().map { index, descriptorID in
+            "descriptor_map": presented.enumerated().map { index, credential in
                 [
-                    "id": descriptorID,
+                    "id": credential.descriptorID,
                     "format": "jwt_vp",
                     "path": "$",
                     "path_nested": [
-                        "id": descriptorID,
-                        "format": "jwt_vc",
+                        "id": credential.descriptorID,
+                        // The official TWDIW compatibility dialect calls its
+                        // inner SD-JWT `jwt_vc`; our own envelope is explicitly
+                        // named so it cannot be mistaken for JOSE.
+                        "format": credential.format == .moica ? "vc+moica" : "jwt_vc",
                         "path": "$.vp.verifiableCredential[\(index)]",
                     ],
                 ] as [String: Any]

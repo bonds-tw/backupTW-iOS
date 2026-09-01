@@ -85,6 +85,12 @@ enum VerificationCaveat: Equatable, CaseIterable {
     /// evidence does not support.
     case assertedByCardholder
 
+    /// A third-party TWDIW issuer signed this credential and the issuer DID
+    /// matched API + Arbitrum evidence stored when the card was collected.
+    /// This is deliberately not phrased as a current online check: the snapshot
+    /// can age while the verifier remains offline.
+    case governmentIssuerMatchedStoredTrust
+
     /// Everything about this presentation that is the same every time, and for a
     /// card-signed credential that includes the holder's legal name.
     ///
@@ -109,6 +115,10 @@ enum VerificationCaveat: Equatable, CaseIterable {
     /// certificate at all, which means proving the chain inside a circuit
     /// instead, which is what the ZK path is for.
     case identifierIsLinkable
+
+    /// TWDIW avoids sending the holder's X.509 certificate, but its `sub` and
+    /// holder key remain stable for this card and can link repeated checks.
+    case governmentCardIdentifierIsLinkable
 
     /// Nothing in this check establishes that the person holding out the phone
     /// is the one who answered it.
@@ -181,11 +191,17 @@ extension VerificationCaveat {
             // this", which is the one reading that is wrong.
             return NSLocalizedString("The holder signed these details with their own government-issued certificate. That confirms who is making the claim, not that the government has confirmed the details.",
                                      comment: "Shown alongside a successful offline verification")
+        case .governmentIssuerMatchedStoredTrust:
+            return NSLocalizedString("The card was signed by a government-wallet issuer whose API record and Arbitrum record matched when this device stored its trust snapshot. This offline check does not confirm that the record is still current.",
+                                     comment: "Shown alongside a successful offline verification")
         case .identifierIsLinkable:
             // Names what was disclosed rather than the property it violates. The
             // holder chose which fields to send; none of those choices covered
             // the certificate, and the certificate has their name on it.
             return NSLocalizedString("The certificate that signed this document carries the holder's legal name, and it is sent to every checker whether or not they chose to disclose it. Any two checkers can tell it was the same person.",
+                                     comment: "Shown alongside a successful offline verification")
+        case .governmentCardIdentifierIsLinkable:
+            return NSLocalizedString("This government card uses a stable holder identifier and key. Two checkers comparing presentations can tell the same card was used.",
                                      comment: "Shown alongside a successful offline verification")
         case .verifierNotAuthenticated:
             // Says what a relay *looks like* rather than naming one. A verifier
@@ -245,14 +261,15 @@ extension VerificationCaveat {
         case .noNetworkQuery,
              .revocationNotChecked, .revocationCheckedInLocalSnapshotOnly,
              .revocationCheckedInStaleSnapshot,
-             .selfIssuedByTheHolder, .assertedByCardholder, .noExpiryAsserted:
+             .selfIssuedByTheHolder, .assertedByCardholder,
+             .governmentIssuerMatchedStoredTrust, .noExpiryAsserted:
             // `noNetworkQuery` is drawn under the verdict rather than in a
             // group; its membership here is a fallback so a future caller that
             // does group it puts it somewhere sensible.
             return .aboutTheDocument
         case .verifierNotAuthenticated, .notBoundToThisVerifier:
             return .aboutThePersonPresenting
-        case .identifierIsLinkable:
+        case .identifierIsLinkable, .governmentCardIdentifierIsLinkable:
             return .whatEveryCheckerLearns
         }
     }
@@ -357,6 +374,12 @@ enum VerificationFailure: Error, Equatable {
     /// this device to evaluate one against, and showing an unevaluated issuer as
     /// verified would be a lie, so it is refused until there is one.
     case credentialIssuerIsNotTheSubject
+    /// The request named one credential family and the response carried the
+    /// other. Refused before choosing either verifier.
+    case credentialSourceMismatch
+    /// A valid third-party signature from an issuer this offline device has not
+    /// independently authorised is still an untrusted assertion.
+    case issuerNotInOfflineTrustStore
 
     // MARK: Freshness
 
@@ -516,6 +539,12 @@ extension VerificationFailure {
         case .credentialIssuerIsNotTheSubject:
             return NSLocalizedString("This document was issued by someone this app has no way to check.",
                                      comment: "Offline verification failure")
+        case .credentialSourceMismatch:
+            return NSLocalizedString("The holder showed a different kind of document from the one this check requested.",
+                                     comment: "Offline verification failure")
+        case .issuerNotInOfflineTrustStore:
+            return NSLocalizedString("This government card's issuer is not in the API and Arbitrum trust evidence stored on this device.",
+                                     comment: "Offline verification failure")
         case .challengeMismatch:
             return NSLocalizedString("This presentation answers a different check, so it may be a copy of an earlier one.",
                                      comment: "Offline verification failure")
@@ -578,6 +607,7 @@ extension VerificationFailure {
              .credentialIsNotAJWS, .credentialIsNotACredential, .issuerIdentifierUnusable,
              .credentialKeyIDMismatch, .credentialSignatureInvalid, .credentialUnreadable,
              .credentialNotBoundToPresenter, .credentialIssuerIsNotTheSubject,
+             .credentialSourceMismatch, .issuerNotInOfflineTrustStore,
              .challengeMismatch, .purposeMismatch, .audienceMismatch,
              .presentationTimestampUnreadable, .presentationTooOld,
              .presentationDatedInTheFuture, .credentialValidityUnreadable,
@@ -860,10 +890,12 @@ enum OfflineVerifier {
     static func verify(presentationJWS: String,
                        against request: PresentationRequest,
                        now: Date = Date(),
-                       revocation: RevocationLookup = .unavailable) -> VerificationOutcome {
+                       revocation: RevocationLookup = .unavailable,
+                       issuerTrust: OfflineIssuerTrustLookup = .unavailable) -> VerificationOutcome {
         do {
             return .verified(try check(presentationJWS, against: request,
-                                       now: now, revocation: revocation))
+                                       now: now, revocation: revocation,
+                                       issuerTrust: issuerTrust))
         } catch let failure as VerificationFailure {
             return .rejected(failure)
         } catch {
@@ -887,7 +919,8 @@ enum OfflineVerifier {
     private static func check(_ presentationJWS: String,
                               against request: PresentationRequest,
                               now: Date,
-                              revocation: RevocationLookup) throws -> VerifiedPresentation {
+                              revocation: RevocationLookup,
+                              issuerTrust: OfflineIssuerTrustLookup) throws -> VerifiedPresentation {
 
         // 1. Structure, and the domain separation that stops a stored credential
         //    passing as a live presentation.
@@ -925,9 +958,22 @@ enum OfflineVerifier {
         let credential: CheckedCredential
         switch try envelopedCredential(in: presentation.payload) {
         case .deviceSigned(let jws):
+            guard request.credentialSource == .selfIssued else {
+                throw VerificationFailure.credentialSourceMismatch
+            }
             credential = try checkDeviceSigned(jws)
         case .cardSigned(let envelope):
+            guard request.credentialSource == .selfIssued else {
+                throw VerificationFailure.credentialSourceMismatch
+            }
             credential = try checkCardSigned(envelope, now: now)
+        case .governmentSDJWT(let serialized):
+            guard request.credentialSource == .twdiw else {
+                throw VerificationFailure.credentialSourceMismatch
+            }
+            credential = try checkGovernmentSDJWT(serialized,
+                                                  now: now,
+                                                  issuerTrust: issuerTrust)
         }
         let issuer = credential.issuer
 
@@ -944,8 +990,10 @@ enum OfflineVerifier {
         guard subject == holder else {
             throw VerificationFailure.credentialNotBoundToPresenter
         }
-        guard issuer == subject else {
-            throw VerificationFailure.credentialIssuerIsNotTheSubject
+        if credential.issuerTrustSnapshot == nil {
+            guard issuer == subject else {
+                throw VerificationFailure.credentialIssuerIsNotTheSubject
+            }
         }
 
         // 5. Freshness. See the type documentation for the half of the replay
@@ -1057,26 +1105,20 @@ enum OfflineVerifier {
         }
         let revocationCaveat = try caveat(for: revocationStatus, now: now)
 
-        var caveats: [VerificationCaveat] = [.noNetworkQuery,
-                                             revocationCaveat,
-                                             // Which of the two appears is the
-                                             // only place the securing mechanism
-                                             // reaches the screen, and they say
-                                             // materially different things: one
-                                             // means the phone vouched for these
-                                             // fields, the other means a named
-                                             // cardholder did.
-                                             credential.cardholderName == nil
-                                                 ? .selfIssuedByTheHolder
-                                                 : .assertedByCardholder,
-                                             .identifierIsLinkable,
-                                             // Unconditional for the same reason
-                                             // `revocationNotChecked` is: this
-                                             // build cannot authenticate a
-                                             // verifier at all, so there is no
-                                             // presentation about which the
-                                             // sentence would be untrue.
-                                             .verifierNotAuthenticated]
+        var caveats: [VerificationCaveat] = [.noNetworkQuery, revocationCaveat]
+        if credential.issuerTrustSnapshot != nil {
+            caveats.append(.governmentIssuerMatchedStoredTrust)
+            caveats.append(.governmentCardIdentifierIsLinkable)
+        } else {
+            // Which of the two appears is the only place the self-issued
+            // securing mechanism reaches the screen.
+            caveats.append(credential.cardholderName == nil
+                               ? .selfIssuedByTheHolder
+                               : .assertedByCardholder)
+            caveats.append(.identifierIsLinkable)
+        }
+        // Unconditional: this build cannot authenticate an offline verifier.
+        caveats.append(.verifierNotAuthenticated)
         if validUntil == nil { caveats.append(.noExpiryAsserted) }
         if !audienceIsBound { caveats.append(.notBoundToThisVerifier) }
 
@@ -1159,10 +1201,8 @@ enum OfflineVerifier {
         do {
             return try DIDKey.p256PublicKey(fromDID: did)
         } catch {
-            // `DIDKeyError` distinguishes a wrong curve from a corrupt string,
-            // which is useful to us and not to the person at the counter; it is
-            // dropped here rather than widening this type with a diagnostic
-            // nobody acts on.
+            if let key = try? JWKDIDKey.p256PublicKey(fromDID: did) { return key }
+            // Both supported did:key multicodecs refused it.
             throw failure
         }
     }
@@ -1222,6 +1262,7 @@ enum OfflineVerifier {
     enum EnvelopedCredential {
         case deviceSigned(compactJWS: String)
         case cardSigned(MOICASignedCredential)
+        case governmentSDJWT(String)
     }
 
     /// What a credential turned out to be, once its own signature was checked.
@@ -1246,6 +1287,9 @@ enum OfflineVerifier {
         /// device-signed credential. The key MOICA's revocation tree is built
         /// on, and the only thing the revocation check needs from here.
         let certificateSerialNumberHex: String?
+        /// Present only after the SD-JWT issuer DID matched the independently
+        /// stored API + Arbitrum evidence.
+        let issuerTrustSnapshot: OfflineIssuerTrustSnapshot?
     }
 
     /// Pulls the credential out of the presentation without re-encoding it.
@@ -1286,6 +1330,11 @@ enum OfflineVerifier {
             }
             return .cardSigned(signed)
         }
+        if identifier.hasPrefix(EnvelopedVerifiableCredential.sdJWTPrefix) {
+            let serialized = String(identifier.dropFirst(EnvelopedVerifiableCredential.sdJWTPrefix.count))
+            guard !serialized.isEmpty else { throw VerificationFailure.credentialUnreadable }
+            return .governmentSDJWT(serialized)
+        }
         // An envelope carrying a media type this build does not know — a ZK
         // proof, one day — is refused here rather than fed to the wrong parser.
         throw VerificationFailure.credentialNotEnveloped
@@ -1318,7 +1367,8 @@ enum OfflineVerifier {
                                  claims: [:],
                                  withheldClaimCount: 0,
                                  cardholderNameWasChecked: false,
-                                 certificateSerialNumberHex: nil)
+                                 certificateSerialNumberHex: nil,
+                                 issuerTrustSnapshot: nil)
     }
 
     /// The current path: the fields were signed with the holder's 自然人憑證.
@@ -1392,7 +1442,67 @@ enum OfflineVerifier {
                                  claims: verified.claims,
                                  withheldClaimCount: verified.withheldClaimCount,
                                  cardholderNameWasChecked: verified.cardholderNameWasChecked,
-                                 certificateSerialNumberHex: verified.certificateSerialNumberHex)
+                                 certificateSerialNumberHex: verified.certificateSerialNumberHex,
+                                 issuerTrustSnapshot: nil)
+    }
+
+    /// Government-wallet SD-JWT path. `TWDIWCredentialReader` verifies the
+    /// issuer's ES256 signature, each disclosure commitment and `cnf.jwk`; the
+    /// outer presentation signature is checked separately above, and the shared
+    /// subject/holder equality below binds the two layers together.
+    private static func checkGovernmentSDJWT(_ serialized: String,
+                                             now: Date,
+                                             issuerTrust: OfflineIssuerTrustLookup) throws -> CheckedCredential {
+        let credential: TWDIWCredential
+        do {
+            credential = try TWDIWCredentialReader.read(serialized, now: now)
+        } catch let error as TWDIWCredentialError {
+            switch error {
+            case .unresolvableIssuer, .signatureInvalid, .undisclosedDigest:
+                throw VerificationFailure.credentialSignatureInvalid
+            case .malformedCompactSerialization, .malformedJSON, .unsupportedAlgorithm,
+                    .unexpectedType, .missingClaim, .unsupportedDigestAlgorithm,
+                    .malformedDisclosure:
+                throw VerificationFailure.credentialUnreadable
+            }
+        } catch {
+            throw VerificationFailure.credentialUnreadable
+        }
+        guard let snapshot = issuerTrust.find(credential.issuerDID),
+              snapshot.issuerDID == credential.issuerDID,
+              snapshot.network == TWDIWOnChainVerifier.network,
+              snapshot.contractAddress.lowercased() == TWDIWOnChainVerifier.registryContract else {
+            throw VerificationFailure.issuerNotInOfflineTrustStore
+        }
+
+        var subject: [String: String] = ["id": credential.subjectDID]
+        for claim in credential.disclosedClaims { subject[claim.name] = claim.value }
+        var payload: [String: Any] = [
+            "@context": [VerifiableCredential.credentialsV2Context],
+            "type": [VerifiableCredential.baseType, credential.credentialType],
+            "issuer": credential.issuerDID,
+            "validFrom": VerifiableCredential.timestamp(from: credential.notBefore),
+            "credentialSubject": subject,
+        ]
+        if credential.expires != .distantFuture {
+            payload["validUntil"] = VerifiableCredential.timestamp(from: credential.expires)
+        }
+        guard let payloadData = try? JSONSerialization.data(withJSONObject: payload,
+                                                            options: [.sortedKeys]) else {
+            throw VerificationFailure.credentialUnreadable
+        }
+        var disclosed: [String: String] = [:]
+        for claim in credential.disclosedClaims { disclosed[claim.name] = claim.value }
+        return CheckedCredential(payload: payload,
+                                 payloadData: payloadData,
+                                 issuer: credential.issuerDID,
+                                 cardholderName: nil,
+                                 claims: disclosed,
+                                 withheldClaimCount: max(0, credential.commitments.count
+                                                            - credential.disclosedClaims.count),
+                                 cardholderNameWasChecked: false,
+                                 certificateSerialNumberHex: nil,
+                                 issuerTrustSnapshot: snapshot)
     }
 
     /// Reads a field from the body, falling back to the protected header.

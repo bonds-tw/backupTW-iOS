@@ -1,6 +1,588 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Government issuer matched the saved API + Arbitrum trust evidence.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "政府發行者符合本機保存的 API＋Arbitrum 信任證據。"
+          }
+        }
+      }
+    },
+    "Only the yes/no statement is returned. The hidden birth date, card and proving files stay here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只會回傳是／否結論；隱藏的生日、卡片與證明檔案都留在這支手機。"
+          }
+        }
+      }
+    },
+    "Sending it directly to the checker over Bluetooth. There are no response QR codes to scan.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正透過藍牙直接傳給查驗方，不會出現需要逐張掃描的回應 QR Code。"
+          }
+        }
+      }
+    },
+    "Source: self-asserted MyData derivative; this is not a government attestation.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "來源：MyData 自我聲明衍生證件；這不是政府證明。"
+          }
+        }
+      }
+    },
+    "The checker asks whether you are at least %d.\n\nPurpose: %@\nSource: %@\n\nYour birth date and card never leave this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方想確認你是否已滿 %d 歲。\n\n目的：%@\n來源：%@\n\n你的生日與卡片不會離開這支手機。"
+          }
+        }
+      }
+    },
+    "The proof returns directly over Bluetooth; their phone will not show a QR carousel.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明會直接透過藍牙回傳；對方手機不會出現輪替 QR Code。"
+          }
+        }
+      }
+    },
+      "A request could not be created": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "無法建立查驗要求"
+            }
+          }
+        }
+      },
+      "A secure one-time request could not be created.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "無法建立安全的一次性查驗要求。"
+            }
+          }
+        }
+      },
+      "A private age proof could not be created from this card.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "無法從這張證件建立隱私年齡證明。"
+            }
+          }
+        }
+      },
+      "Age eligibility check": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "年齡資格查驗"
+            }
+          }
+        }
+      },
+      "Ask them to scan this one request code": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "請對方掃描這一個查驗碼"
+            }
+          }
+        }
+      },
+      "Check a private age proof": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "查驗隱私年齡證明"
+            }
+          }
+        }
+      },
+      "Checking the proof on this iPad…": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "正在這台 iPad 上查驗證明⋯"
+            }
+          }
+        }
+      },
+      "Create a new request": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "建立新的查驗要求"
+            }
+          }
+        }
+      },
+      "Create a private age proof?": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "要建立隱私年齡證明嗎？"
+            }
+          }
+        }
+      },
+      "Create proof": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "建立證明"
+            }
+          }
+        }
+      },
+      "Creating the proof on this phone…": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "正在這支手機上建立證明⋯"
+            }
+          }
+        }
+      },
+      "Government card": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "政府皮夾卡片"
+            }
+          }
+        }
+      },
+      "Listening for the proof…": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "正在等候證明⋯"
+            }
+          }
+        }
+      },
+      "MyData self-asserted": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "MyData 自我聲明"
+            }
+          }
+        }
+      },
+      "No birth date or card data was sent.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "未傳送生日或卡片資料。"
+            }
+          }
+        }
+      },
+      "Point the camera at the checker's one request code.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "將鏡頭對準查驗方唯一的一個查驗碼。"
+            }
+          }
+        }
+      },
+      "Private age proof": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "隱私年齡證明"
+            }
+          }
+        }
+      },
+      "Proof creation %@ + %@ ms · verification %@ ms": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "證明建立 %@＋%@ 毫秒・查驗 %@ 毫秒"
+            }
+          }
+        }
+      },
+      "Proof ready": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "證明已備妥"
+            }
+          }
+        }
+      },
+      "Proof rejected": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "證明未通過"
+            }
+          }
+        }
+      },
+      "Receiving proof… %d%%": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "正在接收證明⋯%d%%"
+            }
+          }
+        }
+      },
+      "Scan a field-proof request": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "掃描欄位證明查驗要求"
+            }
+          }
+        }
+      },
+      "self-issued MyData document": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "自發 MyData 資料"
+            }
+          }
+        }
+      },
+      "Sending proof… %d%%": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "正在傳送證明⋯%d%%"
+            }
+          }
+        }
+      },
+      "The checker did not provide a safe, readable purpose for this request.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "查驗方沒有提供安全且可讀的查驗目的。"
+            }
+          }
+        }
+      },
+      "The checker received the proof": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "查驗方已收到證明"
+            }
+          }
+        }
+      },
+      "The proof was not sent": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "證明尚未送出"
+            }
+          }
+        }
+      },
+      "The received field proof is incomplete or damaged.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "收到的欄位證明不完整或已損壞。"
+            }
+          }
+        }
+      },
+      "The returned proof does not answer this checker's exact request.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "回傳的證明不是針對這次查驗要求。"
+            }
+          }
+        }
+      },
+      "The zero-knowledge proof did not verify.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "零知識證明未通過查驗。"
+            }
+          }
+        }
+      },
+      "This build does not include the field-proof engine.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "這個版本未包含欄位證明引擎。"
+            }
+          }
+        }
+      },
+      "This card has no supported date-of-birth field to prove from.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "這張卡片沒有可用來建立證明的生日欄位。"
+            }
+          }
+        }
+      },
+      "This field proof was made by a newer version of the app.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "這份欄位證明由較新版本的 App 建立。"
+            }
+          }
+        }
+      },
+      "This field-proof request has expired. Ask the checker to make a new one.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "這次欄位證明查驗已逾時，請查驗方重新建立。"
+            }
+          }
+        }
+      },
+      "This government card does not have the independently saved API and blockchain trust evidence required for this proof.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "這張政府卡片沒有這項證明所需、已獨立保存的 API 與區塊鏈信任證據。"
+            }
+          }
+        }
+      },
+      "This is not a field-proof request this app can read.": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "這不是本 App 能讀取的欄位證明查驗要求。"
+            }
+          }
+        }
+      },
+      "Verified: at least %d": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "已驗證：已滿 %d 歲"
+            }
+          }
+        }
+      },
+      "Waiting for the checker to receive the proof…": {
+        "localizations": {
+          "zh-Hant": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "正在等候查驗方接收證明⋯"
+            }
+          }
+        }
+      },
+    "Age 18 or over": {
+      "comment": "claim: age predicate",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已滿 18 歲"
+          }
+        }
+      }
+    },
+    "Document source to verify": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要查驗的證件來源"
+          }
+        }
+      }
+    },
+    "government wallet card": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "政府皮夾卡片"
+          }
+        }
+      }
+    },
+    "Requested: %@ · Reason shown to them: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要求出示：%@・向對方顯示的理由：%@"
+          }
+        }
+      }
+    },
+    "Self-issued / MyData": {
+      "comment": "Offline verifier credential source",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自發證件／MyData"
+          }
+        }
+      }
+    },
+    "self-issued / MyData document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自發證件／MyData 資料"
+          }
+        }
+      }
+    },
+    "The card was signed by a government-wallet issuer whose API record and Arbitrum record matched when this device stored its trust snapshot. This offline check does not confirm that the record is still current.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張卡由政府皮夾發行者簽署；本機儲存信任快照時，官方 API 與 Arbitrum 紀錄彼此相符。這次離線查驗無法確認紀錄現在仍是最新狀態。"
+          }
+        }
+      }
+    },
+    "The holder showed a different kind of document from the one this check requested.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "持有人出示的證件種類與這次查驗要求的不符。"
+          }
+        }
+      }
+    },
+    "This checker asked for a government wallet card, but this phone does not have one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方要求政府皮夾卡片，但這支手機沒有這類卡片。"
+          }
+        }
+      }
+    },
+    "This checker asked for your self-issued document, but this phone does not have one.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方要求你的自發證件，但這支手機沒有這類證件。"
+          }
+        }
+      }
+    },
+    "This government card does not currently expose any fields that can be selected for this offline presentation.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張政府卡片目前沒有可供這次離線出示勾選的欄位。"
+          }
+        }
+      }
+    },
+    "This government card does not send your citizen certificate, but it does use a stable holder identifier and key. Two checkers comparing presentations can tell the same card was used.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張政府卡片不會送出你的自然人憑證，但會使用固定的持有人識別碼與金鑰。兩個查驗方若互相比對，能判斷是同一張卡。"
+          }
+        }
+      }
+    },
+    "This government card uses a stable holder identifier and key. Two checkers comparing presentations can tell the same card was used.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張政府卡片使用固定的持有人識別碼與金鑰。兩個查驗方若互相比對，能判斷是同一張卡。"
+          }
+        }
+      }
+    },
+    "This government card's issuer is not in the API and Arbitrum trust evidence stored on this device.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張政府卡片的發行者不在本機保存的官方 API 與 Arbitrum 信任證據中。"
+          }
+        }
+      }
+    },
     "Bluetooth is also active. If it connects, the transfer finishes without waiting for every QR part.": {
       "localizations": {
         "zh-Hant": {
@@ -10685,6 +11267,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在準備驗證檔案…"
+          }
+        }
+      }
+    },
+    "Preparing private proof files… %d%%": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在準備隱私證明檔案… %d%%"
+          }
+        }
+      }
+    },
+    "Preparing checking files… %d%%": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在準備查驗檔案… %d%%"
+          }
+        }
+      }
+    },
+    "Preparing offline checking files…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在準備離線查驗檔案…"
+          }
+        }
+      }
+    },
+    "Checking files are not ready": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗檔案尚未備妥"
+          }
+        }
+      }
+    },
+    "Offline checking files are ready. The proof returns over Bluetooth; their phone will not show a QR carousel.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離線查驗檔案已備妥。證明會透過藍牙回傳；對方手機不會出現輪替 QR Code。"
           }
         }
       }

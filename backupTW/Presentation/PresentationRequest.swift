@@ -34,6 +34,18 @@ enum PresentationRequestError: Error, Equatable {
     case malformedAudience
 }
 
+/// Which locally stored credential family the verifier is asking to inspect.
+///
+/// This is part of the request instead of a holder-side guess. A wallet can
+/// contain both a card signed by its owner and an SD-JWT issued by a government
+/// issuer; silently choosing whichever filename sorts first is both surprising
+/// and a type-confusion risk. The verifier names the family, then the holder can
+/// make an informed disclosure decision for that family.
+enum PresentationCredentialSource: String, Codable, CaseIterable, Equatable, Sendable {
+    case selfIssued = "s"
+    case twdiw = "g"
+}
+
 /// What a verifier hands to a holder to start an offline presentation.
 ///
 /// **Direction of travel.** The verifier generates this and shows it (a QR on
@@ -76,7 +88,13 @@ struct PresentationRequest: Equatable {
     /// too old" rather than as a decode error, or worse, as a request that
     /// half-parses. The ZK path in particular will need to say *which* proof it
     /// wants, and that request will not be readable by this version.
-    static let version = 1
+    static let version = 2
+
+    /// Version 1 did not carry a credential source. It meant the only flow that
+    /// existed at the time: the self-issued document. Keep accepting it with
+    /// that exact meaning so an older verifier does not become a request for a
+    /// newly installed government card by accident.
+    static let legacyVersion = 1
 
     /// The verifier's freshness value, base64url. Replay protection rests
     /// entirely on this being unpredictable and consumed exactly once.
@@ -130,6 +148,9 @@ struct PresentationRequest: Equatable {
     /// not being shown anything. The value is random, it lives as long as the
     /// challenge does, and it is unlinkable to the next one.
     let linkServiceID: UUID?
+
+    /// The credential family the verifier is asking for.
+    let credentialSource: PresentationCredentialSource
 
     // MARK: - Limits
 
@@ -191,7 +212,8 @@ struct PresentationRequest: Equatable {
          purpose: String,
          createdAt: Date,
          audience: String? = nil,
-         linkServiceID: UUID? = nil) throws {
+         linkServiceID: UUID? = nil,
+         credentialSource: PresentationCredentialSource = .selfIssued) throws {
         guard !challenge.isEmpty,
               challenge.count <= Self.maximumChallengeLength,
               challenge.rangeOfCharacter(from: Self.challengeAlphabet.inverted) == nil else {
@@ -249,6 +271,7 @@ struct PresentationRequest: Equatable {
         self.audience = checkedAudience
         self.createdAt = Date(timeIntervalSince1970: createdAt.timeIntervalSince1970.rounded(.down))
         self.linkServiceID = linkServiceID
+        self.credentialSource = credentialSource
     }
 
     /// Mints a request with a fresh challenge. Verifier side.
@@ -260,6 +283,7 @@ struct PresentationRequest: Equatable {
     /// should stop, not carry on quietly.
     static func generate(purpose: String,
                          audience: String? = nil,
+                         credentialSource: PresentationCredentialSource = .selfIssued,
                          now: Date = Date()) throws -> PresentationRequest {
         var bytes = [UInt8](repeating: 0, count: challengeByteCount)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
@@ -274,7 +298,8 @@ struct PresentationRequest: Equatable {
                                        // away with it. `UUID()` is the system
                                        // CSPRNG, the same source as the bytes
                                        // above.
-                                       linkServiceID: UUID())
+                                       linkServiceID: UUID(),
+                                       credentialSource: credentialSource)
     }
 }
 
@@ -295,6 +320,7 @@ extension PresentationRequest: Codable {
         case createdAt = "t"
         case audience = "a"
         case linkServiceID = "b"
+        case credentialSource = "k"
     }
 
     init(from decoder: Decoder) throws {
@@ -303,7 +329,7 @@ extension PresentationRequest: Codable {
         // Version first: a newer request must be reported as such, not as
         // whichever field happens to be missing from it.
         let version = try container.decode(Int.self, forKey: .version)
-        guard version == Self.version else {
+        guard version == Self.version || version == Self.legacyVersion else {
             throw PresentationRequestError.unsupportedVersion(version)
         }
 
@@ -322,6 +348,15 @@ extension PresentationRequest: Codable {
                 }
                 return uuid
             }
+        let credentialSource: PresentationCredentialSource
+        if version == Self.legacyVersion {
+            // A v1 sender did not know government-card offline presentation.
+            // Ignore an injected `k` and retain v1's only defined meaning.
+            credentialSource = .selfIssued
+        } else {
+            credentialSource = try container.decode(PresentationCredentialSource.self,
+                                                    forKey: .credentialSource)
+        }
 
         // Straight through the validating initialiser: a request that arrived
         // over the air is the one that most needs the checks.
@@ -329,7 +364,8 @@ extension PresentationRequest: Codable {
                       purpose: purpose,
                       createdAt: Date(timeIntervalSince1970: TimeInterval(createdAt)),
                       audience: audience,
-                      linkServiceID: linkServiceID)
+                      linkServiceID: linkServiceID,
+                      credentialSource: credentialSource)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -345,6 +381,7 @@ extension PresentationRequest: Codable {
         // what `CBUUID` reads back — 36 characters in a code that is otherwise
         // about a hundred, and omitted entirely when there is no radio on offer.
         try container.encodeIfPresent(linkServiceID?.uuidString, forKey: .linkServiceID)
+        try container.encode(credentialSource, forKey: .credentialSource)
         // Whole seconds since the epoch. An ISO-8601 string would be three times
         // the bytes and would drag a formatter and a timezone into a value whose
         // only job is to be compared with another instant.

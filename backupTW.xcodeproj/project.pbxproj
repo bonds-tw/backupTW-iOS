@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A6E00030000000000000003 /* OpenACAgeSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 0A6E00020000000000000002 /* OpenACAgeSwift */; };
 		0AAC0003000000000000AC03 /* OpenACSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 0AAC0002000000000000AC02 /* OpenACSwift */; };
 		EA4004342DE9A55200FD52B1 /* Zip in Frameworks */ = {isa = PBXBuildFile; productRef = EA4004332DE9A55200FD52B1 /* Zip */; };
 /* End PBXBuildFile section */
@@ -72,6 +73,7 @@
 			files = (
 				EA4004342DE9A55200FD52B1 /* Zip in Frameworks */,
 				0AAC0003000000000000AC03 /* OpenACSwift in Frameworks */,
+				0A6E00030000000000000003 /* OpenACAgeSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -142,6 +144,7 @@
 			packageProductDependencies = (
 				EA4004332DE9A55200FD52B1 /* Zip */,
 				0AAC0002000000000000AC02 /* OpenACSwift */,
+				0A6E00020000000000000002 /* OpenACAgeSwift */,
 			);
 			productName = backupTW;
 			productReference = EA24E2972DE962010026A1D4 /* backupTW.app */;
@@ -229,6 +232,7 @@
 			packageReferences = (
 				EA24E2CB2DE9A2F60026A1D4 /* XCRemoteSwiftPackageReference "Zip" */,
 				0AAC0001000000000000AC01 /* XCRemoteSwiftPackageReference "openac-rsa-x509-swift" */,
+				0A6E00010000000000000001 /* XCLocalSwiftPackageReference "OpenACAgePackage" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EA24E2982DE962010026A1D4 /* Products */;
@@ -612,6 +616,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		0A6E00010000000000000001 /* XCLocalSwiftPackageReference "OpenACAgePackage" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Native/OpenACAgePackage;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		0AAC0001000000000000AC01 /* XCRemoteSwiftPackageReference "openac-rsa-x509-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -632,6 +643,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0A6E00020000000000000002 /* OpenACAgeSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0A6E00010000000000000001 /* XCLocalSwiftPackageReference "OpenACAgePackage" */;
+			productName = OpenACAgeSwift;
+		};
 		0AAC0002000000000000AC02 /* OpenACSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 0AAC0001000000000000AC01 /* XCRemoteSwiftPackageReference "openac-rsa-x509-swift" */;

@@ -1,0 +1,526 @@
+diff --git a/wallet-unit-poc/mobile/Cargo.lock b/wallet-unit-poc/mobile/Cargo.lock
+index 413cc55..b195ed4 100644
+--- a/wallet-unit-poc/mobile/Cargo.lock
++++ b/wallet-unit-poc/mobile/Cargo.lock
+@@ -264,12 +264,24 @@ dependencies = [
+  "windows-targets",
+ ]
+ 
++[[package]]
++name = "base16ct"
++version = "0.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
++
+ [[package]]
+ name = "base64"
+ version = "0.22.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+ 
++[[package]]
++name = "base64ct"
++version = "1.8.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
++
+ [[package]]
+ name = "basic-toml"
+ version = "0.1.10"
+@@ -504,6 +516,12 @@ dependencies = [
+  "wasm-bindgen",
+ ]
+ 
++[[package]]
++name = "const-oid"
++version = "0.9.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
++
+ [[package]]
+ name = "const_format"
+ version = "0.2.35"
+@@ -585,6 +603,18 @@ version = "0.2.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
+ 
++[[package]]
++name = "crypto-bigint"
++version = "0.5.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0dc92fb57ca44df6db8059111ab3af99a63d5d0f8375d9972e319a379c6bab76"
++dependencies = [
++ "generic-array",
++ "rand_core 0.6.4",
++ "subtle",
++ "zeroize",
++]
++
+ [[package]]
+ name = "crypto-common"
+ version = "0.1.6"
+@@ -628,6 +658,17 @@ dependencies = [
+  "syn 2.0.104",
+ ]
+ 
++[[package]]
++name = "der"
++version = "0.7.10"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
++dependencies = [
++ "const-oid",
++ "pem-rfc7468",
++ "zeroize",
++]
++
+ [[package]]
+ name = "deranged"
+ version = "0.4.0"
+@@ -664,7 +705,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+ dependencies = [
+  "block-buffer",
++ "const-oid",
+  "crypto-common",
++ "subtle",
++]
++
++[[package]]
++name = "ecdsa"
++version = "0.16.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "ee27f32b5c5292967d2d4a9d7f1e0b0aed2c15daded5a60300e4abb9d8020bca"
++dependencies = [
++ "der",
++ "digest 0.10.7",
++ "elliptic-curve",
++ "rfc6979",
++ "signature",
++ "spki",
+ ]
+ 
+ [[package]]
+@@ -694,6 +751,26 @@ version = "1.15.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+ 
++[[package]]
++name = "elliptic-curve"
++version = "0.13.8"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b5e6043086bf7973472e0c7dff2142ea0b680d30e18d9cc40f267efbf222bd47"
++dependencies = [
++ "base16ct",
++ "crypto-bigint",
++ "digest 0.10.7",
++ "ff",
++ "generic-array",
++ "group",
++ "pem-rfc7468",
++ "pkcs8",
++ "rand_core 0.6.4",
++ "sec1",
++ "subtle",
++ "zeroize",
++]
++
+ [[package]]
+ name = "env_filter"
+ version = "0.1.4"
+@@ -974,6 +1051,7 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
+ dependencies = [
+  "typenum",
+  "version_check",
++ "zeroize",
+ ]
+ 
+ [[package]]
+@@ -1110,6 +1188,15 @@ dependencies = [
+  "serde",
+ ]
+ 
++[[package]]
++name = "hmac"
++version = "0.12.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
++dependencies = [
++ "digest 0.10.7",
++]
++
+ [[package]]
+ name = "iana-time-zone"
+ version = "0.1.64"
+@@ -1444,7 +1531,8 @@
+-name = "openac-mobile-app"
++name = "openac-age-mobile-app"
+ version = "0.1.0"
+ dependencies = [
+  "anyhow",
++ "base64",
+  "bellpepper",
+  "bellpepper-core",
+  "bincode",
+@@ -1464,9 +1552,11 @@ dependencies = [
+  "num-integer",
+  "num-traits",
+  "once_cell",
++ "p256",
+  "rand_core 0.6.4",
+  "rayon",
+  "serde",
++ "serde_json",
+  "sha2",
+  "sha3",
+  "spartan2",
+@@ -1500,6 +1590,18 @@ version = "4.2.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "48dd4f4a2c8405440fd0462561f0e5806bd0f77e86f51c761481bdd4018b545e"
+ 
++[[package]]
++name = "p256"
++version = "0.13.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c9863ad85fa8f4460f9c48cb909d38a0d689dba1f6f6988a5e3e0d31071bcd4b"
++dependencies = [
++ "ecdsa",
++ "elliptic-curve",
++ "primeorder",
++ "sha2",
++]
++
+ [[package]]
+ name = "pairing"
+ version = "0.23.0"
+@@ -1556,6 +1658,15 @@ version = "1.0.15"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+ 
++[[package]]
++name = "pem-rfc7468"
++version = "0.7.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "88b39c9bfcfc231068454382784bb460aae594343fb030d46e9f50a645418412"
++dependencies = [
++ "base64ct",
++]
++
+ [[package]]
+ name = "pest"
+ version = "2.8.6"
+@@ -1578,6 +1689,16 @@ version = "0.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
+ 
++[[package]]
++name = "pkcs8"
++version = "0.10.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
++dependencies = [
++ "der",
++ "spki",
++]
++
+ [[package]]
+ name = "plain"
+ version = "0.2.3"
+@@ -1614,6 +1735,15 @@ dependencies = [
+  "zerocopy",
+ ]
+ 
++[[package]]
++name = "primeorder"
++version = "0.13.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "353e1ca18966c16d9deb1c69278edbc5f194139612772bd9537af60ac231e1e6"
++dependencies = [
++ "elliptic-curve",
++]
++
+ [[package]]
+ name = "primitive-types"
+ version = "0.12.2"
+@@ -1820,6 +1950,16 @@ version = "0.8.5"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
+ 
++[[package]]
++name = "rfc6979"
++version = "0.4.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
++dependencies = [
++ "hmac",
++ "subtle",
++]
++
+ [[package]]
+ name = "rinja"
+ version = "0.3.5"
+@@ -1989,6 +2129,20 @@ dependencies = [
+  "syn 2.0.104",
+ ]
+ 
++[[package]]
++name = "sec1"
++version = "0.7.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d3e97a565f76233a6003f9f5c54be1d9c5bdfa3eccfb189469f11ec4901c47dc"
++dependencies = [
++ "base16ct",
++ "der",
++ "generic-array",
++ "pkcs8",
++ "subtle",
++ "zeroize",
++]
++
+ [[package]]
+ name = "semver"
+ version = "0.11.0"
+@@ -2102,6 +2256,16 @@ version = "1.3.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+ 
++[[package]]
++name = "signature"
++version = "2.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
++dependencies = [
++ "digest 0.10.7",
++ "rand_core 0.6.4",
++]
++
+ [[package]]
+ name = "siphasher"
+ version = "0.3.11"
+@@ -2165,6 +2329,16 @@ version = "0.9.8"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+ 
++[[package]]
++name = "spki"
++version = "0.7.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
++dependencies = [
++ "base64ct",
++ "der",
++]
++
+ [[package]]
+ name = "static_assertions"
+ version = "1.1.0"
+diff --git a/wallet-unit-poc/mobile/Cargo.toml b/wallet-unit-poc/mobile/Cargo.toml
+index 2372a05..92490e0 100644
+--- a/wallet-unit-poc/mobile/Cargo.toml
++++ b/wallet-unit-poc/mobile/Cargo.toml
+@@ -1,5 +1,5 @@
+ [package]
+-name = "openac-mobile-app"
++name = "openac-age-mobile-app"
+ version = "0.1.0"
+ edition = "2021"
+ 
+@@ -70,6 +70,9 @@ once_cell = "1.18.0"
+ tracing = "0.1"
+ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "time"] }
+ chrono = { version = "0.4", features = ["serde"] }
++base64 = "0.22"
++p256 = { version = "0.13", features = ["ecdsa"] }
++serde_json = "1.0"
+ 
+ [dev-dependencies]
+ tempfile = "3.8"
+diff --git a/wallet-unit-poc/mobile/src/lib.rs b/wallet-unit-poc/mobile/src/lib.rs
+index 7dcc0b2..6a8bf2c 100644
+--- a/wallet-unit-poc/mobile/src/lib.rs
++++ b/wallet-unit-poc/mobile/src/lib.rs
+@@ -16,6 +16,11 @@ use ecdsa_spartan2::{
+ };
+ use std::path::PathBuf;
+ 
++mod predicate;
++pub use predicate::{
++    create_age_prepare_input, create_age_show_input, verify_age_presentation, AgePrepareInput,
++};
++
+ // Initializes the shared UniFFI scaffolding and defines the `MoproError` enum.
+ mopro_ffi::app!();
+ 
+@@ -125,6 +130,31 @@ fn make_config(documents_path: &str) -> PathConfig {
+     }
+ }
+ 
++// The upstream native witness calculator performs large secp256r1/GMP
++// operations on the calling thread. The default macOS main-thread stack and
++// iOS worker stacks are too small for the 2K JWT circuit and terminate with a
++// stack-guard SIGBUS. Keep the large stack scoped to proof generation rather
++// than requiring an application-wide process limit.
++const PROVER_STACK_BYTES: usize = 64 * 1024 * 1024;
++
++fn run_prover_on_large_stack<F>(name: &str, operation: F) -> Result<(), ZkProofError>
++where
++    F: FnOnce() + Send + 'static,
++{
++    let handle = std::thread::Builder::new()
++        .name(name.to_owned())
++        .stack_size(PROVER_STACK_BYTES)
++        .spawn(operation)
++        .map_err(|error| ZkProofError::ProofGenerationFailed {
++            message: format!("failed to start prover thread: {error}"),
++        })?;
++    handle
++        .join()
++        .map_err(|_| ZkProofError::ProofGenerationFailed {
++            message: "native prover terminated unexpectedly".to_owned(),
++        })
++}
++
+ // ============================================================================
+ // Setup Operations
+ // ============================================================================
+@@ -199,8 +229,7 @@ pub fn generate_shared_blinds(documents_path: String) -> Result<String, ZkProofE
+ #[cfg_attr(feature = "uniffi", uniffi::export)]
+ pub fn prove_jwt(documents_path: String) -> Result<ProofResult, ZkProofError> {
+     let config = make_config(&documents_path);
+-    let input_dir =
+-        PathBuf::from(documents_path).join(format!("{}_input.json", JWT_CIRCUIT_NAME));
++    let input_dir = PathBuf::from(documents_path).join(format!("{}_input.json", JWT_CIRCUIT_NAME));
+ 
+     if !input_dir.exists() {
+         return Err(ZkProofError::FileNotFound {
+@@ -228,13 +257,13 @@ pub fn prove_jwt(documents_path: String) -> Result<ProofResult, ZkProofError> {
+     let circuit = PrepareCircuit::new(config.clone(), Some(input_dir));
+ 
+     let start = std::time::Instant::now();
+-    prove_circuit(
+-        circuit,
+-        config.key_path(PREPARE_PROVING_KEY),
+-        config.artifact_path(PREPARE_INSTANCE),
+-        config.artifact_path(PREPARE_WITNESS),
+-        config.artifact_path(PREPARE_PROOF),
+-    );
++    let proving_key = config.key_path(PREPARE_PROVING_KEY);
++    let instance = config.artifact_path(PREPARE_INSTANCE);
++    let witness = config.artifact_path(PREPARE_WITNESS);
++    let proof = config.artifact_path(PREPARE_PROOF);
++    run_prover_on_large_stack("openac-jwt-prover", move || {
++        prove_circuit(circuit, proving_key, instance, witness, proof);
++    })?;
+     let total_ms = start.elapsed().as_millis() as u64;
+ 
+     // Get proof size and comm_W_shared
+@@ -264,33 +293,24 @@ pub fn prove_show(documents_path: String) -> Result<ProofResult, ZkProofError> {
+     }
+ 
+     println!("input_dir: {}", input_dir.display());
+-    println!(
+-        "config: {}",
+-        config.artifact_path(SHOW_INSTANCE).display()
+-    );
+-    println!(
+-        "key_path: {}",
+-        config.key_path(SHOW_PROVING_KEY).display()
+-    );
++    println!("config: {}", config.artifact_path(SHOW_INSTANCE).display());
++    println!("key_path: {}", config.key_path(SHOW_PROVING_KEY).display());
+     println!(
+         "witness_path: {}",
+         config.artifact_path(SHOW_WITNESS).display()
+     );
+-    println!(
+-        "proof_path: {}",
+-        config.artifact_path(SHOW_PROOF).display()
+-    );
++    println!("proof_path: {}", config.artifact_path(SHOW_PROOF).display());
+ 
+     let circuit = ShowCircuit::new(config.clone(), Some(input_dir));
+ 
+     let start = std::time::Instant::now();
+-    prove_circuit(
+-        circuit,
+-        config.key_path(SHOW_PROVING_KEY),
+-        config.artifact_path(SHOW_INSTANCE),
+-        config.artifact_path(SHOW_WITNESS),
+-        config.artifact_path(SHOW_PROOF),
+-    );
++    let proving_key = config.key_path(SHOW_PROVING_KEY);
++    let instance = config.artifact_path(SHOW_INSTANCE);
++    let witness = config.artifact_path(SHOW_WITNESS);
++    let proof = config.artifact_path(SHOW_PROOF);
++    run_prover_on_large_stack("openac-show-prover", move || {
++        prove_circuit(circuit, proving_key, instance, witness, proof);
++    })?;
+     let total_ms = start.elapsed().as_millis() as u64;
+ 
+     // Get proof size and comm_W_shared
+@@ -418,12 +438,9 @@ pub fn verify_presentation(documents_path: String) -> Result<bool, ZkProofError>
+ /// Executes all 9 steps: setup, prove, reblind, and verify for both circuits
+ /// Returns comprehensive timing and size metrics
+ #[cfg_attr(feature = "uniffi", uniffi::export)]
+-pub fn run_complete_benchmark(
+-    documents_path: String,
+-) -> Result<BenchmarkResults, ZkProofError> {
++pub fn run_complete_benchmark(documents_path: String) -> Result<BenchmarkResults, ZkProofError> {
+     let config = make_config(&documents_path);
+-    let jwt_input =
+-        PathBuf::from(&documents_path).join(format!("{}_input.json", JWT_CIRCUIT_NAME));
++    let jwt_input = PathBuf::from(&documents_path).join(format!("{}_input.json", JWT_CIRCUIT_NAME));
+     let show_input =
+         PathBuf::from(&documents_path).join(format!("{}_input.json", SHOW_CIRCUIT_NAME));
+ 
+@@ -748,7 +765,7 @@ mod e2e_tests {
+     ///     show_input.json                       ← show inputs (for prove_show + run_complete_benchmark)
+     ///
+     /// Returns the documents_path string.
+-    fn setup_mobile_docs(path: &PathBuf) -> String {
++    fn setup_mobile_docs(path: &std::path::Path) -> String {
+         let docs = path.join("circom");
+         let circom = circom_root();
+ 
+@@ -788,7 +805,7 @@ mod e2e_tests {
+     fn e2e_full_workflow() {
+         let temp = tempfile::tempdir().expect("create temp dir");
+ 
+-        let docs = setup_mobile_docs(&temp);
++        let docs = setup_mobile_docs(temp.path());
+ 
+         // Step 1: Setup JWT keys
+         let r = setup_jwt_keys(docs.clone());
+@@ -848,10 +865,7 @@ mod e2e_tests {
+             .expect("get_comm_w_shared(jwt) must succeed");
+         let show_comm = get_comm_w_shared(docs.clone(), "show".to_string())
+             .expect("get_comm_w_shared(show) must succeed");
+-        assert!(
+-            !prep_comm.is_empty(),
+-            "jwt comm_W_shared must be non-empty"
+-        );
++        assert!(!prep_comm.is_empty(), "jwt comm_W_shared must be non-empty");
+         assert!(
+             !show_comm.is_empty(),
+             "show comm_W_shared must be non-empty"
+@@ -863,7 +877,7 @@ mod e2e_tests {
+     #[ignore = "Long-running e2e (~10 min); run with: cargo test -- --ignored e2e_complete_benchmark"]
+     fn e2e_complete_benchmark() {
+         let temp = tempfile::tempdir().expect("create temp dir");
+-        let docs = setup_mobile_docs(&temp);
++        let docs = setup_mobile_docs(temp.path());
+ 
+         let r = run_complete_benchmark(docs);
+         assert!(r.is_ok(), "run_complete_benchmark failed: {:?}", r.err());
+@@ -892,10 +906,7 @@ mod e2e_tests {
+             b.show_proving_key_bytes > 0,
+             "show_proving_key_bytes must be > 0"
+         );
+-        assert!(
+-            b.jwt_witness_bytes > 0,
+-            "jwt_witness_bytes must be > 0"
+-        );
++        assert!(b.jwt_witness_bytes > 0, "jwt_witness_bytes must be > 0");
+         assert!(b.show_witness_bytes > 0, "show_witness_bytes must be > 0");
+     }
+ }

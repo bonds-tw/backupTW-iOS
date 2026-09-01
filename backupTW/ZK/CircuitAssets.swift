@@ -409,6 +409,16 @@ actor CircuitAssets {
         self.assets = assets
     }
 
+    /// A production network-backed store for another immutable circuit
+    /// profile. Keeping session construction in this one audited download
+    /// module preserves the app-wide rule that presentation and verification
+    /// code never grows an incidental network path.
+    static func makeNetworkStore(directory: URL, assets: [CircuitAsset]) -> CircuitAssets {
+        CircuitAssets(directory: directory,
+                      session: URLSession(configuration: makeSessionConfiguration()),
+                      assets: assets)
+    }
+
     /// The transfer policy, exposed so it can be asserted on rather than only
     /// read.
     ///

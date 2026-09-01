@@ -47,7 +47,8 @@ final class VerifierViewController: UIViewController {
     /// property this whole design exists to buy, and would do it at the moment a
     /// stranger is standing in front of the person holding the phone.
     private let session = VerifierSession(
-        revocation: VerifierViewController.installedRevocationLookup())
+        revocation: VerifierViewController.installedRevocationLookup(),
+        issuerTrust: .installed())
 
     /// Reassembles the holder's frames. Reset before every scan: a collector
     /// carrying the previous holder's identifier rejects everyone behind them.
@@ -79,6 +80,14 @@ final class VerifierViewController: UIViewController {
     private let unavailableLabel = UILabel()
     private let scanButton = UIButton(type: .system)
     private let retryButton = UIButton(type: .system)
+    private let credentialSourceControl = UISegmentedControl(items: [
+        NSLocalizedString("Self-issued / MyData", comment: "Offline verifier credential source"),
+        NSLocalizedString("Government wallet card", comment: "Offline verifier credential source"),
+    ])
+
+    private var selectedCredentialSource: PresentationCredentialSource {
+        credentialSourceControl.selectedSegmentIndex == 1 ? .twdiw : .selfIssued
+    }
 
     // MARK: - Lifecycle
 
@@ -214,6 +223,13 @@ final class VerifierViewController: UIViewController {
             NSLocalizedString("Ask the other person to scan this", comment: "")))
         contentStack.addArrangedSubview(PresentationUI.body(
             NSLocalizedString("This code carries a one-time number. Their document has to answer this exact number, so a photograph of an earlier check cannot be reused here.", comment: "")))
+
+        credentialSourceControl.selectedSegmentIndex = 0
+        credentialSourceControl.addTarget(self,
+                                          action: #selector(credentialSourceChanged),
+                                          for: .valueChanged)
+        credentialSourceControl.accessibilityLabel = NSLocalizedString("Document source to verify", comment: "")
+        contentStack.addArrangedSubview(credentialSourceControl)
 
         codeImageView.translatesAutoresizingMaskIntoConstraints = false
         codeImageView.contentMode = .scaleAspectFit
@@ -513,7 +529,8 @@ final class VerifierViewController: UIViewController {
 
     private func beginCheck() {
         do {
-            let request = try session.beginCheck(purpose: Self.purpose)
+            let request = try session.beginCheck(purpose: Self.purpose,
+                                                 credentialSource: selectedCredentialSource)
             let text = try request.encodedForTransport()
             // 1024 device pixels is generous for a ~100-byte code; `qrCode`
             // floors the module size to a whole number and may return something
@@ -525,8 +542,11 @@ final class VerifierViewController: UIViewController {
             let code = try QRTransport.qrCode(for: text, fittingPixelWidth: 1024)
             codeImageView.image = UIImage(cgImage: code.image)
             codeImageView.isHidden = false
-            purposeLabel.text = String(format: NSLocalizedString("Reason shown to them: %@", comment: ""),
-                                       request.purpose)
+            let source = request.credentialSource == .twdiw
+                ? NSLocalizedString("government wallet card", comment: "")
+                : NSLocalizedString("self-issued / MyData document", comment: "")
+            purposeLabel.text = String(format: NSLocalizedString("Requested: %@ · Reason shown to them: %@", comment: ""),
+                                       source, request.purpose)
             purposeLabel.isHidden = false
             unavailableLabel.isHidden = true
             retryButton.isHidden = true
@@ -553,6 +573,15 @@ final class VerifierViewController: UIViewController {
             stopLink()
             linkLabel.text = nil
         }
+    }
+
+    /// Changing the requested credential family changes the signed statement,
+    /// so it must mint a fresh challenge and BLE service rather than repainting
+    /// a label over the previous QR.
+    @objc private func credentialSourceChanged() {
+        collector.reset()
+        session.cancel()
+        beginCheck()
     }
 
     // MARK: - The radio

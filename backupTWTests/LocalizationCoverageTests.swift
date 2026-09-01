@@ -300,7 +300,9 @@ struct LocalizationCoverageTests {
         case .credentialSignatureInvalid: return .credentialUnreadable
         case .credentialUnreadable: return .credentialNotBoundToPresenter
         case .credentialNotBoundToPresenter: return .credentialIssuerIsNotTheSubject
-        case .credentialIssuerIsNotTheSubject: return .challengeMismatch
+        case .credentialIssuerIsNotTheSubject: return .credentialSourceMismatch
+        case .credentialSourceMismatch: return .issuerNotInOfflineTrustStore
+        case .issuerNotInOfflineTrustStore: return .challengeMismatch
         case .challengeMismatch: return .purposeMismatch
         case .purposeMismatch: return .audienceMismatch
         case .audienceMismatch: return .presentationTimestampUnreadable

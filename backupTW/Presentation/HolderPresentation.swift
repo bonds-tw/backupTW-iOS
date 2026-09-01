@@ -52,6 +52,11 @@ extension HolderPresentationError: LocalizedError {
 /// scanner.
 struct HolderPresentation {
 
+    struct PredicateCredentialMaterial {
+        let serialized: String
+        let key: DeviceKey
+    }
+
     private let store: CredentialStoring
 
     /// Injected, and the injection is the point: production must pass
@@ -111,10 +116,12 @@ struct HolderPresentation {
     /// different flow and not this function's business. A picker is still the
     /// right answer for two self-issued documents; that is a smaller and much
     /// later problem than the one this fixes.
-    func storedCredentialID() throws -> String? {
+    func storedCredentialID(for source: PresentationCredentialSource = .selfIssued) throws -> String? {
         for id in try store.allIDs() {
             guard let serialized = try store.load(id: id) else { continue }
-            if StoredCardSource.source(of: serialized) == .selfIssued { return id }
+            let storedSource = StoredCardSource.source(of: serialized)
+            if (source == .selfIssued && storedSource == .selfIssued)
+                || (source == .twdiw && storedSource == .twdiw) { return id }
         }
         return nil
     }
@@ -133,14 +140,20 @@ struct HolderPresentation {
     /// Empty for a credential issued before selective disclosure: those carry
     /// their claims in the clear and the holder has no choice to make, which the
     /// screen has to say rather than present as an empty list of options.
-    func disclosableClaims() throws -> [(name: String, value: String)] {
-        guard let credentialID = try storedCredentialID(),
-              let stored = try store.load(id: credentialID),
-              let envelope = try? MOICASignedCredential.parse(stored),
-              let committed = try? envelope.credential().sd,
-              let revealed = try? SelectiveDisclosure.reveal(disclosures: envelope.disclosures,
-                                                             committedDigests: committed) else {
-            return []
+    func disclosableClaims(for source: PresentationCredentialSource = .selfIssued) throws -> [(name: String, value: String)] {
+        guard let credentialID = try storedCredentialID(for: source),
+              let stored = try store.load(id: credentialID) else { return [] }
+        let revealed: [(name: String, value: String)]
+        switch source {
+        case .selfIssued:
+            guard let envelope = try? MOICASignedCredential.parse(stored),
+                  let committed = try? envelope.credential().sd,
+                  let disclosures = try? SelectiveDisclosure.reveal(disclosures: envelope.disclosures,
+                                                                    committedDigests: committed) else { return [] }
+            revealed = disclosures
+        case .twdiw:
+            guard let credential = try? TWDIWCredentialReader.read(stored) else { return [] }
+            revealed = credential.disclosedClaims
         }
         let order = StoredNationalID.displayOrder
         return revealed.sorted {
@@ -174,7 +187,7 @@ struct HolderPresentation {
     func presentation(answering request: PresentationRequest,
                       disclosing: [String]? = nil,
                       now: Date = Date()) throws -> Data {
-        guard let credentialID = try storedCredentialID(),
+        guard let credentialID = try storedCredentialID(for: request.credentialSource),
               let credentialJWS = try store.load(id: credentialID) else {
             throw HolderPresentationError.noCredentialStored
         }
@@ -182,23 +195,59 @@ struct HolderPresentation {
             throw HolderPresentationError.identityUnavailable
         }
 
-        // Derived from the key rather than remembered, so the DID and the
-        // signature cannot disagree. `VerifiablePresentation.create` checks the
-        // same thing again from the other direction; that is not redundancy, it
-        // is the check that catches a caller passing a stale DID it cached.
-        let holderDID = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
-
-        let jws = try VerifiablePresentation.create(credentialJWS: credentialJWS,
-                                                    request: request,
-                                                    signedBy: key,
-                                                    holderDID: holderDID,
-                                                    disclosing: disclosing,
-                                                    createdAt: now)
+        let jws: String
+        switch request.credentialSource {
+        case .selfIssued:
+            // The app's own historical p256-pub DID spelling.
+            let holderDID = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+            jws = try VerifiablePresentation.create(credentialJWS: credentialJWS,
+                                                     request: request,
+                                                     signedBy: key,
+                                                     holderDID: holderDID,
+                                                     disclosing: disclosing,
+                                                     createdAt: now)
+        case .twdiw:
+            let credential = try TWDIWCredentialReader.read(credentialJWS, now: now)
+            guard credential.holderKey.x963Representation == key.publicKeyX963 else {
+                throw HolderPresentationError.identityUnavailable
+            }
+            // TWDIW uses the jwk_jcs-pub did:key spelling. Preserve the subject
+            // DID the issuer signed rather than changing the same key into this
+            // app's shorter p256-pub spelling.
+            let holderDID = credential.subjectDID
+            let chosen = Set(disclosing ?? credential.disclosedClaims.map(\.name))
+            let serialized = OID4VPResponder.reserialise(credential, disclosing: chosen)
+            jws = try VerifiablePresentation.create(
+                enveloping: .enveloping(sdJWT: serialized),
+                request: request,
+                signedBy: key,
+                holderDID: holderDID,
+                createdAt: now)
+        }
         return Data(jws.utf8)
+    }
+
+    /// The same stored bytes and per-card key used by ordinary presentation,
+    /// exposed as one indivisible value for the field-proof pipeline. Resolving
+    /// by the public key inside the credential avoids a second identifier-to-key
+    /// table that could drift.
+    func predicateCredentialMaterial(for source: PresentationCredentialSource)
+        throws -> PredicateCredentialMaterial {
+        guard let credentialID = try storedCredentialID(for: source),
+              let serialized = try store.load(id: credentialID) else {
+            throw HolderPresentationError.noCredentialStored
+        }
+        guard let key = try loadKey(serialized) else {
+            throw HolderPresentationError.identityUnavailable
+        }
+        return PredicateCredentialMaterial(serialized: serialized, key: key)
     }
 
     private static func key(for serialized: String,
                             in keyring: HolderKeyring) throws -> DeviceKey? {
+        if let credential = try? TWDIWCredentialReader.read(serialized) {
+            return try? keyring.key(matchingPublicKeyX963: credential.holderKey.x963Representation)
+        }
         let credential: VerifiableCredential?
         if let envelope = try? MOICASignedCredential.parse(serialized) {
             credential = try? envelope.credential()

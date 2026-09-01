@@ -3,6 +3,7 @@
 //  backupTW
 //
 
+import CryptoKit
 import Foundation
 
 /// Errors raised while building a presentation.
@@ -278,6 +279,13 @@ struct EnvelopedVerifiableCredential: Codable, Equatable {
     /// percent-encode the braces and quotes.
     static let moicaSignedPrefix = "data:application/vc+moica;base64,"
 
+    /// The IETF-registered SD-JWT media type. The compact SD-JWT serialization
+    /// contains only URL-safe JWT/disclosure characters, so it can follow the
+    /// comma without an extra base64 layer. Keeping the media type distinct is
+    /// what lets the offline verifier dispatch to issuer-SD-JWT verification
+    /// rather than the self-issued JWS or MOICA-certificate paths.
+    static let sdJWTPrefix = "data:application/dc+sd-jwt,"
+
     static func enveloping(compactJWS jws: String) -> EnvelopedVerifiableCredential {
         EnvelopedVerifiableCredential(context: VerifiableCredential.credentialsV2Context,
                                       id: compactJWSPrefix + jws,
@@ -289,6 +297,12 @@ struct EnvelopedVerifiableCredential: Codable, Equatable {
             context: VerifiableCredential.credentialsV2Context,
             id: moicaSignedPrefix + Data(serialized.utf8).base64EncodedString(),
             type: typeName)
+    }
+
+    static func enveloping(sdJWT serialized: String) -> EnvelopedVerifiableCredential {
+        EnvelopedVerifiableCredential(context: VerifiableCredential.credentialsV2Context,
+                                      id: sdJWTPrefix + serialized,
+                                      type: typeName)
     }
 
     /// The credential's original bytes, or `nil` if this envelope carries some
@@ -306,6 +320,12 @@ struct EnvelopedVerifiableCredential: Codable, Equatable {
         let encoded = String(id.dropFirst(Self.moicaSignedPrefix.count))
         guard let data = Data(base64Encoded: encoded) else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+
+
+    var sdJWTSerialization: String? {
+        guard id.hasPrefix(Self.sdJWTPrefix) else { return nil }
+        return String(id.dropFirst(Self.sdJWTPrefix.count))
     }
 }
 
@@ -352,23 +372,18 @@ extension VerifiablePresentation {
                        holderDID: String,
                        disclosing: [String]? = nil,
                        createdAt: Date = Date()) throws -> String {
-        // Checked before the key comparison so that a DID that is not a did:key
-        // is reported as such. Reversing these two would make the shape error
-        // unreachable, since a DID derived from a key is always a did:key.
-        let keyID: String
+        // Preserve the public error ordering: reject an unusable or mismatched
+        // holder identifier before inspecting which subject the credential
+        // names. The generic envelope signer repeats this at the final boundary.
         do {
-            keyID = try VerifiableCredential.verificationMethodID(for: holderDID)
+            _ = try VerifiableCredential.verificationMethodID(for: holderDID)
         } catch {
             throw VerifiablePresentationError.unsupportedHolderDID
         }
-
-        let derivedDID: String
-        do {
-            derivedDID = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
-        } catch {
+        guard let holderPublicKey = holderPublicKey(from: holderDID) else {
             throw VerifiablePresentationError.holderKeyUnusable
         }
-        guard derivedDID == holderDID else {
+        guard holderPublicKey.x963Representation == key.publicKeyX963 else {
             throw VerifiablePresentationError.holderKeyMismatch
         }
 
@@ -425,6 +440,36 @@ extension VerifiablePresentation {
             enveloped = .enveloping(compactJWS: credentialJWS)
         }
 
+        return try create(enveloping: enveloped,
+                          request: request,
+                          signedBy: key,
+                          holderDID: holderDID,
+                          createdAt: createdAt)
+    }
+
+    /// Builds the same challenge-bound outer presentation around an already
+    /// typed credential envelope. Used by government SD-JWT cards after their
+    /// issuer signature, disclosure commitments and `cnf.jwk` binding have been
+    /// checked by `TWDIWCredentialReader`.
+    static func create(enveloping enveloped: EnvelopedVerifiableCredential,
+                       request: PresentationRequest,
+                       signedBy key: DeviceKey,
+                       holderDID: String,
+                       createdAt: Date = Date()) throws -> String {
+        let keyID: String
+        do {
+            keyID = try VerifiableCredential.verificationMethodID(for: holderDID)
+        } catch {
+            throw VerifiablePresentationError.unsupportedHolderDID
+        }
+
+        guard let holderPublicKey = holderPublicKey(from: holderDID) else {
+            throw VerifiablePresentationError.holderKeyUnusable
+        }
+        guard holderPublicKey.x963Representation == key.publicKeyX963 else {
+            throw VerifiablePresentationError.holderKeyMismatch
+        }
+
         let presentation = VerifiablePresentation(
             context: [.url(VerifiableCredential.credentialsV2Context),
                       .definitions(presentationTermDefinitions)],
@@ -464,6 +509,11 @@ extension VerifiablePresentation {
         }
 
         return signingInput + "." + VerifiableCredential.base64URLEncoded(signature)
+    }
+
+    private static func holderPublicKey(from did: String) -> P256.Signing.PublicKey? {
+        if let key = try? DIDKey.p256PublicKey(fromDID: did) { return key }
+        return try? JWKDIDKey.p256PublicKey(fromDID: did)
     }
 
     /// Reads `credentialSubject.id` out of a compact JWS without verifying it.

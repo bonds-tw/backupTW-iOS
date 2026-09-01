@@ -329,6 +329,38 @@ struct PresentationRadioLifetimeTests {
                 "one stop left a second peripheral advertising")
     }
 
+    /// A healthy radio path must not briefly present the visual fallback as if
+    /// the holder had twenty more steps to complete.
+    @Test func radioGetsAHeadStartBeforeTheQRFallbackAppears() {
+        let (controller, window) = Self.onScreen()
+        defer {
+            controller.applyForReview(.stopShowing)
+            window.isHidden = true
+        }
+        controller.prepareLinkForReview(serviceID: UUID(), payload: Data("presentation".utf8))
+
+        controller.applyForReview(.startShowing)
+
+        #expect(controller.radioIsAdvertisingForReview)
+        #expect(!controller.qrFallbackIsVisibleForReview)
+    }
+
+    /// The delay is an optimisation, not a dependency: a radio error must make
+    /// the complete QR response transport available immediately.
+    @Test func radioFailureRevealsTheQRFallback() {
+        let (controller, window) = Self.onScreen()
+        defer {
+            controller.applyForReview(.stopShowing)
+            window.isHidden = true
+        }
+        controller.prepareLinkForReview(serviceID: UUID(), payload: Data("presentation".utf8))
+        controller.applyForReview(.startShowing)
+
+        controller.applyLinkStateForReview(.failed(reason: "Bluetooth unavailable"))
+
+        #expect(controller.qrFallbackIsVisibleForReview)
+    }
+
     /// Once the checker acknowledges receipt, neither the moving QR fallback
     /// nor the one-time BLE service should imply that work remains.
     @Test func anAcknowledgementEndsAdvertisingWithoutErasingTheSuccessMessage() async {
@@ -346,5 +378,6 @@ struct PresentationRadioLifetimeTests {
         let delivered = NSLocalizedString("The checker's phone has the document.", comment: "")
         #expect(line == delivered, "completion message was replaced with: \(line)")
         #expect(!line.contains("stopped") && !line.contains("已停止"))
+        #expect(!controller.qrFallbackIsVisibleForReview)
     }
 }
