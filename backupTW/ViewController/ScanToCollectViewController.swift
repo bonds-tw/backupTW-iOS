@@ -77,8 +77,8 @@ enum ScanToCollect {
                 }
                 if (try? ZKLinkEngagement.decode(from: scanned)) != nil {
                     return .keepScanning(status: NSLocalizedString(
-                        "That is the code for sending a zero-knowledge proof, not for showing a document.",
-                        comment: "Scanned the other kind of code"))
+                        "That is a checker's pairing code for a zero-knowledge proof, not a card to collect.",
+                        comment: "Scanned a ZK pairing code while collecting"))
                 }
                 // Anything else — silent, because this fires once per video
                 // frame. `parse(scanned:)` tolerates the CR+LF the official

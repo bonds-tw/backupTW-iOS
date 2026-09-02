@@ -999,8 +999,13 @@ final class ZKProofViewController: UICollectionViewController {
                 // the holder pointed a camera at a valid code and the app did
                 // nothing at all. Both sides then have no clue, and the
                 // conclusion available to them is that the app is broken.
+                // Names *both* remedies. The earlier sentence told the holder
+                // to switch — assuming they were the one on the wrong screen.
+                // At a checkpoint it is as often the checker who opened the
+                // document check while the holder deliberately brought a proof
+                // (proposal-unified-checker.md, option C, 2026-09-02).
                 return .keepScanning(status: NSLocalizedString(
-                    "That is the code for checking a document, not a proof. Use 「出示我的證件」 instead.",
+                    "This checker opened a document check. To send a proof, ask them to switch to 「查驗零知識證明」 — or show your document with 「出示我的證件」 instead.",
                     comment: "Scanned the other kind of code"))
             } catch ZKLinkEngagement.DecodingFailure.unsupportedVersion {
                 return .keepScanning(status: NSLocalizedString(

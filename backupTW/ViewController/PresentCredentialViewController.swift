@@ -1002,8 +1002,10 @@ final class PresentCredentialViewController: UIViewController {
             // naming a sibling format would be the wrong place for that
             // knowledge.
             if (try? ZKLinkEngagement.decode(from: scanned)) != nil {
+                // Both remedies, for the same reason as the proof screen's
+                // mirror-image hint: either side may be the one to switch.
                 return .keepScanning(status: NSLocalizedString(
-                    "That is the code for sending a zero-knowledge proof, not for showing a document.",
+                    "This checker opened a zero-knowledge proof check. Ask them to switch to 「查驗他人證件」 — or send a proof with 「建立零知識證明」 instead.",
                     comment: "Scanned the other kind of code"))
             }
             // A card-collection offer: the right code for a different job, so

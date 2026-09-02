@@ -12624,6 +12624,36 @@
           }
         }
       }
+    },
+    "This checker opened a document check. To send a proof, ask them to switch to 「查驗零知識證明」 — or show your document with 「出示我的證件」 instead.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這位查驗方開的是證件查驗。要送零知識證明，請對方切到「查驗零知識證明」；或者你改用「出示我的證件」。"
+          }
+        }
+      }
+    },
+    "This checker opened a zero-knowledge proof check. Ask them to switch to 「查驗他人證件」 — or send a proof with 「建立零知識證明」 instead.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這位查驗方開的是零知識證明查驗。請對方切到「查驗他人證件」；或者你改用「建立零知識證明」傳送。"
+          }
+        }
+      }
+    },
+    "That is a checker's pairing code for a zero-knowledge proof, not a card to collect.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是查驗方的零知識證明配對碼，不是可領取的卡片。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
