@@ -1930,7 +1930,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "產生一份數學證明，說明你的自然人憑證是由內政部憑證管理中心簽發，並把序號拿去比對一份撤銷清單——但這個 App 無法確認那份清單是完整的。查驗證明的人不會看到你的姓名、身分證統一編號，也不會看到憑證本身。"
+            "value": "用數學證明你的自然人憑證是由內政部憑證管理中心簽發，且序號不在已下載的撤銷清單上。查驗的人不會看到你的姓名、身分證統一編號，也不會看到憑證本身。"
           }
         }
       }
@@ -2322,7 +2322,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "從台灣 MyData 服務重新抓取,取代目前存的這份。"
+            "value": "從台灣 MyData 服務重新抓取，取代目前存的這份。"
           }
         }
       }
@@ -2584,7 +2584,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "其他發卡者的欄位名稱如何對應到本 App 顯示的用語。未知欄位會以發卡者命名的原樣顯示,不會當成本 App 自己的用語。"
+            "value": "其他發卡者的欄位名稱如何對應到這個 App 顯示的用語。未知欄位會以發卡者命名的原樣顯示，不會當成這個 App 自己的用語。"
           }
         }
       }
@@ -3431,7 +3431,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法顯示。這張卡片是否已被撤銷只能連線才會知道,而載明撤銷與否的清單,沒有任何這支手機能離線查證的東西為它背書。已簽章的卡片,不等於仍然有效的卡片。"
+            "value": "無法顯示。這張卡片是否已被撤銷只能連線才會知道，而載明撤銷與否的清單，沒有任何這支手機能離線查證的東西為它背書。已簽章的卡片，不等於仍然有效的卡片。"
           }
         }
       }
@@ -4561,7 +4561,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "簽章必須經過 bonds-tw 伺服器，而這個版本連不到它。"
+            "value": "簽章必須經過 bonds.tw 伺服器，而這個版本連不到它。"
           }
         }
       }
@@ -4895,7 +4895,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "某位 MOICA-G3 所發憑證的持有人，提供了這份證明所用的簽章材料。不代表那是你，也不代表是剛剛做的——簽章材料不會過期，任何拿過一次的人都能在你不在場時做出同一份證明。"
+            "value": "只證明「有人持有內政部憑證管理中心發的簽章材料」——不代表那是你本人，也不代表是剛剛做的：材料不會過期，拿過一次的人都能重現這份證明。"
           }
         }
       }
@@ -4995,7 +4995,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "每個答案底下的但書，就是證明程式自己帶著的那份清單；某條路徑這個版本有沒有，也是讀跟 App 其他地方同一個編譯開關。至於每個答案怎麼措辭，是人寫的——那是這個專案對自己設計的說法，不是量出來的。"
+            "value": "但書清單來自程式本身；但每句話的措辭是人寫的——那是這個專案的自述，不是量測。"
           }
         }
       }
@@ -5258,7 +5258,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "證件裡帶有「發證當下是否已滿 18 歲」這一項，由持有人的自然人憑證一併簽署，可以單獨出示而不出示出生日期。但這不是匿名：每次出示都是同一個識別碼，不同查驗方仍能看出是同一個人。"
+            "value": "可以只出示「已滿 18 歲」、不出示出生日期。但這不是匿名：每次出示都是同一個識別碼，不同查驗方仍能看出是同一個人。"
           }
         }
       }
@@ -5298,7 +5298,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "下載回來的文件缺少本 App需要的欄位，無法簽署。"
+            "value": "下載回來的文件缺少這個 App需要的欄位，無法簽署。"
           }
         }
       }
@@ -5340,7 +5340,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "持證人看到的查驗事由與您提出的不同。"
+            "value": "持證人看到的查驗事由與你提出的不同。"
           }
         }
       }
@@ -5390,7 +5390,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "本 App 信任的發卡者,以及他們的欄位如何命名。"
+            "value": "這個 App 信任的發卡者，以及他們的欄位如何命名。"
           }
         }
       }
@@ -5411,7 +5411,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "以下是這份證件自己填的內容，原樣引述。本 App 只驗了它們的簽章，沒有查核內容是不是真的。"
+            "value": "以下是這份證件自己填的內容，原樣引述。這個 App 只驗了它們的簽章，沒有查核內容是不是真的。"
           }
         }
       }
@@ -5678,7 +5678,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "存檔不完整,無法讀取,很可能已毀損。"
+            "value": "存檔不完整，無法讀取，很可能已毀損。"
           }
         }
       }
@@ -5818,7 +5818,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這面牆不檢查撤銷清單。這支 App 做證明的時候套用了一份，但牆不看它，所以已經掛失的卡片一樣拿得到徽章。"
+            "value": "這面牆不檢查撤銷清單。這個 App 做證明的時候套用了一份，但牆不看它，所以已經掛失的卡片一樣拿得到徽章。"
           }
         }
       }
@@ -5918,7 +5918,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "對方沒有出示證件上的姓名，所以本 App無法核對上面那張憑證是不是同一個人的。"
+            "value": "對方沒有出示證件上的姓名，所以這個 App無法核對上面那張憑證是不是同一個人的。"
           }
         }
       }
@@ -5928,7 +5928,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "對方另外保留了 %d 個欄位。本 App看不出來是哪些，只知道證件裡確實承諾了它們。"
+            "value": "對方另外保留了 %d 個欄位。這個 App看不出來是哪些，只知道證件裡確實承諾了它們。"
           }
         }
       }
@@ -5960,7 +5960,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "對方在 %@ 簽署了這次出示。時間以對方手機的時鐘為準，本 App 無法核實。"
+            "value": "對方在 %@ 簽署了這次出示。時間以對方手機的時鐘為準，這個 App 無法核實。"
           }
         }
       }
@@ -6060,7 +6060,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "本 App 目前無法查驗政府憑證。這是本 App 的問題，不是這份證件的問題。"
+            "value": "這個 App 目前無法查驗政府憑證。這是這個 App 的問題，不是這份證件的問題。"
           }
         }
       }
@@ -6080,7 +6080,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "本 App 沒有相機權限，無法讀取條碼。"
+            "value": "這個 App 沒有相機權限，無法讀取條碼。"
           }
         }
       }
@@ -6150,7 +6150,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這張卡片沒有附撤銷清單,因此無法從卡片本身得知它是否已被撤銷。"
+            "value": "這張卡片沒有附撤銷清單，因此無法從卡片本身得知它是否已被撤銷。"
           }
         }
       }
@@ -6210,7 +6210,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "現在無法讀取這張卡片。可能是手機已鎖定,或存檔已毀損。"
+            "value": "現在無法讀取這張卡片。可能是手機已鎖定，或存檔已毀損。"
           }
         }
       }
@@ -6220,7 +6220,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法讀取這張卡片,而這個版本無法判斷原因。"
+            "value": "無法讀取這張卡片，而這個版本無法判斷原因。"
           }
         }
       }
@@ -6250,7 +6250,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這張卡片包含一個發卡者從未簽章承諾的欄位,因此不予顯示。能自行加入欄位的卡片可以聲稱任何內容。"
+            "value": "這張卡片包含一個發卡者從未簽章承諾的欄位，因此不予顯示。能自行加入欄位的卡片可以聲稱任何內容。"
           }
         }
       }
@@ -6330,7 +6330,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這張卡片的簽章沒有通過驗證。存檔可能已毀損,也可能不是它所標示的發卡者簽的——這個版本無法分辨是哪一種。"
+            "value": "這張卡片的簽章沒有通過驗證。存檔可能已毀損，也可能不是它所標示的發卡者簽的——這個版本無法分辨是哪一種。"
           }
         }
       }
@@ -6413,7 +6413,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這個條碼不是本 App 出示的證件。"
+            "value": "這個條碼不是這個 App 出示的證件。"
           }
         }
       }
@@ -6730,7 +6730,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件的格式，本 App 讀不懂。"
+            "value": "這份證件的格式，這個 App 讀不懂。"
           }
         }
       }
@@ -6752,7 +6752,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件的簽章方式本 App 無法查驗。"
+            "value": "這份證件的簽章方式這個 App 無法查驗。"
           }
         }
       }
@@ -6784,7 +6784,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件含有本 App 無法解讀的欄位。"
+            "value": "這份證件含有這個 App 無法解讀的欄位。"
           }
         }
       }
@@ -6815,7 +6815,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件的簽發者本 App 無從查驗。"
+            "value": "這份證件的簽發者這個 App 無從查驗。"
           }
         }
       }
@@ -6857,7 +6857,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份證件的識別碼不是本 App 能查驗的格式。"
+            "value": "這份證件的識別碼不是這個 App 能查驗的格式。"
           }
         }
       }
@@ -6887,7 +6887,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這會下載 %@，並在這支手機上佔用約 %@。這些是用來產生與驗證證明的數學電路，由 Privacy & Scaling Explorations 團隊發布。檔案只留在你的手機上，而且只需要下載一次。"
+            "value": "下載產生與驗證證明用的工具檔（%@，安裝後佔用約 %@）。只需下載一次，檔案不會離開這支手機。"
           }
         }
       }
@@ -6948,7 +6948,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這是這支 App 裡唯一會把東西送到伺服器的動作。大約 250 KB 的證明會經由網路送出去。"
+            "value": "這是這個 App 裡唯一會把東西送到伺服器的動作。大約 250 KB 的證明會經由網路送出去。"
           }
         }
       }
@@ -6968,7 +6968,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這支手機檢查的是數學，而且通過了。牆檢查的是數學、加上這份證明是為哪個服務做的、加上它綁的是不是牆剛剛發出的那個號碼——這兩件事這支手機沒有辦法自己檢查。所以這通常代表牆那邊的設定和這支 App 對不上，不代表你的卡片有問題。沒有任何東西被公開。這件事值得回報。"
+            "value": "這支手機驗得過、牆卻拒絕，通常代表牆和 App 的設定對不上，不代表你的卡片有問題。沒有任何東西被公開——這件事值得回報。"
           }
         }
       }
@@ -7120,7 +7120,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這次出示包含多份證件，本 App 尚無法查驗。"
+            "value": "這次出示包含多份證件，這個 App 尚無法查驗。"
           }
         }
       }
@@ -7428,7 +7428,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這個版本還不能簽署證件。簽署要經過 bonds-tw 的服務，而這個版本連不上它。"
+            "value": "這個版本還不能簽署證件。簽署要經過 bonds.tw 的服務，而這個版本連不上它。"
           }
         }
       }
@@ -7478,7 +7478,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這段文字是查驗方自己填的。本 App 無法確認對方的身分。"
+            "value": "這段文字是查驗方自己填的。這個 App 無法確認對方的身分。"
           }
         }
       }
@@ -7779,7 +7779,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "跳電信商 app 驗證門號,完成後自動返回領卡"
+            "value": "跳電信商 app 驗證門號，完成後自動返回領卡"
           }
         }
       }
@@ -8385,7 +8385,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "內政部已經知道你的身分證統一編號在什麼時候為這支 App 要過一次簽章。這面牆會公開每一筆簽名發生在哪一分鐘。這兩份清單對得起來。"
+            "value": "內政部已經知道你的身分證統一編號在什麼時候為這個 App 要過一次簽章。這面牆會公開每一筆簽名發生在哪一分鐘。這兩份清單對得起來。"
           }
         }
       }
@@ -10324,7 +10324,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Release 版簽章必須透過 bonds-tw 後端，確保內政部服務金鑰不會進入 App。該後端目前尚未接通。"
+            "value": "Release 版簽章必須透過 bonds.tw 後端，確保內政部服務金鑰不會進入 App。該後端目前尚未接通。"
           }
         }
       }
@@ -10930,7 +10930,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "從 MyData 下載的 PDF 不會自動成為政府簽發的 VC。驗證端必須標示這是由持有人衍生並簽署的主張、顯示來源檔案指紋與擷取規則；除非真的驗過機關簽章，絕不能顯示政府簽發標章。"
+            "value": "MyData 下載的 PDF 是由你本人簽署的文件，不會自動變成政府簽發的憑證。"
           }
         }
       }
@@ -10980,7 +10980,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "啟用製作功能前，每種文件都要有通過測試的解析器、穩定的主張定義、選擇性揭露簽章，以及 verifier.mashbean.net 對應的驗證。現在已可匯出與分享；這些檢查完成前，憑證製作仍會保持關閉。"
+            "value": "匯出與分享現在就能用。憑證製作還在測試，通過驗證後才會開放。"
           }
         }
       }
@@ -11700,7 +11700,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請保持這支 iPhone 解鎖並連接 Mac。在 15 分鐘內，到 backupTW-iOS repo 執行 ./scripts/physical-card-consent.sh --device mashbean14。插入卡片，只在終端機不顯示內容的提示中輸入 PIN。工具完成後回到這裡，再點一次實體卡測試列。"
+            "value": "保持 iPhone 解鎖並連接 Mac，15 分鐘內在 repo 執行 physical-card-consent 腳本；卡片 PIN 只在終端機不顯示內容的提示中輸入。完成後回到這裡再點一次。"
           }
         }
       }
@@ -11870,7 +11870,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這條開發路徑會建立一次性請求，內容只有同意版本、本機試辦範圍、時間戳與隨機 nonce。已配對的 Mac 只會在不顯示輸入內容的終端機提示中要求卡片 PIN；PIN 不會被保存或傳送到這個 App。它不會連線內政部，也不會建立正式公文匣。"
+            "value": "這是本機測試：不會連線內政部，也不會建立正式公文匣。卡片 PIN 只在 Mac 的終端機輸入，這個 App 拿不到。"
           }
         }
       }
@@ -12301,6 +12301,296 @@
           "stringUnit": {
             "state": "translated",
             "value": "驗證檔案未完成準備"
+          }
+        }
+      }
+    },
+    "Clear saved details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除已存資料"
+          }
+        }
+      }
+    },
+    "Present and check": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示與查驗"
+          }
+        }
+      }
+    },
+    "Needs a phone-number card. Apply for one above, and this becomes available.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要門號電子卡。先在上方完成申請，這裡就能使用。"
+          }
+        }
+      }
+    },
+    "Scan the checker's QR — face to face or online. You choose what to reveal.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "掃描查驗方的 QR——面對面或線上都可以，出示哪些欄位由你決定。"
+          }
+        }
+      }
+    },
+    "The trust list could not be loaded. Check your connection, then try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信任清單載入失敗。請檢查網路，然後再試一次。"
+          }
+        }
+      }
+    },
+    "Loaded %d organisations from the official API. A green shield means the blockchain record also matches; orange means only one of the two sources could be confirmed.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已從官方 API 載入 %d 個組織。綠色盾牌代表區塊鏈紀錄也相符；橙色代表兩個來源只確認得了其中一個。"
+          }
+        }
+      }
+    },
+    "That is a card-collection QR. To add the card, use 使用 ▸ 掃描加入卡片.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是領卡用的 QR。要加入卡片，請改用「使用 ▸ 掃描加入卡片」。"
+          }
+        }
+      }
+    },
+    "An in-person check needs your ID backup. Create it from the home screen first.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面對面查驗需要先備份你的身分證。請先回首頁建立。"
+          }
+        }
+      }
+    },
+    "That is a checker's QR for presenting, not a card to collect. Use 使用 ▸ 出示我的證件.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是查驗方出示用的 QR，不是可領取的卡片。請改用「使用 ▸ 出示我的證件」。"
+          }
+        }
+      }
+    },
+    "Collecting the card…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在領取卡片⋯"
+          }
+        }
+      }
+    },
+    "Card added to your wallet.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "卡片已加入皮夾。"
+          }
+        }
+      }
+    },
+    "Create my document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立我的身分證備份"
+          }
+        }
+      }
+    },
+    "Before the first proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第一次建立證明之前"
+          }
+        }
+      }
+    },
+    "What is downloaded": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "會下載什麼"
+          }
+        }
+      }
+    },
+    "%@ of mathematical circuits, published by the Privacy & Scaling Explorations team. Installed they use about %@ on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 的數學電路，由 Privacy & Scaling Explorations 團隊發布。安裝後在這支手機上約佔 %@。"
+          }
+        }
+      }
+    },
+    "The files stay on your phone and are downloaded once. They are the tools that create and check proofs — they contain nothing about you.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案只留在你的手機上，只需下載一次。它們是產生與驗證證明的工具，不含任何關於你的資料。"
+          }
+        }
+      }
+    },
+    "Download %@ and continue": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載 %@ 並繼續"
+          }
+        }
+      }
+    },
+    "View details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看詳情"
+          }
+        }
+      }
+    },
+    "Flip the card": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "翻面"
+          }
+        }
+      }
+    },
+    "Refused": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拒絕"
+          }
+        }
+      }
+    },
+    "Loaded %d organisations from the official API. A green check means the API record is confirmed; a shield means its blockchain record also matches.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已從官方 API 載入 %d 個組織。綠色勾勾代表官方 API 已確認；盾牌代表區塊鏈紀錄也相符。"
+          }
+        }
+      }
+    },
+    "A civic backup wallet for Taiwan: keep a copy of your identity on your own phone, show it offline, and reveal only what a check actually needs.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "台灣的公民身分備援皮夾：把身分證的副本備妥在自己的手機上，離線也能出示，而且只揭露這次查驗真正需要的欄位。"
+          }
+        }
+      }
+    },
+    "Website": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方網站"
+          }
+        }
+      }
+    },
+    "Source code": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原始碼"
+          }
+        }
+      }
+    },
+    "Show technical detail": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示技術細節"
+          }
+        }
+      }
+    },
+    "EN, DI and ESW parse states, and the EN fingerprint.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EN、DI、ESW 的解析狀態，以及 EN 指紋。"
+          }
+        }
+      }
+    },
+    "Technical detail": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "技術細節"
+          }
+        }
+      }
+    },
+    "Show evidence fingerprints": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示證據指紋"
+          }
+        }
+      }
+    },
+    "Three SHA-256 fingerprints for auditing this receipt, kept on this phone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "三組供稽核這份憑據的 SHA-256 指紋，保存在這支手機上。"
           }
         }
       }
