@@ -210,6 +210,11 @@ final class ZKLinkSendViewController: UIViewController {
         case .finished:
             progressView.setProgress(1, animated: true)
             statusLabel.text = NSLocalizedString("The checker's phone has the proof.", comment: "")
+            // The same moment as the credential path's buzz — the other device
+            // has acknowledged receipt. One rule, two transports; the proof
+            // path missing its buzz while the credential path had one was a
+            // contradiction of the app's own 「evidence first」 haptic rule.
+            Bonds.Haptic.delivered()
             // Down at once. A peripheral that kept advertising after delivery
             // would let the next stranger in the queue connect and collect the
             // same proof.

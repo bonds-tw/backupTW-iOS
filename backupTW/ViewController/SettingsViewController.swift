@@ -27,6 +27,7 @@ class SettingsViewController: UICollectionViewController {
     /// section above it would have silently pointed the License row at whatever
     /// landed in that slot.
     private enum Row {
+        static let about = NSLocalizedString("About Bond", comment: "")
         static let license = NSLocalizedString("License", comment: "")
         static let diagnostics = NSLocalizedString("Diagnostics", comment: "")
         static let eraseEverything = NSLocalizedString("Erase all local data", comment: "")
@@ -37,45 +38,34 @@ class SettingsViewController: UICollectionViewController {
         static let walletIdentity = NSLocalizedString("Wallet identity", comment: "settings row")
     }
 
-    /// A national ID is stored, so its backup can be refreshed. Home shows the
-    /// 「create」 invitation only while empty; once a document exists, refreshing it
-    /// is rare housekeeping and lives here instead (per the card-exists → Settings
-    /// rule).
-    private var hasStoredNationalID: Bool {
-        guard let store = try? CredentialStore() else { return false }
-        return CardInventory.rows(from: store).contains { $0.source == .selfIssued }
-    }
-
     private var sections: [Section] {
-        var support: [Item] = [
-            Item(image: UIImage(systemName: "info.circle.fill")?.withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
+        let support: [Item] = [
+            Item(image: UIImage(systemName: "info.circle.fill"),
                  title: NSLocalizedString("About Bond", comment: ""),
                  secondaryText: Self.versionString),
             // `PresentationScenario` documents itself as the table 「the screen
             // renders」 — and had no screen. Same defect as `LocalDataEraser`
             // below: implemented, unreachable, and therefore a promise the
             // source keeps and the product does not. This is the entrance.
-            Item(image: UIImage(systemName: "checklist")?.withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "checklist"),
                  title: Row.capabilities,
                  secondaryText: NSLocalizedString("The three things people ask this app to prove, and which of them come with a limit.", comment: "")),
             Item(image: UIImage(systemName: "doc.text"),
                  title: Row.license,
                  secondaryText: NSLocalizedString("Third Party Software License", comment: ""))
         ]
-        if hasStoredNationalID {
-            support.insert(
-                Item(image: UIImage(systemName: "arrow.clockwise")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
-                     title: Row.updateBackup,
-                     secondaryText: NSLocalizedString("Fetch it again from Taiwan's MyData service and replace what's stored.", comment: "")),
-                at: 0)
-        }
+        // 「Update my ID backup」 no longer lives here. It used to *appear* in
+        // Settings the moment a card existed while vanishing from Home — an
+        // entrance that moves teaches the reader that buttons are unreliable
+        // (design system §10.4). Its one stable home is the document's own
+        // detail screen, where deleting lives too.
         return [
         Section(title: NSLocalizedString("Support and About", comment: ""), items: support),
         Section(title: Row.trust, items: [
-            Item(image: UIImage(systemName: "key.horizontal.fill")?.withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "key.horizontal.fill"),
                  title: Row.walletIdentity,
                  secondaryText: NSLocalizedString("The did:key owned by this installation of 有備而來.", comment: "settings wallet identity subtitle")),
-            Item(image: UIImage(systemName: "checkmark.shield.fill")?.withTintColor(.systemGreen, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "checkmark.shield.fill"),
                  title: Row.trust,
                  secondaryText: NSLocalizedString("The issuers this app trusts, and how their fields are named.", comment: ""))
         ]),
@@ -85,7 +75,7 @@ class SettingsViewController: UICollectionViewController {
         Section(title: NSLocalizedString("Data and Privacy", comment: ""), items: [
             // The three guarantees below cannot be observed in a simulator, so
             // there needs to be somewhere on the phone that reports them.
-            Item(image: UIImage(systemName: "stethoscope")?.withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "stethoscope"),
                  title: Row.diagnostics,
                  secondaryText: NSLocalizedString("See this phone's security status and your card details.", comment: "")),
             Item(image: UIImage(systemName: "trash")?.withTintColor(.systemRed, renderingMode: .alwaysOriginal),
@@ -124,6 +114,11 @@ class SettingsViewController: UICollectionViewController {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
             var content = cell.defaultContentConfiguration()
             content.image = item.image
+            // Template icons take the app accent — one interactive colour across
+            // every row, per the design system (docs/design-system.md §2). Rows
+            // with a semantic colour of their own (the destructive trash) bake it
+            // with `.alwaysOriginal`, which this tint cannot override.
+            content.imageProperties.tintColor = .tintColor
             // Plain text with `textProperties`, not attributed strings: an
             // attributed font is frozen at configure time, so a mid-session
             // Dynamic Type change reflowed every label in the app except these.
@@ -170,11 +165,10 @@ extension SettingsViewController {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
         switch item.title {
-        case Row.updateBackup:
-            let vc = MyDataOnboardViewController()
-            let nav = UINavigationController(rootViewController: vc)
-            nav.modalPresentationStyle = .fullScreen
-            present(nav, animated: true)
+        case Row.about:
+            // The row always looked tappable (it is a list cell) and did
+            // nothing — a dead control (回報 2026-09-02).
+            navigationController?.pushViewController(AboutViewController(), animated: true)
         case Row.trust:
             navigationController?.pushViewController(TrustCenterViewController(), animated: true)
         case Row.walletIdentity:
@@ -229,6 +223,8 @@ extension SettingsViewController {
         }
     }
 
+    static var versionText: String { versionString }
+
     private func presentEraseResult(_ result: Result<Void, Error>) {
         let alert: UIAlertController
         switch result {
@@ -244,7 +240,91 @@ extension SettingsViewController {
                 message: error.localizedDescription,
                 preferredStyle: .alert)
         }
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""), style: .default))
+        // 「好」, not 「確認」: this button only acknowledges a result. 「確認」 is
+        // reserved for buttons that make something happen (design system §11.1).
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
         present(alert, animated: true)
+    }
+}
+
+// MARK: - About
+
+/// 設定 › 關於有備而來. What this app is, in its own words, with the places it
+/// lives — the row always looked tappable and used to lead nowhere.
+final class AboutViewController: UICollectionViewController {
+
+    private enum Item: Hashable {
+        case fact(title: String, value: String)
+        case link(title: String, subtitle: String, url: String)
+        case note(String)
+    }
+
+    private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
+
+    init() {
+        var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+        config.headerMode = .none
+        super.init(collectionViewLayout: UICollectionViewCompositionalLayout.list(using: config))
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = NSLocalizedString("About Bond", comment: "")
+        navigationItem.largeTitleDisplayMode = .never
+
+        let registration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
+            var content = cell.defaultContentConfiguration()
+            cell.accessories = []
+            switch item {
+            case let .fact(title, value):
+                content.text = title
+                content.secondaryText = value
+                content.secondaryTextProperties.color = .secondaryLabel
+            case let .link(title, subtitle, _):
+                content.text = title
+                content.textProperties.color = .tintColor
+                content.secondaryText = subtitle
+                content.secondaryTextProperties.color = .secondaryLabel
+                content.secondaryTextProperties.font = Bonds.Font.mono(.footnote)
+                content.image = UIImage(systemName: "arrow.up.right")
+                content.imageProperties.tintColor = .tintColor
+            case let .note(text):
+                content.text = text
+                content.textProperties.color = .secondaryLabel
+                content.textProperties.font = .preferredFont(forTextStyle: .footnote)
+            }
+            cell.contentConfiguration = content
+        }
+        dataSource = UICollectionViewDiffableDataSource<Int, Item>(collectionView: collectionView) {
+            collectionView, indexPath, item in
+            collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: item)
+        }
+
+        var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
+        snapshot.appendSections([0, 1])
+        snapshot.appendItems([
+            .note(NSLocalizedString(
+                "A civic backup wallet for Taiwan: keep a copy of your identity on your own phone, show it offline, and reveal only what a check actually needs.",
+                comment: "about: what this app is")),
+            .fact(title: NSLocalizedString("Version", comment: ""),
+                  value: SettingsViewController.versionText),
+        ], toSection: 0)
+        snapshot.appendItems([
+            .link(title: NSLocalizedString("Website", comment: "about link"),
+                  subtitle: "bonds.tw", url: "https://bonds.tw"),
+            .link(title: NSLocalizedString("Source code", comment: "about link"),
+                  subtitle: "github.com/mashbean/backupTW-iOS",
+                  url: "https://github.com/mashbean/backupTW-iOS"),
+        ], toSection: 1)
+        dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
+    override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        guard case let .link(_, _, urlString) = dataSource.itemIdentifier(for: indexPath),
+              let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
 }

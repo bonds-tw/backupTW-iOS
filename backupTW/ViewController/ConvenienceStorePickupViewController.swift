@@ -76,7 +76,10 @@ final class ConvenienceStorePickupConsentViewController: UIViewController {
                 "By tapping “Create barcode”, you agree to provide your name and the last five digits of your mobile number to 7-ELEVEN for this parcel pickup check.",
                 comment: "pickup consent"),
             style: .body)
-        consent.textColor = .secondaryLabel
+        // Full ink: body-length text in `.secondaryLabel` measures 3.4:1 in
+        // light mode, under AA — the same defect Verifier's audit fixed. A
+        // consent sentence is the last text that may be hard to read.
+        consent.textColor = .label
         content.addArrangedSubview(consent)
 
         var buttonConfig = UIButton.Configuration.filled()
@@ -173,7 +176,7 @@ final class ConvenienceStorePickupConsentViewController: UIViewController {
         card.isLayoutMarginsRelativeArrangement = true
         card.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         card.backgroundColor = .secondarySystemGroupedBackground
-        card.layer.cornerRadius = 16
+        Bonds.round(card.layer, Bonds.Radius.container)
         card.layer.borderWidth = 1
         card.layer.borderColor = UIColor.separator.cgColor
 
@@ -196,7 +199,7 @@ final class ConvenienceStorePickupConsentViewController: UIViewController {
         card.isLayoutMarginsRelativeArrangement = true
         card.layoutMargins = UIEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
         card.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.10)
-        card.layer.cornerRadius = 14
+        Bonds.round(card.layer, Bonds.Radius.container)
 
         let heading = UIStackView()
         heading.axis = .horizontal
@@ -233,7 +236,7 @@ final class ConvenienceStorePickupConsentViewController: UIViewController {
 
     private func makeValueRow(label: String, value: String, selected: Bool) -> UIView {
         let icon = UIImageView(image: UIImage(systemName: selected ? "checkmark.square.fill" : "checkmark.square"))
-        icon.tintColor = selected ? .systemIndigo : .tertiaryLabel
+        icon.tintColor = selected ? .tintColor : .tertiaryLabel
         icon.setContentHuggingPriority(.required, for: .horizontal)
         icon.accessibilityLabel = selected
             ? NSLocalizedString("Selected", comment: "pickup field selected")
@@ -302,7 +305,7 @@ final class ConvenienceStorePickupQRCodeViewController: UIViewController {
         view.backgroundColor = .systemBackground
 
         let icon = UIImageView(image: UIImage(systemName: "qrcode.viewfinder"))
-        icon.tintColor = .systemIndigo
+        icon.tintColor = .tintColor
         icon.contentMode = .scaleAspectFit
         icon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 58, weight: .regular)
         icon.heightAnchor.constraint(equalToConstant: 72).isActive = true
@@ -333,7 +336,7 @@ final class ConvenienceStorePickupQRCodeViewController: UIViewController {
         card.isLayoutMarginsRelativeArrangement = true
         card.layoutMargins = UIEdgeInsets(top: 18, left: 18, bottom: 18, right: 18)
         card.backgroundColor = .secondarySystemGroupedBackground
-        card.layer.cornerRadius = 18
+        Bonds.round(card.layer, Bonds.Radius.container)
 
         let done = UIButton(type: .system)
         var doneConfig = UIButton.Configuration.filled()

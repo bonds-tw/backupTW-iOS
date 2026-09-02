@@ -11,6 +11,13 @@ class LicenseViewController: UIViewController {
 
     private let textView = UITextView()
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // Without a title the navigation bar over the licence text was blank,
+        // and so was the next screen's back button.
+        title = NSLocalizedString("License", comment: "")
+    }
+
     override func loadView() {
         view = textView
         textView.textContainerInset = UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
@@ -35,7 +42,7 @@ class LicenseViewController: UIViewController {
             有備而來 (Bonds)
             https://github.com/mashbean/backupTW-iOS
 
-            本 App 使用下列開源元件,謹此致謝:
+            這個 App 使用下列開源元件，謹此致謝：
 
             ————————————————————————————
 

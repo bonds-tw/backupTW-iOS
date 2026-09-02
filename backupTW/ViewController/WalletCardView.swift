@@ -137,6 +137,35 @@ struct WalletCardField: Hashable {
     let value: String
 }
 
+extension WalletCardContent {
+    /// What VoiceOver says for the whole card, as one element (design system
+    /// §9.1). Deliberately *not* the field grid: a masked value like
+    /// 「A2●●●●●●●0」 read glyph by glyph is noise, and the full values live on
+    /// the detail screen where the two-step reveal already guards them. The
+    /// card speaks its identity and its standing, nothing more.
+    var accessibilitySummary: String {
+        switch self {
+        case .nationalID(let card):
+            if let placeholder = card.placeholderMessage {
+                return card.title + "，" + placeholder
+            }
+            var parts = [card.title]
+            if !card.holderName.isEmpty { parts.append(card.holderName) }
+            if !card.trustSource.isEmpty { parts.append(card.trustSource) }
+            return parts.joined(separator: "，")
+        case .credential(let card):
+            var parts = [card.kind]
+            if let holder = card.holderName, !holder.isEmpty { parts.append(holder) }
+            if !card.trustSource.isEmpty { parts.append(card.trustSource) }
+            return parts.joined(separator: "，")
+        case .vault(let card):
+            return [card.title, card.status].filter { !$0.isEmpty }.joined(separator: "，")
+        case .unreadable(let message):
+            return message
+        }
+    }
+}
+
 /// The card's colour identity. A stable, deliberately small palette chosen by
 /// `WalletCardFactory` from the card's kind — a colour is not a claim, so this
 /// is the one place a kind may steer presentation without asserting anything.
@@ -457,7 +486,7 @@ final class WalletCardView: UIView {
         if animated && !UIAccessibility.isReduceMotionEnabled {
             let direction: UIView.AnimationOptions = flipped ? .transitionFlipFromRight
                                                              : .transitionFlipFromLeft
-            UIView.transition(with: flipNode, duration: 0.5,
+            UIView.transition(with: flipNode, duration: Bonds.Motion.flip,
                               options: [direction, .showHideTransitionViews],
                               animations: swapFaces)
         } else {
@@ -547,11 +576,11 @@ final class WalletCardView: UIView {
 
         NSLayoutConstraint.activate([
             titleRow.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 15),
-            titleRow.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-            titleRow.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
+            titleRow.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            titleRow.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
             titleHair.topAnchor.constraint(equalTo: titleRow.bottomAnchor, constant: 9),
-            titleHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-            titleHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+            titleHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            titleHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
         ])
 
         if let message = card.placeholderMessage {
@@ -563,8 +592,8 @@ final class WalletCardView: UIView {
             add(prompt)
             NSLayoutConstraint.activate([
                 prompt.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 16),
-                prompt.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-                prompt.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                prompt.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                prompt.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
                 prompt.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -16),
             ])
             return
@@ -590,8 +619,8 @@ final class WalletCardView: UIView {
         add(grid)
         NSLayoutConstraint.activate([
             grid.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 11),
-            grid.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-            grid.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+            grid.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            grid.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
         ])
 
         // Trust source 「行動自然人憑證 · 本人自簽」 — the honest note that this document
@@ -602,8 +631,8 @@ final class WalletCardView: UIView {
         if let trust {
             add(trust)
             NSLayoutConstraint.activate([
-                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
+                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
             ])
         }
 
@@ -623,10 +652,10 @@ final class WalletCardView: UIView {
             uidRow.alignment = .firstBaseline
             add(uidRow)
             var footer: [NSLayoutConstraint] = [
-                uidHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-                uidHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                uidHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                uidHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
                 uidHair.bottomAnchor.constraint(equalTo: uidRow.topAnchor, constant: -9),
-                uidRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                uidRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
                 uidRow.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -14),
             ]
             // Order down the card: grid → trust source → hairline → 統一編號.
@@ -760,8 +789,8 @@ final class WalletCardView: UIView {
             let trust = makeTrustLine(card.trustSource, color: white)
             add(trust)
             NSLayoutConstraint.activate([
-                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -21),
+                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
                 trust.bottomAnchor.constraint(equalTo: footStack.topAnchor, constant: -8),
             ])
             midBottom = midStack.bottomAnchor.constraint(equalTo: trust.topAnchor, constant: -10)
@@ -771,16 +800,16 @@ final class WalletCardView: UIView {
 
         NSLayoutConstraint.activate([
             topStack.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 19),
-            topStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-            topStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -21),
+            topStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            topStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
 
-            midStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-            midStack.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -21),
+            midStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            midStack.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
             midBottom,
 
-            footStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-            footStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -21),
-            footStack.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -18),
+            footStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            footStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
+            footStack.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
         ])
         if footStack.arrangedSubviews.isEmpty {
             // No foot fields: let the middle sit against the bottom padding.
@@ -856,26 +885,36 @@ final class WalletCardView: UIView {
         statusRow.alignment = .center
         add(statusRow)
 
-        let title = makeLabel(card.title, font: .systemFont(ofSize: 19, weight: .bold), color: ink)
-        title.numberOfLines = 2
+        // The title lives in the TOP strip. When vault documents stack, only a
+        // 48pt sliver of each card shows (HomeViewController's peek height), and
+        // a title drawn at the foot of the card is invisible on every card but
+        // the hero — a pile of identical lock icons (回報 2026-09-02). One line,
+        // truncated if it must be: on this surface being identifiable beats
+        // being complete, and the full name is one tap away.
+        let title = makeLabel(card.title, font: .systemFont(ofSize: 17, weight: .bold), color: ink)
+        title.numberOfLines = 1
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         add(title)
         let message = makeLabel(card.message, font: .systemFont(ofSize: 11.5), color: UIColor(red: 0xa6/255, green: 0xab/255, blue: 0xb7/255, alpha: 1))
         message.numberOfLines = 0
         add(message)
 
         NSLayoutConstraint.activate([
-            lockTile.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 20),
-            lockTile.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            statusRow.centerYAnchor.constraint(equalTo: lockTile.centerYAnchor),
-            statusRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
+            // Top strip (inside the 48pt peek): name leading, status trailing.
+            title.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 14),
+            title.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            statusRow.centerYAnchor.constraint(equalTo: title.centerYAnchor),
+            statusRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: statusRow.leadingAnchor, constant: -8),
 
-            message.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            message.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
-            message.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
-            title.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            title.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
-            title.bottomAnchor.constraint(equalTo: message.topAnchor, constant: -6),
-            title.topAnchor.constraint(greaterThanOrEqualTo: lockTile.bottomAnchor, constant: 12),
+            // Foot: the lock tile and the standing note, fully visible only on
+            // the hero — which is exactly where detail belongs.
+            lockTile.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            lockTile.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
+            message.leadingAnchor.constraint(equalTo: lockTile.trailingAnchor, constant: 12),
+            message.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
+            message.centerYAnchor.constraint(equalTo: lockTile.centerYAnchor),
+            message.topAnchor.constraint(greaterThanOrEqualTo: title.bottomAnchor, constant: 12),
         ])
     }
 
@@ -900,11 +939,11 @@ final class WalletCardView: UIView {
         add(label)
         NSLayoutConstraint.activate([
             icon.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 20),
-            icon.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
+            icon.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
             icon.widthAnchor.constraint(equalToConstant: 26),
             icon.heightAnchor.constraint(equalToConstant: 26),
-            label.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            label.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
+            label.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            label.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
             label.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: 12),
             label.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -20),
         ])
@@ -1005,13 +1044,13 @@ final class WalletCardView: UIView {
 
         var constraints: [NSLayoutConstraint] = [
             head.topAnchor.constraint(equalTo: backFace.topAnchor, constant: 15),
-            head.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-            head.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+            head.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+            head.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -20),
             grid.topAnchor.constraint(equalTo: head.bottomAnchor, constant: 11),
-            grid.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-            grid.trailingAnchor.constraint(equalTo: backFace.trailingAnchor, constant: -18),
-            button.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-            button.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+            grid.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+            grid.trailingAnchor.constraint(equalTo: backFace.trailingAnchor, constant: -20),
+            button.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+            button.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -20),
             button.bottomAnchor.constraint(equalTo: backFace.bottomAnchor, constant: -14),
         ]
         // The trust line, when there is a source, sits between the grid and the
@@ -1020,8 +1059,8 @@ final class WalletCardView: UIView {
             let trust = makeTrustLine(trustSource, color: ink)
             addBack(trust)
             constraints += [
-                trust.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+                trust.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -20),
                 trust.bottomAnchor.constraint(equalTo: button.topAnchor, constant: -8),
                 grid.bottomAnchor.constraint(lessThanOrEqualTo: trust.topAnchor, constant: -8),
             ]

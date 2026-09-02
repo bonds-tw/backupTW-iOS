@@ -57,7 +57,7 @@ final class MyDataCredentialUseCasesViewController: UIViewController {
                 "The original stays in your vault. A future credential should disclose only the answer a verifier needs, not attach this whole document.",
                 comment: "MyData VC source card"),
             symbol: "doc.text.magnifyingglass",
-            tint: .systemBlue))
+            tint: .tintColor))
 
         stack.addArrangedSubview(makeHeading(NSLocalizedString(
             "Good first test scenarios", comment: "MyData VC scenarios heading")))
@@ -124,7 +124,9 @@ final class MyDataCredentialUseCasesViewController: UIViewController {
         bodyLabel.font = .preferredFont(forTextStyle: .body)
         bodyLabel.adjustsFontForContentSizeCategory = true
         bodyLabel.numberOfLines = 0
-        bodyLabel.textColor = .secondaryLabel
+        // `.label` for body-length text — `.secondaryLabel` measures 3.4:1 in
+        // light mode, under AA (the measured rule in PresentationUI.footnote).
+        bodyLabel.textColor = .label
         bodyLabel.text = body
 
         let text = UIStackView(arrangedSubviews: [titleLabel, bodyLabel])
@@ -137,7 +139,7 @@ final class MyDataCredentialUseCasesViewController: UIViewController {
 
         let card = UIView()
         card.backgroundColor = .secondarySystemGroupedBackground
-        card.layer.cornerRadius = 16
+        Bonds.round(card.layer, Bonds.Radius.container)
         card.addSubview(row)
         NSLayoutConstraint.activate([
             row.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),

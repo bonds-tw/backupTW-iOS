@@ -192,7 +192,7 @@ final class AppAttestUATViewController: UITableViewController {
             content.text = isRunning
                 ? NSLocalizedString("Checking…", comment: "App Attest UAT running")
                 : NSLocalizedString("Run App Attest check", comment: "App Attest UAT action")
-            content.textProperties.color = isRunning ? .secondaryLabel : .systemBlue
+            content.textProperties.color = isRunning ? .secondaryLabel : .tintColor
             content.textProperties.alignment = .center
             cell.selectionStyle = isRunning ? .none : .default
             if isRunning {
@@ -309,7 +309,7 @@ final class AppAttestUATViewController: UITableViewController {
         let alert = UIAlertController(title: NSLocalizedString("Copied", comment: ""),
                                       message: nil,
                                       preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""), style: .default))
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
         present(alert, animated: true)
     }
 }
