@@ -124,6 +124,10 @@ final class PresentCredentialViewController: UIViewController {
     /// rather than the QR frames of it — the two transports carry the same
     /// bytes, framed for different media.
     private var presentationPayload: Data?
+    private var measurementStartedAt: UInt64?
+    private var measurementPreparedAt: UInt64?
+    private var measuredRequest: PresentationRequest?
+    private var deliveryRecordWritten = false
 
     /// The service identifier the checker offered, kept past the frame render.
     ///
@@ -986,6 +990,10 @@ final class PresentCredentialViewController: UIViewController {
             return .keepScanning(status: message)
         }
         stage = .confirming(request, freshness: Self.freshness(of: request, now: now))
+        measurementStartedAt = nil
+        measurementPreparedAt = nil
+        measuredRequest = request
+        deliveryRecordWritten = false
         render()
         navigationController?.popToViewController(self, animated: true)
         return .stop
@@ -1005,6 +1013,8 @@ final class PresentCredentialViewController: UIViewController {
         // is still `.confirming` and would sign, shard and display a second time
         // — a second Face ID prompt, and a second `startShowing`.
         guard case .confirming(let request, _) = stage, lifecycle.beginSigning() else { return }
+        measurementStartedAt = VerificationClock.now()
+        measuredRequest = request
         // Disabling the button is what the user sees. It cannot be relied on
         // alone: both taps of a fast double tap can be delivered before UIKit
         // redraws.
@@ -1045,10 +1055,28 @@ final class PresentCredentialViewController: UIViewController {
                 guard let self else { return }
                 switch result {
                 case .success(let signed):
+                    self.measurementPreparedAt = VerificationClock.now()
                     self.linkDeliveryAcknowledged = false
                     self.presentationPayload = signed.payload
                     self.stage = .showing(frames: signed.frames, request: request)
                 case .failure(let error):
+                    let completed = VerificationClock.now()
+                    let started = self.measurementStartedAt ?? completed
+                    let record = VerificationRunRecord(
+                        flow: .offlinePresentation,
+                        role: .holder,
+                        credentialKind: request.credentialSource == .twdiw
+                            ? .governmentWallet : .selfIssued,
+                        transport: .local,
+                        succeeded: false,
+                        preparationMilliseconds: VerificationClock.milliseconds(
+                            from: started, to: completed),
+                        endToEndMilliseconds: VerificationClock.milliseconds(
+                            from: started, to: completed),
+                        correlationToken: request.linkServiceID.map {
+                            VerificationRunRecord.correlationToken(for: $0.uuidString)
+                        })
+                    try? VerificationRunStore.shared.append(record)
                     self.stage = .failed((error as? LocalizedError)?.errorDescription
                                          ?? NSLocalizedString("This document could not be signed on this device.", comment: ""))
                 }
@@ -1223,6 +1251,7 @@ final class PresentCredentialViewController: UIViewController {
             linkLabel.text = String(format: NSLocalizedString("Sending over Bluetooth… %d%%", comment: ""),
                                     Int((fraction * 100).rounded()))
         case .finished:
+            let fallbackWasVisible = qrFallbackIsVisible
             linkDeliveryAcknowledged = true
             qrFallbackWorkItem?.cancel()
             qrFallbackWorkItem = nil
@@ -1242,6 +1271,30 @@ final class PresentCredentialViewController: UIViewController {
             transferTitleLabel?.text = NSLocalizedString("Delivered to the checker", comment: "Bluetooth delivery completed")
             linkLabel.text = NSLocalizedString("The checker's phone has the document.", comment: "")
             linkLabel.textColor = .systemGreen
+            if !deliveryRecordWritten, let request = measuredRequest {
+                deliveryRecordWritten = true
+                let completed = VerificationClock.now()
+                let started = measurementStartedAt ?? measurementPreparedAt ?? completed
+                let prepared = measurementPreparedAt ?? started
+                let record = VerificationRunRecord(
+                    flow: .offlinePresentation,
+                    role: .holder,
+                    credentialKind: request.credentialSource == .twdiw
+                        ? .governmentWallet : .selfIssued,
+                    transport: .bluetooth,
+                    succeeded: true,
+                    preparationMilliseconds: VerificationClock.milliseconds(
+                        from: started, to: prepared),
+                    transportMilliseconds: VerificationClock.milliseconds(
+                        from: prepared, to: completed),
+                    endToEndMilliseconds: VerificationClock.milliseconds(
+                        from: started, to: completed),
+                    correlationToken: request.linkServiceID.map {
+                        VerificationRunRecord.correlationToken(for: $0.uuidString)
+                    },
+                    qrFallbackWasVisible: fallbackWasVisible)
+                try? VerificationRunStore.shared.append(record)
+            }
             // Let `didReceiveWrite` send its ATT response before releasing the
             // peripheral manager, then stop advertising this spent one-time
             // service. Calling `stopLink()` here would overwrite the completion

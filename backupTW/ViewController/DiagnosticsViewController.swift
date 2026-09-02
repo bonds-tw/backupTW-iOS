@@ -219,6 +219,8 @@ final class DiagnosticsViewController: UICollectionViewController {
             return NSLocalizedString("Offline credential verification", comment: "timing flow")
         case .oid4vpPresentation:
             return NSLocalizedString("Online OIDC4VP presentation", comment: "timing flow")
+        case .privateAgeProof:
+            return NSLocalizedString("Private age proof", comment: "timing flow")
         case .zeroKnowledgeProofCreation:
             return NSLocalizedString("Zero-knowledge proof creation", comment: "timing flow")
         case .zeroKnowledgeProofVerification:

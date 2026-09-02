@@ -69,6 +69,10 @@ final class AgePredicateProofSendViewController: UIViewController {
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let doneButton = UIButton(type: .system)
+    private var createStartedAt: UInt64?
+    private var transportStartedAt: UInt64?
+    private var createdPackage: AgePredicateProofPackage?
+    private var runRecordWritten = false
 
     init(request: AgePredicateProofRequest,
          engine: any AgePredicateProofEngine = AgePredicateProofEngineAssembly.make()) {
@@ -83,6 +87,7 @@ final class AgePredicateProofSendViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         buildInterface()
+        createStartedAt = VerificationClock.now()
         createProof()
     }
 
@@ -149,6 +154,7 @@ final class AgePredicateProofSendViewController: UIViewController {
                         }
                     })
                 try package.validate(answering: request)
+                createdPackage = package
                 send(try package.encoded())
             } catch {
                 showFailure(error)
@@ -157,6 +163,7 @@ final class AgePredicateProofSendViewController: UIViewController {
     }
 
     private func send(_ payload: Data) {
+        transportStartedAt = VerificationClock.now()
         spinner.stopAnimating()
         titleLabel.text = NSLocalizedString("Proof ready", comment: "age proof")
         detailLabel.text = NSLocalizedString(
@@ -186,6 +193,7 @@ final class AgePredicateProofSendViewController: UIViewController {
             titleLabel.text = NSLocalizedString("The checker received the proof", comment: "age proof")
             detailLabel.text = NSLocalizedString("No birth date or card data was sent.", comment: "age proof")
             doneButton.isHidden = false
+            recordRun(succeeded: true)
         case .unavailable(let reason), .failed(let reason):
             showFailure(NSError(domain: "AgePredicateBluetooth", code: 1,
                                 userInfo: [NSLocalizedDescriptionKey: reason]))
@@ -197,6 +205,37 @@ final class AgePredicateProofSendViewController: UIViewController {
         titleLabel.text = NSLocalizedString("The proof was not sent", comment: "age proof")
         detailLabel.text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         doneButton.isHidden = false
+        recordRun(succeeded: false)
+    }
+
+    private func recordRun(succeeded: Bool) {
+        guard !runRecordWritten else { return }
+        runRecordWritten = true
+        let completed = VerificationClock.now()
+        let started = createStartedAt ?? completed
+        let transportStarted = transportStartedAt
+        let package = createdPackage
+        let record = VerificationRunRecord(
+            flow: .privateAgeProof,
+            role: .holder,
+            credentialKind: request.credentialSource == .twdiw
+                ? .governmentWallet : .selfIssued,
+            transport: transportStarted == nil ? .local : .bluetooth,
+            succeeded: succeeded,
+            preparationMilliseconds: package.map {
+                $0.prepareMilliseconds + $0.showMilliseconds
+            },
+            transportMilliseconds: transportStarted.map {
+                VerificationClock.milliseconds(from: $0, to: completed)
+            },
+            endToEndMilliseconds: VerificationClock.milliseconds(
+                from: started, to: completed),
+            proofPrepareMilliseconds: package?.prepareMilliseconds,
+            proofShowMilliseconds: package?.showMilliseconds,
+            correlationToken: VerificationRunRecord.correlationToken(
+                for: request.serviceID.uuidString),
+            qrFallbackWasVisible: false)
+        try? VerificationRunStore.shared.append(record)
     }
 
     @objc private func done() { navigationController?.popViewController(animated: true) }
@@ -210,6 +249,8 @@ final class AgePredicateProofVerifierViewController: UIViewController {
     private var request: AgePredicateProofRequest?
     private var link: BluetoothLinkCentral?
     private var preparationTask: Task<Void, Never>?
+    private var requestShownAt: UInt64?
+    private var payloadReceivedAt: UInt64?
 
     private let sourceControl = UISegmentedControl(items: [
         NSLocalizedString("Government card", comment: "age proof"),
@@ -309,6 +350,7 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                     for: request.encodedForTransport(), fittingPixelWidth: 900)
                 codeImageView.image = UIImage(cgImage: code.image, scale: UIScreen.main.scale,
                                               orientation: .up)
+                requestShownAt = VerificationClock.now()
                 statusLabel.text = NSLocalizedString("Ask them to scan this one request code", comment: "age proof")
                 detailLabel.text = NSLocalizedString(
                     "Offline checking files are ready. The proof returns over Bluetooth; their phone will not show a QR carousel.",
@@ -351,6 +393,7 @@ final class AgePredicateProofVerifierViewController: UIViewController {
             detailLabel.text = String(format: NSLocalizedString("Receiving proof… %d%%", comment: "age proof"),
                                       Int((fraction * 100).rounded()))
         case .finished(let data):
+            payloadReceivedAt = VerificationClock.now()
             stopLink()
             verify(data)
         case .unavailable(let reason), .failed(let reason):
@@ -360,6 +403,7 @@ final class AgePredicateProofVerifierViewController: UIViewController {
 
     private func verify(_ data: Data) {
         guard let request else { return }
+        let verificationStarted = payloadReceivedAt ?? VerificationClock.now()
         statusLabel.text = NSLocalizedString("Checking the proof on this iPad…", comment: "age proof")
         detailLabel.text = nil
         Task { @MainActor [weak self] in
@@ -405,9 +449,50 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                     Self.number(timing.prepareMilliseconds),
                     Self.number(timing.showMilliseconds),
                     Self.number(timing.verifyMilliseconds))
+                let completed = VerificationClock.now()
+                let shown = requestShownAt ?? verificationStarted
+                let record = VerificationRunRecord(
+                    flow: .privateAgeProof,
+                    role: .verifier,
+                    credentialKind: request.credentialSource == .twdiw
+                        ? .governmentWallet : .selfIssued,
+                    transport: .bluetooth,
+                    succeeded: true,
+                    preparationMilliseconds: timing.prepareMilliseconds
+                        + timing.showMilliseconds,
+                    transportMilliseconds: VerificationClock.milliseconds(
+                        from: shown, to: verificationStarted),
+                    verificationMilliseconds: timing.verifyMilliseconds,
+                    endToEndMilliseconds: VerificationClock.milliseconds(
+                        from: shown, to: completed),
+                    proofPrepareMilliseconds: timing.prepareMilliseconds,
+                    proofShowMilliseconds: timing.showMilliseconds,
+                    correlationToken: VerificationRunRecord.correlationToken(
+                        for: request.serviceID.uuidString),
+                    qrFallbackWasVisible: false)
+                try? VerificationRunStore.shared.append(record)
             } catch {
                 statusLabel.text = NSLocalizedString("Proof rejected", comment: "age proof")
                 detailLabel.text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                let completed = VerificationClock.now()
+                let shown = requestShownAt ?? verificationStarted
+                let record = VerificationRunRecord(
+                    flow: .privateAgeProof,
+                    role: .verifier,
+                    credentialKind: request.credentialSource == .twdiw
+                        ? .governmentWallet : .selfIssued,
+                    transport: .bluetooth,
+                    succeeded: false,
+                    transportMilliseconds: VerificationClock.milliseconds(
+                        from: shown, to: verificationStarted),
+                    verificationMilliseconds: VerificationClock.milliseconds(
+                        from: verificationStarted, to: completed),
+                    endToEndMilliseconds: VerificationClock.milliseconds(
+                        from: shown, to: completed),
+                    correlationToken: VerificationRunRecord.correlationToken(
+                        for: request.serviceID.uuidString),
+                    qrFallbackWasVisible: false)
+                try? VerificationRunStore.shared.append(record)
             }
         }
     }

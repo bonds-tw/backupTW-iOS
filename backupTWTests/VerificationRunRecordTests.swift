@@ -16,20 +16,48 @@ struct VerificationRunRecordTests {
         #expect(VerificationClock.milliseconds(from: 9, to: 8) == 0)
     }
 
-    @Test func storeRoundTripsAndKeepsOnlyTheLatestHundred() throws {
+    @Test func storeRoundTripsAndKeepsTheLatestFullFieldTestHistory() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = VerificationRunStore(fileURL: directory.appendingPathComponent("runs.json"))
 
-        for index in 0..<105 {
+        for index in 0..<505 {
             try store.append(Self.record(id: UUID(), milliseconds: UInt64(index)))
         }
 
         let records = store.records()
-        #expect(records.count == 100)
+        #expect(records.count == 500)
         #expect(records.first?.endToEndMilliseconds == 5)
-        #expect(records.last?.endToEndMilliseconds == 104)
+        #expect(records.last?.endToEndMilliseconds == 504)
+    }
+
+    @Test func matrixCellsAreInferredWithoutCredentialContents() {
+        let cases: [(VerificationRunRecord.Flow,
+                     VerificationRunRecord.CredentialKind,
+                     VerificationRunRecord.MatrixCell)] = [
+            (.offlinePresentation, .selfIssued, .a1),
+            (.oid4vpPresentation, .governmentWallet, .a2),
+            (.zeroKnowledgeProofVerification, .mobileCertificate, .a3),
+            (.oid4vpPresentation, .selfIssued, .g1),
+            (.offlinePresentation, .governmentWallet, .g2),
+            (.privateAgeProof, .governmentWallet, .g3),
+            (.privateAgeProof, .selfIssued, .g4),
+        ]
+        for (flow, kind, expected) in cases {
+            let record = VerificationRunRecord(flow: flow, role: .verifier,
+                                               credentialKind: kind, transport: .local,
+                                               succeeded: true)
+            #expect(record.matrixCell == expected)
+        }
+    }
+
+    @Test func correlationTokenIsShortAndDoesNotRetainTheRequestIdentifier() {
+        let request = "A request identifier that must not be retained"
+        let token = VerificationRunRecord.correlationToken(for: request)
+        #expect(token.count == 16)
+        #expect(!token.contains(request))
+        #expect(token == VerificationRunRecord.correlationToken(for: request))
     }
 
     @Test func persistedSchemaHasNoPlaceForCredentialContents() throws {

@@ -749,6 +749,7 @@ final class VerifierViewController: UIViewController {
                         completion: ((VerifierSessionResult, VerificationRunRecord) -> Void)? = nil) {
         let verificationStarted = VerificationClock.now()
         let requestShown = requestShownAtNanoseconds ?? verificationStarted
+        let measuredRequest = session.pendingRequest()
         session.check(presentationJWS: presentationJWS) { [weak self] result in
             guard let self else { return }
             let completed = VerificationClock.now()
@@ -761,7 +762,8 @@ final class VerifierViewController: UIViewController {
             let record = VerificationRunRecord(
                 flow: .offlinePresentation,
                 role: .verifier,
-                credentialKind: .selfIssued,
+                credentialKind: measuredRequest?.credentialSource == .twdiw
+                    ? .governmentWallet : .selfIssued,
                 transport: transport,
                 succeeded: succeeded,
                 transportMilliseconds: VerificationClock.milliseconds(
@@ -769,7 +771,11 @@ final class VerifierViewController: UIViewController {
                 verificationMilliseconds: VerificationClock.milliseconds(
                     from: verificationStarted, to: completed),
                 endToEndMilliseconds: VerificationClock.milliseconds(
-                    from: requestShown, to: completed))
+                    from: requestShown, to: completed),
+                correlationToken: measuredRequest?.linkServiceID.map {
+                    VerificationRunRecord.correlationToken(for: $0.uuidString)
+                },
+                qrFallbackWasVisible: transport == .qr)
             try? VerificationRunStore.shared.append(record)
             self.requestShownAtNanoseconds = nil
             if let completion {
