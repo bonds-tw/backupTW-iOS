@@ -77,6 +77,24 @@ final class QRScanningViewController: UIViewController {
     /// The bar holding both of the above. Held so it can be taken off screen
     /// whole — see `showUnavailable`.
     private let banner = UIStackView()
+    private var workingSpinner: UIActivityIndicatorView?
+
+    /// Feedback for the stretch between a locked code and the outcome.
+    ///
+    /// After `.stop`, the preview freezes on its last frame while the caller
+    /// runs a network flow — measured as several seconds for a collection. A
+    /// frozen camera with no words was read as a broken scanner (design system
+    /// §8.1: no frozen screens as waiting states), so the caller can put a
+    /// sentence and a spinner in the banner it already owns.
+    func showWorking(_ text: String) {
+        statusLabel.text = text
+        banner.isHidden = false
+        guard workingSpinner == nil else { return }
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.startAnimating()
+        banner.addArrangedSubview(spinner)
+        workingSpinner = spinner
+    }
     /// Shown instead of the preview when there is nothing to preview.
     private let unavailableView = UIStackView()
     private let unavailableLabel = UILabel()
@@ -554,6 +572,10 @@ extension QRScanningViewController: AVCaptureMetadataOutputObjectsDelegate {
             case .keepScanning(let status):
                 if let status { statusLabel.text = status }
             case .stop:
+                // The moment the camera locks a code is an evidence-backed
+                // event under the one-buzz rule (BondsDesign.swift §觸覺), and
+                // the light impact tells the holder to stop aiming.
+                Bonds.Haptic.scanLocked()
                 apply(lifecycle.didFinish())
                 return
             }

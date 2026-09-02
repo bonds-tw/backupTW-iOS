@@ -44,11 +44,16 @@ final class MyDataVaultArchive {
         /// written by the first vault build (which had only the two fields above)
         /// continues to decode instead of making a stored document disappear.
         let importedAt: Date?
+        /// Human-readable document kind for imports that did not come through
+        /// the small shortcut registry. Optional for every older sidecar.
+        let displayName: String?
 
-        init(sha256: String, fileExtension: String, importedAt: Date? = Date()) {
+        init(sha256: String, fileExtension: String, importedAt: Date? = Date(),
+             displayName: String? = nil) {
             self.sha256 = sha256
             self.fileExtension = fileExtension
             self.importedAt = importedAt
+            self.displayName = displayName
         }
     }
 
@@ -115,11 +120,22 @@ final class MyDataVaultArchive {
     /// protection — copying the file item would inherit whatever protection the
     /// download destination had, which is the temporary scratch's, not ours.
     @discardableResult
-    func store(originalAt src: URL, id: String, fileExtension: String) throws -> Entry {
+    func store(originalAt src: URL, id: String, fileExtension: String,
+               displayName: String? = nil) throws -> Entry {
+        try store(data: Data(contentsOf: src), id: id,
+                  fileExtension: fileExtension, displayName: displayName)
+    }
+
+    /// Stores already-normalised bytes. MyData commonly wraps one PDF in a ZIP;
+    /// callers can safely unpack that quarantine and keep the PDF rather than the
+    /// transport wrapper. CSV-only items may still retain their original format.
+    @discardableResult
+    func store(data: Data, id: String, fileExtension: String,
+               displayName: String? = nil) throws -> Entry {
         let fileURL = try fileURL(for: id, ext: Self.originalExtension)
-        let data = try Data(contentsOf: src)
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        let entry = Entry(sha256: digest, fileExtension: fileExtension.lowercased())
+        let entry = Entry(sha256: digest, fileExtension: fileExtension.lowercased(),
+                          displayName: displayName)
 
         try data.write(to: fileURL, options: [.atomic, .completeFileProtectionUnlessOpen])
         let metaURL = try self.fileURL(for: id, ext: Self.metaExtension)

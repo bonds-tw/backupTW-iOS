@@ -66,7 +66,13 @@ enum IssuerDirectory {
     ///   `00000000_demo_drivinglicense_202504251418`.
     /// - Parameter issuerDID: the issuer's `did:key`, used both to spot sandbox
     ///   issuers and as the honest fallback name when nothing matches.
-    static func describe(credentialType: String, issuerDID: String) -> IssuerDescriptor {
+    /// - Parameter knownIssuerName: the trust list's own display name for this
+    ///   DID, when one was remembered (`IssuerNameBook`). Used only when no
+    ///   curated card-type rule matches — canonical curated names still win —
+    ///   so an unknown card kind from a listed issuer shows 「機關名稱」 rather
+    ///   than a truncated DID (回報 2026-09-02).
+    static func describe(credentialType: String, issuerDID: String,
+                         knownIssuerName: String? = nil) -> IssuerDescriptor {
         let type = credentialType.lowercased()
         let issuer = issuerDID.lowercased()
         let readableKind = UntrustedText.value(CardInventory.readableType(credentialType)).text
@@ -115,6 +121,17 @@ enum IssuerDirectory {
         if ["wallet_partner", "partner", "moda"].contains(where: type.contains) {
             return IssuerDescriptor(issuerName: "數位發展部",
                                     cardKind: "夥伴卡",
+                                    trustSource: modaTrustList)
+        }
+
+        // No curated card-type rule — but the issuer itself may be on the
+        // trust list with a display name this app remembered at fetch time.
+        // That name is the list's own claim about the DID the gates already
+        // vouched for, so showing it is a lookup, not an invention. The kind
+        // stays the readable-ised type: the list names issuers, not cards.
+        if let knownIssuerName {
+            return IssuerDescriptor(issuerName: knownIssuerName,
+                                    cardKind: readableKind,
                                     trustSource: modaTrustList)
         }
 

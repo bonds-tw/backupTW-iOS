@@ -29,6 +29,51 @@
 
 import UIKit
 
+
+// MARK: - Card palette (design system §9.1)
+
+extension Bonds {
+    /// 卡面的封閉色盤。卡面模擬實體證件，**刻意不隨深淺色模式變化**——
+    /// 這裡是它全部字面色的唯一住所；卡面之外禁止引用。
+    /// 抽取時合併了兩組近重複值：紙底 0xECEADB／0xE8E6D6 取前者、
+    /// 髮線 α 0.22／0.20 取 0.2。
+    enum CardPalette {
+        // 綠卡（駕照等）漸層與洋紅（門號）、石墨（保險箱）三組。
+        static let pine = [rgb(0x13, 0x7A, 0x5D), rgb(0x0D, 0x5B, 0x48), rgb(0x08, 0x3A, 0x30)]
+        static let magenta = [rgb(0xD6, 0x1F, 0x83), rgb(0x9C, 0x2A, 0x9E), rgb(0x5B, 0x2D, 0x9C)]
+        static let graphite = [rgb(0x3A, 0x3D, 0x46), rgb(0x2A, 0x2C, 0x33), rgb(0x1C, 0x1D, 0x22)]
+        static let specularPine = UIColor(red: 150/255, green: 1, blue: 214/255, alpha: 0.42)
+        static let specularMagenta = UIColor(red: 1, green: 180/255, blue: 236/255, alpha: 0.5)
+        static let specularNeutral = UIColor(white: 1, alpha: 0.14)
+        static let mint = rgb(0x5F, 0xE3, 0xC0)
+        static let shadow = rgb(18, 22, 40)
+        static let shineTop = UIColor(white: 1, alpha: 0.12)
+
+        // 紙質身分證面。
+        static let paperTop = rgb(0xF7, 0xF5, 0xEA)
+        static let paperBottom = rgb(0xEC, 0xEA, 0xDB)
+        static let paperInk = rgb(0x21, 0x1E, 0x15)
+        static let paperLabel = rgb(0x5B, 0x55, 0x45)
+        static let paperHair = UIColor(red: 60/255, green: 50/255, blue: 22/255, alpha: 0.2)
+        static let paperBorder = UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16)
+        static let sealRed = rgb(0xB2, 0x33, 0x24)
+        static let sealRedDeep = rgb(0xC0, 0x26, 0x1F)
+        static let paperBackButtonFill = rgb(0x21, 0x1E, 0x15).withAlphaComponent(0.08)
+
+        // 石墨保險箱面與中性面。
+        static let vaultInk = rgb(0xE7, 0xE9, 0xEF)
+        static let vaultMuted = rgb(0xA6, 0xAB, 0xB7)
+        static let faintBorder = UIColor(white: 1, alpha: 0.06)
+        static let unreadableInk = UIColor(white: 0.9, alpha: 1)
+        static let backLabel = UIColor(white: 1, alpha: 0.6)
+        static let backButtonFill = UIColor(white: 1, alpha: 0.16)
+
+        private static func rgb(_ r: Int, _ g: Int, _ b: Int) -> UIColor {
+            UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+        }
+    }
+}
+
 // MARK: - Content model
 
 /// What a single wallet card shows. Each case carries only display-ready,
@@ -137,6 +182,35 @@ struct WalletCardField: Hashable {
     let value: String
 }
 
+extension WalletCardContent {
+    /// What VoiceOver says for the whole card, as one element (design system
+    /// §9.1). Deliberately *not* the field grid: a masked value like
+    /// 「A2●●●●●●●0」 read glyph by glyph is noise, and the full values live on
+    /// the detail screen where the two-step reveal already guards them. The
+    /// card speaks its identity and its standing, nothing more.
+    var accessibilitySummary: String {
+        switch self {
+        case .nationalID(let card):
+            if let placeholder = card.placeholderMessage {
+                return card.title + "，" + placeholder
+            }
+            var parts = [card.title]
+            if !card.holderName.isEmpty { parts.append(card.holderName) }
+            if !card.trustSource.isEmpty { parts.append(card.trustSource) }
+            return parts.joined(separator: "，")
+        case .credential(let card):
+            var parts = [card.kind]
+            if let holder = card.holderName, !holder.isEmpty { parts.append(holder) }
+            if !card.trustSource.isEmpty { parts.append(card.trustSource) }
+            return parts.joined(separator: "，")
+        case .vault(let card):
+            return [card.title, card.status].filter { !$0.isEmpty }.joined(separator: "，")
+        case .unreadable(let message):
+            return message
+        }
+    }
+}
+
 /// The card's colour identity. A stable, deliberately small palette chosen by
 /// `WalletCardFactory` from the card's kind — a colour is not a claim, so this
 /// is the one place a kind may steer presentation without asserting anything.
@@ -153,17 +227,11 @@ enum WalletCardTint: Hashable {
     var gradientColors: [CGColor] {
         switch self {
         case .green:
-            return [UIColor(red: 0x13/255, green: 0x7a/255, blue: 0x5d/255, alpha: 1).cgColor,
-                    UIColor(red: 0x0d/255, green: 0x5b/255, blue: 0x48/255, alpha: 1).cgColor,
-                    UIColor(red: 0x08/255, green: 0x3a/255, blue: 0x30/255, alpha: 1).cgColor]
+            return Bonds.CardPalette.pine.map(\.cgColor)
         case .magenta:
-            return [UIColor(red: 0xd6/255, green: 0x1f/255, blue: 0x83/255, alpha: 1).cgColor,
-                    UIColor(red: 0x9c/255, green: 0x2a/255, blue: 0x9e/255, alpha: 1).cgColor,
-                    UIColor(red: 0x5b/255, green: 0x2d/255, blue: 0x9c/255, alpha: 1).cgColor]
+            return Bonds.CardPalette.magenta.map(\.cgColor)
         case .neutral:
-            return [UIColor(red: 0x3a/255, green: 0x3d/255, blue: 0x46/255, alpha: 1).cgColor,
-                    UIColor(red: 0x2a/255, green: 0x2c/255, blue: 0x33/255, alpha: 1).cgColor,
-                    UIColor(red: 0x1c/255, green: 0x1d/255, blue: 0x22/255, alpha: 1).cgColor]
+            return Bonds.CardPalette.graphite.map(\.cgColor)
         }
     }
 
@@ -171,9 +239,9 @@ enum WalletCardTint: Hashable {
     /// (rgba(150,255,214,.42) for green, rgba(255,180,236,.5) for magenta).
     var highlightColor: UIColor {
         switch self {
-        case .green: return UIColor(red: 150/255, green: 1, blue: 214/255, alpha: 0.42)
-        case .magenta: return UIColor(red: 1, green: 180/255, blue: 236/255, alpha: 0.5)
-        case .neutral: return UIColor(white: 1, alpha: 0.14)
+        case .green: return Bonds.CardPalette.specularPine
+        case .magenta: return Bonds.CardPalette.specularMagenta
+        case .neutral: return Bonds.CardPalette.specularNeutral
         }
     }
 }
@@ -259,7 +327,7 @@ final class WalletCardView: UIView {
         layer.cornerCurve = .continuous
         // The card's own drop shadow. Kept off the clipped face container so the
         // shadow is not clipped away with the art.
-        layer.shadowColor = UIColor(red: 18/255, green: 22/255, blue: 40/255, alpha: 1).cgColor
+        layer.shadowColor = Bonds.CardPalette.shadow.cgColor
         layer.shadowOpacity = 0.30
         layer.shadowRadius = 22
         layer.shadowOffset = CGSize(width: 0, height: 14)
@@ -311,8 +379,8 @@ final class WalletCardView: UIView {
         shineLayer.type = .radial
         shineLayer.startPoint = Self.shineRestStart
         shineLayer.endPoint = Self.shineRestEnd
-        shineLayer.colors = [UIColor(white: 1, alpha: 0.12).cgColor,
-                             UIColor(white: 1, alpha: 0).cgColor]
+        shineLayer.colors = [Bonds.CardPalette.shineTop.cgColor,
+                             Bonds.CardPalette.shineTop.withAlphaComponent(0).cgColor]
         frontFace.layer.addSublayer(shineLayer)
 
         backBackgroundLayer.needsDisplayOnBoundsChange = true
@@ -457,7 +525,7 @@ final class WalletCardView: UIView {
         if animated && !UIAccessibility.isReduceMotionEnabled {
             let direction: UIView.AnimationOptions = flipped ? .transitionFlipFromRight
                                                              : .transitionFlipFromLeft
-            UIView.transition(with: flipNode, duration: 0.5,
+            UIView.transition(with: flipNode, duration: Bonds.Motion.flip,
                               options: [direction, .showHideTransitionViews],
                               animations: swapFaces)
         } else {
@@ -519,18 +587,18 @@ final class WalletCardView: UIView {
     private func buildNationalID(_ card: NationalIDCard) {
         // Paper stock: a near-flat pale gradient, an inner hairline frame, and
         // the green rosette guilloché.
-        backgroundLayer.colors = [UIColor(red: 0xf7/255, green: 0xf5/255, blue: 0xea/255, alpha: 1).cgColor,
-                                  UIColor(red: 0xec/255, green: 0xea/255, blue: 0xdb/255, alpha: 1).cgColor]
+        backgroundLayer.colors = [Bonds.CardPalette.paperTop.cgColor,
+                                  Bonds.CardPalette.paperBottom.cgColor]
         setDiagonalGradient()
         highlightLayer.colors = []
         frontFace.layer.borderWidth = 1
-        frontFace.layer.borderColor = UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16).cgColor
+        frontFace.layer.borderColor = Bonds.CardPalette.paperBorder.cgColor
         guilloche.isHidden = false
         shineLayer.opacity = 0.5
 
-        let ink = UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 1)
-        let label = UIColor(red: 0x5b/255, green: 0x55/255, blue: 0x45/255, alpha: 1)
-        let hair = UIColor(red: 60/255, green: 50/255, blue: 22/255, alpha: 0.22)
+        let ink = Bonds.CardPalette.paperInk
+        let label = Bonds.CardPalette.paperLabel
+        let hair = Bonds.CardPalette.paperHair
 
         // Title row: 🇹🇼 + 中華民國國民身分證, with a hairline under it.
         let title = makeLabel(card.title, font: .systemFont(ofSize: 16, weight: .heavy), color: ink)
@@ -547,11 +615,11 @@ final class WalletCardView: UIView {
 
         NSLayoutConstraint.activate([
             titleRow.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 15),
-            titleRow.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-            titleRow.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
+            titleRow.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            titleRow.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
             titleHair.topAnchor.constraint(equalTo: titleRow.bottomAnchor, constant: 9),
-            titleHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-            titleHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+            titleHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            titleHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
         ])
 
         if let message = card.placeholderMessage {
@@ -563,8 +631,8 @@ final class WalletCardView: UIView {
             add(prompt)
             NSLayoutConstraint.activate([
                 prompt.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 16),
-                prompt.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-                prompt.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                prompt.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                prompt.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
                 prompt.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -16),
             ])
             return
@@ -590,8 +658,8 @@ final class WalletCardView: UIView {
         add(grid)
         NSLayoutConstraint.activate([
             grid.topAnchor.constraint(equalTo: titleHair.bottomAnchor, constant: 11),
-            grid.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-            grid.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+            grid.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            grid.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
         ])
 
         // Trust source 「行動自然人憑證 · 本人自簽」 — the honest note that this document
@@ -602,31 +670,31 @@ final class WalletCardView: UIView {
         if let trust {
             add(trust)
             NSLayoutConstraint.activate([
-                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -18),
+                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
             ])
         }
 
         // Red 統一編號 footer: top hairline, right-aligned, monospaced.
         if let idLabel = card.idLabel, let idValue = card.idValueMasked {
-            let uidHair = makeHairline(UIColor(red: 60/255, green: 50/255, blue: 22/255, alpha: 0.2))
+            let uidHair = makeHairline(Bonds.CardPalette.paperHair)
             add(uidHair)
             let uidLabel = makeLabel(idLabel,
                                      font: .systemFont(ofSize: 10, weight: .semibold),
-                                     color: UIColor(red: 0xb2/255, green: 0x33/255, blue: 0x24/255, alpha: 1))
+                                     color: Bonds.CardPalette.sealRed)
             let uidValue = makeLabel(idValue,
                                      font: .monospacedSystemFont(ofSize: 19, weight: .bold),
-                                     color: UIColor(red: 0xc0/255, green: 0x26/255, blue: 0x1f/255, alpha: 1))
+                                     color: Bonds.CardPalette.sealRedDeep)
             let uidRow = UIStackView(arrangedSubviews: [uidLabel, uidValue])
             uidRow.axis = .horizontal
             uidRow.spacing = 10
             uidRow.alignment = .firstBaseline
             add(uidRow)
             var footer: [NSLayoutConstraint] = [
-                uidHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 18),
-                uidHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                uidHair.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                uidHair.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
                 uidHair.bottomAnchor.constraint(equalTo: uidRow.topAnchor, constant: -9),
-                uidRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -18),
+                uidRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
                 uidRow.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -14),
             ]
             // Order down the card: grid → trust source → hairline → 統一編號.
@@ -760,8 +828,8 @@ final class WalletCardView: UIView {
             let trust = makeTrustLine(card.trustSource, color: white)
             add(trust)
             NSLayoutConstraint.activate([
-                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -21),
+                trust.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
                 trust.bottomAnchor.constraint(equalTo: footStack.topAnchor, constant: -8),
             ])
             midBottom = midStack.bottomAnchor.constraint(equalTo: trust.topAnchor, constant: -10)
@@ -771,16 +839,16 @@ final class WalletCardView: UIView {
 
         NSLayoutConstraint.activate([
             topStack.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 19),
-            topStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-            topStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -21),
+            topStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            topStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
 
-            midStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-            midStack.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -21),
+            midStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            midStack.trailingAnchor.constraint(lessThanOrEqualTo: frontFace.trailingAnchor, constant: -20),
             midBottom,
 
-            footStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 21),
-            footStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -21),
-            footStack.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -18),
+            footStack.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            footStack.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
+            footStack.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
         ])
         if footStack.arrangedSubviews.isEmpty {
             // No foot fields: let the middle sit against the bottom padding.
@@ -814,8 +882,8 @@ final class WalletCardView: UIView {
         guilloche.isHidden = true
         shineLayer.opacity = 0.6
 
-        let accent = UIColor(red: 0x5f/255, green: 0xe3/255, blue: 0xc0/255, alpha: 1)
-        let ink = UIColor(red: 0xe7/255, green: 0xe9/255, blue: 0xef/255, alpha: 1)
+        let accent = Bonds.CardPalette.mint
+        let ink = Bonds.CardPalette.vaultInk
 
         // Lock tile — SF Symbol, a standard UI glyph, in a rounded tinted square.
         let lockTile = UIView()
@@ -856,26 +924,36 @@ final class WalletCardView: UIView {
         statusRow.alignment = .center
         add(statusRow)
 
-        let title = makeLabel(card.title, font: .systemFont(ofSize: 19, weight: .bold), color: ink)
-        title.numberOfLines = 2
+        // The title lives in the TOP strip. When vault documents stack, only a
+        // 48pt sliver of each card shows (HomeViewController's peek height), and
+        // a title drawn at the foot of the card is invisible on every card but
+        // the hero — a pile of identical lock icons (回報 2026-09-02). One line,
+        // truncated if it must be: on this surface being identifiable beats
+        // being complete, and the full name is one tap away.
+        let title = makeLabel(card.title, font: .systemFont(ofSize: 17, weight: .bold), color: ink)
+        title.numberOfLines = 1
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         add(title)
-        let message = makeLabel(card.message, font: .systemFont(ofSize: 11.5), color: UIColor(red: 0xa6/255, green: 0xab/255, blue: 0xb7/255, alpha: 1))
+        let message = makeLabel(card.message, font: .systemFont(ofSize: 11.5), color: Bonds.CardPalette.vaultMuted)
         message.numberOfLines = 0
         add(message)
 
         NSLayoutConstraint.activate([
-            lockTile.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 20),
-            lockTile.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            statusRow.centerYAnchor.constraint(equalTo: lockTile.centerYAnchor),
-            statusRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
+            // Top strip (inside the 48pt peek): name leading, status trailing.
+            title.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 14),
+            title.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            statusRow.centerYAnchor.constraint(equalTo: title.centerYAnchor),
+            statusRow.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: statusRow.leadingAnchor, constant: -8),
 
-            message.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            message.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
-            message.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
-            title.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            title.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
-            title.bottomAnchor.constraint(equalTo: message.topAnchor, constant: -6),
-            title.topAnchor.constraint(greaterThanOrEqualTo: lockTile.bottomAnchor, constant: 12),
+            // Foot: the lock tile and the standing note, fully visible only on
+            // the hero — which is exactly where detail belongs.
+            lockTile.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            lockTile.bottomAnchor.constraint(equalTo: frontFace.bottomAnchor, constant: -20),
+            message.leadingAnchor.constraint(equalTo: lockTile.trailingAnchor, constant: 12),
+            message.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
+            message.centerYAnchor.constraint(equalTo: lockTile.centerYAnchor),
+            message.topAnchor.constraint(greaterThanOrEqualTo: title.bottomAnchor, constant: 12),
         ])
     }
 
@@ -895,16 +973,16 @@ final class WalletCardView: UIView {
         icon.contentMode = .scaleAspectFit
         add(icon)
         let label = makeLabel(message, font: .systemFont(ofSize: 13, weight: .medium),
-                              color: UIColor(white: 0.9, alpha: 1))
+                              color: Bonds.CardPalette.unreadableInk)
         label.numberOfLines = 0
         add(label)
         NSLayoutConstraint.activate([
             icon.topAnchor.constraint(equalTo: frontFace.topAnchor, constant: 20),
-            icon.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
+            icon.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
             icon.widthAnchor.constraint(equalToConstant: 26),
             icon.heightAnchor.constraint(equalToConstant: 26),
-            label.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 22),
-            label.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -22),
+            label.leadingAnchor.constraint(equalTo: frontFace.leadingAnchor, constant: 20),
+            label.trailingAnchor.constraint(equalTo: frontFace.trailingAnchor, constant: -20),
             label.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: 12),
             label.bottomAnchor.constraint(lessThanOrEqualTo: frontFace.bottomAnchor, constant: -20),
         ])
@@ -936,8 +1014,8 @@ final class WalletCardView: UIView {
                    rows: rows,
                    trustSource: card.trustSource,
                    ink: .white,
-                   labelColor: UIColor(white: 1, alpha: 0.6),
-                   buttonFill: UIColor(white: 1, alpha: 0.16),
+                   labelColor: Bonds.CardPalette.backLabel,
+                   buttonFill: Bonds.CardPalette.backButtonFill,
                    buttonTextColor: .white)
     }
 
@@ -948,19 +1026,19 @@ final class WalletCardView: UIView {
     private func buildNationalIDBack(_ card: NationalIDCard) {
         guard !card.backFields.isEmpty else { return }
         hasBackContent = true
-        let paperTop = UIColor(red: 0xf7/255, green: 0xf5/255, blue: 0xea/255, alpha: 1).cgColor
-        let paperBottom = UIColor(red: 0xe8/255, green: 0xe6/255, blue: 0xd6/255, alpha: 1).cgColor
-        let ink = UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 1)
-        let label = UIColor(red: 0x5b/255, green: 0x55/255, blue: 0x45/255, alpha: 1)
+        let paperTop = Bonds.CardPalette.paperTop.cgColor
+        let paperBottom = Bonds.CardPalette.paperBottom.cgColor
+        let ink = Bonds.CardPalette.paperInk
+        let label = Bonds.CardPalette.paperLabel
 
         layoutBack(backgroundColors: [paperTop, paperBottom],
-                   borderColor: UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16).cgColor,
+                   borderColor: Bonds.CardPalette.paperBorder.cgColor,
                    heading: backHeading(NSLocalizedString("National ID", comment: "wallet card back kind")),
                    rows: card.backFields,
                    trustSource: card.trustSource,
                    ink: ink,
                    labelColor: label,
-                   buttonFill: UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 0.08),
+                   buttonFill: Bonds.CardPalette.paperBackButtonFill,
                    buttonTextColor: ink)
     }
 
@@ -1005,13 +1083,13 @@ final class WalletCardView: UIView {
 
         var constraints: [NSLayoutConstraint] = [
             head.topAnchor.constraint(equalTo: backFace.topAnchor, constant: 15),
-            head.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-            head.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+            head.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+            head.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -20),
             grid.topAnchor.constraint(equalTo: head.bottomAnchor, constant: 11),
-            grid.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-            grid.trailingAnchor.constraint(equalTo: backFace.trailingAnchor, constant: -18),
-            button.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-            button.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+            grid.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+            grid.trailingAnchor.constraint(equalTo: backFace.trailingAnchor, constant: -20),
+            button.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+            button.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -20),
             button.bottomAnchor.constraint(equalTo: backFace.bottomAnchor, constant: -14),
         ]
         // The trust line, when there is a source, sits between the grid and the
@@ -1020,8 +1098,8 @@ final class WalletCardView: UIView {
             let trust = makeTrustLine(trustSource, color: ink)
             addBack(trust)
             constraints += [
-                trust.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 18),
-                trust.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -18),
+                trust.leadingAnchor.constraint(equalTo: backFace.leadingAnchor, constant: 20),
+                trust.trailingAnchor.constraint(lessThanOrEqualTo: backFace.trailingAnchor, constant: -20),
                 trust.bottomAnchor.constraint(equalTo: button.topAnchor, constant: -8),
                 grid.bottomAnchor.constraint(lessThanOrEqualTo: trust.topAnchor, constant: -8),
             ]

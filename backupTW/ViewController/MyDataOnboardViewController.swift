@@ -21,7 +21,7 @@ class MyDataOnboardViewController: UICollectionViewController {
     }
 
     private enum Section: Int, CaseIterable {
-        case cover, data
+        case cover, guidance, profile, data
     }
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     /// # Why the cover states the build's limit before anything is spent
@@ -49,13 +49,51 @@ class MyDataOnboardViewController: UICollectionViewController {
     private var isNationalID: Bool { documentType.id == MyDataDocumentRegistry.nationalID.id }
     private var canProceed: Bool { !isNationalID || CredentialIssuanceAssembly.isAvailable }
 
+    private var guidanceItems: [Item] {
+        var rows = [
+            Item(image: UIImage(systemName: "1.circle.fill"),
+                 title: NSLocalizedString("Fill in your MyData details", comment: "MyData flow step"),
+                 secondaryText: NSLocalizedString("Saved details can be filled for you on the official MyData page.", comment: "MyData flow step"),
+                 identifier: "mydata.step.details"),
+            Item(image: UIImage(systemName: "2.circle.fill"),
+                 title: NSLocalizedString("Approve in 行動自然人憑證", comment: "MyData flow step"),
+                 secondaryText: NSLocalizedString("Bonds opens the certificate app. Confirm there, then return here.", comment: "MyData flow step"),
+                 identifier: "mydata.step.certificate"),
+            Item(image: UIImage(systemName: "3.circle.fill"),
+                 title: NSLocalizedString("Return to Bonds", comment: "MyData flow step"),
+                 secondaryText: NSLocalizedString("The MyData page stays open and continues after the signature.", comment: "MyData flow step"),
+                 identifier: "mydata.step.return"),
+        ]
+        let finalText = documentType.estimatedMinutes.map {
+            String(format: NSLocalizedString("This document may take about %lld minutes. You can leave and later continue from MyData personal documents.", comment: "MyData slow document step"), Int64($0))
+        } ?? NSLocalizedString("Download the completed file; it is then sealed in the data vault.", comment: "MyData flow step")
+        rows.append(Item(image: UIImage(systemName: "4.circle.fill"),
+                         title: NSLocalizedString("Download or continue later", comment: "MyData flow step"),
+                         secondaryText: finalText,
+                         identifier: "mydata.step.download"))
+        return rows
+    }
+
+    private var profileItem: Item {
+        let saved = MyDataAutofillProfileStore.load() != nil
+        return Item(
+            image: UIImage(systemName: saved ? "checkmark.shield.fill" : "person.crop.circle.badge.plus"),
+            title: NSLocalizedString("Remember MyData details on this iPhone", comment: "MyData profile row"),
+            secondaryText: saved
+                ? NSLocalizedString("Saved in Keychain · tap to change or forget", comment: "MyData profile row")
+                : NSLocalizedString("Optional · saves repeated ID number and birth-date entry", comment: "MyData profile row"),
+            identifier: "mydata.profile")
+    }
+
     init(documentType: MyDataDocumentType = MyDataDocumentRegistry.nationalID) {
         self.documentType = documentType
         if documentType.id == MyDataDocumentRegistry.nationalID.id {
             self.coverItem = CredentialIssuanceAssembly.isAvailable
-                ? Item(title: NSLocalizedString("Create a Valid Document", comment: ""),
+                ? Item(image: Self.statusImage("person.text.rectangle", colour: .tintColor),
+                       title: NSLocalizedString("Create a Valid Document", comment: ""),
                        secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
-                : Item(title: NSLocalizedString("This version cannot create a document", comment: ""),
+                : Item(image: Self.statusImage("xmark.shield.fill", colour: .systemOrange),
+                       title: NSLocalizedString("This version cannot create a document", comment: ""),
                        secondaryText: NSLocalizedString("Signing needs a service this build cannot reach, so the document could not be created even after fetching your data. Nothing is fetched.", comment: ""))
             self.items = [
                 Item(title: NSLocalizedString("Nationality", comment: ""), secondaryText: ""),
@@ -66,6 +104,7 @@ class MyDataOnboardViewController: UICollectionViewController {
             ]
         } else {
             self.coverItem = Item(
+                image: Self.statusImage("tray.and.arrow.down.fill", colour: .tintColor),
                 title: String(format: NSLocalizedString("Import %@", comment: "MyData document import title"), documentType.title),
                 secondaryText: NSLocalizedString("Download this document from Taiwan's MyData service and keep the original in your on-device data vault.", comment: ""))
             self.items = [
@@ -115,7 +154,7 @@ class MyDataOnboardViewController: UICollectionViewController {
         proceed.isEnabled = canProceed
         navigationItem.rightBarButtonItem = proceed
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
-        collectionView.allowsSelection = false
+        collectionView.allowsSelection = true
 
         configureDataSource()
         applySnapshot()
@@ -123,41 +162,59 @@ class MyDataOnboardViewController: UICollectionViewController {
 
     private func configureDataSource() {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
-            var content = UIListContentConfiguration.valueCell()
-            let isCover = (indexPath.section == Section.cover.rawValue)
-            let textStyle: UIFont.TextStyle = isCover ? .largeTitle : .headline
-            let secondaryStyle: UIFont.TextStyle = isCover ? .body : .subheadline
-            content.textProperties.alignment = isCover ? .center : .natural
-            content.secondaryTextProperties.alignment = isCover ? .center : .natural
-            content.textToSecondaryTextVerticalPadding = isCover ? 12.0 : 3.0
-            let title = NSMutableAttributedString(
-                string: item.title,
-                attributes: [.font: UIFont.preferredFont(forTextStyle: textStyle)]
-            )
+            let section = Section(rawValue: indexPath.section)
+            let isCover = section == .cover
+            // The household address is structurally a long field, even when a
+            // particular test value happens to be short.  Keeping it in the
+            // trailing-value layout makes the value fight the title for width
+            // and produces the clipped row seen on an iPhone.  Other long
+            // MyData values get the same stacked treatment automatically.
+            let isHouseholdAddress = self.isNationalID && section == .data && indexPath.item == 4
+            let usesStackedValue = isHouseholdAddress
+                || item.secondaryText.count > 18
+                || item.secondaryText.contains("\n")
+            var content = isCover || usesStackedValue
+                ? UIListContentConfiguration.subtitleCell()
+                : UIListContentConfiguration.valueCell()
+
             if isCover {
-                // A symbol hero, not a 60pt emoji: 📋 read as a placeholder and
-                // sat oddly against the rest of the app, which is SF Symbols
-                // throughout. `person.text.rectangle` is the ID-card glyph, drawn
-                // in the app's card tint at a hero size and centred above the
-                // title with a blank line between.
-                let config = UIImage.SymbolConfiguration(pointSize: 52, weight: .regular)
-                if let symbol = UIImage(systemName: self.documentType.systemImage, withConfiguration: config)?
-                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
-                    let attachment = NSTextAttachment(image: symbol)
-                    let hero = NSMutableAttributedString(attachment: attachment)
-                    hero.append(NSAttributedString(string: "\n\n"))
-                    hero.addAttributes([.font: UIFont.preferredFont(forTextStyle: textStyle)],
-                                       range: NSRange(location: hero.length - 2, length: 2))
-                    title.insert(hero, at: 0)
-                }
+                // Keep the result readable as a compact status card. Embedding a
+                // hero symbol and emoji inside large attributed text made the
+                // cell several hundred points tall and broke at real-device
+                // Dynamic Type sizes.
+                content.image = item.image
+                // 40pt cap and token margins (design system §4): the 52pt frame
+                // read as an illustration rather than a status mark, and 20/18
+                // margins were off the 4pt grid.
+                content.imageProperties.maximumSize = CGSize(width: 40, height: 40)
+                content.textProperties.font = .preferredFont(forTextStyle: .title2)
+                content.textProperties.color = .label
+                content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
+                content.directionalLayoutMargins = NSDirectionalEdgeInsets(
+                    top: Bonds.Space.l, leading: Bonds.Space.l,
+                    bottom: Bonds.Space.l, trailing: Bonds.Space.l)
+            } else {
+                content.textProperties.font = .preferredFont(forTextStyle: .headline)
+                content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
             }
-            content.attributedText = title
-            content.secondaryAttributedText = NSAttributedString(
-                string: item.secondaryText,
-                attributes: [.foregroundColor: UIColor.secondaryLabel,
-                             .font: UIFont.preferredFont(forTextStyle: secondaryStyle)]
-            )
+            content.text = item.title
+            content.secondaryText = item.secondaryText
+            content.textProperties.numberOfLines = 0
+            content.secondaryTextProperties.numberOfLines = 0
+            content.secondaryTextProperties.color = .secondaryLabel
+            content.textToSecondaryTextVerticalPadding = isCover ? 6 : 3
             cell.contentConfiguration = content
+            cell.accessibilityIdentifier = isCover
+                ? "mydataOnboard.cover"
+                : section == .profile ? "mydataOnboard.profile"
+                : "mydataOnboard.\(section?.rawValue ?? -1).\(indexPath.item)"
+            cell.accessories = section == .profile ? [.disclosureIndicator()] : []
+            // Interaction stays ON: `isUserInteractionEnabled = false` made the
+            // list cell render its *disabled* appearance, so every step title
+            // sat in grey under a lighter body — a wizard that looked switched
+            // off (回報 2026-09-02). Which rows respond is decided by
+            // `shouldSelectItemAt`, which greys nothing.
+            cell.isUserInteractionEnabled = true
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
             collectionView, indexPath, item in
@@ -165,12 +222,28 @@ class MyDataOnboardViewController: UICollectionViewController {
         }
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { headerView, elementKind, indexPath in
             var content = headerView.defaultContentConfiguration()
-            content.text = NSLocalizedString("Document information", comment: "")
+            switch Section(rawValue: indexPath.section) {
+            case .guidance:
+                content.text = NSLocalizedString("What happens next", comment: "MyData guidance header")
+            case .profile:
+                content.text = NSLocalizedString("Make the next visit easier", comment: "MyData profile header")
+            case .data:
+                content.text = NSLocalizedString("Document information", comment: "")
+            default:
+                content.text = nil
+            }
             headerView.contentConfiguration = content
         }
         let footerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionFooter) { footerView, elementKind, indexPath in
             var content = footerView.defaultContentConfiguration()
-            content.text = NSLocalizedString("All information are stored only on your phone.", comment: "")
+            switch Section(rawValue: indexPath.section) {
+            case .profile:
+                content.text = NSLocalizedString("Remembered details are stored in the iOS Keychain on this iPhone and filled only on mydata.nat.gov.tw.", comment: "MyData profile footer")
+            case .data:
+                content.text = NSLocalizedString("All information are stored only on your phone.", comment: "")
+            default:
+                content.text = nil
+            }
             footerView.contentConfiguration = content
         }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
@@ -182,15 +255,40 @@ class MyDataOnboardViewController: UICollectionViewController {
         }
     }
 
+    /// Set when the flow has delivered its result. The 「接下來會發生什麼」
+    /// steps and the remember-my-details invitation describe a journey that is
+    /// over — keeping them under a green 「已儲存」 card read as more work to do
+    /// (回報 2026-09-02). Done means the screen shows what was done.
+    private var flowIsFinished = false
+
     private func applySnapshot() {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.cover])
         snapshot.appendItems([coverItem])
+        if !flowIsFinished {
+            snapshot.appendSections([.guidance])
+            snapshot.appendItems(guidanceItems)
+            snapshot.appendSections([.profile])
+            snapshot.appendItems([profileItem])
+        }
         snapshot.appendSections([.data])
         for item in items {
             snapshot.appendItems([item])
         }
         dataSource.apply(snapshot, animatingDifferences: true)
+    }
+
+    override func collectionView(_ collectionView: UICollectionView,
+                                 shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        Section(rawValue: indexPath.section) == .profile
+    }
+
+    override func collectionView(_ collectionView: UICollectionView,
+                                 didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        guard Section(rawValue: indexPath.section) == .profile else { return }
+        navigationController?.pushViewController(
+            MyDataProfileViewController { [weak self] in self?.applySnapshot() }, animated: true)
     }
 
     @objc private func cancel() {
@@ -217,7 +315,17 @@ class MyDataOnboardViewController: UICollectionViewController {
                     self.finishVaultImport(entry)
                 }
             })
-            present(vc, animated: true)
+            // Pushed, not presented. This flow used to be a sheet on a
+            // fullScreen modal on (from Settings) another modal, with the
+            // password alert as a fourth layer — the deepest stack in the app.
+            // One navigation container, push sequence (design system §10.1):
+            // Back is the escape hatch, and the wizard is still underneath
+            // when the web step completes.
+            if let nav = navigationController {
+                nav.pushViewController(vc, animated: true)
+            } else {
+                present(vc, animated: true)
+            }
         } else {
             // The check is `canOpenURL("mobilemoica://")`, which measures
             // exactly one thing: whether that app is installed on this phone.
@@ -260,8 +368,10 @@ class MyDataOnboardViewController: UICollectionViewController {
     // MARK: - Issuance
 
     private func finishVaultImport(_ entry: MyDataVaultArchive.Entry) {
+        flowIsFinished = true
         coverItem = Item(
-            title: "✅\n" + NSLocalizedString("Saved in MyData vault", comment: ""),
+            image: Self.statusImage("checkmark.circle.fill", colour: .systemGreen),
+            title: NSLocalizedString("Saved in MyData vault", comment: ""),
             secondaryText: NSLocalizedString("The original file is protected on this phone. It was not turned into national-ID data or a self-issued credential.", comment: ""))
         items = [
             Item(title: NSLocalizedString("Document type", comment: ""), secondaryText: documentType.title),
@@ -285,7 +395,8 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// `finishIssuance(_:)`.
     private func showParsedDocument(_ nationalIDModel: NationalIDModel) {
         coverItem = Item(
-            title: "⏳\n" + NSLocalizedString("Waiting for you to sign in 行動自然人憑證", comment: ""),
+            image: Self.statusImage("signature", colour: .tintColor),
+            title: NSLocalizedString("Waiting for you to sign in 行動自然人憑證", comment: ""),
             // The wait is not this app's — it is a hand-off to another app and
             // back, and a screen that said only 「處理中」 would leave somebody
             // watching a spinner while the prompt they need to tap sits behind
@@ -383,8 +494,10 @@ class MyDataOnboardViewController: UICollectionViewController {
     private func finishIssuance(_ result: Result<Void, Error>) {
         switch result {
         case .success:
+            flowIsFinished = true
             coverItem = Item(
-                title: "✅\n" + NSLocalizedString("The valid document has been created", comment: ""),
+                image: Self.statusImage("checkmark.seal.fill", colour: .systemGreen),
+                title: NSLocalizedString("The valid document has been created", comment: ""),
                 secondaryText: "")
         case .failure(let error):
             // The five fields below are still on screen and still correct — what
@@ -395,12 +508,47 @@ class MyDataOnboardViewController: UICollectionViewController {
             // no credential and no explanation would reasonably assume they had
             // one.
             coverItem = Item(
-                title: "⚠️\n" + NSLocalizedString("The document could not be signed", comment: ""),
+                image: Self.statusImage("exclamationmark.triangle.fill", colour: .systemOrange),
+                title: NSLocalizedString("The document could not be signed", comment: ""),
                 secondaryText: error.localizedDescription)
             presentIssuanceFailure(error)
         }
         applySnapshot()
     }
+
+    /// The cover card's status glyph.
+    ///
+    /// Two corrections (回報 2026-09-02): the glyph was drawn at 34pt semibold
+    /// inside a 52pt frame — a banner, not a status mark — and `.tintColor`
+    /// baked through `withTintColor` outside any view resolves against no
+    /// trait, which rendered the accent-coloured covers grey. `title1` scale
+    /// sits the mark against the title it accompanies, and the named accent
+    /// colour keeps its dynamic light/dark resolution through the bake.
+    private static func statusImage(_ name: String, colour: UIColor) -> UIImage? {
+        let resolved = colour == .tintColor
+            ? (UIColor(named: "AccentColor") ?? colour)
+            : colour
+        return UIImage(systemName: name,
+                       withConfiguration: UIImage.SymbolConfiguration(textStyle: .title1,
+                                                                      scale: .large))?
+            .withTintColor(resolved, renderingMode: .alwaysOriginal)
+    }
+
+    #if DEBUG
+    /// A deterministic, non-personal fixture for layout and screenshot tests.
+    /// It exercises the same post-signing state that previously expanded into a
+    /// broken hero card on real devices.
+    func seedSuccessfulNationalIDPreviewForUITest() {
+        guard isNationalID else { return }
+        showParsedDocument(NationalIDModel(
+            nationality: "中華民國（臺灣）",
+            unifiedNo: "TEST000001",
+            name: "版面測試",
+            birthdate: "民國 100 年 01 月 01 日",
+            addressOfHousehold: "測試市測試區第一里第二鄰測試路三段四十二巷五號十二樓之十"))
+        finishIssuance(.success(()))
+    }
+    #endif
 
     /// Reports a signing failure once the screen is actually able to show it.
     ///

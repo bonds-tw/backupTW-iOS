@@ -86,4 +86,41 @@ struct TextContrastTests {
             #expect(helper.textColor != .tertiaryLabel)
         }
     }
+
+    /// The verdict card's spec (design system §9.2): `.label` ink over the
+    /// semantic colour at 0.14 alpha, composited over each grouped ground.
+    /// The spec exists because the bare coloured *text* it replaced measured
+    /// 1.99:1; this holds the replacement to AA in both modes for all three
+    /// verdict colours.
+    @Test(arguments: [UIUserInterfaceStyle.light, .dark])
+    func theVerdictFillKeepsLabelInkAtAA(style: UIUserInterfaceStyle) {
+        for semantic in [Bonds.Color.Verdict.pass, Bonds.Color.Verdict.caution, Bonds.Color.Verdict.fail] {
+            for ground in Self.grounds {
+                let traits = UITraitCollection(userInterfaceStyle: style)
+                var fr: CGFloat = 0, fg: CGFloat = 0, fb: CGFloat = 0, fa: CGFloat = 0
+                Bonds.Color.Verdict.fill(semantic).resolvedColor(with: traits)
+                    .getRed(&fr, green: &fg, blue: &fb, alpha: &fa)
+                var gr: CGFloat = 0, gg: CGFloat = 0, gb: CGFloat = 0, ga: CGFloat = 0
+                ground.resolvedColor(with: traits).getRed(&gr, green: &gg, blue: &gb, alpha: &ga)
+                let fill = UIColor(red: fr * fa + gr * (1 - fa),
+                                   green: fg * fa + gg * (1 - fa),
+                                   blue: fb * fa + gb * (1 - fa), alpha: 1)
+                let measured = Self.ratio(.label, on: fill, style)
+                #expect(measured >= 4.5,
+                        "label on \(semantic)-tinted fill measures \(measured) in \(style == .light ? "light" : "dark")")
+            }
+        }
+    }
+
+    /// The card palette's own inks, measured against the faces they sit on —
+    /// the card faces are exempt from dark mode, not from being readable.
+    @Test func theCardFacesKeepTheirInkReadable() {
+        // 紙質卡：油墨與標籤在紙底上。
+        #expect(Self.ratio(Bonds.CardPalette.paperInk, on: Bonds.CardPalette.paperBottom, .light) >= 4.5)
+        #expect(Self.ratio(Bonds.CardPalette.paperLabel, on: Bonds.CardPalette.paperBottom, .light) >= 4.5)
+        // 保險箱石墨卡：主字與弱字在最淺的石墨階上。
+        #expect(Self.ratio(Bonds.CardPalette.vaultInk, on: Bonds.CardPalette.graphite[0], .light) >= 4.5)
+        #expect(Self.ratio(Bonds.CardPalette.vaultMuted, on: Bonds.CardPalette.graphite[0], .light) >= 3.0,
+                "vault muted ink is caption-scale; 3:1 is its floor")
+    }
 }

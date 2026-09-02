@@ -144,7 +144,11 @@ final class ZKVerifyViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = NSLocalizedString("Check a proof", comment: "")
+        // The full name, matching the row that opened it. 「查驗證件」 and
+        // 「查驗證明」 are one glyph apart at a checkpoint glance, and this
+        // screen and the document checker each show a QR whose meaning differs
+        // — the title is the one place that says which check this is.
+        title = NSLocalizedString("Check a zero-knowledge proof", comment: "")
         view.backgroundColor = .systemGroupedBackground
         configureLayout()
         // Said at load, not after the other phone has spent twenty seconds
@@ -292,9 +296,8 @@ final class ZKVerifyViewController: UIViewController {
             scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -20),
-            stack.leadingAnchor.constraint(equalTo: scroll.frameLayoutGuide.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: scroll.frameLayoutGuide.trailingAnchor, constant: -20)
         ])
+        NSLayoutConstraint.activate(Bonds.readableHorizontal(stack, in: scroll.frameLayoutGuide))
     }
 
     /// Draws an outcome.
@@ -398,6 +401,12 @@ final class ZKVerifyViewController: UIViewController {
             // is not a verdict, so it does not get a verdict card.
             verdictContainer.isHidden = true
             return
+        }
+        // Buzz only on the hidden→shown transition: a verdict landing is the
+        // evidence-backed moment the one-buzz rule names, and re-renders of the
+        // same verdict are not new evidence (BondsDesign.swift §觸覺).
+        if verdictContainer.isHidden {
+            verdict ? Bonds.Haptic.delivered() : Bonds.Haptic.rejected()
         }
         verdictContainer.isHidden = false
         verdictContainer.addArrangedSubview(verdict
@@ -798,7 +807,7 @@ final class ZKVerifyViewController: UIViewController {
             linkLabel.text = String(format: NSLocalizedString("Received %@ over Bluetooth.", comment: ""),
                                     ZKStagePresentation.byteString(Int64(payload.count)))
             do {
-                verify(package: try ZKProofPackage.decoded(from: payload))
+                verify(package: try ZKProofPackage.decoded(from: payload), transport: .bluetooth)
             } catch {
                 // Reassembled and digest-matched, and still not a package. Not a
                 // failed check — we never got far enough to judge anything —
@@ -835,7 +844,7 @@ final class ZKVerifyViewController: UIViewController {
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
         do {
-            verify(package: try ZKProofPackage.decoded(from: try Data(contentsOf: url)))
+            verify(package: try ZKProofPackage.decoded(from: try Data(contentsOf: url)), transport: .file)
         } catch {
             let outcome = Self.unreadable(error)
             show(status: outcome.status, detail: outcome.detail, verdict: nil)
@@ -872,7 +881,8 @@ final class ZKVerifyViewController: UIViewController {
     /// A proof received over Bluetooth is checked by exactly this code, with
     /// exactly these caveats. The transport is a courier; nothing about how the
     /// bytes travelled may make a verdict kinder.
-    private func verify(package: ZKProofPackage) {
+    private func verify(package: ZKProofPackage,
+                        transport: VerificationRunRecord.Transport) {
         spinner.startAnimating()
         chooseButton.isEnabled = false
         show(status: NSLocalizedString("Checking…", comment: ""),
@@ -896,17 +906,51 @@ final class ZKVerifyViewController: UIViewController {
         }
         // Off the main thread and off the cooperative pool: the three checks
         // block for tens of seconds inside Rust. Same rule as `ZKProver.queue`.
+        let started = VerificationClock.now()
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Result {
                 try ZKPackageVerifier(assetDirectory: directory).verify(package)
             }
-            DispatchQueue.main.async { self?.present(result, package: package) }
+            DispatchQueue.main.async {
+                self?.present(result,
+                              package: package,
+                              transport: transport,
+                              startedAtNanoseconds: started)
+            }
         }
     }
 
-    private func present(_ result: Result<ZKPackageVerdict, Error>, package: ZKProofPackage) {
+    private func present(_ result: Result<ZKPackageVerdict, Error>,
+                         package: ZKProofPackage,
+                         transport: VerificationRunRecord.Transport,
+                         startedAtNanoseconds: UInt64) {
         spinner.stopAnimating()
         chooseButton.isEnabled = true
+
+        let measuredMilliseconds = VerificationClock.milliseconds(
+            from: startedAtNanoseconds, to: VerificationClock.now())
+        let record: VerificationRunRecord
+        switch result {
+        case .success(let verdict):
+            record = VerificationRunRecord(
+                flow: .zeroKnowledgeProofVerification,
+                role: .verifier,
+                credentialKind: .mobileCertificate,
+                transport: transport,
+                succeeded: verdict.accepted,
+                verificationMilliseconds: UInt64((verdict.seconds * 1_000).rounded()),
+                endToEndMilliseconds: measuredMilliseconds)
+        case .failure:
+            record = VerificationRunRecord(
+                flow: .zeroKnowledgeProofVerification,
+                role: .verifier,
+                credentialKind: .mobileCertificate,
+                transport: transport,
+                succeeded: nil,
+                verificationMilliseconds: measuredMilliseconds,
+                endToEndMilliseconds: measuredMilliseconds)
+        }
+        try? VerificationRunStore.shared.append(record)
 
         switch result {
         case .success(let verdict):

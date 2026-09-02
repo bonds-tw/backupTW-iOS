@@ -225,7 +225,8 @@ final class WebCollectViewController: UIViewController {
             // skip them. An offer naming an untrusted issuer is refused here just
             // as it is from a scanned QR.
             let outcome = await CredentialCollection.run(from: link)
-            presentResultAndDismiss(outcome)
+            if outcome.isSuccess { Bonds.Haptic.delivered() }
+            presentResultAndDismiss(outcome.message)
         }
     }
 

@@ -58,6 +58,53 @@ private struct TestVerifier {
         return "\(h).\(p).\(sig.base64URLEncodedString())"
     }
 
+    /// The shape used by the production convenience-store request: two `pick`
+    /// groups, each offering carrier-specific descriptors.
+    func groupedRequestJWT(responseURI: String,
+                           nonce: String,
+                           state: String,
+                           definitionID: String,
+                           credentialType: String) -> String {
+        func descriptor(id: String, type: String, field: String, group: String) -> [String: Any] {
+            [
+                "id": id,
+                "group": [group],
+                "constraints": ["fields": [
+                    ["path": ["$.type"],
+                     "filter": ["type": "array", "contains": ["const": type]]],
+                    ["path": ["$.credentialSubject.\(field)"]],
+                ]],
+            ]
+        }
+        let definition: [String: Any] = [
+            "id": definitionID,
+            "submission_requirements": [
+                ["name": "姓名", "rule": "pick", "from": "Group_1", "max": 1],
+                ["name": "末五碼", "rule": "pick", "from": "Group_2", "max": 1],
+            ],
+            "input_descriptors": [
+                descriptor(id: "other-name", type: "other-carrier", field: "name", group: "Group_1"),
+                descriptor(id: "twm-name", type: credentialType, field: "name", group: "Group_1"),
+                descriptor(id: "other-last5", type: "other-carrier", field: "phonel5", group: "Group_2"),
+                descriptor(id: "twm-last5", type: credentialType, field: "phonel5", group: "Group_2"),
+            ],
+        ]
+        let header: [String: Any] = ["kid": "verifier-did", "typ": "oauth-authz-req+jwt", "alg": "ES256"]
+        let payload: [String: Any] = [
+            "response_type": "vp_token",
+            "response_mode": "direct_post",
+            "response_uri": responseURI,
+            "client_id": clientID,
+            "nonce": nonce,
+            "state": state,
+            "presentation_definition": definition,
+        ]
+        let h = json(header).base64URLEncodedString()
+        let p = json(payload).base64URLEncodedString()
+        let signature = (try? privateKey.signature(for: Data("\(h).\(p)".utf8)))?.rawRepresentation ?? Data()
+        return "\(h).\(p).\(signature.base64URLEncodedString())"
+    }
+
     private func json(_ o: [String: Any]) -> Data {
         (try? JSONSerialization.data(withJSONObject: o, options: [.sortedKeys, .withoutEscapingSlashes])) ?? Data()
     }
@@ -122,6 +169,24 @@ struct OID4VPRequestTests {
         #expect(request.credentialType == "00000000_vpms_20250605")
         #expect(request.responseURI == Self.responseURI)
         #expect(Set(request.requestedFields.compactMap(\.claimName)) == ["name", "company"])
+    }
+
+    @Test func groupedCarrierAlternativesKeepTheirDescriptorBoundaries() throws {
+        let verifier = TestVerifier()
+        let jwt = verifier.groupedRequestJWT(responseURI: Self.responseURI,
+                                             nonce: "N", state: "S",
+                                             definitionID: "22555003_711pickup",
+                                             credentialType: "twm-card")
+        let request = try OID4VPRequest.verify(compactJWS: jwt,
+                                               clientID: verifier.clientID,
+                                               trustedResponseHosts: Self.trustedHost)
+
+        #expect(request.inputDescriptors.map(\.id) == [
+            "other-name", "twm-name", "other-last5", "twm-last5",
+        ])
+        #expect(request.submissionRequirements.map(\.from) == ["Group_1", "Group_2"])
+        #expect(request.submissionRequirements.map(\.max) == [1, 1])
+        #expect(request.requestedFields.compactMap(\.claimName) == ["name", "phonel5"])
     }
 
     @Test func aRequestSignedByAnotherKeyIsRefused() {
@@ -257,6 +322,22 @@ struct OID4VPResponseTests {
                                         trustedResponseHosts: ["verifier-oid4vp.wallet.gov.tw"])
     }
 
+    private func seedGroupedTelecomCardAndRequest() throws -> OID4VPRequest {
+        let key = try keyring.newKey()
+        let holderDID = try JWKDIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+        let card = mintCard(boundTo: holderDID, type: Self.cardType,
+                            claims: [("name", "王小明"), ("phonel5", "12345")])
+        try store.save(jws: card, id: Self.cardType)
+        let verifier = TestVerifier()
+        let jwt = verifier.groupedRequestJWT(responseURI: Self.responseURI,
+                                             nonce: "N-GROUP", state: "S-GROUP",
+                                             definitionID: "22555003_711pickup",
+                                             credentialType: Self.cardType)
+        return try OID4VPRequest.verify(compactJWS: jwt,
+                                        clientID: verifier.clientID,
+                                        trustedResponseHosts: ["verifier-oid4vp.wallet.gov.tw"])
+    }
+
     private func makeResponder() -> OID4VPResponder {
         let config = URLSessionConfiguration.ephemeral
         // Its own stub class, not the collection suite's: URLProtocol keeps its
@@ -279,6 +360,27 @@ struct OID4VPResponseTests {
         // Same issuer signature — selective disclosure removed a segment, not
         // re-signed anything.
         #expect(presentedCard.serialized.hasPrefix(String(credential.serialized.prefix(while: { $0 != "~" }))))
+    }
+
+    @Test func groupedPickupUsesTheHeldCarrierDescriptorInEachGroup() throws {
+        let request = try seedGroupedTelecomCardAndRequest()
+        let (_, presentations) = try makeResponder().presentationMaterial(
+            request, chosenClaims: ["name", "phonel5"])
+
+        #expect(presentations.map(\.descriptorID) == ["twm-name", "twm-last5"])
+        #expect(try TWDIWCredentialReader.read(presentations[0].serialized)
+            .disclosedClaims.map(\.name) == ["name"])
+        #expect(try TWDIWCredentialReader.read(presentations[1].serialized)
+            .disclosedClaims.map(\.name) == ["phonel5"])
+
+        let submission = makeResponder().presentationSubmission(
+            for: request, descriptorIDs: presentations.map(\.descriptorID))
+        let map = try #require(submission["descriptor_map"] as? [[String: Any]])
+        #expect(map.count == 2)
+        #expect((map[0]["path_nested"] as? [String: Any])?["path"] as? String
+                == "$.vp.verifiableCredential[0]")
+        #expect((map[1]["path_nested"] as? [String: Any])?["path"] as? String
+                == "$.vp.verifiableCredential[1]")
     }
 
     @Test func theVPTokenMatchesTheOfficialBuilder() throws {

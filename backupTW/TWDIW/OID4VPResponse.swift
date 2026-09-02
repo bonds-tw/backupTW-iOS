@@ -28,6 +28,19 @@ enum OID4VPResponseError: Error, Equatable {
     case badStatus(Int, body: String?)
 }
 
+struct OID4VPPresentedCredential {
+    let descriptorID: String
+    let serialized: String
+}
+
+/// A successful VP receipt. The convenience-store follow-up must be signed by
+/// the exact holder key whose DID the verifier just recovered from this VP.
+struct OID4VPPresentationReceipt {
+    let statusCode: Int
+    let holderDID: String
+    let holderKey: DeviceKey
+}
+
 /// Builds and sends the response to an `OID4VPRequest`.
 ///
 /// # The deviation this deliberately reproduces
@@ -68,16 +81,27 @@ struct OID4VPResponder {
     @discardableResult
     func respond(to request: OID4VPRequest,
                  disclosing chosenClaims: Set<String>) async throws -> Int {
-        let (credential, presented) = try matchAndDisclose(request, chosenClaims: chosenClaims)
+        try await respondWithReceipt(to: request, disclosing: chosenClaims).statusCode
+    }
 
+    func respondWithReceipt(to request: OID4VPRequest,
+                            disclosing chosenClaims: Set<String>) async throws -> OID4VPPresentationReceipt {
+        let (credential, presentations) = try presentationMaterial(request,
+                                                                   chosenClaims: chosenClaims)
         guard let holderKey = try? keyring.key(matchingPublicKeyX963: credential.holderKey.x963Representation) else {
             throw OID4VPResponseError.holderKeyUnavailable
         }
-        let vpToken = try buildVPToken(request: request, presented: presented, holderKey: holderKey)
-        let submission = presentationSubmission(for: request)
-
-        return try await post(vpToken: vpToken, submission: submission, state: request.state,
-                              to: request.responseURI)
+        let holderDID = try JWKDIDKey.did(fromP256PublicKeyX963: holderKey.publicKeyX963)
+        let vpToken = try buildVPToken(request: request,
+                                       presented: presentations.map(\.serialized),
+                                       holderKey: holderKey)
+        let submission = presentationSubmission(for: request,
+                                                  descriptorIDs: presentations.map(\.descriptorID))
+        let status = try await post(vpToken: vpToken, submission: submission,
+                                    state: request.state, to: request.responseURI)
+        return OID4VPPresentationReceipt(statusCode: status,
+                                         holderDID: holderDID,
+                                         holderKey: holderKey)
     }
 
     // MARK: - Selection
@@ -86,6 +110,24 @@ struct OID4VPResponder {
     /// carrying only the chosen disclosures.
     func matchAndDisclose(_ request: OID4VPRequest,
                           chosenClaims: Set<String>) throws -> (TWDIWCredential, String) {
+        let (credential, presentations) = try presentationMaterial(request,
+                                                                   chosenClaims: chosenClaims)
+        guard let first = presentations.first else {
+            throw OID4VPResponseError.noMatchingCredential
+        }
+        return (credential, first.serialized)
+    }
+
+    /// Finds one held card that can answer every selected group and serialises
+    /// it once per descriptor. The official 7-Eleven request selects the Taiwan
+    /// Mobile card in two groups: one SD-JWT reveals `name`, the other `phonel5`.
+    func presentationMaterial(_ request: OID4VPRequest,
+                              chosenClaims: Set<String>) throws -> (TWDIWCredential, [OID4VPPresentedCredential]) {
+        let requested = Set(request.requestedFields.compactMap(\.claimName))
+        if let unrequested = chosenClaims.first(where: { !requested.contains($0) }) {
+            throw OID4VPResponseError.requestedClaimNotAvailable(unrequested)
+        }
+
         // A claim that matched the requested type but was missing from *some* card —
         // remembered so the error can name it, but only reported after no other
         // stored card can satisfy the request. Auto-pick (this flow has no card
@@ -97,7 +139,6 @@ struct OID4VPResponder {
             guard let serialized = try? store.load(id: id),
                   StoredCardSource.source(of: serialized) == .twdiw,
                   let credential = try? TWDIWCredentialReader.read(serialized) else { continue }
-            if let wanted = request.credentialType, credential.credentialType != wanted { continue }
 
             // Use the first card that carries every claim the user chose; skip one
             // that is missing any, in case another card has them all.
@@ -106,7 +147,46 @@ struct OID4VPResponder {
                 missingOnSomeCard = missing
                 continue
             }
-            return (credential, Self.reserialise(credential, disclosing: chosenClaims))
+
+            let matching = request.inputDescriptors.filter {
+                $0.credentialType == nil || $0.credentialType == credential.credentialType
+            }
+            var selected: [OID4VPInputDescriptor] = []
+            if request.submissionRequirements.isEmpty {
+                // An ungrouped list denotes alternatives. Answer the first one
+                // that matches this held card and at least one selected claim.
+                if let descriptor = matching.first(where: {
+                    let claims = Set($0.requestedFields.compactMap(\.claimName))
+                    return claims.isEmpty || !claims.isDisjoint(with: chosenClaims)
+                }) {
+                    selected = [descriptor]
+                }
+            } else {
+                for requirement in request.submissionRequirements {
+                    let inGroup = matching.filter { $0.groups.contains(requirement.from) }
+                    let groupClaims = Set(inGroup.flatMap { $0.requestedFields.compactMap(\.claimName) })
+                    // The general disclosure screen lets the holder withhold an
+                    // entire optional `pick` group; then no descriptor is emitted.
+                    guard !groupClaims.isDisjoint(with: chosenClaims) else { continue }
+                    if let descriptor = inGroup.first(where: {
+                        !Set($0.requestedFields.compactMap(\.claimName)).isDisjoint(with: chosenClaims)
+                    }) {
+                        selected.append(descriptor)
+                    }
+                }
+            }
+
+            let covered = Set(selected.flatMap { $0.requestedFields.compactMap(\.claimName) })
+            guard !selected.isEmpty, chosenClaims.isSubset(of: covered) else { continue }
+            let presentations = selected.map { descriptor in
+                let descriptorClaims = Set(descriptor.requestedFields.compactMap(\.claimName))
+                return OID4VPPresentedCredential(
+                    descriptorID: descriptor.id,
+                    serialized: Self.reserialise(
+                        credential,
+                        disclosing: chosenClaims.intersection(descriptorClaims)))
+            }
+            return (credential, presentations)
         }
         if let missing = missingOnSomeCard {
             throw OID4VPResponseError.requestedClaimNotAvailable(missing)
@@ -161,6 +241,15 @@ struct OID4VPResponder {
     func buildVPToken(request: OID4VPRequest,
                       presented: String,
                       holderKey: DeviceKey) throws -> String {
+        try buildVPToken(request: request, presented: [presented], holderKey: holderKey)
+    }
+
+    /// One credential entry per descriptor map entry. A grouped request may
+    /// legitimately carry the same issuer-signed card more than once with a
+    /// different SD-JWT disclosure in each entry.
+    func buildVPToken(request: OID4VPRequest,
+                      presented: [String],
+                      holderKey: DeviceKey) throws -> String {
         let holderDID = try JWKDIDKey.did(fromP256PublicKeyX963: holderKey.publicKeyX963)
         // x963 is `0x04 || X || Y`; drop the tag, split the 64 coordinate bytes.
         let coordinates = holderKey.publicKeyX963.dropFirst()
@@ -175,7 +264,7 @@ struct OID4VPResponder {
         let vp: [String: Any] = [
             "context": ["https://www.w3.org/2018/credentials/v1"],
             "type": ["VerifiablePresentation"],
-            "verifiableCredential": [presented],
+            "verifiableCredential": presented,
         ]
         let payload: [String: Any] = [
             "sub": holderDID,
@@ -209,24 +298,29 @@ struct OID4VPResponder {
     /// device 2026-08-27): the flat `vc+sd-jwt`-at-`$`, and the nested form whose
     /// `path_nested` omitted the `id` the verifier's schema requires.
     func presentationSubmission(for request: OID4VPRequest) -> [String: Any] {
+        presentationSubmission(for: request, descriptorIDs: [request.inputDescriptorID])
+    }
+
+    func presentationSubmission(for request: OID4VPRequest,
+                                descriptorIDs: [String]) -> [String: Any] {
         [
             // A stable id derived from the exchange rather than random, so a test
             // can assert on it. The verifier requires only a non-empty string;
             // the official app happens to use a UUID, which this need not copy.
             "id": "submission-" + request.state,
             "definition_id": request.definitionID,
-            "descriptor_map": [
+            "descriptor_map": descriptorIDs.enumerated().map { index, descriptorID in
                 [
-                    "id": request.inputDescriptorID,
+                    "id": descriptorID,
                     "format": "jwt_vp",
                     "path": "$",
                     "path_nested": [
-                        "id": request.inputDescriptorID,
+                        "id": descriptorID,
                         "format": "jwt_vc",
-                        "path": "$.vp.verifiableCredential[0]",
+                        "path": "$.vp.verifiableCredential[\(index)]",
                     ],
-                ],
-            ],
+                ] as [String: Any]
+            },
         ]
     }
 

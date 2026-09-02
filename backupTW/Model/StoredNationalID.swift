@@ -272,6 +272,7 @@ struct StoredNationalID: Equatable {
         (["vehicle_type", "car_type", "license_class", "licence_class", "class"], NSLocalizedString("Vehicle class", comment: "field label")),
         (["msisdn", "mobile", "phone", "phone_number", "mobile_number"], NSLocalizedString("Mobile number", comment: "field label")),
         (["phone_number_last3", "phonel3"], NSLocalizedString("Mobile number (last 3)", comment: "field label; convenience-store pickup card")),
+        (["phone_number_last5", "phonel5"], NSLocalizedString("Mobile number (last 5)", comment: "field label; convenience-store pickup card")),
         (["carrier", "telecom", "operator"], NSLocalizedString("Carrier", comment: "field label")),
         // `gDate` is the driving-licence issue date (民國 date, e.g. 1020701).
         (["issue_date", "issuedate", "gdate"], NSLocalizedString("Issue date", comment: "field label")),

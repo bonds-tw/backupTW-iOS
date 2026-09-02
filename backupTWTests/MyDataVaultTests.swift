@@ -38,6 +38,7 @@ struct FieldLabelDirectoryTests {
         #expect(StoredNationalID.label(for: "gDate") == NSLocalizedString("Issue date", comment: ""))
         #expect(StoredNationalID.label(for: "expiry_date") == NSLocalizedString("Valid until", comment: ""))
         #expect(StoredNationalID.label(for: "Phone_number_last3") == NSLocalizedString("Mobile number (last 3)", comment: ""))
+        #expect(StoredNationalID.label(for: "phonel5") == NSLocalizedString("Mobile number (last 5)", comment: ""))
         // Adding `controlnumber` must not have disturbed the licence number.
         #expect(StoredNationalID.label(for: "license_number") == NSLocalizedString("Licence number", comment: ""))
     }
@@ -90,6 +91,17 @@ struct MyDataDocumentRegistryTests {
         // Every vault document is classified as one, and none collide with the national ID.
         #expect(MyDataDocumentRegistry.vaultDocuments.allSatisfy { MyDataDocumentRegistry.isVaultDocument(id: $0.id) })
         #expect(!MyDataDocumentRegistry.isVaultDocument(id: StoredNationalID.credentialID))
+    }
+
+    @Test func incomeNamesItsSlowRequestAndPersonalDocumentsIsTheGenericContinuation() {
+        #expect(MyDataDocumentRegistry.lookup(id: "mydata-income")?.estimatedMinutes == 120)
+        #expect(MyDataDocumentRegistry.personalDocuments.entryMode == .personalDocuments)
+        #expect(MyDataDocumentRegistry.personalDocuments.myDataItemPath == "signin")
+
+        let arbitrary = MyDataDocumentRegistry.personalDocuments(
+            replacing: "mydata-file-arbitrary", title: "任意 MyData 文件")
+        #expect(arbitrary.id == "mydata-file-arbitrary")
+        #expect(arbitrary.entryMode == .personalDocuments)
     }
 }
 

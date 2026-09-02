@@ -174,9 +174,16 @@ final class PresentCredentialViewController: UIViewController {
     /// Whether the store opened. `false` is a different screen from "empty".
     private let storeIsReadable: Bool
 
-    init(holder: HolderPresentation, storeIsReadable: Bool = true) {
+    /// Whether the wallet holds *any* card. The unified 「出示」 entrance serves
+    /// online presentations too, and a government card with no self-issued ID
+    /// can still be presented online — so 「nothing to show」 is only true when
+    /// this is `false` as well.
+    private let hasAnyCard: Bool
+
+    init(holder: HolderPresentation, storeIsReadable: Bool = true, hasAnyCard: Bool = false) {
         self.holder = holder
         self.storeIsReadable = storeIsReadable
+        self.hasAnyCard = hasAnyCard
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -186,7 +193,8 @@ final class PresentCredentialViewController: UIViewController {
     convenience init() {
         let store = try? CredentialStore()
         self.init(holder: HolderPresentation(store: store ?? EmptyCredentialStore()),
-                  storeIsReadable: store != nil)
+                  storeIsReadable: store != nil,
+                  hasAnyCard: store.map { !CardInventory.rows(from: $0).isEmpty } ?? false)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -204,7 +212,9 @@ final class PresentCredentialViewController: UIViewController {
         // camera at a stranger's phone.
         if !storeIsReadable {
             stage = .cardsUnreadable
-        } else if (try? holder.storedCredentialID()) == nil {
+        } else if (try? holder.storedCredentialID()) == nil && !hasAnyCard {
+            // Truly empty. A wallet holding only government cards does *not*
+            // land here — those present online through the same scanner.
             stage = .nothingToShow
         }
         render()
@@ -271,9 +281,8 @@ final class PresentCredentialViewController: UIViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
             contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32),
-            contentStack.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 20),
-            contentStack.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -20),
         ])
+        NSLayoutConstraint.activate(Bonds.readableHorizontal(contentStack, in: scrollView.frameLayoutGuide))
     }
 
     private func render() {
@@ -301,6 +310,26 @@ final class PresentCredentialViewController: UIViewController {
             NSLocalizedString("No document to show yet", comment: "")))
         contentStack.addArrangedSubview(PresentationUI.body(
             NSLocalizedString("Create a valid document from the home screen first. Nothing can be shown until this device holds one.", comment: "")))
+        // The sentence above names the way out, so the way out is a button —
+        // an empty state that says 「go to the home screen」 without taking the
+        // reader there is a dead end (design system §8.1).
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = NSLocalizedString("Create my document", comment: "empty-state route to home")
+        configuration.image = UIImage(systemName: "person.text.rectangle")
+        configuration.imagePadding = 8
+        configuration.cornerStyle = .capsule
+        configuration.buttonSize = .large
+        let button = UIButton(type: .system)
+        button.configuration = configuration
+        button.addTarget(self, action: #selector(goCreateDocument), for: .touchUpInside)
+        contentStack.addArrangedSubview(button)
+    }
+
+    /// Lands on the home tab, where the invitation card and the backup row are
+    /// the first things on screen.
+    @objc private func goCreateDocument() {
+        navigationController?.popViewController(animated: false)
+        tabBarController?.selectedIndex = 0
     }
 
     /// A fact about this phone, and deliberately no route that costs identity
@@ -680,7 +709,7 @@ final class PresentCredentialViewController: UIViewController {
         contentStack.addArrangedSubview(frameCountLabel)
 
         if frames.count > 1 {
-            frameProgress.progressTintColor = .systemBlue
+            frameProgress.progressTintColor = .tintColor
             frameProgress.trackTintColor = .systemFill
             contentStack.addArrangedSubview(frameProgress)
             contentStack.setCustomSpacing(12, after: frameProgress)
@@ -754,6 +783,22 @@ final class PresentCredentialViewController: UIViewController {
             NSLocalizedString("This code stops being accepted about five minutes after it was made.", comment: "")))
         contentStack.addArrangedSubview(linkabilityWarning())
 
+        // The carousel's explicit end. Over Bluetooth the buzz says delivery
+        // happened; on the QR-only path the only signal is the checker saying
+        // so, and the screen used to loop forever with Back as the unspoken
+        // exit. A named exit is the difference between finishing and giving up
+        // (design system §8.1 — no dead ends).
+        var doneConfiguration = UIButton.Configuration.gray()
+        doneConfiguration.title = NSLocalizedString("The checker has it — finish", comment: "end of QR presentation")
+        doneConfiguration.cornerStyle = .capsule
+        doneConfiguration.buttonSize = .large
+        let doneButton = UIButton(type: .system)
+        doneButton.configuration = doneConfiguration
+        doneButton.addAction(UIAction { [weak self] _ in
+            self?.navigationController?.popViewController(animated: true)
+        }, for: .touchUpInside)
+        contentStack.addArrangedSubview(doneButton)
+
         #if DEBUG
         // Counterpart of the verifier screen's paste button: copies every frame,
         // one per line, so a simulator with no camera can act as the checker.
@@ -782,6 +827,24 @@ final class PresentCredentialViewController: UIViewController {
         contentStack.addArrangedSubview(PresentationUI.verdict("⚠️",
             NSLocalizedString("This document could not be shown", comment: ""), .systemOrange))
         contentStack.addArrangedSubview(PresentationUI.card(body: message))
+        // A failure with no retry left Back as the only way out. Each check
+        // needs a fresh challenge anyway, so retrying is a return to the
+        // scanning stage, not a resign-of-the-same-request.
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = NSLocalizedString("Try again", comment: "trust list retry")
+        configuration.image = UIImage(systemName: "qrcode.viewfinder")
+        configuration.imagePadding = 8
+        configuration.cornerStyle = .capsule
+        configuration.buttonSize = .large
+        let button = UIButton(type: .system)
+        button.configuration = configuration
+        button.addTarget(self, action: #selector(retryAfterFailure), for: .touchUpInside)
+        contentStack.addArrangedSubview(button)
+    }
+
+    @objc private func retryAfterFailure() {
+        stage = .awaitingRequest
+        render()
     }
 
     /// What every presentation gives away regardless of the switches above.
@@ -911,7 +974,27 @@ final class PresentCredentialViewController: UIViewController {
     ///   only be exercised by waiting is a rule with no test.
     @discardableResult
     func acceptScannedRequest(_ scanned: String, now: Date = Date()) -> QRScanningViewController.Decision {
+        // Only for a wallet that reached this scanner on the strength of a
+        // government card alone (`hasAnyCard` without the self-issued ID): an
+        // offline check needs the self-issued document, so it is told which
+        // half is missing rather than shown a signing error. A truly empty
+        // wallet never gets this far — its stage is `nothingToShow`.
+        if hasAnyCard,
+           (try? PresentationRequest.decode(scanned)) != nil,
+           (try? holder.storedCredentialID()) == nil {
+            return .keepScanning(status: NSLocalizedString(
+                "An in-person check needs your ID backup. Create it from the home screen first.",
+                comment: "offline request scanned without a self-issued document"))
+        }
         guard let request = try? PresentationRequest.decode(scanned) else {
+            // This screen is the single 「出示」 entrance (design system §10.2):
+            // an *online* verifier's QR is not a wrong code here, it is the
+            // other branch. Recognised by shape and handed to the online flow,
+            // which replaces the scanner with the disclosure screen.
+            if (try? OID4VPAuthorizeLink.parse(scanned: scanned)) != nil {
+                ScanToPresent.continueOnline(scanned: scanned, on: navigationController)
+                return .stop
+            }
             // The mirror of the ZK screen's case: our own code, for the other
             // screen. Recognised here by shape rather than by a thrown case,
             // because `PresentationRequest` has no reason to know about the
@@ -922,6 +1005,14 @@ final class PresentCredentialViewController: UIViewController {
                 return .keepScanning(status: NSLocalizedString(
                     "That is the code for sending a zero-knowledge proof, not for showing a document.",
                     comment: "Scanned the other kind of code"))
+            }
+            // A card-collection offer: the right code for a different job, so
+            // the screen says which job instead of staying silent (§10.3 — a
+            // silent scanner over a valid QR reads as a broken scanner).
+            if (try? CredentialOfferLink.parse(scanned: scanned)) != nil {
+                return .keepScanning(status: NSLocalizedString(
+                    "That is a card-collection QR. To add the card, use 使用 ▸ 掃描加入卡片.",
+                    comment: "Scanned a collect offer while presenting"))
             }
             // Any other QR code in the viewfinder, and there will be many.
             // Silence rather than an error per video frame.
@@ -1121,7 +1212,14 @@ final class PresentCredentialViewController: UIViewController {
             // receipt. A haptic on 「the carousel completed a pass」 would be a
             // buzz meaning "it has been shown", which a holder would reasonably
             // hear as "it worked".
-            PresentationHaptics.delivered()
+            Bonds.Haptic.delivered()
+            // The holder's side of the announcement ZKVerify already has: a
+            // measured 21.7-second transfer used to end by rewriting a label
+            // VoiceOver never re-speaks. One announcement, at the one moment
+            // with evidence — deliberately not per-percent, which would talk
+            // over the checker interaction the whole time.
+            UIAccessibility.post(notification: .announcement,
+                                 argument: linkLabel.text)
         case .failed(let reason):
             linkLabel.text = reason
         }
@@ -1344,27 +1442,8 @@ extension UISwitch {
     }
 }
 
-// MARK: - The one buzz
-
-/// A single success haptic, for the single moment that has evidence behind it.
-///
-/// # Why a type rather than two call sites
-///
-/// The rule is what needs protecting, not the API call. There is exactly one
-/// state in this app where the other device has *acknowledged* receipt —
-/// `BluetoothLinkState.finished` — and a buzz anywhere else would be a signal
-/// the holder cannot help hearing as "it worked". The obvious next request is
-/// "buzz when the carousel finishes a pass", which is a buzz meaning "shown",
-/// and shown is not received.
-///
-/// Keeping it here means the next person who wants a haptic finds the argument
-/// before they find the generator.
-enum PresentationHaptics {
-
-    @MainActor
-    static func delivered() {
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(.success)
-    }
-}
+// The one-buzz rule (「only a moment with evidence behind it gets a haptic」)
+// now lives with the other design tokens as `Bonds.Haptic` — see
+// BondsDesign.swift §觸覺 for the argument and the list of moments that
+// qualify. A buzz on 「the carousel finished a pass」 would mean 「shown」, and
+// shown is not received; that request should still be refused.

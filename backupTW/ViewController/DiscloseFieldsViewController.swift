@@ -28,6 +28,7 @@ import UIKit
 final class DiscloseFieldsViewController: UITableViewController {
 
     private let request: OID4VPRequest
+    private let requestFetchMilliseconds: UInt64?
     /// The disclosable claims, in the order the verifier listed them.
     private let claims: [String]
     /// Claim name → whether it is currently on. Starts all-on.
@@ -54,8 +55,9 @@ final class DiscloseFieldsViewController: UITableViewController {
     }()
     #endif
 
-    init(request: OID4VPRequest) {
+    init(request: OID4VPRequest, requestFetchMilliseconds: UInt64? = nil) {
         self.request = request
+        self.requestFetchMilliseconds = requestFetchMilliseconds
         self.claims = request.requestedFields.compactMap(\.claimName)
         self.revealing = Dictionary(uniqueKeysWithValues: claims.map { ($0, true) })
         super.init(style: .insetGrouped)
@@ -143,12 +145,30 @@ final class DiscloseFieldsViewController: UITableViewController {
         presentButton.configuration?.showsActivityIndicator = true
 
         Task { @MainActor in
+            let started = VerificationClock.now()
             let outcome = await OID4VPPresentation.respond(to: request, disclosing: chosen)
-            self.finish(outcome: outcome)
+            let submitMilliseconds = VerificationClock.milliseconds(
+                from: started, to: VerificationClock.now())
+            let record = VerificationRunRecord(
+                flow: .oid4vpPresentation,
+                role: .holder,
+                credentialKind: .governmentWallet,
+                transport: .https,
+                succeeded: outcome.succeeded,
+                preparationMilliseconds: requestFetchMilliseconds,
+                endToEndMilliseconds: submitMilliseconds)
+            try? VerificationRunStore.shared.append(record)
+            if outcome.succeeded { Bonds.Haptic.delivered() }
+            self.finish(outcome: outcome.message)
         }
     }
 
     /// Pops back to where the flow began and reports the outcome there.
+    ///
+    /// The alert used to append two engineering timings (「請求擷取與驗證：x.xx
+    /// 秒」) to the sentence the holder actually needed. The numbers still land
+    /// in `VerificationRunStore`, where Diagnostics shows the full set — the
+    /// alert says what happened, and only that (design system §8.2).
     @MainActor
     private func finish(outcome: String) {
         let nav = navigationController
@@ -173,6 +193,11 @@ enum ClaimDisplayName {
             "id_number": NSLocalizedString("National ID number", comment: "claim: id number"),
             "roc_birthday": NSLocalizedString("Date of birth", comment: "claim: birthday"),
             "Phone_number_last3": NSLocalizedString("Last 3 digits of phone number", comment: "claim: phone last 3"),
+            "phone_number_last3": NSLocalizedString("Last 3 digits of phone number", comment: "claim: phone last 3"),
+            "phonel3": NSLocalizedString("Last 3 digits of phone number", comment: "claim: phone last 3"),
+            "Phone_number_last5": NSLocalizedString("Last 5 digits of phone number", comment: "claim: phone last 5"),
+            "phone_number_last5": NSLocalizedString("Last 5 digits of phone number", comment: "claim: phone last 5"),
+            "phonel5": NSLocalizedString("Last 5 digits of phone number", comment: "claim: phone last 5"),
             "type": NSLocalizedString("Licence type", comment: "claim: licence type"),
             "controlnumber": NSLocalizedString("Control number", comment: "claim: control number"),
             "gDate": NSLocalizedString("Date of issue", comment: "claim: issue date"),

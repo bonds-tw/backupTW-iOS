@@ -109,6 +109,33 @@ struct OID4VPRequestedField: Equatable {
     }
 }
 
+/// One alternative named by a DIF presentation definition.
+///
+/// The production convenience-store request does not ask for one fixed card. It
+/// names the three carriers once for the 「姓名」 group and once again for the
+/// 「末五碼」 group. Keeping the descriptor boundary is therefore protocol data,
+/// not UI decoration: the response must echo the descriptor id that matches the
+/// carrier actually held, for each selected group.
+struct OID4VPInputDescriptor: Equatable {
+    let id: String
+    let credentialType: String?
+    let requestedFields: [OID4VPRequestedField]
+    let groups: [String]
+    let credentialName: String?
+    let issuerName: String?
+}
+
+/// How a verifier combines descriptor groups. TWDIW currently emits DIF
+/// `pick` requirements with `max: 1` for each convenience-store field group.
+struct OID4VPSubmissionRequirement: Equatable {
+    let name: String?
+    let rule: String
+    let from: String
+    let count: Int?
+    let min: Int?
+    let max: Int?
+}
+
 /// A verified presentation request, reduced to what building a response needs.
 struct OID4VPRequest: Equatable {
 
@@ -126,23 +153,27 @@ struct OID4VPRequest: Equatable {
     /// Echoed back in the response so the verifier can match it to its session.
     let state: String
 
-    /// The `vc.type[1]` value the presentation must match, from the input
-    /// descriptor's `$.type` `contains` filter. `nil` if the request did not
-    /// constrain the type.
-    let credentialType: String?
+    /// Every credential alternative and its own claims/group membership.
+    let inputDescriptors: [OID4VPInputDescriptor]
 
-    /// The claims the verifier asked to see.
-    let requestedFields: [OID4VPRequestedField]
+    /// The group-selection rules. Empty is the legacy one-descriptor form.
+    let submissionRequirements: [OID4VPSubmissionRequirement]
 
     /// `presentation_definition.id`, echoed into the submission so the verifier
     /// can tie the response to the request it sent.
     let definitionID: String
 
-    /// The single input descriptor's id, named in the submission's descriptor
-    /// map. Measured 2026-08-26: definition id, descriptor id and the required
-    /// `credentialType` are the same string (`00000000_vpms_20250605`), but they
-    /// are distinct fields in the protocol and are kept apart here.
-    let inputDescriptorID: String
+    /// Compatibility views for the original one-descriptor request. Callers that
+    /// build a response use `inputDescriptors`, never these conveniences.
+    var credentialType: String? { inputDescriptors.first?.credentialType }
+    var inputDescriptorID: String { inputDescriptors.first?.id ?? "" }
+
+    /// Unique fields in verifier order. A field such as `name` appears once even
+    /// when several carrier alternatives each request it.
+    var requestedFields: [OID4VPRequestedField] {
+        var seen = Set<String>()
+        return inputDescriptors.flatMap(\.requestedFields).filter { seen.insert($0.path).inserted }
+    }
 
     /// Verifies a request object and reduces it.
     ///
@@ -211,14 +242,18 @@ struct OID4VPRequest: Equatable {
         guard let definitionID = definition?["id"] as? String else {
             throw OID4VPRequestError.missingField("presentation_definition.id")
         }
-        let descriptors = definition?["input_descriptors"] as? [[String: Any]] ?? []
-        guard let firstDescriptor = descriptors.first,
-              let inputDescriptorID = firstDescriptor["id"] as? String else {
+        let rawDescriptors = definition?["input_descriptors"] as? [[String: Any]] ?? []
+        guard !rawDescriptors.isEmpty else {
             throw OID4VPRequestError.missingField("input_descriptors[0].id")
         }
-        var credentialType: String?
-        var fields: [OID4VPRequestedField] = []
-        for descriptor in descriptors {
+
+        var descriptors: [OID4VPInputDescriptor] = []
+        for (index, descriptor) in rawDescriptors.enumerated() {
+            guard let descriptorID = descriptor["id"] as? String, !descriptorID.isEmpty else {
+                throw OID4VPRequestError.missingField("input_descriptors[\(index)].id")
+            }
+            var credentialType: String?
+            var fields: [OID4VPRequestedField] = []
             let constraintFields = (descriptor["constraints"] as? [String: Any])?["fields"] as? [[String: Any]] ?? []
             for field in constraintFields {
                 let paths = field["path"] as? [String] ?? []
@@ -236,15 +271,42 @@ struct OID4VPRequest: Equatable {
                     }
                 }
             }
+            var credentialName: String?
+            var issuerName: String?
+            if let nameJSON = descriptor["name"] as? String,
+               let nameData = nameJSON.data(using: .utf8),
+               let names = try? JSONSerialization.jsonObject(with: nameData) as? [String: Any] {
+                credentialName = names["vc_name"] as? String
+                issuerName = names["org_tw_name"] as? String
+            }
+            descriptors.append(OID4VPInputDescriptor(
+                id: descriptorID,
+                credentialType: credentialType,
+                requestedFields: fields,
+                groups: descriptor["group"] as? [String] ?? [],
+                credentialName: credentialName,
+                issuerName: issuerName))
+        }
+
+        let rawRequirements = definition?["submission_requirements"] as? [[String: Any]] ?? []
+        let requirements = rawRequirements.compactMap { raw -> OID4VPSubmissionRequirement? in
+            guard let rule = raw["rule"] as? String,
+                  let from = raw["from"] as? String,
+                  !rule.isEmpty, !from.isEmpty else { return nil }
+            return OID4VPSubmissionRequirement(name: raw["name"] as? String,
+                                                rule: rule,
+                                                from: from,
+                                                count: raw["count"] as? Int,
+                                                min: raw["min"] as? Int,
+                                                max: raw["max"] as? Int)
         }
 
         return OID4VPRequest(responseURI: responseURI,
                              clientID: clientID,
                              nonce: nonce,
                              state: state,
-                             credentialType: credentialType,
-                             requestedFields: fields,
-                             definitionID: definitionID,
-                             inputDescriptorID: inputDescriptorID)
+                             inputDescriptors: descriptors,
+                             submissionRequirements: requirements,
+                             definitionID: definitionID)
     }
 }

@@ -112,6 +112,7 @@ extension GovernmentCardViewController: PrivacyShieldedScreen {}
 /// neither may survive in the app-switcher snapshot.
 extension MyDataVaultDocumentViewController: PrivacyShieldedScreen {}
 extension MyDataVaultPDFViewController: PrivacyShieldedScreen {}
+extension MyDataCredentialUseCasesViewController: PrivacyShieldedScreen {}
 
 // MARK: - The shield
 
@@ -209,28 +210,25 @@ final class PrivacyShield {
     /// data visible-but-pretty, so the cover says what it is instead — which also
     /// makes a shield that fired look deliberate rather than like a crash.
     private static func makeCover(for window: UIWindow) -> UIView {
-        let cover = UIView(frame: window.bounds)
+        let cover = WalletLockBackdropView(frame: window.bounds)
         cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        cover.backgroundColor = .systemBackground
 
-        let symbol = UIImageView(image: UIImage(systemName: "eye.slash.fill"))
-        symbol.tintColor = .secondaryLabel
-        symbol.contentMode = .scaleAspectFit
+        let symbol = WalletLockArtwork.mark(symbolName: "lock.fill", size: 76)
 
         let title = UILabel()
-        title.text = NSLocalizedString("Hidden while this app is not in front",
-                                       comment: "App switcher privacy cover")
-        title.font = .preferredFont(forTextStyle: .headline)
+        title.text = "有備而來"
+        title.textColor = .white
+        title.font = .preferredFont(forTextStyle: .title2)
         title.adjustsFontForContentSizeCategory = true
         title.textAlignment = .center
         title.numberOfLines = 0
 
         let detail = UILabel()
-        detail.text = NSLocalizedString("So the details on this screen are not left behind in the app switcher.",
+        detail.text = NSLocalizedString("Credentials are safely locked",
                                         comment: "App switcher privacy cover")
-        detail.font = .preferredFont(forTextStyle: .footnote)
+        detail.font = .preferredFont(forTextStyle: .subheadline)
         detail.adjustsFontForContentSizeCategory = true
-        detail.textColor = .secondaryLabel
+        detail.textColor = UIColor.white.withAlphaComponent(0.78)
         detail.textAlignment = .center
         detail.numberOfLines = 0
 
@@ -241,7 +239,6 @@ final class PrivacyShield {
         stack.translatesAutoresizingMaskIntoConstraints = false
         cover.addSubview(stack)
         NSLayoutConstraint.activate([
-            symbol.heightAnchor.constraint(equalToConstant: 32),
             stack.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
             stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: cover.leadingAnchor, constant: 32),
@@ -256,9 +253,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
     private let privacyShield = PrivacyShield()
+    private let unlockSession = WalletUnlockSession()
     private var mainRootViewController: UIViewController?
     private weak var unlockViewController: WalletUnlockViewController?
-    private var needsUnlock = true
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
@@ -309,7 +306,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // does not compile this branch, so no launch environment can unlock a
         // shipped wallet.
         if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] == "1" {
-            needsUnlock = false
+            unlockSession.recordAuthentication()
+            if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_FORMAL_DOCUMENT_PREVIEW"] == "1" {
+                let preview = MyDataOnboardViewController()
+                let navigation = UINavigationController(rootViewController: preview)
+                window.rootViewController = navigation
+                window.makeKeyAndVisible()
+                preview.loadViewIfNeeded()
+                preview.seedSuccessfulNationalIDPreviewForUITest()
+                self.window = window
+                return
+            }
             window.rootViewController = tabBarController
             window.makeKeyAndVisible()
             self.window = window
@@ -335,21 +342,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// UI tests run in a different process and cannot inject Home's archive
     /// factory. This narrow launch seam creates one content-free PDF-shaped
-    /// original in the test app's own sandbox. It is DEBUG-only, requires an
-    /// explicit environment flag, and contains no personal/test-card data.
+    /// original in the test app's own sandbox. A layout test may request up to
+    /// three content-free originals to exercise the stack. It is DEBUG-only,
+    /// requires an explicit environment flag, and contains no personal/test-card
+    /// data.
     private static func seedVaultForUITestIfRequested() {
         guard ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_SEED_VAULT"] == "1",
               let archive = try? MyDataVaultArchive() else { return }
-        let source = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ui-test-vault-\(UUID().uuidString).pdf")
-        defer { try? FileManager.default.removeItem(at: source) }
-        do {
-            try Data("%PDF-1.4 UI test only\n%%EOF\n".utf8).write(to: source,
-                                                                     options: .atomic)
-            try archive.store(originalAt: source, id: "mydata-income", fileExtension: "pdf")
-        } catch {
-            // The UI assertion reports the missing card with the screen's visible
-            // labels; a launch-time test fixture must never crash the app.
+        let requested = Int(ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_SEED_VAULT_COUNT"] ?? "1") ?? 1
+        let ids = ["mydata-income", "mydata-health-insurance", "mydata-land"]
+        for (index, id) in ids.prefix(max(1, min(requested, ids.count))).enumerated() {
+            let source = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ui-test-vault-\(UUID().uuidString).pdf")
+            defer { try? FileManager.default.removeItem(at: source) }
+            do {
+                try Data("%PDF-1.4 UI test only \(index)\n%%EOF\n".utf8).write(
+                    to: source, options: .atomic)
+                try archive.store(originalAt: source, id: id, fileExtension: "pdf")
+            } catch {
+                // The UI assertion reports the missing card with the screen's
+                // visible labels; a launch-time fixture must never crash the app.
+            }
         }
     }
     #endif
@@ -376,11 +389,34 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             // `\r\ncredential_offer_uri`, miss the offer, and drop the card to the
             // FidO router — the same silent non-collection the scanned path fixed.
             if let link = try? CredentialOfferLink.parse(scanned: url.absoluteString) {
-                collectCredential(from: link)
+                // A deep link can arrive over any screen. Settings is pure
+                // housekeeping, so it is folded away first — its result alert
+                // used to land *on top of* the Settings modal, a full-screen
+                // surprise stacked on housekeeping (design system §10.1). The
+                // MyData wizard is deliberately NOT dismissed: it is a flow in
+                // progress, and closing it would cost the holder their place.
+                dismissSettingsIfPresented { [weak self] in
+                    self?.collectCredential(from: link)
+                }
                 continue
             }
             Task { await MOICACallbackRouter.shared.handle(url) }
         }
+    }
+
+    /// Folds away a presented Settings modal (and only Settings) before a
+    /// deep-link flow takes the screen. Anything else presented — the MyData
+    /// wizard, a web-collect session, an alert mid-decision — stays put, and
+    /// the collection result is presented on top as before.
+    private func dismissSettingsIfPresented(completion: @escaping () -> Void) {
+        guard let root = window?.rootViewController,
+              let presented = root.presentedViewController as? UINavigationController,
+              presented.viewControllers.first is SettingsViewController,
+              presented.presentedViewController == nil else {
+            completion()
+            return
+        }
+        root.dismiss(animated: true, completion: completion)
     }
 
     /// Runs one collection from a deep link and tells the user how it ended.
@@ -391,9 +427,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func collectCredential(from link: CredentialOfferLink) {
         Task { @MainActor in
             let outcome = await CredentialCollection.run(from: link)
+            if outcome.isSuccess { Bonds.Haptic.delivered() }
             let alert = UIAlertController(
                 title: NSLocalizedString("Digital wallet card collection", comment: ""),
-                message: outcome,
+                message: outcome.message,
                 preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""),
                                           style: .default))
@@ -411,7 +448,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        guard needsUnlock else {
+        guard unlockSession.requiresAuthentication else {
             privacyShield.uncover()
             return
         }
@@ -433,12 +470,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
-        // Called as the scene transitions from the foreground to the background.
-        // Save data, release shared resources, and store enough scene-specific
-        // state to restore the scene later. The privacy cover is deliberately
-        // *not* installed here: the system has already taken its snapshot by the
-        // time this runs. See `PrivacyShield.coverIfNeeded`.
-        needsUnlock = true
+        // Authentication remains valid for a short, process-local grace period.
+        // The opaque privacy cover was already installed in
+        // `sceneWillResignActive`, so app-switcher snapshots stay protected even
+        // when returning within that grace period.
     }
 
     // MARK: - App unlock
@@ -448,7 +483,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         unlock.modalPresentationStyle = .fullScreen
         unlock.onUnlocked = { [weak self, weak unlock] in
             guard let self else { return }
-            self.needsUnlock = false
+            self.unlockSession.recordAuthentication()
             if initial {
                 guard let root = self.mainRootViewController else { return }
                 self.window?.rootViewController = root

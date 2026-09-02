@@ -34,10 +34,32 @@ enum CredentialCollection {
     /// The raw error is still logged for a developer; only the screen is
     /// translated. The measurement value of the exact case (which gate, which
     /// status) lives in the log, not in front of the cardholder.
+    /// Success and failure carried as what they are, not as two strings that
+    /// look alike — the caller decides how each is shown (a success is a moment,
+    /// a failure is an alert; the two used to share one identical alert).
+    enum Outcome {
+        case stored(id: String, message: String)
+        case failed(message: String)
+
+        var message: String {
+            switch self {
+            case .stored(_, let message), .failed(let message): return message
+            }
+        }
+        var isSuccess: Bool {
+            if case .stored = self { return true }
+            return false
+        }
+    }
+
     @MainActor
-    static func run(from link: CredentialOfferLink) async -> String {
+    static func run(from link: CredentialOfferLink) async -> Outcome {
         do {
             var trustList = try await TrustListFetcher(session: .shared).fetchAll()
+            // The list is in hand anyway — write the DID→name pairs down so
+            // card faces can name a trust-listed issuer offline. Before the
+            // DEBUG sandbox append: the demo issuer must not enter the book.
+            IssuerNameBook.remember(trustList)
             #if DEBUG
             // DEBUG only: let a development build collect from the demo sandbox,
             // whose issuer host is not on the production trust list
@@ -63,11 +85,12 @@ enum CredentialCollection {
                                              keyring: .app(),
                                              store: try CredentialStore())
             let receipt = try await collector.collect(from: link)
-            return String(format: NSLocalizedString("Stored as %@.", comment: "collection success"),
-                          receipt.storedID)
+            return .stored(id: receipt.storedID,
+                           message: String(format: NSLocalizedString("Stored as %@.", comment: "collection success"),
+                                           receipt.storedID))
         } catch {
             log.error("collection failed: \(String(describing: error), privacy: .public)")
-            return UserFacingError.collectionMessage(for: error)
+            return .failed(message: UserFacingError.collectionMessage(for: error))
         }
     }
 

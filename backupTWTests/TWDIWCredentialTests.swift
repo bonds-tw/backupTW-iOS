@@ -106,6 +106,7 @@ struct TWDIWCredentialTests {
 
         #expect(credential.issuerDID == fixture.issuerDID)
         #expect(credential.subjectDID == fixture.holderDID)
+        #expect(credential.credentialID == TWDIWFixture.credentialID)
         #expect(credential.credentialType == TWDIWFixture.credentialType)
         #expect(credential.holderKey.rawRepresentation == fixture.holderKey.rawRepresentation)
         #expect(credential.schemaURL == TWDIWFixture.schemaURL)
@@ -243,6 +244,7 @@ struct TWDIWCredentialTests {
 struct TWDIWFixture {
 
     static let credentialType = "00000000_demo_drivinglicense_202504251418"
+    static let credentialID = "https://issuer-vc.wallet.gov.tw/api/credential/39d60715-e90c-402a-98aa-test"
     static let jku = "https://issuer-vc.wallet.gov.tw/api/keys"
     static let schemaURL = "https://frontend.wallet.gov.tw/api/schema/00000000/demo/V1/b653ad4b"
     static let statusListURL =
@@ -329,6 +331,7 @@ struct TWDIWFixture {
         let payload: [String: Any] = [
             "iss": issuerDIDOverride ?? issuerDID,
             "sub": holderDID,
+            "jti": Self.credentialID,
             "nbf": 1_759_823_761,
             "exp": 2_075_356_561,
             "cnf": ["jwk": (try? JSONSerialization.jsonObject(with: holderJWK)) as Any],
