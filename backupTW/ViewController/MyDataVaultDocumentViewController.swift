@@ -72,7 +72,7 @@ final class MyDataVaultDocumentViewController: UICollectionViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationController?.navigationBar.prefersLargeTitles = false
+        navigationItem.largeTitleDisplayMode = .never
         configureDataSource()
         reload()
     }

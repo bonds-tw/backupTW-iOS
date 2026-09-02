@@ -32,6 +32,11 @@ enum ScanToCollect {
         // verifier closes its camera on the first payload.
         final class Latch { var fired = false }
         let latch = Latch()
+        // The scan closure is handed to the scanner's initialiser, so it cannot
+        // name the scanner directly; the box closes the loop so the closure can
+        // put 「collecting…」 into the banner once a code locks.
+        final class ScannerRef { weak var scanner: QRScanningViewController? }
+        let ref = ScannerRef()
 
         let scanner = QRScanningViewController(
             title: NSLocalizedString("Scan a card's QR", comment: "collect by scan"),
@@ -60,19 +65,39 @@ enum ScanToCollect {
                 return .stop
             }
             guard let link = try? CredentialOfferLink.parse(scanned: scanned) else {
-                // Not a credential offer — any other QR that wandered in. Silent,
-                // because this fires once per video frame. `parse(scanned:)`
-                // tolerates the CR+LF the official deep link frames its query
-                // with; a plain `URL(string:)` here would drop the real card.
+                // A valid QR for a *different* job is named, not ignored — a
+                // silent scanner over a real code reads as a broken scanner
+                // (design system §10.3). Presentation requests and ZK pairing
+                // codes are the ones a holder plausibly meets here.
+                if (try? OID4VPAuthorizeLink.parse(scanned: scanned)) != nil
+                    || (try? PresentationRequest.decode(scanned)) != nil {
+                    return .keepScanning(status: NSLocalizedString(
+                        "That is a checker's QR for presenting, not a card to collect. Use 使用 ▸ 出示我的證件.",
+                        comment: "Scanned a presentation request while collecting"))
+                }
+                if (try? ZKLinkEngagement.decode(from: scanned)) != nil {
+                    return .keepScanning(status: NSLocalizedString(
+                        "That is the code for sending a zero-knowledge proof, not for showing a document.",
+                        comment: "Scanned the other kind of code"))
+                }
+                // Anything else — silent, because this fires once per video
+                // frame. `parse(scanned:)` tolerates the CR+LF the official
+                // deep link frames its query with; a plain `URL(string:)` here
+                // would drop the real card.
                 return .keepScanning(status: nil)
             }
             latch.fired = true
+            // The camera freezes on its last frame after `.stop`; without this
+            // sentence the whole token-exchange wait looked like a hang.
+            ref.scanner?.showWorking(NSLocalizedString(
+                "Collecting the card…", comment: "collect in progress"))
             Task { @MainActor in
                 let outcome = await CredentialCollection.run(from: link)
                 present(outcome: outcome, on: navigationController)
             }
             return .stop
         }
+        ref.scanner = scanner
         navigationController?.pushViewController(scanner, animated: true)
     }
 
@@ -136,21 +161,40 @@ enum ScanToCollect {
         (presenter ?? navigationController?.topViewController)?.present(nav, animated: true)
     }
 
-    /// Pops the scanner and shows the outcome where the user is looking.
+    /// A resolve failure or web-collect precondition — always an alert.
     @MainActor
     private static func present(outcome: String, on navigationController: UINavigationController?) {
-        // Back to the list first: the alert belongs to the home screen, not to a
-        // camera that has already stopped. Popping before presenting also means
-        // the result is read on the screen that now shows the new card row.
-        navigationController?.popViewController(animated: true)
-        let alert = UIAlertController(
-            title: NSLocalizedString("Digital wallet card collection", comment: ""),
-            message: outcome,
-            preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+        present(outcome: .failed(message: outcome), on: navigationController)
+    }
 
-        var presenter: UIViewController? = navigationController
-        while let presented = presenter?.presentedViewController { presenter = presented }
-        (presenter ?? navigationController?.topViewController)?.present(alert, animated: true)
+    /// Shows the outcome where the user is looking.
+    ///
+    /// Success and failure used to share one identical alert, with the message
+    /// text as the only difference — the app's single reward moment rendered as
+    /// its most bureaucratic control. A success now *lands*: the scanner pops,
+    /// the home tab comes forward with the new card in the wallet, the success
+    /// buzz fires, and VoiceOver announces the arrival. Only failure still gets
+    /// an alert, because failure needs to be read.
+    @MainActor
+    private static func present(outcome: CredentialCollection.Outcome,
+                                on navigationController: UINavigationController?) {
+        navigationController?.popViewController(animated: true)
+
+        switch outcome {
+        case .stored:
+            Bonds.Haptic.delivered()
+            navigationController?.tabBarController?.selectedIndex = 0
+            UIAccessibility.post(notification: .announcement, argument: NSLocalizedString(
+                "Card added to your wallet.", comment: "collection success announcement"))
+        case .failed(let message):
+            let alert = UIAlertController(
+                title: NSLocalizedString("Digital wallet card collection", comment: ""),
+                message: message,
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+            var presenter: UIViewController? = navigationController
+            while let presented = presenter?.presentedViewController { presenter = presented }
+            (presenter ?? navigationController?.topViewController)?.present(alert, animated: true)
+        }
     }
 }

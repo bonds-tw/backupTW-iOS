@@ -404,9 +404,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func collectCredential(from link: CredentialOfferLink) {
         Task { @MainActor in
             let outcome = await CredentialCollection.run(from: link)
+            if outcome.isSuccess { Bonds.Haptic.delivered() }
             let alert = UIAlertController(
                 title: NSLocalizedString("Digital wallet card collection", comment: ""),
-                message: outcome,
+                message: outcome.message,
                 preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""),
                                           style: .default))

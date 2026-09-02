@@ -144,7 +144,11 @@ final class ZKVerifyViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = NSLocalizedString("Check a proof", comment: "")
+        // The full name, matching the row that opened it. 「查驗證件」 and
+        // 「查驗證明」 are one glyph apart at a checkpoint glance, and this
+        // screen and the document checker each show a QR whose meaning differs
+        // — the title is the one place that says which check this is.
+        title = NSLocalizedString("Check a zero-knowledge proof", comment: "")
         view.backgroundColor = .systemGroupedBackground
         configureLayout()
         // Said at load, not after the other phone has spent twenty seconds
@@ -292,9 +296,8 @@ final class ZKVerifyViewController: UIViewController {
             scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -20),
-            stack.leadingAnchor.constraint(equalTo: scroll.frameLayoutGuide.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: scroll.frameLayoutGuide.trailingAnchor, constant: -20)
         ])
+        NSLayoutConstraint.activate(Bonds.readableHorizontal(stack, in: scroll.frameLayoutGuide))
     }
 
     /// Draws an outcome.
@@ -398,6 +401,12 @@ final class ZKVerifyViewController: UIViewController {
             // is not a verdict, so it does not get a verdict card.
             verdictContainer.isHidden = true
             return
+        }
+        // Buzz only on the hidden→shown transition: a verdict landing is the
+        // evidence-backed moment the one-buzz rule names, and re-renders of the
+        // same verdict are not new evidence (BondsDesign.swift §觸覺).
+        if verdictContainer.isHidden {
+            verdict ? Bonds.Haptic.delivered() : Bonds.Haptic.rejected()
         }
         verdictContainer.isHidden = false
         verdictContainer.addArrangedSubview(verdict

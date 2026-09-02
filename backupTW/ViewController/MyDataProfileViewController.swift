@@ -39,8 +39,10 @@ final class MyDataProfileViewController: UITableViewController {
         if let profile = MyDataAutofillProfileStore.load() {
             nationalIDField.text = profile.nationalIDNumber
             birthDateField.text = profile.birthDate
+            // 「清除」, not the calque 「忘記」 — the button removes stored data,
+            // and the verb should say so in everyday Taiwanese usage.
             navigationItem.leftBarButtonItem = UIBarButtonItem(
-                title: NSLocalizedString("Forget", comment: "MyData profile"), style: .plain,
+                title: NSLocalizedString("Clear saved details", comment: "MyData profile"), style: .plain,
                 target: self, action: #selector(confirmForget))
         }
         tableView.keyboardDismissMode = .interactive

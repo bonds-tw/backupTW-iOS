@@ -27,6 +27,11 @@ final class OfficialDocumentDetailViewController: UITableViewController {
     private var package: OfficialDocumentPackage?
     private var groups: [Group] = []
     private var didMarkViewed = false
+    /// Two-layer rule (design system §11.1): the EN/DI/ESW parse states and the
+    /// EN fingerprint are engineering detail — true, auditable, and not what a
+    /// person opening a document came to read. They sit behind one disclosure
+    /// row until asked for, which takes this screen from ~15 rows to ~10.
+    private var showsTechnicalDetail = false
 
     init(packageID: String, archive: OfficialDocumentInboxArchive) {
         self.packageID = packageID
@@ -135,10 +140,7 @@ final class OfficialDocumentDetailViewController: UITableViewController {
                 value: authenticationText),
             Row(id: "receipt",
                 title: NSLocalizedString("Delivery confirmation", comment: "official document detail"),
-                value: confirmationText),
-            Row(id: "fingerprint",
-                title: NSLocalizedString("EN fingerprint", comment: "official document detail"),
-                value: package.integrity.envelopeDigest)
+                value: confirmationText)
         ]
         if isG2CSandbox {
             integrityRows.insert(Row(
@@ -182,8 +184,20 @@ final class OfficialDocumentDetailViewController: UITableViewController {
             Group(title: NSLocalizedString("Document", comment: "official document detail"), rows: documentRows),
             Group(title: NSLocalizedString("Content", comment: "official document detail"), rows: contentRows),
             Group(title: NSLocalizedString("Evidence and limits", comment: "official document detail"), rows: integrityRows),
-            Group(title: NSLocalizedString("Exchange components", comment: "official document detail"), rows: formatRows)
         ]
+        if showsTechnicalDetail {
+            groups.append(Group(
+                title: NSLocalizedString("Technical detail", comment: "official document detail"),
+                rows: formatRows + [Row(
+                    id: "fingerprint",
+                    title: NSLocalizedString("EN fingerprint", comment: "official document detail"),
+                    value: package.integrity.envelopeDigest)]))
+        } else {
+            groups.append(Group(title: "", rows: [Row(
+                id: "showTechnicalDetail",
+                title: NSLocalizedString("Show technical detail", comment: "official document detail"),
+                value: NSLocalizedString("EN, DI and ESW parse states, and the EN fingerprint.", comment: "official document detail"))]))
+        }
         if isG2CSandbox, package.sandboxDelivery?.confirmation == nil {
             groups.append(Group(title: "", rows: [Row(
                 id: "confirmSandbox",
@@ -207,43 +221,60 @@ final class OfficialDocumentDetailViewController: UITableViewController {
     override func tableView(_ tableView: UITableView,
                             cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let row = groups[indexPath.section].rows[indexPath.row]
-        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
+        let cell = UITableViewCell()
         cell.accessibilityIdentifier = "officialDocuments.detail.\(row.id)"
-        cell.textLabel?.font = .preferredFont(forTextStyle: .headline)
-        cell.textLabel?.adjustsFontForContentSizeCategory = true
-        cell.textLabel?.numberOfLines = 0
-        cell.textLabel?.text = row.title
-        cell.detailTextLabel?.font = row.id == "fingerprint"
-            ? UIFontMetrics(forTextStyle: .footnote).scaledFont(
-                for: .monospacedSystemFont(ofSize: 12, weight: .regular))
+        var content = cell.defaultContentConfiguration()
+        content.textProperties.font = .preferredFont(forTextStyle: .headline)
+        content.textProperties.adjustsFontForContentSizeCategory = true
+        content.textProperties.numberOfLines = 0
+        content.text = row.title
+        content.secondaryTextProperties.font = row.id == "fingerprint"
+            ? Bonds.Font.mono(.footnote)
             : .preferredFont(forTextStyle: .subheadline)
-        cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
-        cell.detailTextLabel?.numberOfLines = 0
-        cell.detailTextLabel?.textColor = .secondaryLabel
-        cell.detailTextLabel?.text = row.value
-        cell.selectionStyle = row.id == "confirmSandbox" ? .default : .none
+        content.secondaryTextProperties.adjustsFontForContentSizeCategory = true
+        content.secondaryTextProperties.numberOfLines = 0
+        // Full ink for the document body — it is the reading matter this screen
+        // exists for, and body-length `.secondaryLabel` measures under AA in
+        // light mode (the PresentationUI.footnote rule). Short fact values stay
+        // secondary.
+        content.secondaryTextProperties.color = row.id == "body" ? .label : .secondaryLabel
+        content.secondaryText = row.value
+        let isAction = ["confirmSandbox", "showTechnicalDetail"].contains(row.id)
+        cell.selectionStyle = isAction ? .default : .none
         if row.id == "confirmSandbox" {
-            cell.textLabel?.textColor = .tintColor
-            cell.imageView?.image = UIImage(systemName: "checkmark.message")
-            cell.imageView?.tintColor = .tintColor
+            content.textProperties.color = .tintColor
+            content.image = UIImage(systemName: "checkmark.message")
+            content.imageProperties.tintColor = .tintColor
             cell.accessoryType = .disclosureIndicator
         }
-        if row.id == "boundary" {
-            cell.imageView?.image = UIImage(systemName: "hammer")
-            cell.imageView?.tintColor = .systemOrange
+        if row.id == "showTechnicalDetail" {
+            content.textProperties.color = .tintColor
+            content.image = UIImage(systemName: "chevron.down.circle")
+            content.imageProperties.tintColor = .tintColor
         }
+        if row.id == "boundary" {
+            content.image = UIImage(systemName: "hammer")
+            content.imageProperties.tintColor = .systemOrange
+        }
+        cell.contentConfiguration = content
         return cell
     }
 
     override func tableView(_ tableView: UITableView,
                             didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        guard groups[indexPath.section].rows[indexPath.row].id == "confirmSandbox" else {
-            return
+        switch groups[indexPath.section].rows[indexPath.row].id {
+        case "showTechnicalDetail":
+            showsTechnicalDetail = true
+            rebuildGroups()
+            tableView.reloadData()
+        case "confirmSandbox":
+            #if DEBUG
+            presentSandboxConfirmationPrompt()
+            #endif
+        default:
+            break
         }
-        #if DEBUG
-        presentSandboxConfirmationPrompt()
-        #endif
     }
 
     #if DEBUG

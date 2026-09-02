@@ -206,9 +206,8 @@ final class VerifierViewController: UIViewController {
 
             contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
             contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32),
-            contentStack.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 20),
-            contentStack.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -20),
         ])
+        NSLayoutConstraint.activate(Bonds.readableHorizontal(contentStack, in: scrollView.frameLayoutGuide))
 
         contentStack.addArrangedSubview(PresentationUI.title(
             NSLocalizedString("Ask the other person to scan this", comment: "")))
@@ -908,6 +907,29 @@ final class VerificationResultViewController: UIViewController {
         buildInterface()
     }
 
+    /// The verdict is the reason this screen exists, so it is also what
+    /// VoiceOver lands on — the push transition alone parks the cursor on the
+    /// navigation bar, which ZKVerify's audit called 「fine only by accident」.
+    /// The verdict haptic fires here too: an evidence-backed judgement on the
+    /// checker's device is exactly the moment the one-buzz rule names
+    /// (BondsDesign.swift §觸覺). The two orange 「nothing was checked」 branches
+    /// stay silent — they are housekeeping about this phone, not a judgement.
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !announcedOnce else { return }
+        announcedOnce = true
+        switch outcome {
+        case .some(.verified): Bonds.Haptic.delivered()
+        case .some(.rejected(let failure)) where !failure.isAboutThisDevice: Bonds.Haptic.rejected()
+        default: break
+        }
+        if let verdictView = view.firstSubview(withAccessibilityIdentifier: "verdict") {
+            UIAccessibility.post(notification: .layoutChanged, argument: verdictView)
+        }
+    }
+
+    private var announcedOnce = false
+
     @objc private func done() {
         navigationController?.popViewController(animated: true)
     }
@@ -929,9 +951,8 @@ final class VerificationResultViewController: UIViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32),
-            stack.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -20),
         ])
+        NSLayoutConstraint.activate(Bonds.readableHorizontal(stack, in: scrollView.frameLayoutGuide))
 
         switch outcome {
         case .some(.verified(let presentation)):
@@ -1362,20 +1383,49 @@ enum PresentationUI {
     /// because tests find the verdict by it, and because an icon that VoiceOver
     /// reads with the sentence is part of the sentence.
     static func verdict(_ symbol: String, _ text: String, _ colour: UIColor) -> UIView {
+        // The signature keeps the emoji — eight call sites read naturally and
+        // did not change — but the rendering is the design system's one verdict
+        // card (§9.2): SF Symbol + 0.14 tinted ground + full-ink bold text.
+        // The app used to speak two visual languages for the same judgement
+        // (emoji-in-text here, `VerdictSymbol` tints elsewhere); this maps the
+        // emoji onto the shared symbol table so there is one.
+        let systemName: String
+        switch symbol {
+        case "✅": systemName = VerdictSymbol.sealPassing
+        case "⛔️", "⛔": systemName = VerdictSymbol.sealRefused
+        default: systemName = VerdictSymbol.warning
+        }
+
+        let icon = UIImageView(image: UIImage(systemName: systemName))
+        icon.tintColor = colour
+        icon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title2, scale: .large)
+        icon.setContentHuggingPriority(.required, for: .horizontal)
+        icon.setContentCompressionResistancePriority(.required, for: .horizontal)
+
         let label = UILabel()
-        label.text = symbol + "  " + text
+        label.text = text
         label.numberOfLines = 0
-        label.font = UIFontMetrics(forTextStyle: .title2)
-            .scaledFont(for: .systemFont(ofSize: 22, weight: .bold))
+        label.font = Bonds.Font.pageTitle
         label.adjustsFontForContentSizeCategory = true
         label.textColor = .label
 
-        let card = UIStackView(arrangedSubviews: [label])
+        let row = UIStackView(arrangedSubviews: [icon, label])
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = Bonds.Space.m
+
+        let card = UIStackView(arrangedSubviews: [row])
         card.axis = .vertical
         card.isLayoutMarginsRelativeArrangement = true
-        card.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        card.layoutMargins = UIEdgeInsets(top: Bonds.Space.l, left: Bonds.Space.l,
+                                          bottom: Bonds.Space.l, right: Bonds.Space.l)
         card.backgroundColor = colour.withAlphaComponent(0.14)
-        card.layer.cornerRadius = 12
+        Bonds.round(card.layer, Bonds.Radius.card)
+        // One element: the finding and its sentence are heard together, in the
+        // glyph's spoken form rather than an emoji name.
+        card.isAccessibilityElement = true
+        card.accessibilityLabel = VerdictSymbol.spokenLabel(for: systemName) + "，" + text
+        card.accessibilityIdentifier = "verdict"
         return card
     }
 

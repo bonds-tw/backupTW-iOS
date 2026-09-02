@@ -39,7 +39,7 @@ class MyDataWebViewController : UIViewController {
     private var progressObservation: NSKeyValueObservation?
     private lazy var progressView: UIProgressView = {
         let progressView = UIProgressView(progressViewStyle: .default)
-        progressView.tintColor = .systemBlue
+        progressView.tintColor = .tintColor
         return progressView
     }()
     private lazy var webview: WKWebView = {
@@ -112,6 +112,13 @@ class MyDataWebViewController : UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // Pushed onto the wizard's navigation stack, whose bar prefers large
+        // titles: without `.never` the bar reserved a large-title's worth of
+        // empty black above the guide (回報 2026-09-02). The compact title names
+        // the document; the guide bar below carries the step.
+        title = documentType.title
+        navigationItem.largeTitleDisplayMode = .never
+
         // A previous run that was killed mid-flow — before the download finished,
         // or while the password alert was up — can have left a zip or a decrypted
         // PDF behind. Opening this screen is the last moment at which those can
@@ -119,7 +126,7 @@ class MyDataWebViewController : UIViewController {
         try? scratch.purge()
 
         guideView.onPersonalDocuments = { [weak self] in self?.openPersonalDocuments() }
-        guideView.onClose = { [weak self] in self?.dismiss(animated: true) }
+        guideView.onClose = { [weak self] in self?.closeFlow() }
         updateGuide(.details)
         NotificationCenter.default.addObserver(
             self, selector: #selector(appDidBecomeActive),
@@ -128,7 +135,7 @@ class MyDataWebViewController : UIViewController {
         progressObservation = webview.observe(\.estimatedProgress, options: [.new]) { webview, change in
             guard let progress = change.newValue else { return }
             if progress >= 1.0 {
-                UIView.animate(withDuration: 0.3, animations: {
+                UIView.animate(withDuration: Bonds.Motion.standard, animations: {
                     self.progressView.alpha = 0
                 }, completion: { _ in
                     self.progressView.setProgress(0, animated: false) // Reset for next load
@@ -359,7 +366,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
                 }
                 MyDataPendingRequestStore.resolve(documentID: documentType.id)
                 completion(.vaultDocument(entry))
-                dismiss(animated: true)
+                closeFlow()
             } catch {
                 presentProcessingError(detail: nil)
             }
@@ -416,7 +423,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
             // Some MyData documents deliver an *unencrypted* PDF — parse it straight
             // away, no password prompt.
             completion(.nationalID(model))
-            dismiss(animated: true)
+            closeFlow()
         } else {
             // Unencrypted, but the national-ID-shaped parser found none of its
             // fields — i.e. a different document whose own parser does not exist yet.
@@ -443,13 +450,30 @@ extension MyDataWebViewController : WKDownloadDelegate {
         }
     }
 
-    /// A downloaded filename can contain the holder's name. It is never shown or
-    /// persisted verbatim. Only a known, pre-localised document title is allowed
-    /// through; everything else receives the neutral 「MyData document」 title.
+    /// The document's display name, from the download's suggested filename.
+    ///
+    /// The first cut allowed only pre-localised registry titles through and gave
+    /// everything else the neutral 「MyData document」 — on the grounds that a
+    /// filename can contain the holder's name. In practice that renamed every
+    /// real personal document (「114年度綜合所得稅各類所得資料清單.pdf」) into an
+    /// unidentifiable generic card, and a pile of cards all named 「MyData 文件」
+    /// defeats the vault (回報 2026-09-02). The risk was also mis-weighed: this
+    /// is the holder's own wallet, whose ID card face already shows their name
+    /// in full — a document title on the same surface adds nothing.
+    ///
+    /// A registry match still wins (canonical beats verbatim); otherwise the
+    /// filename is kept, minus its extension, laundered through `UntrustedText`
+    /// so a server-supplied string cannot carry rewriting code points or
+    /// unbounded length onto a glanceable surface.
     private static func knownDisplayName(suggestedFilename: String) -> String? {
-        MyDataDocumentRegistry.vaultDocuments.first { type in
+        if let known = MyDataDocumentRegistry.vaultDocuments.first(where: { type in
             suggestedFilename.localizedCaseInsensitiveContains(type.title)
-        }?.title
+        })?.title {
+            return known
+        }
+        let stem = (suggestedFilename as NSString).deletingPathExtension
+        let cleaned = UntrustedText.term(stem).text
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : cleaned
     }
 
     /// The download completed but the bytes were not the national-ID shape. Release
@@ -467,13 +491,25 @@ extension MyDataWebViewController : WKDownloadDelegate {
         try? scratch.purge()
     }
 
+    /// Leaves the web step: pops when this screen was pushed onto the wizard's
+    /// navigation stack (the flattened flow), falls back to a modal dismissal
+    /// for any presenter that still presents it.
+    private func closeFlow() {
+        if let nav = navigationController, nav.viewControllers.contains(self),
+           nav.viewControllers.first !== self {
+            nav.popViewController(animated: true)
+        } else {
+            dismiss(animated: true)
+        }
+    }
+
     private func presentAlert(message: String) {
         let alert = UIAlertController(
             title: NSLocalizedString("Error", comment: ""),
             message: message,
             preferredStyle: .alert)
         let confirm = UIAlertAction(
-            title: NSLocalizedString("Confirm", comment: ""),
+            title: NSLocalizedString("OK", comment: ""),
             style: .default, handler: nil)
         alert.addAction(confirm)
         self.present(alert, animated: true)
@@ -517,7 +553,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
                 if success {
                     if let nationalIDModel = self.parseUnencryptedPDF(pdf) {
                         self.completion(.nationalID(nationalIDModel))
-                        self.dismiss(animated: true)
+                        self.closeFlow()
                     } else {
                         // Unlocked, but not the national-ID layout — an encrypted
                         // document whose own parser does not exist yet.
@@ -568,11 +604,11 @@ private final class MyDataFlowGuideView: UIView {
 
         titleLabel.font = .preferredFont(forTextStyle: .headline)
         titleLabel.adjustsFontForContentSizeCategory = true
-        titleLabel.numberOfLines = 1
-        detailLabel.font = .preferredFont(forTextStyle: .caption1)
+        titleLabel.numberOfLines = 0
+        detailLabel.font = .preferredFont(forTextStyle: .footnote)
         detailLabel.adjustsFontForContentSizeCategory = true
         detailLabel.textColor = .secondaryLabel
-        detailLabel.numberOfLines = 2
+        detailLabel.numberOfLines = 0
 
         var personal = UIButton.Configuration.tinted()
         personal.title = NSLocalizedString("Personal documents", comment: "MyData continuation button")
@@ -589,28 +625,36 @@ private final class MyDataFlowGuideView: UIView {
         closeButton.accessibilityLabel = NSLocalizedString("Close", comment: "")
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
-        let text = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
-        text.axis = .vertical
-        text.spacing = 2
-        let actions = UIStackView(arrangedSubviews: [personalDocumentsButton, closeButton])
-        actions.axis = .horizontal
-        actions.alignment = .center
-        actions.spacing = 4
-        let row = UIStackView(arrangedSubviews: [text, actions])
-        row.axis = .horizontal
-        row.alignment = .center
-        row.spacing = 10
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
+        // Two rows, not one (回報 2026-09-02): title and subtitle beside two
+        // buttons left the capsule squeezed into a two-line pill and the text
+        // in a four-line wad. Row one gives the step title the full width with
+        // the close control; row two pairs the explanation with the one action
+        // it explains. Buttons never compress — text wraps instead.
+        let titleRow = UIStackView(arrangedSubviews: [titleLabel, closeButton])
+        titleRow.axis = .horizontal
+        titleRow.alignment = .center
+        titleRow.spacing = Bonds.Space.s
+        let detailRow = UIStackView(arrangedSubviews: [detailLabel, personalDocumentsButton])
+        detailRow.axis = .horizontal
+        detailRow.alignment = .center
+        detailRow.spacing = Bonds.Space.m
+        let rows = UIStackView(arrangedSubviews: [titleRow, detailRow])
+        rows.axis = .vertical
+        rows.spacing = Bonds.Space.xs
+        rows.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(rows)
         NSLayoutConstraint.activate([
-            row.topAnchor.constraint(equalTo: topAnchor, constant: 9),
-            row.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -9),
+            rows.topAnchor.constraint(equalTo: topAnchor, constant: Bonds.Space.s),
+            rows.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
+            rows.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
+            rows.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Bonds.Space.s),
             closeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 36),
         ])
-        text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        actions.setContentCompressionResistancePriority(.required, for: .horizontal)
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        detailLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        closeButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        personalDocumentsButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        personalDocumentsButton.setContentHuggingPriority(.required, for: .horizontal)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

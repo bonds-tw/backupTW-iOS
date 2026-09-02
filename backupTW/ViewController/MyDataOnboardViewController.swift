@@ -89,7 +89,7 @@ class MyDataOnboardViewController: UICollectionViewController {
         self.documentType = documentType
         if documentType.id == MyDataDocumentRegistry.nationalID.id {
             self.coverItem = CredentialIssuanceAssembly.isAvailable
-                ? Item(image: Self.statusImage("person.text.rectangle", colour: .systemBlue),
+                ? Item(image: Self.statusImage("person.text.rectangle", colour: .tintColor),
                        title: NSLocalizedString("Create a Valid Document", comment: ""),
                        secondaryText: NSLocalizedString("You will use TW FiDO to retrieve your National ID data, and create a valid document.", comment: ""))
                 : Item(image: Self.statusImage("xmark.shield.fill", colour: .systemOrange),
@@ -104,7 +104,7 @@ class MyDataOnboardViewController: UICollectionViewController {
             ]
         } else {
             self.coverItem = Item(
-                image: Self.statusImage("tray.and.arrow.down.fill", colour: .systemBlue),
+                image: Self.statusImage("tray.and.arrow.down.fill", colour: .tintColor),
                 title: String(format: NSLocalizedString("Import %@", comment: "MyData document import title"), documentType.title),
                 secondaryText: NSLocalizedString("Download this document from Taiwan's MyData service and keep the original in your on-device data vault.", comment: ""))
             self.items = [
@@ -183,12 +183,16 @@ class MyDataOnboardViewController: UICollectionViewController {
                 // cell several hundred points tall and broke at real-device
                 // Dynamic Type sizes.
                 content.image = item.image
-                content.imageProperties.maximumSize = CGSize(width: 52, height: 52)
+                // 40pt cap and token margins (design system §4): the 52pt frame
+                // read as an illustration rather than a status mark, and 20/18
+                // margins were off the 4pt grid.
+                content.imageProperties.maximumSize = CGSize(width: 40, height: 40)
                 content.textProperties.font = .preferredFont(forTextStyle: .title2)
                 content.textProperties.color = .label
                 content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
                 content.directionalLayoutMargins = NSDirectionalEdgeInsets(
-                    top: 20, leading: 18, bottom: 20, trailing: 18)
+                    top: Bonds.Space.l, leading: Bonds.Space.l,
+                    bottom: Bonds.Space.l, trailing: Bonds.Space.l)
             } else {
                 content.textProperties.font = .preferredFont(forTextStyle: .headline)
                 content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
@@ -205,7 +209,12 @@ class MyDataOnboardViewController: UICollectionViewController {
                 : section == .profile ? "mydataOnboard.profile"
                 : "mydataOnboard.\(section?.rawValue ?? -1).\(indexPath.item)"
             cell.accessories = section == .profile ? [.disclosureIndicator()] : []
-            cell.isUserInteractionEnabled = section == .profile
+            // Interaction stays ON: `isUserInteractionEnabled = false` made the
+            // list cell render its *disabled* appearance, so every step title
+            // sat in grey under a lighter body — a wizard that looked switched
+            // off (回報 2026-09-02). Which rows respond is decided by
+            // `shouldSelectItemAt`, which greys nothing.
+            cell.isUserInteractionEnabled = true
         }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
             collectionView, indexPath, item in
@@ -246,19 +255,32 @@ class MyDataOnboardViewController: UICollectionViewController {
         }
     }
 
+    /// Set when the flow has delivered its result. The 「接下來會發生什麼」
+    /// steps and the remember-my-details invitation describe a journey that is
+    /// over — keeping them under a green 「已儲存」 card read as more work to do
+    /// (回報 2026-09-02). Done means the screen shows what was done.
+    private var flowIsFinished = false
+
     private func applySnapshot() {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.cover])
         snapshot.appendItems([coverItem])
-        snapshot.appendSections([.guidance])
-        snapshot.appendItems(guidanceItems)
-        snapshot.appendSections([.profile])
-        snapshot.appendItems([profileItem])
+        if !flowIsFinished {
+            snapshot.appendSections([.guidance])
+            snapshot.appendItems(guidanceItems)
+            snapshot.appendSections([.profile])
+            snapshot.appendItems([profileItem])
+        }
         snapshot.appendSections([.data])
         for item in items {
             snapshot.appendItems([item])
         }
         dataSource.apply(snapshot, animatingDifferences: true)
+    }
+
+    override func collectionView(_ collectionView: UICollectionView,
+                                 shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        Section(rawValue: indexPath.section) == .profile
     }
 
     override func collectionView(_ collectionView: UICollectionView,
@@ -293,7 +315,17 @@ class MyDataOnboardViewController: UICollectionViewController {
                     self.finishVaultImport(entry)
                 }
             })
-            present(vc, animated: true)
+            // Pushed, not presented. This flow used to be a sheet on a
+            // fullScreen modal on (from Settings) another modal, with the
+            // password alert as a fourth layer — the deepest stack in the app.
+            // One navigation container, push sequence (design system §10.1):
+            // Back is the escape hatch, and the wizard is still underneath
+            // when the web step completes.
+            if let nav = navigationController {
+                nav.pushViewController(vc, animated: true)
+            } else {
+                present(vc, animated: true)
+            }
         } else {
             // The check is `canOpenURL("mobilemoica://")`, which measures
             // exactly one thing: whether that app is installed on this phone.
@@ -336,6 +368,7 @@ class MyDataOnboardViewController: UICollectionViewController {
     // MARK: - Issuance
 
     private func finishVaultImport(_ entry: MyDataVaultArchive.Entry) {
+        flowIsFinished = true
         coverItem = Item(
             image: Self.statusImage("checkmark.circle.fill", colour: .systemGreen),
             title: NSLocalizedString("Saved in MyData vault", comment: ""),
@@ -362,7 +395,7 @@ class MyDataOnboardViewController: UICollectionViewController {
     /// `finishIssuance(_:)`.
     private func showParsedDocument(_ nationalIDModel: NationalIDModel) {
         coverItem = Item(
-            image: Self.statusImage("signature", colour: .systemIndigo),
+            image: Self.statusImage("signature", colour: .tintColor),
             title: NSLocalizedString("Waiting for you to sign in 行動自然人憑證", comment: ""),
             // The wait is not this app's — it is a hand-off to another app and
             // back, and a screen that said only 「處理中」 would leave somebody
@@ -461,6 +494,7 @@ class MyDataOnboardViewController: UICollectionViewController {
     private func finishIssuance(_ result: Result<Void, Error>) {
         switch result {
         case .success:
+            flowIsFinished = true
             coverItem = Item(
                 image: Self.statusImage("checkmark.seal.fill", colour: .systemGreen),
                 title: NSLocalizedString("The valid document has been created", comment: ""),
@@ -482,10 +516,22 @@ class MyDataOnboardViewController: UICollectionViewController {
         applySnapshot()
     }
 
+    /// The cover card's status glyph.
+    ///
+    /// Two corrections (回報 2026-09-02): the glyph was drawn at 34pt semibold
+    /// inside a 52pt frame — a banner, not a status mark — and `.tintColor`
+    /// baked through `withTintColor` outside any view resolves against no
+    /// trait, which rendered the accent-coloured covers grey. `title1` scale
+    /// sits the mark against the title it accompanies, and the named accent
+    /// colour keeps its dynamic light/dark resolution through the bake.
     private static func statusImage(_ name: String, colour: UIColor) -> UIImage? {
-        UIImage(systemName: name,
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold))?
-            .withTintColor(colour, renderingMode: .alwaysOriginal)
+        let resolved = colour == .tintColor
+            ? (UIColor(named: "AccentColor") ?? colour)
+            : colour
+        return UIImage(systemName: name,
+                       withConfiguration: UIImage.SymbolConfiguration(textStyle: .title1,
+                                                                      scale: .large))?
+            .withTintColor(resolved, renderingMode: .alwaysOriginal)
     }
 
     #if DEBUG

@@ -569,28 +569,27 @@ final class ZKProofViewController: UICollectionViewController {
     }
 
     /// The consent gate. Nothing is fetched before this returns.
+    ///
+    /// A multi-gigabyte download deserves a page, not an alert: the old shape
+    /// was two stacked alerts (download → ID number), and a decision that
+    /// arrives as the first of two dialogs is a decision people click through
+    /// (design system §8.2). The ID-number prompt stays an alert — it is the
+    /// one dialog that must capture text, and `makeIDNumberPrompt` carries a
+    /// tested no-leak guarantee this page must not replace.
     private func confirmAndRun() {
         guard let plan else { return }
         guard plan.isReady == false else {
             promptForIDNumber()
             return
         }
-        let message = String(
-            format: NSLocalizedString(
-                "This downloads %@ and uses about %@ on this device. They're the mathematical circuits used to create and check the proof, published by the Privacy & Scaling Explorations team. They stay on your phone and are only downloaded once.",
-                comment: "download consent"),
-            ZKStagePresentation.byteString(plan.downloadByteCount),
-            ZKStagePresentation.byteString(plan.installedByteCount))
-        let alert = UIAlertController(
-            title: NSLocalizedString("Download the verification files?", comment: ""),
-            message: message,
-            preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Download", comment: ""),
-                                      style: .default) { [weak self] _ in
-            self?.promptForIDNumber()
-        })
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
-        present(alert, animated: true)
+        let consent = ZKDownloadConsentViewController(
+            downloadByteCount: plan.downloadByteCount,
+            installedByteCount: plan.installedByteCount) { [weak self] in
+                guard let self else { return }
+                self.navigationController?.popToViewController(self, animated: true)
+                self.promptForIDNumber()
+            }
+        navigationController?.pushViewController(consent, animated: true)
     }
 
     /// Asked once, up front, so the rest of the run is unattended.
@@ -817,7 +816,7 @@ final class ZKProofViewController: UICollectionViewController {
     private func presentFailure(_ message: String) {
         let alert = UIAlertController(title: NSLocalizedString("Can't start", comment: ""),
                                       message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""), style: .default))
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
         present(alert, animated: true)
     }
 
@@ -826,7 +825,7 @@ final class ZKProofViewController: UICollectionViewController {
         UIPasteboard.general.string = report.text
         let alert = UIAlertController(title: NSLocalizedString("Copied", comment: ""),
                                       message: nil, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""), style: .default))
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
         present(alert, animated: true)
     }
 
@@ -1039,7 +1038,7 @@ final class ZKProofViewController: UICollectionViewController {
             title: NSLocalizedString("This proof could not be sent", comment: ""),
             message: message,
             preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""),
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""),
                                       style: .default))
         present(alert, animated: true)
     }
@@ -1136,7 +1135,7 @@ final class ZKReportCell: UICollectionViewCell {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.numberOfLines = 0
         label.lineBreakMode = .byClipping
-        label.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        label.font = Bonds.Font.mono(.caption2)
         label.textColor = .label
         label.isAccessibilityElement = true
         scrollView.addSubview(label)
@@ -1165,5 +1164,83 @@ final class ZKReportCell: UICollectionViewCell {
         label.accessibilityLabel = NSLocalizedString(
             "Measurement report. Use the copy button to read it elsewhere.",
             comment: "accessibility label for the pasteable benchmark report")
+    }
+}
+
+// MARK: - Download consent page
+
+/// The full-page half of the proof flow's consent (design system §8.2).
+///
+/// A ~2 GB download used to be approved inside the first of two stacked
+/// alerts, which is where decisions go to be clicked through. This page says
+/// the same three facts the alert said — how much, from whom, and that the
+/// files never leave the phone — with room to be read, and its one filled
+/// button names the act. Cancelling is the back button: leaving a consent page
+/// unanswered *is* declining it.
+final class ZKDownloadConsentViewController: UIViewController {
+
+    private let downloadByteCount: Int64
+    private let installedByteCount: Int64
+    private let onConsent: () -> Void
+
+    init(downloadByteCount: Int64, installedByteCount: Int64, onConsent: @escaping () -> Void) {
+        self.downloadByteCount = downloadByteCount
+        self.installedByteCount = installedByteCount
+        self.onConsent = onConsent
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = NSLocalizedString("Before the first proof", comment: "ZK download consent title")
+        navigationItem.largeTitleDisplayMode = .never
+        view.backgroundColor = .systemGroupedBackground
+
+        let download = ZKStagePresentation.byteString(downloadByteCount)
+        let installed = ZKStagePresentation.byteString(installedByteCount)
+
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = Bonds.Space.page
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        stack.addArrangedSubview(PresentationUI.title(
+            NSLocalizedString("Download the verification files?", comment: "")))
+        stack.addArrangedSubview(PresentationUI.card(
+            title: NSLocalizedString("What is downloaded", comment: "ZK download consent"),
+            body: String(format: NSLocalizedString(
+                "%@ of mathematical circuits, published by the Privacy & Scaling Explorations team. Installed they use about %@ on this phone.",
+                comment: "ZK download consent body"), download, installed)))
+        stack.addArrangedSubview(PresentationUI.card(
+            title: NSLocalizedString("What it means", comment: "ZK download consent"),
+            body: NSLocalizedString(
+                "The files stay on your phone and are downloaded once. They are the tools that create and check proofs — they contain nothing about you.",
+                comment: "ZK download consent meaning")))
+
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = String(format: NSLocalizedString(
+            "Download %@ and continue", comment: "ZK download consent button"), download)
+        configuration.cornerStyle = .capsule
+        configuration.buttonSize = .large
+        let button = UIButton(type: .system)
+        button.configuration = configuration
+        button.addAction(UIAction { [weak self] _ in self?.onConsent() }, for: .touchUpInside)
+        stack.addArrangedSubview(button)
+
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scroll)
+        scroll.addSubview(stack)
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: Bonds.Space.page),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -Bonds.Space.xxl),
+        ])
+        NSLayoutConstraint.activate(Bonds.readableHorizontal(stack, in: scroll.frameLayoutGuide))
     }
 }

@@ -28,6 +28,10 @@ final class OfficialDocumentConsentEvidenceViewController: UITableViewController
     private let archive: OfficialDocumentInboxArchive
     private let onRemoved: () -> Void
     private var groups: [Group] = []
+    /// Two-layer rule (design system §11.1), same shape as the document detail
+    /// screen: three SHA-256 fingerprints and their privacy note are audit
+    /// material, not first-read material.
+    private var showsFingerprints = false
 
     init(receipt: OfficialDocumentInboxReceipt,
          archive: OfficialDocumentInboxArchive,
@@ -48,7 +52,12 @@ final class OfficialDocumentConsentEvidenceViewController: UITableViewController
         navigationItem.largeTitleDisplayMode = .never
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 72
+        rebuild()
+    }
+
+    private func rebuild() {
         buildGroups()
+        tableView.reloadData()
     }
 
     private func buildGroups() {
@@ -76,24 +85,29 @@ final class OfficialDocumentConsentEvidenceViewController: UITableViewController
                         title: NSLocalizedString("What this does not prove", comment: "official document consent evidence"),
                         value: NSLocalizedString("It does not prove government enrolment, a receiving address, sender authentication, document receipt or legal delivery.", comment: "official document consent evidence"))
                   ]),
-            Group(title: NSLocalizedString("Evidence fingerprints", comment: "official document consent evidence"),
-                  rows: [
-                    Row(id: "consentFingerprint",
-                        title: NSLocalizedString("Consent fingerprint (SHA-256)", comment: "official document consent evidence"),
-                        value: Self.displayFingerprint(receipt.consentFingerprint),
-                        isFingerprint: true),
-                    Row(id: "certificateFingerprint",
-                        title: NSLocalizedString("Certificate fingerprint (SHA-256)", comment: "official document consent evidence"),
-                        value: Self.displayFingerprint(receipt.certificateFingerprint ?? ""),
-                        isFingerprint: true),
-                    Row(id: "signatureFingerprint",
-                        title: NSLocalizedString("Signature fingerprint (SHA-256)", comment: "official document consent evidence"),
-                        value: Self.displayFingerprint(receipt.signatureFingerprint ?? ""),
-                        isFingerprint: true),
-                    Row(id: "fingerprintPrivacy",
-                        title: NSLocalizedString("Keep these fingerprints private", comment: "official document consent evidence"),
-                        value: NSLocalizedString("A certificate fingerprint can link signatures made with the same certificate. 有備而來 does not transmit, log or share the fingerprints on this screen.", comment: "official document consent evidence"))
-                  ]),
+            showsFingerprints
+                ? Group(title: NSLocalizedString("Evidence fingerprints", comment: "official document consent evidence"),
+                        rows: [
+                          Row(id: "consentFingerprint",
+                              title: NSLocalizedString("Consent fingerprint (SHA-256)", comment: "official document consent evidence"),
+                              value: Self.displayFingerprint(receipt.consentFingerprint),
+                              isFingerprint: true),
+                          Row(id: "certificateFingerprint",
+                              title: NSLocalizedString("Certificate fingerprint (SHA-256)", comment: "official document consent evidence"),
+                              value: Self.displayFingerprint(receipt.certificateFingerprint ?? ""),
+                              isFingerprint: true),
+                          Row(id: "signatureFingerprint",
+                              title: NSLocalizedString("Signature fingerprint (SHA-256)", comment: "official document consent evidence"),
+                              value: Self.displayFingerprint(receipt.signatureFingerprint ?? ""),
+                              isFingerprint: true),
+                          Row(id: "fingerprintPrivacy",
+                              title: NSLocalizedString("Keep these fingerprints private", comment: "official document consent evidence"),
+                              value: NSLocalizedString("A certificate fingerprint can link signatures made with the same certificate. 有備而來 does not transmit, log or share the fingerprints on this screen.", comment: "official document consent evidence"))
+                        ])
+                : Group(title: "", rows: [Row(
+                    id: "showFingerprints",
+                    title: NSLocalizedString("Show evidence fingerprints", comment: "official document consent evidence"),
+                    value: NSLocalizedString("Three SHA-256 fingerprints for auditing this receipt, kept on this phone.", comment: "official document consent evidence"))]),
             Group(title: "", rows: [Row(
                 id: "remove",
                 title: NSLocalizedString("Remove consent evidence from this iPhone", comment: "official document consent evidence"),
@@ -144,38 +158,50 @@ final class OfficialDocumentConsentEvidenceViewController: UITableViewController
     override func tableView(_ tableView: UITableView,
                             cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let row = groups[indexPath.section].rows[indexPath.row]
-        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
+        let cell = UITableViewCell()
         cell.accessibilityIdentifier = "officialDocuments.consentEvidence.\(row.id)"
-        cell.textLabel?.font = .preferredFont(forTextStyle: .headline)
-        cell.textLabel?.adjustsFontForContentSizeCategory = true
-        cell.textLabel?.numberOfLines = 0
-        cell.textLabel?.text = row.title
-        cell.detailTextLabel?.font = row.isFingerprint
-            ? UIFontMetrics(forTextStyle: .footnote).scaledFont(
-                for: .monospacedSystemFont(ofSize: 12, weight: .regular))
+        var content = cell.defaultContentConfiguration()
+        content.textProperties.font = .preferredFont(forTextStyle: .headline)
+        content.textProperties.adjustsFontForContentSizeCategory = true
+        content.textProperties.numberOfLines = 0
+        content.text = row.title
+        content.secondaryTextProperties.font = row.isFingerprint
+            ? Bonds.Font.mono(.footnote)
             : .preferredFont(forTextStyle: .subheadline)
-        cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
-        cell.detailTextLabel?.numberOfLines = 0
-        cell.detailTextLabel?.textColor = .secondaryLabel
-        cell.detailTextLabel?.text = row.value
-        cell.selectionStyle = row.id == "remove" ? .default : .none
+        content.secondaryTextProperties.adjustsFontForContentSizeCategory = true
+        content.secondaryTextProperties.numberOfLines = 0
+        content.secondaryTextProperties.color = .secondaryLabel
+        content.secondaryText = row.value
+        cell.selectionStyle = ["remove", "showFingerprints"].contains(row.id) ? .default : .none
 
         if row.id == "boundary" {
-            cell.imageView?.image = UIImage(systemName: "checkmark.shield")
-            cell.imageView?.tintColor = .systemGreen
+            content.image = UIImage(systemName: "checkmark.shield")
+            content.imageProperties.tintColor = .systemGreen
         } else if row.id == "remove" {
-            cell.textLabel?.textColor = .systemRed
-            cell.imageView?.image = UIImage(systemName: "trash")
-            cell.imageView?.tintColor = .systemRed
+            content.textProperties.color = .systemRed
+            content.image = UIImage(systemName: "trash")
+            content.imageProperties.tintColor = .systemRed
+        } else if row.id == "showFingerprints" {
+            content.textProperties.color = .tintColor
+            content.image = UIImage(systemName: "chevron.down.circle")
+            content.imageProperties.tintColor = .tintColor
         }
+        cell.contentConfiguration = content
         return cell
     }
 
     override func tableView(_ tableView: UITableView,
                             didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        guard groups[indexPath.section].rows[indexPath.row].id == "remove" else { return }
-        presentRemovalConfirmation()
+        switch groups[indexPath.section].rows[indexPath.row].id {
+        case "showFingerprints":
+            showsFingerprints = true
+            rebuild()
+        case "remove":
+            presentRemovalConfirmation()
+        default:
+            break
+        }
     }
 
     private func presentRemovalConfirmation() {

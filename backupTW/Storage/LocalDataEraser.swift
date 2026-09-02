@@ -202,6 +202,8 @@ struct LocalDataEraser {
         attempt { try vaultArchive?.purge() }
         attempt { try officialDocumentInbox?.purge() }
         attempt { try eraseProofResidue() }
+        // Issuer-level, not personal — but 「erase all local data」 means all.
+        IssuerNameBook.erase()
         if let documentsDirectory {
             attempt { try eraseLegacyPlaintext(in: documentsDirectory) }
         }

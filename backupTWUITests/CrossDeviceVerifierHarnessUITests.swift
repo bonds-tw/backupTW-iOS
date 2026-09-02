@@ -73,8 +73,11 @@ final class CrossDeviceVerifierHarnessUITests: XCTestCase {
         // and waits for the verdict to appear. Ten minutes covers the whole
         // human loop — scan, approve, relay the frames back — and the only hard
         // ceiling is the presentation's own freshness window.
-        let verdict = app.staticTexts.matching(NSPredicate(
-            format: "label CONTAINS %@ OR label CONTAINS %@", "✅", "⚠️")).firstMatch
+        // The verdict card no longer carries the emoji in a static text — it is
+        // one accessibility element identified as "verdict" whose spoken label
+        // leads with the finding (通過／注意／拒絕).
+        let verdict = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@", "verdict")).firstMatch
         XCTAssertTrue(verdict.waitForExistence(timeout: 600),
                       "no verdict appeared within ten minutes — were frames dropped into the container?")
 

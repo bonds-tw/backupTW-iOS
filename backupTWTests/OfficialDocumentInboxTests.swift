@@ -654,7 +654,8 @@ struct OfficialDocumentInboxTests {
         let cell = controller.tableView(controller.tableView,
                                         cellForRowAt: IndexPath(row: 0, section: 1))
         #expect(cell.accessibilityIdentifier == "officialDocuments.document.0")
-        #expect(cell.textLabel?.text == package.document?.subject)
+        let content = cell.contentConfiguration as? UIListContentConfiguration
+        #expect(content?.text == package.document?.subject)
 
         controller.tableView(controller.tableView,
                              didSelectRowAt: IndexPath(row: 0, section: 1))
@@ -672,7 +673,8 @@ struct OfficialDocumentInboxTests {
             controller.tableView,
             cellForRowAt: IndexPath(row: 2, section: 2))
         #expect(cell.accessibilityIdentifier == "officialDocuments.g2cSandbox")
-        #expect(cell.textLabel?.text?.contains("G2C") == true)
+        let content = cell.contentConfiguration as? UIListContentConfiguration
+        #expect(content?.text?.contains("G2C") == true)
     }
 
     @Test @MainActor func openingDetailMarksOnlyTheLocalViewingState() throws {
@@ -695,8 +697,9 @@ struct OfficialDocumentInboxTests {
         let receipt = controller.tableView(controller.tableView,
                                            cellForRowAt: IndexPath(row: 2, section: 3))
         #expect(receipt.accessibilityIdentifier == "officialDocuments.detail.receipt")
-        #expect(receipt.detailTextLabel?.text?.contains("sends nothing") == true
-                || receipt.detailTextLabel?.text?.contains("不會送出") == true)
+        let receiptContent = receipt.contentConfiguration as? UIListContentConfiguration
+        #expect(receiptContent?.secondaryText?.contains("sends nothing") == true
+                || receiptContent?.secondaryText?.contains("不會送出") == true)
     }
 
     @Test @MainActor func signedConsentOpensVerifiedEvidenceInsteadOfSigningAgain() throws {
@@ -729,7 +732,8 @@ struct OfficialDocumentInboxTests {
             cellForRowAt: IndexPath(row: 0, section: 3))
         #expect(boundary.accessibilityIdentifier == "officialDocuments.consentEvidence.boundary")
         #expect(remove.accessibilityIdentifier == "officialDocuments.consentEvidence.remove")
-        #expect(remove.textLabel?.textColor == .systemRed)
+        let removeContent = remove.contentConfiguration as? UIListContentConfiguration
+        #expect(removeContent?.textProperties.color == .systemRed)
     }
 }
 
