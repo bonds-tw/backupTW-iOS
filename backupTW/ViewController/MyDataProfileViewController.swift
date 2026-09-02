@@ -9,6 +9,13 @@ import UIKit
 /// or scraped out of the government page, and the two fields never appear in a
 /// glanceable list: they are masked native controls backed by a this-device-only
 /// Keychain item.
+///
+/// The 2026-09-01 audit listed this screen as 「legacy tableView to rewrite」.
+/// Examined 2026-09-02 and deliberately left as a table: the editable rows are
+/// native `UITextField`s pinned into cells — the correct pattern for input,
+/// which `UIListContentConfiguration` cannot express — and the one display row
+/// already uses the modern content configuration. A collection-view rewrite
+/// would be churn with no user-visible change.
 final class MyDataProfileViewController: UITableViewController {
     private let nationalIDField = UITextField()
     private let birthDateField = UITextField()
@@ -24,6 +31,9 @@ final class MyDataProfileViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("MyData remembered details", comment: "MyData profile title")
+        // Pushed screens take `.never` on their own item (BondsDesign.swift
+        // §Navigation bar 政策) — the wizard's bar prefers large titles.
+        navigationItem.largeTitleDisplayMode = .never
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: NSLocalizedString("Save", comment: ""), style: .done,
             target: self, action: #selector(save))
@@ -125,10 +135,12 @@ final class MyDataProfileViewController: UITableViewController {
 
     @objc private func confirmForget() {
         let alert = UIAlertController(
-            title: NSLocalizedString("Forget MyData details?", comment: "MyData profile delete"),
+            // 「清除」 through the whole confirmation, matching the entry button
+            // — the last two 「Forget」 calques in the app.
+            title: NSLocalizedString("Clear the saved MyData details?", comment: "MyData profile delete"),
             message: NSLocalizedString("The saved ID number and birth date will be removed from this iPhone.", comment: "MyData profile delete"),
             preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Forget", comment: "MyData profile delete"),
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Clear", comment: "MyData profile delete"),
                                       style: .destructive) { [weak self] _ in
             try? MyDataAutofillProfileStore.delete()
             self?.onChange?()

@@ -783,6 +783,22 @@ final class PresentCredentialViewController: UIViewController {
             NSLocalizedString("This code stops being accepted about five minutes after it was made.", comment: "")))
         contentStack.addArrangedSubview(linkabilityWarning())
 
+        // The carousel's explicit end. Over Bluetooth the buzz says delivery
+        // happened; on the QR-only path the only signal is the checker saying
+        // so, and the screen used to loop forever with Back as the unspoken
+        // exit. A named exit is the difference between finishing and giving up
+        // (design system §8.1 — no dead ends).
+        var doneConfiguration = UIButton.Configuration.gray()
+        doneConfiguration.title = NSLocalizedString("The checker has it — finish", comment: "end of QR presentation")
+        doneConfiguration.cornerStyle = .capsule
+        doneConfiguration.buttonSize = .large
+        let doneButton = UIButton(type: .system)
+        doneButton.configuration = doneConfiguration
+        doneButton.addAction(UIAction { [weak self] _ in
+            self?.navigationController?.popViewController(animated: true)
+        }, for: .touchUpInside)
+        contentStack.addArrangedSubview(doneButton)
+
         #if DEBUG
         // Counterpart of the verifier screen's paste button: copies every frame,
         // one per line, so a simulator with no camera can act as the checker.

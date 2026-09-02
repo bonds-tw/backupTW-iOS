@@ -12594,6 +12594,36 @@
           }
         }
       }
+    },
+    "The checker has it — finish": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗方收到了——結束出示"
+          }
+        }
+      }
+    },
+    "Clear the saved MyData details?": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除已存的 MyData 資料？"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
