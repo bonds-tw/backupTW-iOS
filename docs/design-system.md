@@ -142,7 +142,7 @@
 
 ### 9.1 卡面（WalletCard）——封閉規格
 
-卡面模擬實體證件，是唯一豁免 Dynamic Type 與深淺色的元件。條件：
+卡面模擬實體證件，是唯一豁免 Dynamic Type 與深淺色的元件（**2026-09-02 拍板**：淺色模式下卡面維持原色、不出淺色變體——一張證件不會因為房間變亮而換色，Apple Wallet 的卡片亦然）。條件：
 
 - 全部色值收進 `Bonds.CardPalette`（現況 38 個字面色散在檔內）。
 - 內距統一 20；圓角 20 continuous；描邊、guilloche、specular 維持現規格。
