@@ -29,6 +29,51 @@
 
 import UIKit
 
+
+// MARK: - Card palette (design system §9.1)
+
+extension Bonds {
+    /// 卡面的封閉色盤。卡面模擬實體證件，**刻意不隨深淺色模式變化**——
+    /// 這裡是它全部字面色的唯一住所；卡面之外禁止引用。
+    /// 抽取時合併了兩組近重複值：紙底 0xECEADB／0xE8E6D6 取前者、
+    /// 髮線 α 0.22／0.20 取 0.2。
+    enum CardPalette {
+        // 綠卡（駕照等）漸層與洋紅（門號）、石墨（保險箱）三組。
+        static let pine = [rgb(0x13, 0x7A, 0x5D), rgb(0x0D, 0x5B, 0x48), rgb(0x08, 0x3A, 0x30)]
+        static let magenta = [rgb(0xD6, 0x1F, 0x83), rgb(0x9C, 0x2A, 0x9E), rgb(0x5B, 0x2D, 0x9C)]
+        static let graphite = [rgb(0x3A, 0x3D, 0x46), rgb(0x2A, 0x2C, 0x33), rgb(0x1C, 0x1D, 0x22)]
+        static let specularPine = UIColor(red: 150/255, green: 1, blue: 214/255, alpha: 0.42)
+        static let specularMagenta = UIColor(red: 1, green: 180/255, blue: 236/255, alpha: 0.5)
+        static let specularNeutral = UIColor(white: 1, alpha: 0.14)
+        static let mint = rgb(0x5F, 0xE3, 0xC0)
+        static let shadow = rgb(18, 22, 40)
+        static let shineTop = UIColor(white: 1, alpha: 0.12)
+
+        // 紙質身分證面。
+        static let paperTop = rgb(0xF7, 0xF5, 0xEA)
+        static let paperBottom = rgb(0xEC, 0xEA, 0xDB)
+        static let paperInk = rgb(0x21, 0x1E, 0x15)
+        static let paperLabel = rgb(0x5B, 0x55, 0x45)
+        static let paperHair = UIColor(red: 60/255, green: 50/255, blue: 22/255, alpha: 0.2)
+        static let paperBorder = UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16)
+        static let sealRed = rgb(0xB2, 0x33, 0x24)
+        static let sealRedDeep = rgb(0xC0, 0x26, 0x1F)
+        static let paperBackButtonFill = rgb(0x21, 0x1E, 0x15).withAlphaComponent(0.08)
+
+        // 石墨保險箱面與中性面。
+        static let vaultInk = rgb(0xE7, 0xE9, 0xEF)
+        static let vaultMuted = rgb(0xA6, 0xAB, 0xB7)
+        static let faintBorder = UIColor(white: 1, alpha: 0.06)
+        static let unreadableInk = UIColor(white: 0.9, alpha: 1)
+        static let backLabel = UIColor(white: 1, alpha: 0.6)
+        static let backButtonFill = UIColor(white: 1, alpha: 0.16)
+
+        private static func rgb(_ r: Int, _ g: Int, _ b: Int) -> UIColor {
+            UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+        }
+    }
+}
+
 // MARK: - Content model
 
 /// What a single wallet card shows. Each case carries only display-ready,
@@ -182,17 +227,11 @@ enum WalletCardTint: Hashable {
     var gradientColors: [CGColor] {
         switch self {
         case .green:
-            return [UIColor(red: 0x13/255, green: 0x7a/255, blue: 0x5d/255, alpha: 1).cgColor,
-                    UIColor(red: 0x0d/255, green: 0x5b/255, blue: 0x48/255, alpha: 1).cgColor,
-                    UIColor(red: 0x08/255, green: 0x3a/255, blue: 0x30/255, alpha: 1).cgColor]
+            return Bonds.CardPalette.pine.map(\.cgColor)
         case .magenta:
-            return [UIColor(red: 0xd6/255, green: 0x1f/255, blue: 0x83/255, alpha: 1).cgColor,
-                    UIColor(red: 0x9c/255, green: 0x2a/255, blue: 0x9e/255, alpha: 1).cgColor,
-                    UIColor(red: 0x5b/255, green: 0x2d/255, blue: 0x9c/255, alpha: 1).cgColor]
+            return Bonds.CardPalette.magenta.map(\.cgColor)
         case .neutral:
-            return [UIColor(red: 0x3a/255, green: 0x3d/255, blue: 0x46/255, alpha: 1).cgColor,
-                    UIColor(red: 0x2a/255, green: 0x2c/255, blue: 0x33/255, alpha: 1).cgColor,
-                    UIColor(red: 0x1c/255, green: 0x1d/255, blue: 0x22/255, alpha: 1).cgColor]
+            return Bonds.CardPalette.graphite.map(\.cgColor)
         }
     }
 
@@ -200,9 +239,9 @@ enum WalletCardTint: Hashable {
     /// (rgba(150,255,214,.42) for green, rgba(255,180,236,.5) for magenta).
     var highlightColor: UIColor {
         switch self {
-        case .green: return UIColor(red: 150/255, green: 1, blue: 214/255, alpha: 0.42)
-        case .magenta: return UIColor(red: 1, green: 180/255, blue: 236/255, alpha: 0.5)
-        case .neutral: return UIColor(white: 1, alpha: 0.14)
+        case .green: return Bonds.CardPalette.specularPine
+        case .magenta: return Bonds.CardPalette.specularMagenta
+        case .neutral: return Bonds.CardPalette.specularNeutral
         }
     }
 }
@@ -288,7 +327,7 @@ final class WalletCardView: UIView {
         layer.cornerCurve = .continuous
         // The card's own drop shadow. Kept off the clipped face container so the
         // shadow is not clipped away with the art.
-        layer.shadowColor = UIColor(red: 18/255, green: 22/255, blue: 40/255, alpha: 1).cgColor
+        layer.shadowColor = Bonds.CardPalette.shadow.cgColor
         layer.shadowOpacity = 0.30
         layer.shadowRadius = 22
         layer.shadowOffset = CGSize(width: 0, height: 14)
@@ -340,8 +379,8 @@ final class WalletCardView: UIView {
         shineLayer.type = .radial
         shineLayer.startPoint = Self.shineRestStart
         shineLayer.endPoint = Self.shineRestEnd
-        shineLayer.colors = [UIColor(white: 1, alpha: 0.12).cgColor,
-                             UIColor(white: 1, alpha: 0).cgColor]
+        shineLayer.colors = [Bonds.CardPalette.shineTop.cgColor,
+                             Bonds.CardPalette.shineTop.withAlphaComponent(0).cgColor]
         frontFace.layer.addSublayer(shineLayer)
 
         backBackgroundLayer.needsDisplayOnBoundsChange = true
@@ -548,18 +587,18 @@ final class WalletCardView: UIView {
     private func buildNationalID(_ card: NationalIDCard) {
         // Paper stock: a near-flat pale gradient, an inner hairline frame, and
         // the green rosette guilloché.
-        backgroundLayer.colors = [UIColor(red: 0xf7/255, green: 0xf5/255, blue: 0xea/255, alpha: 1).cgColor,
-                                  UIColor(red: 0xec/255, green: 0xea/255, blue: 0xdb/255, alpha: 1).cgColor]
+        backgroundLayer.colors = [Bonds.CardPalette.paperTop.cgColor,
+                                  Bonds.CardPalette.paperBottom.cgColor]
         setDiagonalGradient()
         highlightLayer.colors = []
         frontFace.layer.borderWidth = 1
-        frontFace.layer.borderColor = UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16).cgColor
+        frontFace.layer.borderColor = Bonds.CardPalette.paperBorder.cgColor
         guilloche.isHidden = false
         shineLayer.opacity = 0.5
 
-        let ink = UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 1)
-        let label = UIColor(red: 0x5b/255, green: 0x55/255, blue: 0x45/255, alpha: 1)
-        let hair = UIColor(red: 60/255, green: 50/255, blue: 22/255, alpha: 0.22)
+        let ink = Bonds.CardPalette.paperInk
+        let label = Bonds.CardPalette.paperLabel
+        let hair = Bonds.CardPalette.paperHair
 
         // Title row: 🇹🇼 + 中華民國國民身分證, with a hairline under it.
         let title = makeLabel(card.title, font: .systemFont(ofSize: 16, weight: .heavy), color: ink)
@@ -638,14 +677,14 @@ final class WalletCardView: UIView {
 
         // Red 統一編號 footer: top hairline, right-aligned, monospaced.
         if let idLabel = card.idLabel, let idValue = card.idValueMasked {
-            let uidHair = makeHairline(UIColor(red: 60/255, green: 50/255, blue: 22/255, alpha: 0.2))
+            let uidHair = makeHairline(Bonds.CardPalette.paperHair)
             add(uidHair)
             let uidLabel = makeLabel(idLabel,
                                      font: .systemFont(ofSize: 10, weight: .semibold),
-                                     color: UIColor(red: 0xb2/255, green: 0x33/255, blue: 0x24/255, alpha: 1))
+                                     color: Bonds.CardPalette.sealRed)
             let uidValue = makeLabel(idValue,
                                      font: .monospacedSystemFont(ofSize: 19, weight: .bold),
-                                     color: UIColor(red: 0xc0/255, green: 0x26/255, blue: 0x1f/255, alpha: 1))
+                                     color: Bonds.CardPalette.sealRedDeep)
             let uidRow = UIStackView(arrangedSubviews: [uidLabel, uidValue])
             uidRow.axis = .horizontal
             uidRow.spacing = 10
@@ -843,8 +882,8 @@ final class WalletCardView: UIView {
         guilloche.isHidden = true
         shineLayer.opacity = 0.6
 
-        let accent = UIColor(red: 0x5f/255, green: 0xe3/255, blue: 0xc0/255, alpha: 1)
-        let ink = UIColor(red: 0xe7/255, green: 0xe9/255, blue: 0xef/255, alpha: 1)
+        let accent = Bonds.CardPalette.mint
+        let ink = Bonds.CardPalette.vaultInk
 
         // Lock tile — SF Symbol, a standard UI glyph, in a rounded tinted square.
         let lockTile = UIView()
@@ -895,7 +934,7 @@ final class WalletCardView: UIView {
         title.numberOfLines = 1
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         add(title)
-        let message = makeLabel(card.message, font: .systemFont(ofSize: 11.5), color: UIColor(red: 0xa6/255, green: 0xab/255, blue: 0xb7/255, alpha: 1))
+        let message = makeLabel(card.message, font: .systemFont(ofSize: 11.5), color: Bonds.CardPalette.vaultMuted)
         message.numberOfLines = 0
         add(message)
 
@@ -934,7 +973,7 @@ final class WalletCardView: UIView {
         icon.contentMode = .scaleAspectFit
         add(icon)
         let label = makeLabel(message, font: .systemFont(ofSize: 13, weight: .medium),
-                              color: UIColor(white: 0.9, alpha: 1))
+                              color: Bonds.CardPalette.unreadableInk)
         label.numberOfLines = 0
         add(label)
         NSLayoutConstraint.activate([
@@ -975,8 +1014,8 @@ final class WalletCardView: UIView {
                    rows: rows,
                    trustSource: card.trustSource,
                    ink: .white,
-                   labelColor: UIColor(white: 1, alpha: 0.6),
-                   buttonFill: UIColor(white: 1, alpha: 0.16),
+                   labelColor: Bonds.CardPalette.backLabel,
+                   buttonFill: Bonds.CardPalette.backButtonFill,
                    buttonTextColor: .white)
     }
 
@@ -987,19 +1026,19 @@ final class WalletCardView: UIView {
     private func buildNationalIDBack(_ card: NationalIDCard) {
         guard !card.backFields.isEmpty else { return }
         hasBackContent = true
-        let paperTop = UIColor(red: 0xf7/255, green: 0xf5/255, blue: 0xea/255, alpha: 1).cgColor
-        let paperBottom = UIColor(red: 0xe8/255, green: 0xe6/255, blue: 0xd6/255, alpha: 1).cgColor
-        let ink = UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 1)
-        let label = UIColor(red: 0x5b/255, green: 0x55/255, blue: 0x45/255, alpha: 1)
+        let paperTop = Bonds.CardPalette.paperTop.cgColor
+        let paperBottom = Bonds.CardPalette.paperBottom.cgColor
+        let ink = Bonds.CardPalette.paperInk
+        let label = Bonds.CardPalette.paperLabel
 
         layoutBack(backgroundColors: [paperTop, paperBottom],
-                   borderColor: UIColor(red: 70/255, green: 60/255, blue: 30/255, alpha: 0.16).cgColor,
+                   borderColor: Bonds.CardPalette.paperBorder.cgColor,
                    heading: backHeading(NSLocalizedString("National ID", comment: "wallet card back kind")),
                    rows: card.backFields,
                    trustSource: card.trustSource,
                    ink: ink,
                    labelColor: label,
-                   buttonFill: UIColor(red: 0x21/255, green: 0x1e/255, blue: 0x15/255, alpha: 0.08),
+                   buttonFill: Bonds.CardPalette.paperBackButtonFill,
                    buttonTextColor: ink)
     }
 
