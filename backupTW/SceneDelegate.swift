@@ -307,6 +307,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // shipped wallet.
         if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] == "1" {
             unlockSession.recordAuthentication()
+            VerificationRunRuntime.shared.recordDeviceOwnerAuthentication(automationBypass: true)
             if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_MYDATA_FLOW_PREVIEW"] == "1",
                let income = MyDataDocumentRegistry.lookup(id: "mydata-income") {
                 window.rootViewController = UINavigationController(
@@ -472,6 +473,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         unlock.onUnlocked = { [weak self, weak unlock] in
             guard let self else { return }
             self.unlockSession.recordAuthentication()
+            VerificationRunRuntime.shared.recordDeviceOwnerAuthentication()
             if initial {
                 guard let root = self.mainRootViewController else { return }
                 self.window?.rootViewController = root

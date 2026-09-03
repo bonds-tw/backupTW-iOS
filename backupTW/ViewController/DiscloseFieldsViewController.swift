@@ -165,7 +165,8 @@ final class DiscloseFieldsViewController: UITableViewController {
                 transport: .https,
                 succeeded: outcome.succeeded,
                 preparationMilliseconds: requestFetchMilliseconds,
-                endToEndMilliseconds: submitMilliseconds)
+                endToEndMilliseconds: submitMilliseconds,
+                correlationToken: VerificationRunRecord.correlationToken(for: request.state))
             try? VerificationRunStore.shared.append(record)
             self.finish(outcome: outcome.message,
                         submitMilliseconds: submitMilliseconds)

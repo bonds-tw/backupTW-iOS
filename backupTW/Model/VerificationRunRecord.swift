@@ -6,6 +6,7 @@
 //
 
 import Darwin
+import CryptoKit
 import Foundation
 
 /// A monotonic clock shared by every verification flow.
@@ -32,8 +33,38 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
     enum Flow: String, Codable {
         case offlinePresentation
         case oid4vpPresentation
+        case privateAgeProof
         case zeroKnowledgeProofCreation
         case zeroKnowledgeProofVerification
+    }
+
+    /// The executable cells in the field-test matrix. N1 is deliberately absent:
+    /// fully-offline OIDC4VP direct_post is a protocol boundary, not a run.
+    enum MatrixCell: String, Codable, CaseIterable {
+        case a1 = "A1"
+        case a2 = "A2"
+        case a3 = "A3"
+        case g1 = "G1"
+        case g2 = "G2"
+        case g3 = "G3"
+        case g4 = "G4"
+    }
+
+    enum RunTemperature: String, Codable {
+        case cold
+        case warm
+    }
+
+    enum AuthenticationObservation: String, Codable {
+        /// A successful device-owner authentication happened after the previous
+        /// recorded run in this app process. The policy may have used biometrics
+        /// or the device passcode; the app cannot truthfully distinguish them.
+        case promptedSincePreviousRun
+        /// The process was already inside its ten-minute authenticated session.
+        case gracePeriod
+        /// The app was launched by test automation without LocalAuthentication.
+        case automationBypass
+        case unknown
     }
 
     enum Role: String, Codable {
@@ -62,6 +93,17 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
     let credentialKind: CredentialKind
     let transport: Transport
 
+    /// Automatically inferred from flow and credential family. Optional so a
+    /// build can still read timing files written by the previous schema.
+    let matrixCell: MatrixCell?
+
+    /// A random identifier for this app process plus an ordinal make cold/warm
+    /// reproducible without a UI switch. Neither value identifies a person.
+    let processSessionID: UUID?
+    let processRunOrdinal: Int?
+    let runTemperature: RunTemperature?
+    let authenticationObservation: AuthenticationObservation?
+
     /// nil means this device never reached a verdict.
     let succeeded: Bool?
 
@@ -78,6 +120,23 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
     /// The user-observable interval for the operation being measured.
     let endToEndMilliseconds: UInt64?
 
+    /// OpenAC exposes Prepare and Show separately. Keeping both avoids reducing
+    /// the new age proof to one opaque wall-clock number.
+    let proofPrepareMilliseconds: UInt64?
+    let proofShowMilliseconds: UInt64?
+
+    /// A short SHA-256 prefix over a one-time BLE service or OIDC state. It lets
+    /// the iPhone and iPad logs be paired without retaining the request ID,
+    /// nonce, service UUID, DID, URL, or any credential content.
+    let correlationToken: String?
+
+    /// True only when the holder's visual QR fallback actually became visible.
+    let qrFallbackWasVisible: Bool?
+
+    /// Performance context captured automatically at the moment of persistence.
+    let lowPowerModeEnabled: Bool?
+    let thermalState: String?
+
     let deviceModel: String
     let osVersion: String
     let appVersion: String?
@@ -89,11 +148,22 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
          role: Role,
          credentialKind: CredentialKind,
          transport: Transport,
+         matrixCell: MatrixCell? = nil,
          succeeded: Bool?,
          preparationMilliseconds: UInt64? = nil,
          transportMilliseconds: UInt64? = nil,
          verificationMilliseconds: UInt64? = nil,
          endToEndMilliseconds: UInt64? = nil,
+         proofPrepareMilliseconds: UInt64? = nil,
+         proofShowMilliseconds: UInt64? = nil,
+         correlationToken: String? = nil,
+         qrFallbackWasVisible: Bool? = nil,
+         processSessionID: UUID? = nil,
+         processRunOrdinal: Int? = nil,
+         runTemperature: RunTemperature? = nil,
+         authenticationObservation: AuthenticationObservation? = nil,
+         lowPowerModeEnabled: Bool? = nil,
+         thermalState: String? = nil,
          deviceModel: String = Self.currentDeviceModel(),
          osVersion: String = ProcessInfo.processInfo.operatingSystemVersionString,
          appVersion: String? = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
@@ -104,15 +174,76 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
         self.role = role
         self.credentialKind = credentialKind
         self.transport = transport
+        self.matrixCell = matrixCell ?? Self.inferMatrixCell(flow: flow,
+                                                              credentialKind: credentialKind)
         self.succeeded = succeeded
         self.preparationMilliseconds = preparationMilliseconds
         self.transportMilliseconds = transportMilliseconds
         self.verificationMilliseconds = verificationMilliseconds
         self.endToEndMilliseconds = endToEndMilliseconds
+        self.proofPrepareMilliseconds = proofPrepareMilliseconds
+        self.proofShowMilliseconds = proofShowMilliseconds
+        self.correlationToken = correlationToken
+        self.qrFallbackWasVisible = qrFallbackWasVisible
+        self.processSessionID = processSessionID
+        self.processRunOrdinal = processRunOrdinal
+        self.runTemperature = runTemperature
+        self.authenticationObservation = authenticationObservation
+        self.lowPowerModeEnabled = lowPowerModeEnabled
+        self.thermalState = thermalState
         self.deviceModel = deviceModel
         self.osVersion = osVersion
         self.appVersion = appVersion
         self.appBuild = appBuild
+    }
+
+    static func correlationToken(for value: String) -> String {
+        SHA256.hash(data: Data(value.utf8)).prefix(8)
+            .map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func inferMatrixCell(flow: Flow,
+                                        credentialKind: CredentialKind) -> MatrixCell? {
+        switch (flow, credentialKind) {
+        case (.offlinePresentation, .selfIssued): return .a1
+        case (.offlinePresentation, .governmentWallet): return .g2
+        case (.oid4vpPresentation, .governmentWallet): return .a2
+        case (.oid4vpPresentation, .selfIssued): return .g1
+        case (.privateAgeProof, .governmentWallet): return .g3
+        case (.privateAgeProof, .selfIssued): return .g4
+        case (.zeroKnowledgeProofCreation, .mobileCertificate),
+             (.zeroKnowledgeProofVerification, .mobileCertificate): return .a3
+        default: return nil
+        }
+    }
+
+    fileprivate func addingRuntime(_ runtime: VerificationRunRuntime.Metadata) -> Self {
+        Self(id: id,
+             recordedAt: recordedAt,
+             flow: flow,
+             role: role,
+             credentialKind: credentialKind,
+             transport: transport,
+             matrixCell: matrixCell,
+             succeeded: succeeded,
+             preparationMilliseconds: preparationMilliseconds,
+             transportMilliseconds: transportMilliseconds,
+             verificationMilliseconds: verificationMilliseconds,
+             endToEndMilliseconds: endToEndMilliseconds,
+             proofPrepareMilliseconds: proofPrepareMilliseconds,
+             proofShowMilliseconds: proofShowMilliseconds,
+             correlationToken: correlationToken,
+             qrFallbackWasVisible: qrFallbackWasVisible,
+             processSessionID: processSessionID ?? runtime.sessionID,
+             processRunOrdinal: processRunOrdinal ?? runtime.ordinal,
+             runTemperature: runTemperature ?? runtime.temperature,
+             authenticationObservation: authenticationObservation ?? runtime.authentication,
+             lowPowerModeEnabled: lowPowerModeEnabled ?? runtime.lowPowerModeEnabled,
+             thermalState: thermalState ?? runtime.thermalState,
+             deviceModel: deviceModel,
+             osVersion: osVersion,
+             appVersion: appVersion,
+             appBuild: appBuild)
     }
 
     private static func currentDeviceModel() -> String {
@@ -126,6 +257,69 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
     }
 }
 
+/// Process-local context added to every persisted run. It has no UI and does not
+/// survive an app termination: that lifetime is exactly what makes ordinal 1 a
+/// cold process run and later ordinals warm runs.
+final class VerificationRunRuntime {
+
+    struct Metadata {
+        let sessionID: UUID
+        let ordinal: Int
+        let temperature: VerificationRunRecord.RunTemperature
+        let authentication: VerificationRunRecord.AuthenticationObservation
+        let lowPowerModeEnabled: Bool
+        let thermalState: String
+    }
+
+    static let shared = VerificationRunRuntime()
+
+    private let lock = NSLock()
+    private let sessionID = UUID()
+    private var ordinal = 0
+    private var authenticationGeneration = 0
+    private var consumedAuthenticationGeneration = 0
+    private var automationAuthentication = false
+
+    func recordDeviceOwnerAuthentication(automationBypass: Bool = false) {
+        lock.lock()
+        defer { lock.unlock() }
+        authenticationGeneration += 1
+        automationAuthentication = automationBypass
+    }
+
+    func nextMetadata() -> Metadata {
+        lock.lock()
+        defer { lock.unlock() }
+        ordinal += 1
+        let hasFreshAuthentication = authenticationGeneration > consumedAuthenticationGeneration
+        let authentication: VerificationRunRecord.AuthenticationObservation
+        if hasFreshAuthentication {
+            authentication = automationAuthentication ? .automationBypass : .promptedSincePreviousRun
+            consumedAuthenticationGeneration = authenticationGeneration
+        } else if authenticationGeneration > 0 {
+            authentication = .gracePeriod
+        } else {
+            authentication = .unknown
+        }
+        return Metadata(sessionID: sessionID,
+                        ordinal: ordinal,
+                        temperature: ordinal == 1 ? .cold : .warm,
+                        authentication: authentication,
+                        lowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled,
+                        thermalState: Self.thermalName(ProcessInfo.processInfo.thermalState))
+    }
+
+    private static func thermalName(_ state: ProcessInfo.ThermalState) -> String {
+        switch state {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
+    }
+}
+
 /// Stores a small rolling history for Diagnostics and the field-test report.
 ///
 /// The directory is excluded from backup and the file uses the same protection
@@ -134,7 +328,7 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
 final class VerificationRunStore {
 
     static let shared = VerificationRunStore()
-    static let maximumRecordCount = 100
+    static let maximumRecordCount = 500
 
     private let fileURL: URL?
     private let lock = NSLock()
@@ -165,7 +359,7 @@ final class VerificationRunStore {
         guard let fileURL else { throw StorageError.applicationSupportUnavailable }
 
         var records = loadUnlocked()
-        records.append(record)
+        records.append(record.addingRuntime(VerificationRunRuntime.shared.nextMetadata()))
         if records.count > Self.maximumRecordCount {
             records.removeFirst(records.count - Self.maximumRecordCount)
         }
@@ -181,7 +375,12 @@ final class VerificationRunStore {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
-        try encoder.encode(records).write(to: fileURL, options: [.atomic, .completeFileProtectionUnlessOpen])
+        // These records contain only closed enums and timings. Unlike a
+        // credential, keeping them readable after the first device unlock lets
+        // devicectl collect a finished field test without asking the user to
+        // open Diagnostics or copy anything from either device.
+        try encoder.encode(records).write(to: fileURL,
+                                           options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
     private func loadUnlocked() -> [VerificationRunRecord] {

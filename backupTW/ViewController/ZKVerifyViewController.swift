@@ -787,6 +787,9 @@ final class ZKVerifyViewController: UIViewController {
         case .failed(let reason):
             linkLabel.text = reason
         case .finished(let payload):
+            let correlationToken = engagement.map {
+                VerificationRunRecord.correlationToken(for: $0.serviceID.uuidString)
+            }
             // Down at once: the proof is here, and a second transfer arriving
             // mid-verification would stack a second result on the first.
             stopLink()
@@ -798,7 +801,9 @@ final class ZKVerifyViewController: UIViewController {
             linkLabel.text = String(format: NSLocalizedString("Received %@ over Bluetooth.", comment: ""),
                                     ZKStagePresentation.byteString(Int64(payload.count)))
             do {
-                verify(package: try ZKProofPackage.decoded(from: payload), transport: .bluetooth)
+                verify(package: try ZKProofPackage.decoded(from: payload),
+                       transport: .bluetooth,
+                       correlationToken: correlationToken)
             } catch {
                 // Reassembled and digest-matched, and still not a package. Not a
                 // failed check — we never got far enough to judge anything —
@@ -873,7 +878,8 @@ final class ZKVerifyViewController: UIViewController {
     /// exactly these caveats. The transport is a courier; nothing about how the
     /// bytes travelled may make a verdict kinder.
     private func verify(package: ZKProofPackage,
-                        transport: VerificationRunRecord.Transport) {
+                        transport: VerificationRunRecord.Transport,
+                        correlationToken: String? = nil) {
         spinner.startAnimating()
         chooseButton.isEnabled = false
         show(status: NSLocalizedString("Checking…", comment: ""),
@@ -906,6 +912,7 @@ final class ZKVerifyViewController: UIViewController {
                 self?.present(result,
                               package: package,
                               transport: transport,
+                              correlationToken: correlationToken,
                               startedAtNanoseconds: started)
             }
         }
@@ -914,6 +921,7 @@ final class ZKVerifyViewController: UIViewController {
     private func present(_ result: Result<ZKPackageVerdict, Error>,
                          package: ZKProofPackage,
                          transport: VerificationRunRecord.Transport,
+                         correlationToken: String?,
                          startedAtNanoseconds: UInt64) {
         spinner.stopAnimating()
         chooseButton.isEnabled = true
@@ -930,7 +938,8 @@ final class ZKVerifyViewController: UIViewController {
                 transport: transport,
                 succeeded: verdict.accepted,
                 verificationMilliseconds: UInt64((verdict.seconds * 1_000).rounded()),
-                endToEndMilliseconds: measuredMilliseconds)
+                endToEndMilliseconds: measuredMilliseconds,
+                correlationToken: correlationToken)
         case .failure:
             record = VerificationRunRecord(
                 flow: .zeroKnowledgeProofVerification,
@@ -939,7 +948,8 @@ final class ZKVerifyViewController: UIViewController {
                 transport: transport,
                 succeeded: nil,
                 verificationMilliseconds: measuredMilliseconds,
-                endToEndMilliseconds: measuredMilliseconds)
+                endToEndMilliseconds: measuredMilliseconds,
+                correlationToken: correlationToken)
         }
         try? VerificationRunStore.shared.append(record)
 
