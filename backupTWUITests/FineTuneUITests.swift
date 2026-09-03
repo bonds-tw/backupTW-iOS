@@ -7,7 +7,7 @@ import XCTest
 
 final class FineTuneUITests: XCTestCase {
 
-    func testMyDataPreparationUsesOneCompactLinkedFlow() {
+    func testMyDataPreparationDoesNotShowMisleadingFlowSteps() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
@@ -15,9 +15,9 @@ final class FineTuneUITests: XCTestCase {
         app.launch()
 
         let cover = app.descendants(matching: .any)["mydataOnboard.cover"]
-        let flow = app.descendants(matching: .any)["mydata.flow.steps"]
         XCTAssertTrue(cover.waitForExistence(timeout: 10))
-        XCTAssertTrue(flow.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["mydata.flow.steps"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["mydataOnboard.flow"].exists)
         XCTAssertLessThan(cover.frame.height, 130,
                           "the MyData summary should not return to a hero-sized icon card")
         XCTAssertTrue(app.staticTexts.matching(
@@ -29,7 +29,7 @@ final class FineTuneUITests: XCTestCase {
                        "preflight should not repeat document/source/storage rows")
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = "MyData linked preparation flow"
+        attachment.name = "MyData preparation without false progress"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

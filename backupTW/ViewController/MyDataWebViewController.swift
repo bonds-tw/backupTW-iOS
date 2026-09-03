@@ -202,38 +202,32 @@ class MyDataWebViewController : UIViewController {
 
     private func updateGuide(_ stage: FlowStage, detail: String? = nil) {
         flowStage = stage
-        let content: (MyDataFlowStep, String, String, Bool, Bool)
+        let content: (String, String, Bool)
         switch stage {
         case .details:
-            content = (.details,
-                       NSLocalizedString("Fill in MyData details", comment: "MyData web guide"),
+            content = (NSLocalizedString("Fill in MyData details", comment: "MyData web guide"),
                        detail ?? NSLocalizedString("Fill in the official page. Saved details are filled only here.", comment: "MyData web guide"),
-                       documentType.entryMode == .personalDocuments, false)
+                       documentType.entryMode == .personalDocuments)
         case .certificate:
-            content = (.certificate,
-                       NSLocalizedString("Approve in 行動自然人憑證", comment: "MyData web guide"),
-                       NSLocalizedString("Complete the request there, then return to Bonds.", comment: "MyData web guide"), false, false)
+            content = (NSLocalizedString("Approve in 行動自然人憑證", comment: "MyData web guide"),
+                       NSLocalizedString("Complete the request there, then return to Bonds.", comment: "MyData web guide"), false)
         case .returning:
-            content = (.returnToBonds,
-                       NSLocalizedString("Continue in Bonds", comment: "MyData web guide"),
-                       NSLocalizedString("You are back. MyData will continue on the page below.", comment: "MyData web guide"), false, false)
+            content = (NSLocalizedString("Continue in Bonds", comment: "MyData web guide"),
+                       NSLocalizedString("You are back. MyData will continue on the page below.", comment: "MyData web guide"), false)
         case .waiting:
             let wait = documentType.estimatedMinutes.map {
                 String(format: NSLocalizedString("MyData estimates about %lld minutes. You may leave now and return from Personal documents after the notification.", comment: "MyData waiting guide"), Int64($0))
             } ?? NSLocalizedString("You may leave now and return from Personal documents after MyData's notification.", comment: "MyData waiting guide")
-            content = (.download,
-                       NSLocalizedString("Wait for MyData", comment: "MyData web guide"), wait, true, false)
+            content = (NSLocalizedString("Wait for MyData", comment: "MyData web guide"), wait, true)
         case .personalDocuments:
-            content = (.download,
-                       NSLocalizedString("Download from Personal documents", comment: "MyData web guide"),
-                       detail ?? NSLocalizedString("Open the completed document and download it here.", comment: "MyData web guide"), false, false)
+            content = (NSLocalizedString("Download from Personal documents", comment: "MyData web guide"),
+                       detail ?? NSLocalizedString("Open the completed document and download it here.", comment: "MyData web guide"), false)
         case .downloaded:
-            content = (.download,
-                       NSLocalizedString("Saving to the data vault", comment: "MyData web guide"),
-                       NSLocalizedString("Bonds is checking the file and keeping the PDF when the archive contains one.", comment: "MyData web guide"), false, true)
+            content = (NSLocalizedString("Saving to the data vault", comment: "MyData web guide"),
+                       NSLocalizedString("Bonds is checking the file and keeping the PDF when the archive contains one.", comment: "MyData web guide"), false)
         }
-        guideView.configure(step: content.0, title: content.1, detail: content.2,
-                            showsPersonalDocuments: content.3, completed: content.4)
+        guideView.configure(title: content.0, detail: content.1,
+                            showsPersonalDocuments: content.2)
     }
 
     /// Never autofill a subframe or a lookalike domain. The native Keychain values
@@ -602,14 +596,13 @@ extension MyDataWebViewController : WKDownloadDelegate {
     }
 }
 
-/// A small persistent guide above the government page. It does not infer that a
-/// signature or download succeeded; it only says which hand-off the holder is in
-/// and keeps the official Personal documents continuation one tap away.
+/// A compact contextual header above the government page. It avoids a numbered
+/// progress indicator because the external MyData and certificate pages do not
+/// expose reliable stage completion to this app.
 private final class MyDataFlowGuideView: UIView {
     var onPersonalDocuments: (() -> Void)?
     var onClose: (() -> Void)?
 
-    private let progress = MyDataFlowProgressView()
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let personalDocumentsButton = UIButton(type: .system)
@@ -647,23 +640,18 @@ private final class MyDataFlowGuideView: UIView {
         text.alignment = .leading
         text.spacing = 4
         text.setCustomSpacing(9, after: detailLabel)
-        progress.translatesAutoresizingMaskIntoConstraints = false
         text.translatesAutoresizingMaskIntoConstraints = false
         closeButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(progress)
         addSubview(text)
         addSubview(closeButton)
         NSLayoutConstraint.activate([
-            progress.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            progress.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
-            progress.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -6),
             closeButton.topAnchor.constraint(equalTo: topAnchor, constant: 4),
             closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
             closeButton.widthAnchor.constraint(equalToConstant: 44),
             closeButton.heightAnchor.constraint(equalToConstant: 44),
-            text.topAnchor.constraint(equalTo: progress.bottomAnchor, constant: 9),
+            text.topAnchor.constraint(equalTo: topAnchor, constant: 10),
             text.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
-            text.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
+            text.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -6),
             text.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
             titleLabel.heightAnchor.constraint(greaterThanOrEqualToConstant:
                                                 ceil(titleLabel.font.lineHeight * 2)),
@@ -676,9 +664,7 @@ private final class MyDataFlowGuideView: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(step: MyDataFlowStep, title: String, detail: String,
-                   showsPersonalDocuments: Bool, completed: Bool) {
-        progress.configure(current: step, completed: completed)
+    func configure(title: String, detail: String, showsPersonalDocuments: Bool) {
         titleLabel.text = title
         detailLabel.text = detail
         // Preserve the action row's height in every stage. Collapsing an arranged

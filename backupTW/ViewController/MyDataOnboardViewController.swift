@@ -9,173 +9,6 @@ import UIKit
 
 private let reuseIdentifier = "MyDataOnboardCell"
 
-/// The four human-visible hand-offs in one MyData request. Both the preparation
-/// screen and the web screen render this same model, so the explanation cannot
-/// drift away from the stage the browser is actually in.
-enum MyDataFlowStep: Int, CaseIterable {
-    case details, certificate, returnToBonds, download
-
-    var shortTitle: String {
-        switch self {
-        case .details: return NSLocalizedString("Details", comment: "short MyData flow step")
-        case .certificate: return NSLocalizedString("Certificate", comment: "short MyData flow step")
-        case .returnToBonds: return NSLocalizedString("Return", comment: "short MyData flow step")
-        case .download: return NSLocalizedString("Download", comment: "short MyData flow step")
-        }
-    }
-}
-
-/// One compact, linked progress strip. It replaces four independent list rows:
-/// the connecting rule communicates sequence and the current step is exposed as
-/// one accessibility value rather than four unrelated announcements.
-final class MyDataFlowProgressView: UIView {
-    private let line = UIView()
-    private let stack = UIStackView()
-    private var dots: [UILabel] = []
-    private var labels: [UILabel] = []
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        isAccessibilityElement = true
-        accessibilityIdentifier = "mydata.flow.steps"
-
-        line.translatesAutoresizingMaskIntoConstraints = false
-        line.backgroundColor = .separator
-        addSubview(line)
-
-        stack.axis = .horizontal
-        stack.distribution = .fillEqually
-        stack.alignment = .top
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-
-        for step in MyDataFlowStep.allCases {
-            let dot = UILabel()
-            dot.textAlignment = .center
-            dot.font = .preferredFont(forTextStyle: .caption1).withTraits(.traitBold)
-            dot.adjustsFontForContentSizeCategory = true
-            dot.layer.cornerRadius = 12
-            dot.clipsToBounds = true
-            dot.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                dot.widthAnchor.constraint(equalToConstant: 24),
-                dot.heightAnchor.constraint(equalToConstant: 24),
-            ])
-
-            let label = UILabel()
-            label.text = step.shortTitle
-            label.textAlignment = .center
-            label.font = .preferredFont(forTextStyle: .caption2)
-            label.adjustsFontForContentSizeCategory = true
-            label.numberOfLines = 2
-            label.minimumScaleFactor = 0.75
-            label.adjustsFontSizeToFitWidth = true
-
-            let column = UIStackView(arrangedSubviews: [dot, label])
-            column.axis = .vertical
-            column.alignment = .center
-            column.spacing = 5
-            stack.addArrangedSubview(column)
-            dots.append(dot)
-            labels.append(label)
-        }
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            line.heightAnchor.constraint(equalToConstant: 2),
-            line.centerYAnchor.constraint(equalTo: topAnchor, constant: 12),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 34),
-            line.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -34),
-        ])
-        configure(current: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    /// `nil` is the pre-flight overview. Once the government page is open, the
-    /// active stage and everything already completed are visually distinct.
-    func configure(current: MyDataFlowStep?, completed: Bool = false) {
-        for (index, dot) in dots.enumerated() {
-            let isPast = completed || (current.map { index < $0.rawValue } ?? false)
-            let isCurrent = !completed && current?.rawValue == index
-            dot.text = isPast ? "✓" : "\(index + 1)"
-            dot.backgroundColor = (isPast || isCurrent) ? .systemBlue : .tertiarySystemFill
-            dot.textColor = (isPast || isCurrent) ? .white : .secondaryLabel
-            labels[index].textColor = isCurrent ? .label : .secondaryLabel
-            labels[index].font = isCurrent
-                ? .preferredFont(forTextStyle: .caption2).withTraits(.traitBold)
-                : .preferredFont(forTextStyle: .caption2)
-        }
-        line.backgroundColor = current == nil ? .separator : .systemBlue.withAlphaComponent(0.45)
-        if completed {
-            accessibilityValue = NSLocalizedString("Completed", comment: "MyData flow status")
-        } else if let current {
-            accessibilityValue = String(format: NSLocalizedString("Step %lld of 4: %@", comment: "MyData flow accessibility"),
-                                        Int64(current.rawValue + 1), current.shortTitle)
-        } else {
-            accessibilityValue = NSLocalizedString("Four steps", comment: "MyData flow overview")
-        }
-    }
-}
-
-private extension UIFont {
-    func withTraits(_ traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
-        return UIFont(descriptor: descriptor, size: 0)
-    }
-}
-
-private final class MyDataFlowOverviewCell: UICollectionViewCell {
-    private let progress = MyDataFlowProgressView()
-    private let note = UILabel()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        var background = UIBackgroundConfiguration.listGroupedCell()
-        background.backgroundColor = .secondarySystemGroupedBackground
-        background.cornerRadius = 14
-        backgroundConfiguration = background
-
-        progress.translatesAutoresizingMaskIntoConstraints = false
-        note.font = .preferredFont(forTextStyle: .footnote)
-        note.adjustsFontForContentSizeCategory = true
-        note.textColor = .secondaryLabel
-        note.numberOfLines = 0
-        note.textAlignment = .center
-        note.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(progress)
-        contentView.addSubview(note)
-        NSLayoutConstraint.activate([
-            progress.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            progress.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            progress.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            note.topAnchor.constraint(equalTo: progress.bottomAnchor, constant: 12),
-            note.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            note.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            note.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
-        ])
-        accessibilityIdentifier = "mydataOnboard.flow"
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    func configure(estimatedMinutes: Int?, entryMode: MyDataDocumentType.EntryMode) {
-        progress.configure(current: nil)
-        if entryMode == .personalDocuments {
-            note.text = NSLocalizedString(
-                "Sign in once, then keep this screen open and download all completed files. MyData may still require identity verification for each new request.",
-                comment: "MyData Personal documents multi-file overview")
-        } else if let estimatedMinutes {
-            note.text = String(format: NSLocalizedString("MyData may take about %lld minutes. You can leave and continue later from Personal documents.", comment: "MyData slow document overview"), Int64(estimatedMinutes))
-        } else {
-            note.text = NSLocalizedString("After signing, return here to download and save the file in this iPhone.", comment: "MyData flow overview")
-        }
-    }
-}
-
 class MyDataOnboardViewController: UICollectionViewController {
 
     /// The key this device's national ID credential is filed under.
@@ -188,7 +21,7 @@ class MyDataOnboardViewController: UICollectionViewController {
     }
 
     private enum Section: Int, CaseIterable {
-        case cover, guidance, profile, data
+        case cover, profile, data
     }
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     /// # Why the cover states the build's limit before anything is spent
@@ -215,9 +48,6 @@ class MyDataOnboardViewController: UICollectionViewController {
 
     private var isNationalID: Bool { documentType.id == MyDataDocumentRegistry.nationalID.id }
     private var canProceed: Bool { !isNationalID || CredentialIssuanceAssembly.isAvailable }
-
-    private let guidanceItem = Item(title: "MyData flow", secondaryText: "",
-                                    identifier: "mydata.flow")
 
     private var profileItem: Item {
         let saved = MyDataAutofillProfileStore.load() != nil
@@ -350,25 +180,14 @@ class MyDataOnboardViewController: UICollectionViewController {
             cell.accessories = section == .profile ? [.disclosureIndicator()] : []
             cell.isUserInteractionEnabled = section == .profile
         }
-        let flowRegistration = UICollectionView.CellRegistration<MyDataFlowOverviewCell, Item> {
-            [weak self] cell, _, _ in
-            cell.configure(estimatedMinutes: self?.documentType.estimatedMinutes,
-                           entryMode: self?.documentType.entryMode ?? .directItem)
-        }
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) {
             collectionView, indexPath, item in
-            if Section(rawValue: indexPath.section) == .guidance {
-                return collectionView.dequeueConfiguredReusableCell(
-                    using: flowRegistration, for: indexPath, item: item)
-            }
             return collectionView.dequeueConfiguredReusableCell(
                 using: cellRegistration, for: indexPath, item: item)
         }
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { headerView, elementKind, indexPath in
             var content = headerView.defaultContentConfiguration()
             switch Section(rawValue: indexPath.section) {
-            case .guidance:
-                content.text = NSLocalizedString("What happens next", comment: "MyData guidance header")
             case .profile:
                 content.text = NSLocalizedString("Make the next visit easier", comment: "MyData profile header")
             case .data:
@@ -403,8 +222,6 @@ class MyDataOnboardViewController: UICollectionViewController {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.cover])
         snapshot.appendItems([coverItem])
-        snapshot.appendSections([.guidance])
-        snapshot.appendItems([guidanceItem])
         snapshot.appendSections([.profile])
         snapshot.appendItems([profileItem])
         if !items.isEmpty {

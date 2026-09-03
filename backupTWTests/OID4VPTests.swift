@@ -400,6 +400,41 @@ struct OID4VPResponseTests {
                                         trustedResponseHosts: ["verifier-oid4vp.wallet.gov.tw"])
     }
 
+    private func seedLegacySelfIssuedCardAndRequest() throws -> OID4VPRequest {
+        let key = try keyring.newKey()
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+        let model = NationalIDModel(nationality: "中華民國（臺灣）",
+                                    unifiedNo: "A123456789",
+                                    name: "王小明",
+                                    birthdate: "民國 083年03月06日",
+                                    addressOfHousehold: "臺北市測試路一號")
+        let credential = VerifiableCredential.nationalID(
+            model, issuerDID: did, validFrom: Date(timeIntervalSince1970: 1_786_000_000))
+        let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        let envelope = MOICASignedCredential(
+            payload: VerifiableCredential.base64URLEncoded(bytes),
+            proof: MOICACredentialProof(
+                tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
+                certificate: holderCertificateDER,
+                signature: try cardSignature(over: Data(tbs.utf8)).base64EncodedString()),
+            issuerJWS: try credential.jwsCompactSerialization(signedBy: key, issuerDID: did))
+        try store.save(jws: try envelope.serialized(), id: StoredNationalID.credentialID)
+
+        let verifier = TestVerifier()
+        let jwt = verifier.requestJWT(
+            responseURI: Self.responseURI,
+            nonce: "N-LEGACY",
+            state: "S-LEGACY",
+            definitionID: "bonds-vp",
+            descriptorID: "cred",
+            credentialType: VerifiableCredential.nationalIDType,
+            fields: ["name"],
+            credentialFormat: OID4VPCredentialFormat.moica.rawValue)
+        return try OID4VPRequest.verify(compactJWS: jwt,
+                                        clientID: verifier.clientID,
+                                        trustedResponseHosts: ["verifier-oid4vp.wallet.gov.tw"])
+    }
+
     private func makeResponder() -> OID4VPResponder {
         let config = URLSessionConfiguration.ephemeral
         // Its own stub class, not the collection suite's: URLProtocol keeps its
@@ -564,6 +599,13 @@ struct OID4VPResponseTests {
         let envelope = try MOICASignedCredential.parse(presented)
         #expect(envelope.issuerJWS != nil)
         #expect(envelope.disclosures.compactMap { Disclosure(encoded: $0)?.claimName } == ["birthdate"])
+    }
+
+    @Test func aLegacySelfIssuedCardIsNotMisreportedAsMissingTheRequestedField() async throws {
+        let request = try seedLegacySelfIssuedCardAndRequest()
+        await #expect(throws: OID4VPResponseError.selectiveDisclosureUnavailable) {
+            _ = try await makeResponder().respond(to: request, disclosing: ["name"])
+        }
     }
 }
 

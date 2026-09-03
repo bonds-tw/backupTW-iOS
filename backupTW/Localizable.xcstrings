@@ -4353,12 +4353,12 @@
         }
       }
     },
-    "None of the matching cards on this phone carries one of the fields the verifier requested, so nothing was presented.": {
+    "A matching credential was found, but it does not contain the requested “%@” field, so it cannot be presented.": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這支手機上符合類型的卡片，沒有查驗方要求的其中一個欄位，所以沒有出示。"
+            "value": "找得到相符的證件，但缺少查驗方要求的「%1$@」欄位，因此無法出示。"
           }
         }
       }
@@ -7087,6 +7087,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這張卡片的簽章沒有通過驗證。存檔可能已毀損,也可能不是它所標示的發卡者簽的——這個版本無法分辨是哪一種。"
+          }
+        }
+      }
+    },
+    "This credential cannot present only the requested fields. Update Bonds, then create the national ID again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張證件不支援逐欄出示。請更新「有備而來」，再重新建立國民身分證。"
           }
         }
       }
