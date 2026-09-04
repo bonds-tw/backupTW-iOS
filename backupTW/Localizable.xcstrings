@@ -1850,6 +1850,16 @@
         }
       }
     },
+    "Create a private age proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立隱私年齡證明"
+          }
+        }
+      }
+    },
     "Create a private age proof?": {
       "localizations": {
         "zh-Hant": {
@@ -6062,6 +6072,16 @@
         }
       }
     },
+    "Prove an age threshold from a government card or self-asserted MyData without revealing the birth date.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用政府卡片或自發 MyData 證明已達年齡門檻，不揭露出生日期。"
+          }
+        }
+      }
+    },
     "Prove coverage was active on a requested date without revealing employer history, salary basis, or unrelated periods.": {
       "localizations": {
         "zh-Hant": {
@@ -7219,6 +7239,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "出示我的證件"
+          }
+        }
+      }
+    },
+    "Show one request QR; receive and verify the private proof directly over Bluetooth.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出示一個請求 QR，直接透過藍牙接收並驗證隱私證明。"
           }
         }
       }

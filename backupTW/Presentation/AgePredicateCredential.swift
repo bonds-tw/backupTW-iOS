@@ -11,6 +11,11 @@ struct AgePredicateCredentialMaterial {
     let issuerDID: String
     let issuerPublicKeyX963: Data
     let holderKey: DeviceKey
+    /// Stable across presentations of the same card, so the Prepare state can be
+    /// cached and reused. Taken from the *stored* credential, not `sdJWT`: the
+    /// self-issued derivative is re-minted with a fresh timestamp every call, so
+    /// keying on it would never hit. See `AgePredicatePrepareCache.key`.
+    let cacheKey: String
 }
 
 /// Selects the requested stored card and, for the self-issued path, creates the
@@ -43,14 +48,18 @@ struct AgePredicateCredentialProvider {
             return AgePredicateCredentialMaterial(sdJWT: stored.serialized,
                                                   issuerDID: credential.issuerDID,
                                                   issuerPublicKeyX963: issuer.x963Representation,
-                                                  holderKey: stored.key)
+                                                  holderKey: stored.key,
+                                                  cacheKey: AgePredicatePrepareCache.key(
+                                                    source: source, storedCredential: stored.serialized))
         case .selfIssued:
             let derivative = try SelfIssuedMyDataAgeCredential.issue(
                 stored: stored.serialized, signedBy: stored.key, now: now)
             return AgePredicateCredentialMaterial(sdJWT: derivative.sdJWT,
                                                   issuerDID: derivative.issuerDID,
                                                   issuerPublicKeyX963: stored.key.publicKeyX963,
-                                                  holderKey: stored.key)
+                                                  holderKey: stored.key,
+                                                  cacheKey: AgePredicatePrepareCache.key(
+                                                    source: source, storedCredential: stored.serialized))
         }
     }
 }

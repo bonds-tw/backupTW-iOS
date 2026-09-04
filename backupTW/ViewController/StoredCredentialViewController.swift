@@ -305,6 +305,9 @@ final class StoredCredentialViewController: UICollectionViewController {
                 guard let self else { return }
                 do {
                     try CredentialStore().delete(id: StoredNationalID.credentialID)
+                    // The self-issued age proof's cached Prepare state is derived
+                    // from this card's birth date; drop it with the card.
+                    try? AgePredicatePrepareCache().purgeAll()
                     self.navigationController?.popViewController(animated: true)
                 } catch {
                     let failure = UIAlertController(

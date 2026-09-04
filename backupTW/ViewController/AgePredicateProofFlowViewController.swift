@@ -160,6 +160,7 @@ final class AgePredicateProofSendViewController: UIViewController {
                     issuerDID: material.issuerDID,
                     issuerPublicKeyX963: material.issuerPublicKeyX963,
                     holder: material.holderKey,
+                    cacheKey: material.cacheKey,
                     assetProgress: { [weak self] fraction in
                         Task { @MainActor in
                             self?.detailLabel.text = String(

@@ -399,6 +399,7 @@ protocol AgePredicateProofEngine: Sendable {
                issuerDID: String,
                issuerPublicKeyX963: Data,
                holder: DeviceKey,
+               cacheKey: String,
                assetProgress: @escaping @Sendable (Double) -> Void) async throws -> AgePredicateProofPackage
 
     func verify(package: AgePredicateProofPackage,
@@ -419,10 +420,16 @@ enum AgePredicateProofEngineAssembly {
 /// must not be assumed re-entrant merely because Swift can schedule two tasks.
 actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
     private let assets: AgePredicateCircuitAssetPreparer?
+    private let cache: AgePredicatePrepareCache?
     private let fileManager = FileManager.default
+
+    /// One presentation used a cached Prepare state, so a self-check failure
+    /// means the cached base is stale rather than the credential being bad.
+    private final class CacheUse { var hit = false }
 
     init() {
         assets = try? AgePredicateCircuitAssetPreparer()
+        cache = try? AgePredicatePrepareCache()
     }
 
     func prepareVerificationAssets(
@@ -436,34 +443,108 @@ actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
                issuerDID: String,
                issuerPublicKeyX963: Data,
                holder: DeviceKey,
+               cacheKey: String,
                assetProgress: @escaping @Sendable (Double) -> Void) async throws -> AgePredicateProofPackage {
         guard let assets else { throw AgePredicateProofError.nativeEngineUnavailable }
         let installed = try await assets.prepare(.prover, progress: assetProgress)
+        let issuer = try Self.coordinates(issuerPublicKeyX963)
+        // Signed once; the same nonce is answered on a retry, so the same
+        // signature applies.
+        let holderSignature = try holder.signature(for: Data(request.nonce.utf8))
+
+        // The reusable Prepare state may be cached (see `AgePredicatePrepareCache`).
+        // If this device cannot verify the proof it just built from a cached
+        // base, that base is stale or corrupt — drop it and rebuild once from
+        // the credential. A rejection without a cache hit is the real answer.
+        let cacheUse = CacheUse()
+        do {
+            return try performProof(request: request, credential: credential, issuerDID: issuerDID,
+                                    issuerX: issuer.x, issuerY: issuer.y,
+                                    holderSignature: holderSignature, installed: installed,
+                                    cacheKey: cacheKey, allowCache: true, cacheUse: cacheUse)
+        } catch AgePredicateProofError.proofRejected where cacheUse.hit {
+            cache?.remove(key: cacheKey)
+            return try performProof(request: request, credential: credential, issuerDID: issuerDID,
+                                    issuerX: issuer.x, issuerY: issuer.y,
+                                    holderSignature: holderSignature, installed: installed,
+                                    cacheKey: cacheKey, allowCache: false, cacheUse: CacheUse())
+        }
+    }
+
+    /// One proof, either reusing a cached Prepare or building it. The Show proof,
+    /// the fresh shared blinds and both reblinds are done every time regardless:
+    /// unlinkability across presentations rests on each one carrying an
+    /// independent re-randomisation, cache hit or not.
+    private func performProof(request: AgePredicateProofRequest,
+                              credential: String,
+                              issuerDID: String,
+                              issuerX: String,
+                              issuerY: String,
+                              holderSignature: Data,
+                              installed: URL,
+                              cacheKey: String,
+                              allowCache: Bool,
+                              cacheUse: CacheUse) throws -> AgePredicateProofPackage {
         let scratch = try makeScratch(installedCircom: installed, role: .prover)
         defer { try? fileManager.removeItem(at: scratch.root) }
         let path = scratch.documents.path
-        let issuer = try Self.coordinates(issuerPublicKeyX963)
+        let keyDirectory = scratch.documents.appendingPathComponent("keys", isDirectory: true)
 
         do {
             let clock = ContinuousClock()
-            let prepareStarted = clock.now
-            let prepared = try createAgePrepareInput(
-                documentsPath: path,
-                sdJwt: credential,
-                issuerKeyX: issuer.x,
-                issuerKeyY: issuer.y)
-            _ = try proveJwt(documentsPath: path)
-            var prepareMilliseconds = Self.milliseconds(prepareStarted.duration(to: clock.now))
+            let claimName: String
+            let claimFormat: UInt8
+            var prepareMilliseconds: UInt64
 
-            let holderSignature = try holder.signature(for: Data(request.nonce.utf8))
+            if allowCache, let cache, let state = cache.load(key: cacheKey) {
+                // Restore the reusable base. Cheap: a few hundred KB, no proving.
+                let restoreStarted = clock.now
+                let restore: [(String, Data)] = [
+                    ("prepare_proof.bin", state.prepareProof),
+                    ("prepare_instance.bin", state.prepareInstance),
+                    ("prepare_witness.bin", state.prepareWitness),
+                ]
+                for (name, data) in restore {
+                    try data.write(to: keyDirectory.appendingPathComponent(name),
+                                   options: [.atomic, .completeFileProtectionUnlessOpen])
+                }
+                claimName = state.claimName
+                claimFormat = state.claimFormat
+                cacheUse.hit = true
+                prepareMilliseconds = Self.milliseconds(restoreStarted.duration(to: clock.now))
+            } else {
+                let prepareStarted = clock.now
+                let prepared = try createAgePrepareInput(
+                    documentsPath: path,
+                    sdJwt: credential,
+                    issuerKeyX: issuerX,
+                    issuerKeyY: issuerY)
+                _ = try proveJwt(documentsPath: path)
+                claimName = prepared.claimName
+                claimFormat = prepared.claimFormat
+                prepareMilliseconds = Self.milliseconds(prepareStarted.duration(to: clock.now))
+                // Captured before any reblind, so every future presentation
+                // reblinds a fresh, independent randomisation from this base.
+                if let cache,
+                   let proof = try? Data(contentsOf: keyDirectory.appendingPathComponent("prepare_proof.bin")),
+                   let instance = try? Data(contentsOf: keyDirectory.appendingPathComponent("prepare_instance.bin")),
+                   let witness = try? Data(contentsOf: keyDirectory.appendingPathComponent("prepare_witness.bin")) {
+                    try? cache.store(key: cacheKey, AgePredicatePreparedState(
+                        claimName: claimName, claimFormat: claimFormat,
+                        prepareProof: proof, prepareInstance: instance, prepareWitness: witness))
+                }
+            }
+
+            let cutoff = try request.cutoffValue(claimFormat: claimFormat)
+
             let showStarted = clock.now
             try createAgeShowInput(
                 documentsPath: path,
                 nonce: request.nonce,
                 deviceSignature: holderSignature.base64URLEncodedString(),
-                claimName: prepared.claimName,
-                claimFormat: prepared.claimFormat,
-                cutoff: try request.cutoffValue(claimFormat: prepared.claimFormat))
+                claimName: claimName,
+                claimFormat: claimFormat,
+                cutoff: cutoff)
             _ = try proveShow(documentsPath: path)
             var showMilliseconds = Self.milliseconds(showStarted.duration(to: clock.now))
 
@@ -476,18 +557,18 @@ actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
             showMilliseconds += Self.milliseconds(showReblindStarted.duration(to: clock.now))
 
             // A holder never sends a proof it cannot itself check against the
-            // exact issuer key and verifier statement.
+            // exact issuer key and verifier statement. This is also the backstop
+            // for a stale cached base: a proof built on one fails here.
             let accepted = try verifyAgePresentation(
                 documentsPath: path,
                 nonce: request.nonce,
-                claimName: prepared.claimName,
-                claimFormat: prepared.claimFormat,
-                cutoff: try request.cutoffValue(claimFormat: prepared.claimFormat),
-                expectedIssuerKeyX: issuer.x,
-                expectedIssuerKeyY: issuer.y)
+                claimName: claimName,
+                claimFormat: claimFormat,
+                cutoff: cutoff,
+                expectedIssuerKeyX: issuerX,
+                expectedIssuerKeyY: issuerY)
             guard accepted else { throw AgePredicateProofError.proofRejected }
 
-            let keyDirectory = scratch.documents.appendingPathComponent("keys", isDirectory: true)
             let prepareProof = try Data(
                 contentsOf: keyDirectory.appendingPathComponent("prepare_proof.bin"),
                 options: .mappedIfSafe)
@@ -496,8 +577,8 @@ actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
                 options: .mappedIfSafe)
             return try AgePredicateProofPackage(
                 request: request,
-                claimName: prepared.claimName,
-                claimFormat: prepared.claimFormat,
+                claimName: claimName,
+                claimFormat: claimFormat,
                 issuerDID: issuerDID,
                 prepareProof: Data(prepareProof),
                 showProof: Data(showProof),
@@ -626,6 +707,7 @@ struct OpenACAgePredicateProofEngine: AgePredicateProofEngine {
                issuerDID: String,
                issuerPublicKeyX963: Data,
                holder: DeviceKey,
+               cacheKey: String,
                assetProgress: @escaping @Sendable (Double) -> Void) async throws -> AgePredicateProofPackage {
         throw AgePredicateProofError.nativeEngineUnavailable
     }
