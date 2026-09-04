@@ -11156,7 +11156,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這不是本 App 能讀取的欄位證明查驗要求。"
+            "value": "這不是這個 App 能讀取的欄位證明查驗要求。"
           }
         }
       }
