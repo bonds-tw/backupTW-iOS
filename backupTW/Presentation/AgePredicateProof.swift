@@ -26,6 +26,14 @@ enum AgePredicateProofError: Error, Equatable, LocalizedError {
     case proofCreationFailed
     case proofRejected
     case nativeEngineUnavailable
+    /// The request names a website to send the proof to, and it is not one
+    /// this app will post a proof to.
+    case untrustedResponseHost
+    /// The checker's website answered, but not in the shape this app reads.
+    case webResponseUnreadable
+    /// The checker's website read the proof and refused it.
+    case webRejected(String)
+    case network
 
     var errorDescription: String? {
         switch self {
@@ -53,6 +61,15 @@ enum AgePredicateProofError: Error, Equatable, LocalizedError {
             return NSLocalizedString("The zero-knowledge proof did not verify.", comment: "age proof")
         case .nativeEngineUnavailable:
             return NSLocalizedString("This build does not include the field-proof engine.", comment: "age proof")
+        case .untrustedResponseHost:
+            return NSLocalizedString("This request asks to send the proof to a website this app does not trust, so nothing was sent.", comment: "age proof")
+        case .webResponseUnreadable:
+            return NSLocalizedString("The checker's website answered in a way this app could not read.", comment: "age proof")
+        case .webRejected(let reason):
+            return String(format: NSLocalizedString("The checker's website did not accept the proof: %@", comment: "age proof"),
+                          reason)
+        case .network:
+            return NSLocalizedString("The proof could not be sent to the checker's website. Check the connection and try again.", comment: "age proof")
         }
     }
 }
@@ -75,6 +92,30 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
     let minimumAge: Int
     let createdAt: Date
 
+    /// Where a *web* checker wants the proof posted. `nil` for the two-device
+    /// flow, where the proof travels over the one-time Bluetooth service.
+    ///
+    /// The nonce, cutoff and source are checked by whoever verifies, so a
+    /// website is as good a checker as an iPad — what changes is who can read
+    /// the package on the way. It carries the two proofs, the statement and the
+    /// issuer DID (for a self-issued card that is the holder's own per-card key,
+    /// a stable pseudonym), and no claim. That is why the host is allow-listed
+    /// rather than open: a stranger's QR must not be able to route a proof
+    /// anywhere it likes.
+    let responseURL: URL?
+
+    /// Websites this app will post an age proof to. The independent verifier
+    /// at `verifier.mashbean.net` is trusted in every build: the package holds
+    /// no claim, and the web test is the point of the flow. The workers.dev
+    /// alias is development only, mirroring `OID4VPPresentation.verifierHosts`.
+    static var trustedResponseHosts: Set<String> {
+        var hosts: Set<String> = ["verifier.mashbean.net"]
+        #if DEBUG
+        hosts.insert("mashbean-vp-verifier.mashbean.workers.dev")
+        #endif
+        return hosts
+    }
+
     private enum CodingKeys: String, CodingKey {
         case version = "v"
         case serviceID = "b"
@@ -84,12 +125,14 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
         case cutoffDate = "d"
         case minimumAge = "a"
         case createdAt = "t"
+        case responseURL = "u"
     }
 
     init(serviceID: UUID = UUID(),
          purpose: String,
          credentialSource: PresentationCredentialSource,
          minimumAge: Int = AgePredicate.majority,
+         responseURL: URL? = nil,
          now: Date = Date()) throws {
         let cleanPurpose = UntrustedText(purpose, limit: PresentationRequest.maximumPurposeLength)
         guard !cleanPurpose.isEmpty,
@@ -114,19 +157,25 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
         cutoffDate = Self.dateString(cutoff)
         self.minimumAge = minimumAge
         createdAt = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970))
+        if let responseURL {
+            guard Self.isTrustedResponseURL(responseURL) else {
+                throw AgePredicateProofError.untrustedResponseHost
+            }
+        }
+        self.responseURL = responseURL
     }
 
-    private init(version: Int, serviceID: UUID, nonce: String, purpose: String,
-                 credentialSource: PresentationCredentialSource, cutoffDate: String,
-                 minimumAge: Int, createdAt: Date) {
-        self.version = version
-        self.serviceID = serviceID
-        self.nonce = nonce
-        self.purpose = purpose
-        self.credentialSource = credentialSource
-        self.cutoffDate = cutoffDate
-        self.minimumAge = minimumAge
-        self.createdAt = createdAt
+    /// HTTPS, an allow-listed host, and nothing that would let a URL smuggle
+    /// credentials or change where the bytes go.
+    static func isTrustedResponseURL(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              trustedResponseHosts.contains(host),
+              url.user == nil, url.password == nil, url.fragment == nil,
+              url.absoluteString.utf8.count <= 512 else {
+            return false
+        }
+        return true
     }
 
     func encodedForTransport() throws -> String {
@@ -150,6 +199,9 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
               (1...120).contains(decoded.minimumAge),
               cutoffComponents(decoded.cutoffDate) != nil else {
             throw AgePredicateProofError.malformedRequest
+        }
+        if let responseURL = decoded.responseURL, !isTrustedResponseURL(responseURL) {
+            throw AgePredicateProofError.untrustedResponseHost
         }
         let clean = UntrustedText(decoded.purpose, limit: PresentationRequest.maximumPurposeLength)
         guard clean.text == decoded.purpose, !clean.isEmpty,
@@ -294,6 +346,41 @@ struct AgePredicateProofPackage: Codable, Equatable, Sendable {
         do { return try decoder.decode(AgePredicateProofPackage.self, from: data) }
         catch { throw AgePredicateProofError.malformedPackage }
     }
+}
+
+/// What the checker's website says about a posted package.
+///
+/// Decoded strictly: `accepted` is the only field a verdict may be drawn from,
+/// and a body without it is unreadable rather than a refusal.
+struct AgePredicateProofWebVerdict: Decodable, Equatable, Sendable {
+    struct Timing: Decodable, Equatable, Sendable {
+        let holderPrepare: UInt64?
+        let holderShow: UInt64?
+        /// Request creation to the website receiving the proof, measured there.
+        let transport: UInt64?
+        /// The native verifier's own `verify_linked` plus statement comparison.
+        let verify: UInt64?
+        let nativeLoad: UInt64?
+        let total: UInt64?
+    }
+
+    let status: String
+    let accepted: Bool
+    let reason: String?
+    let minimumAge: Int?
+    let timingMs: Timing?
+
+    static func decode(from data: Data) throws -> AgePredicateProofWebVerdict {
+        do { return try JSONDecoder().decode(AgePredicateProofWebVerdict.self, from: data) }
+        catch { throw AgePredicateProofError.webResponseUnreadable }
+    }
+}
+
+/// The measured result of one web submission: the website's verdict and how
+/// long the round trip took from this phone.
+struct AgePredicateProofWebOutcome: Equatable, Sendable {
+    let verdict: AgePredicateProofWebVerdict
+    let roundTripMilliseconds: UInt64
 }
 
 struct AgePredicateProofTiming: Equatable, Sendable {

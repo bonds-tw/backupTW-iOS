@@ -2282,6 +2282,16 @@
         }
       }
     },
+    "Difference: zero-knowledge %+.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "差異：零知識證明 %+.2f 秒"
+          }
+        }
+      }
+    },
     "Digital wallet card collection": {
       "localizations": {
         "zh-Hant": {
@@ -4765,6 +4775,16 @@
         }
       }
     },
+    "No web runs yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有網頁查驗紀錄"
+          }
+        }
+      }
+    },
     "No — software keys are the only option here": {
       "localizations": {
         "zh-Hant": {
@@ -5740,6 +5760,16 @@
         }
       }
     },
+    "Present a card to verifier.mashbean.net, then create a private age proof for its /zkp page.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先把卡片出示給 verifier.mashbean.net，再對它的 /zkp 頁面建立私密年齡證明。"
+          }
+        }
+      }
+    },
     "Present a credential": {
       "localizations": {
         "zh-Hant": {
@@ -5897,6 +5927,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "證明建立 %@＋%@ 毫秒・查驗 %@ 毫秒"
+          }
+        }
+      }
+    },
+    "Proof creation %@ + %@ ms · website verification %@ ms · round trip %@ ms": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立證明 %@ + %@ 毫秒 · 網站驗證 %@ 毫秒 · 往返 %@ 毫秒"
+          }
+        }
+      }
+    },
+    "Proof creation on this phone: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在這支手機建立證明：%.2f 秒"
           }
         }
       }
@@ -6610,6 +6660,26 @@
         }
       }
     },
+    "SD-JWT-VC presentation, end to end: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SD-JWT-VC 出示，全程：%.2f 秒"
+          }
+        }
+      }
+    },
+    "SD-JWT-VC presentation: not measured yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SD-JWT-VC 出示：尚未量測"
+          }
+        }
+      }
+    },
     "Sandbox confirmation recorded": {
       "localizations": {
         "zh-Hant": {
@@ -6906,6 +6976,16 @@
         }
       }
     },
+    "Self-issued MyData document": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自發 MyData 證件"
+          }
+        }
+      }
+    },
     "Send the number and sign": {
       "localizations": {
         "zh-Hant": {
@@ -6973,6 +7053,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "正透過藍牙直接傳給查驗方，不會出現需要逐張掃描的回應 QR Code。"
+          }
+        }
+      }
+    },
+    "Sending it to the checker's website %@…": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在把證明送到查驗網站 %@…"
           }
         }
       }
@@ -8433,6 +8523,26 @@
         }
       }
     },
+    "The checker's website answered in a way this app could not read.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗網站的回應格式這個 App 讀不懂。"
+          }
+        }
+      }
+    },
+    "The checker's website did not accept the proof: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗網站沒有接受這個證明：%@"
+          }
+        }
+      }
+    },
     "The checking files are on this phone, but they could not be opened.": {
       "localizations": {
         "zh-Hant": {
@@ -8742,6 +8852,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "檔案只留在你的手機上，只需下載一次。它們是產生與驗證證明的工具，不含任何關於你的資料。"
+          }
+        }
+      }
+    },
+    "The finished proof will be sent to %@.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成的證明會送到 %@。"
           }
         }
       }
@@ -9207,6 +9327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這台裝置無法產生證明。"
+          }
+        }
+      }
+    },
+    "The proof could not be sent to the checker's website. Check the connection and try again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "證明沒能送到查驗網站。請檢查網路連線後再試一次。"
           }
         }
       }
@@ -9765,6 +9895,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "皮夾仍然鎖定。"
+          }
+        }
+      }
+    },
+    "The website did not accept the proof": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網站沒有接受這個證明"
+          }
+        }
+      }
+    },
+    "The website verified the proof: at least %d": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網站已驗證這個證明：至少 %d 歲"
           }
         }
       }
@@ -11594,6 +11744,16 @@
         }
       }
     },
+    "This request asks to send the proof to a website this app does not trust, so nothing was sent.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個要求想把證明送到這個 App 不信任的網站，所以沒有送出任何東西。"
+          }
+        }
+      }
+    },
     "This request could not be read.": {
       "localizations": {
         "zh-Hant": {
@@ -12609,12 +12769,32 @@
         }
       }
     },
+    "Web check: zero-knowledge proof vs SD-JWT-VC": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網頁查驗：零知識證明 vs SD-JWT-VC"
+          }
+        }
+      }
+    },
     "Website": {
       "localizations": {
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
             "value": "官方網站"
+          }
+        }
+      }
+    },
+    "Website verification: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "網站驗證：%.2f 秒"
           }
         }
       }
@@ -13274,6 +13454,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "查驗零知識證明"
+          }
+        }
+      }
+    },
+    "Zero-knowledge proof, end to end: %.2f seconds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "零知識證明，全程：%.2f 秒"
+          }
+        }
+      }
+    },
+    "Zero-knowledge proof: not measured yet": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "零知識證明：尚未量測"
           }
         }
       }

@@ -165,7 +165,8 @@ final class DiagnosticsViewController: UICollectionViewController {
     // MARK: - Facts
 
     private static func collect() -> [Group] {
-        [selfCheckGroup(), verificationTimingGroup(), bluetoothTransportGroup(), appAttestUATGroup(), myDataGroup(),
+        [selfCheckGroup(), verificationTimingGroup(), webComparisonGroup(), bluetoothTransportGroup(),
+         appAttestUATGroup(), myDataGroup(),
          signingGroup(), storageGroup(), assetsGroup()]
     }
 
@@ -217,6 +218,57 @@ final class DiagnosticsViewController: UICollectionViewController {
                        title: flowName(record.flow),
                        value: details.joined(separator: "\n"),
                        passed: record.succeeded)
+        })
+    }
+
+    /// Two measured runs side by side: the website checking an SD-JWT-VC
+    /// presentation and the same website checking a zero-knowledge age proof.
+    /// The numbers are this phone's; the website shows its own.
+    private static func webComparisonGroup() -> Group {
+        let title = NSLocalizedString("Web check: zero-knowledge proof vs SD-JWT-VC", comment: "diagnostics comparison group")
+        let comparisons = VerificationRunComparison.latest(in: VerificationRunStore.shared.records())
+        guard !comparisons.isEmpty else {
+            return Group(title: title, rows: [Row(
+                title: NSLocalizedString("No web runs yet", comment: "diagnostics comparison empty"),
+                value: NSLocalizedString(
+                    "Present a card to verifier.mashbean.net, then create a private age proof for its /zkp page.",
+                    comment: "diagnostics comparison empty detail"),
+                passed: nil)])
+        }
+        return Group(title: title, rows: comparisons.map { comparison in
+            var lines: [String] = []
+            if let sd = comparison.sdJWT?.endToEndMilliseconds {
+                lines.append(String(format: NSLocalizedString("SD-JWT-VC presentation, end to end: %.2f seconds", comment: "timing"),
+                                    Double(sd) / 1_000))
+            } else {
+                lines.append(NSLocalizedString("SD-JWT-VC presentation: not measured yet", comment: "timing"))
+            }
+            if let zk = comparison.zeroKnowledge {
+                if let total = zk.endToEndMilliseconds {
+                    lines.append(String(format: NSLocalizedString("Zero-knowledge proof, end to end: %.2f seconds", comment: "timing"),
+                                        Double(total) / 1_000))
+                }
+                if let prepare = zk.proofPrepareMilliseconds, let show = zk.proofShowMilliseconds {
+                    lines.append(String(format: NSLocalizedString("Proof creation on this phone: %.2f seconds", comment: "timing"),
+                                        Double(prepare + show) / 1_000))
+                }
+                if let verify = zk.verificationMilliseconds {
+                    lines.append(String(format: NSLocalizedString("Website verification: %.2f seconds", comment: "timing"),
+                                        Double(verify) / 1_000))
+                }
+            } else {
+                lines.append(NSLocalizedString("Zero-knowledge proof: not measured yet", comment: "timing"))
+            }
+            if let difference = comparison.endToEndDifferenceMilliseconds {
+                lines.append(String(format: NSLocalizedString("Difference: zero-knowledge %+.2f seconds", comment: "timing"),
+                                    Double(difference) / 1_000))
+            }
+            return Row(id: "comparison.\(comparison.credentialKind.rawValue)",
+                       title: comparison.credentialKind == .governmentWallet
+                           ? NSLocalizedString("Government wallet card", comment: "timing credential kind")
+                           : NSLocalizedString("Self-issued MyData document", comment: "timing credential kind"),
+                       value: lines.joined(separator: "\n"),
+                       passed: comparison.sdJWT != nil && comparison.zeroKnowledge != nil ? true : nil)
         })
     }
 

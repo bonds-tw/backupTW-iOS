@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-CELLS = ("A1", "A2", "A3", "G1", "G2", "G3", "G4")
+CELLS = ("A1", "A2", "A3", "G1", "G2", "G3", "G4", "W1", "W2")
+# Web pairs: the same website checking SD-JWT-VC (left) and a ZK age proof (right).
+WEB_PAIRS = (("政府卡片", "A2", "W1"), ("自發 MyData 證件", "G1", "W2"))
 MILLISECONDS = (
     "preparationMilliseconds",
     "proofPrepareMilliseconds",
@@ -36,7 +38,7 @@ def report_records(records: list[dict[str, Any]], cell: str) -> list[dict[str, A
     matching = [record for record in records if record.get("matrixCell") == cell]
     # Verification is measured on the verifier for every local two-device path.
     # Online OIDC4VP has no app record on the Cloudflare page, so use the holder.
-    preferred_role = "holder" if cell in {"A2", "G1"} else "verifier"
+    preferred_role = "holder" if cell in {"A2", "G1", "W1", "W2"} else "verifier"
     preferred = [record for record in matching if record.get("role") == preferred_role]
     return preferred or matching
 
@@ -85,6 +87,33 @@ def write_markdown(path: Path, records: list[dict[str, Any]]) -> None:
         lines.append(
             f"| {cell} | {len(selected)} | {passed} | {verification[0]} / {verification[1]} | "
             f"{end_to_end[0]} / {end_to_end[1]} |"
+        )
+
+    lines += [
+        "",
+        "## 網頁查驗：零知識證明 vs SD-JWT-VC",
+        "",
+        "同一個查驗網站（verifier.mashbean.net）對同一種卡片的兩條路徑。全程＝持卡人掃碼到收到判定；",
+        "ZKP 的建立時間是 OpenAC Prepare＋Show，驗證時間是網站後端 verify_linked 的秒數。",
+        "",
+        "| 卡片 | SD-JWT-VC 全程 median / max | ZKP 全程 median / max | ZKP 建立 median | ZKP 網站驗證 median | 筆數 (SD / ZK) |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for label, sd_cell, zk_cell in WEB_PAIRS:
+        sd = [r for r in report_records(records, sd_cell) if r.get("succeeded") is True]
+        zk = [r for r in report_records(records, zk_cell) if r.get("succeeded") is True]
+        sd_total = statistic(sd, "endToEndMilliseconds")
+        zk_total = statistic(zk, "endToEndMilliseconds")
+        creation = [
+            {"creation": int(r["proofPrepareMilliseconds"]) + int(r["proofShowMilliseconds"])}
+            for r in zk
+            if r.get("proofPrepareMilliseconds") is not None and r.get("proofShowMilliseconds") is not None
+        ]
+        zk_creation = statistic(creation, "creation")
+        zk_verify = statistic(zk, "verificationMilliseconds")
+        lines.append(
+            f"| {label} | {sd_total[0]} / {sd_total[1]} | {zk_total[0]} / {zk_total[1]} | "
+            f"{zk_creation[0]} | {zk_verify[0]} | {len(sd)} / {len(zk)} |"
         )
 
     lines += [

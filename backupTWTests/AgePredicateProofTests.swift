@@ -62,6 +62,85 @@ struct AgePredicateProofRequestTests {
         }
     }
 
+    @Test func webRequestCarriesItsResponseURLAndRoundTrips() throws {
+        let url = try #require(URL(string: "https://verifier.mashbean.net/api/zkp/response/8d6b0c2e-1f0a-4f2f-9c0f-2b5c4a1d9e77"))
+        let request = try AgePredicateProofRequest(
+            purpose: "網頁零知識證明測試",
+            credentialSource: .twdiw,
+            responseURL: url,
+            now: Self.now)
+        let wire = try request.encodedForTransport()
+        #expect(wire.contains("\"u\":\"https://verifier.mashbean.net/api/zkp/response/"))
+        let decoded = try AgePredicateProofRequest.decode(from: wire, now: Self.now.addingTimeInterval(5))
+        #expect(decoded == request)
+        #expect(decoded.responseURL == url)
+    }
+
+    @Test func twoDeviceRequestsStillHaveNoResponseURL() throws {
+        let request = try AgePredicateProofRequest(
+            purpose: "確認年齡", credentialSource: .selfIssued, now: Self.now)
+        #expect(request.responseURL == nil)
+        #expect(!(try request.encodedForTransport()).contains("\"u\":"))
+    }
+
+    @Test(arguments: [
+        "http://verifier.mashbean.net/api/zkp/response/abc",
+        "https://evil.example/api/zkp/response/abc",
+        "https://verifier.mashbean.net.evil.example/x",
+        "https://user:secret@verifier.mashbean.net/api/zkp/response/abc",
+        "https://verifier.mashbean.net/api/zkp/response/abc#fragment",
+    ])
+    func responseURLsOutsideTheAllowListAreRefused(_ text: String) throws {
+        let url = try #require(URL(string: text))
+        #expect(throws: AgePredicateProofError.untrustedResponseHost) {
+            try AgePredicateProofRequest(purpose: "確認年齡", credentialSource: .twdiw,
+                                         responseURL: url, now: Self.now)
+        }
+        // And on the way in: a scanned code cannot route the proof elsewhere.
+        let honest = try AgePredicateProofRequest(purpose: "確認年齡", credentialSource: .twdiw, now: Self.now)
+        var object = try #require(JSONSerialization.jsonObject(
+            with: Data(honest.encodedForTransport().utf8)) as? [String: Any])
+        object["u"] = text
+        let altered = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        #expect(throws: AgePredicateProofError.untrustedResponseHost) {
+            try AgePredicateProofRequest.decode(from: String(decoding: altered, as: UTF8.self), now: Self.now)
+        }
+    }
+
+    @Test func webVerdictDecodesTheWebsiteAnswer() throws {
+        let body = Data("""
+        {"status":"verified","accepted":true,"minimumAge":18,"credentialSource":"government",
+         "timingMs":{"holderPrepare":19203,"holderShow":777,"transport":41210,"verify":1450,"nativeLoad":12,"total":1620}}
+        """.utf8)
+        let verdict = try AgePredicateProofWebVerdict.decode(from: body)
+        #expect(verdict.accepted)
+        #expect(verdict.status == "verified")
+        #expect(verdict.timingMs?.verify == 1450)
+        #expect(verdict.timingMs?.holderPrepare == 19203)
+        #expect(verdict.reason == nil)
+    }
+
+    @Test func webVerdictWithoutAVerdictIsUnreadable() {
+        #expect(throws: AgePredicateProofError.webResponseUnreadable) {
+            try AgePredicateProofWebVerdict.decode(from: Data("{\"status\":\"verified\"}".utf8))
+        }
+        #expect(throws: AgePredicateProofError.webResponseUnreadable) {
+            try AgePredicateProofWebVerdict.decode(from: Data("<html>".utf8))
+        }
+    }
+
+    @Test func webClientRefusesAnUntrustedURLBeforeOpeningASocket() async throws {
+        let request = try AgePredicateProofRequest(purpose: "確認年齡", credentialSource: .twdiw, now: Self.now)
+        let package = try AgePredicateProofPackage(
+            request: request, claimName: "roc_birthday", claimFormat: 3,
+            issuerDID: "did:key:zIssuer", prepareProof: Data([1]), showProof: Data([2]),
+            prepareMilliseconds: 1, showMilliseconds: 1, createdAt: Self.now)
+        let url = try #require(URL(string: "https://evil.example/api/zkp/response/abc"))
+        await #expect(throws: AgePredicateProofError.untrustedResponseHost) {
+            _ = try await AgePredicateProofWebClient().submit(package, to: url)
+        }
+    }
+
     @Test func packageIsBoundToTheExactRequestAndSource() throws {
         let request = try AgePredicateProofRequest(
             purpose: "確認年齡", credentialSource: .twdiw, now: Self.now)

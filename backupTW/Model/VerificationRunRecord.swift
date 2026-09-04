@@ -48,6 +48,11 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
         case g2 = "G2"
         case g3 = "G3"
         case g4 = "G4"
+        /// The private age proof posted to the web verifier (verifier.mashbean.net/zkp):
+        /// W1 from a government card, W2 from the self-issued MyData document.
+        /// The SD-JWT-VC counterparts over the same website are A2 and G1.
+        case w1 = "W1"
+        case w2 = "W2"
     }
 
     enum RunTemperature: String, Codable {
@@ -175,7 +180,8 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
         self.credentialKind = credentialKind
         self.transport = transport
         self.matrixCell = matrixCell ?? Self.inferMatrixCell(flow: flow,
-                                                              credentialKind: credentialKind)
+                                                              credentialKind: credentialKind,
+                                                              transport: transport)
         self.succeeded = succeeded
         self.preparationMilliseconds = preparationMilliseconds
         self.transportMilliseconds = transportMilliseconds
@@ -203,14 +209,15 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
     }
 
     private static func inferMatrixCell(flow: Flow,
-                                        credentialKind: CredentialKind) -> MatrixCell? {
+                                        credentialKind: CredentialKind,
+                                        transport: Transport) -> MatrixCell? {
         switch (flow, credentialKind) {
         case (.offlinePresentation, .selfIssued): return .a1
         case (.offlinePresentation, .governmentWallet): return .g2
         case (.oid4vpPresentation, .governmentWallet): return .a2
         case (.oid4vpPresentation, .selfIssued): return .g1
-        case (.privateAgeProof, .governmentWallet): return .g3
-        case (.privateAgeProof, .selfIssued): return .g4
+        case (.privateAgeProof, .governmentWallet): return transport == .https ? .w1 : .g3
+        case (.privateAgeProof, .selfIssued): return transport == .https ? .w2 : .g4
         case (.zeroKnowledgeProofCreation, .mobileCertificate),
              (.zeroKnowledgeProofVerification, .mobileCertificate): return .a3
         default: return nil
@@ -253,6 +260,43 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
             pointer.withMemoryRebound(to: CChar.self, capacity: 1) {
                 String(cString: $0)
             }
+        }
+    }
+}
+
+/// The comparison the web field test exists to make: the same website checking
+/// a selectively disclosed SD-JWT-VC presentation (A2 / G1) and a zero-knowledge
+/// age proof (W1 / W2) from the same kind of card, on this phone.
+///
+/// Latest successful run of each, per card family. A median would need a
+/// sample the phone does not have; the matrix report over collected logs does
+/// the statistics, this only puts two measured runs side by side.
+struct VerificationRunComparison: Equatable {
+    let credentialKind: VerificationRunRecord.CredentialKind
+    /// Latest successful online OIDC4VP presentation over HTTPS.
+    let sdJWT: VerificationRunRecord?
+    /// Latest successful private age proof posted to the web verifier.
+    let zeroKnowledge: VerificationRunRecord?
+
+    /// Positive when the zero-knowledge path took longer end to end.
+    var endToEndDifferenceMilliseconds: Int64? {
+        guard let sd = sdJWT?.endToEndMilliseconds,
+              let zk = zeroKnowledge?.endToEndMilliseconds else { return nil }
+        return Int64(zk) - Int64(sd)
+    }
+
+    static func latest(in records: [VerificationRunRecord]) -> [VerificationRunComparison] {
+        [VerificationRunRecord.CredentialKind.governmentWallet, .selfIssued].compactMap { kind in
+            let sd = records.last {
+                $0.flow == .oid4vpPresentation && $0.credentialKind == kind
+                    && $0.transport == .https && $0.succeeded == true
+            }
+            let zk = records.last {
+                $0.flow == .privateAgeProof && $0.credentialKind == kind
+                    && $0.transport == .https && $0.succeeded == true
+            }
+            guard sd != nil || zk != nil else { return nil }
+            return VerificationRunComparison(credentialKind: kind, sdJWT: sd, zeroKnowledge: zk)
         }
     }
 }
