@@ -31,7 +31,7 @@ final class WalletIdentityViewController: UICollectionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("Wallet identity", comment: "settings screen title")
-        navigationController?.navigationBar.prefersLargeTitles = false
+        navigationItem.largeTitleDisplayMode = .never
         collectionView.allowsSelection = false
         loadIdentity()
         configureDataSource()
@@ -62,7 +62,7 @@ final class WalletIdentityViewController: UICollectionViewController {
                     .scaledFont(for: .monospacedSystemFont(ofSize: 12, weight: .regular))
                 content.secondaryTextProperties.numberOfLines = 0
                 content.image = UIImage(systemName: "key.horizontal.fill")?
-                    .withTintColor(.systemIndigo, renderingMode: .alwaysOriginal)
+                    .withTintColor(.tintColor, renderingMode: .alwaysOriginal)
             case .backing(let value):
                 content.text = NSLocalizedString("Private key", comment: "wallet identity field")
                 content.secondaryText = value

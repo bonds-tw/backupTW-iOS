@@ -23,8 +23,16 @@ final class OfficialDocumentInboxViewController: UITableViewController {
     private let makeSigning: () -> OfficialDocumentSigning?
     private var signatureTask: Task<Void, Never>?
     private var isSigning = false
+    private var receipt: OfficialDocumentInboxReceipt?
+    private var receiptUnavailable = false
+    private var physicalCardRequestPending = false
+    private var physicalCardResponseReady = false
     private var packages: [OfficialDocumentPackage] = []
     private var packagesUnavailable = false
+    #if DEBUG
+    private var sandboxRegistration: OfficialDocumentDevelopmentSandboxRegistration?
+    private var sandboxRegistrationUnavailable = false
+    #endif
 
     init(archive: OfficialDocumentInboxArchive,
          makeSigning: @escaping () -> OfficialDocumentSigning? = {
@@ -66,7 +74,7 @@ final class OfficialDocumentInboxViewController: UITableViewController {
             return packages.isEmpty || packagesUnavailable ? 1 : packages.count
         case .action:
             #if DEBUG
-            return 2
+            return 4
             #else
             return 1
             #endif
@@ -89,68 +97,97 @@ final class OfficialDocumentInboxViewController: UITableViewController {
 
     override func tableView(_ tableView: UITableView,
                             cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
-        cell.textLabel?.font = .preferredFont(forTextStyle: .headline)
-        cell.textLabel?.adjustsFontForContentSizeCategory = true
-        cell.textLabel?.numberOfLines = 0
-        cell.detailTextLabel?.font = .preferredFont(forTextStyle: .subheadline)
-        cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
-        cell.detailTextLabel?.textColor = .secondaryLabel
-        cell.detailTextLabel?.numberOfLines = 0
+        let cell = UITableViewCell()
+        var content = cell.defaultContentConfiguration()
+        content.textProperties.font = .preferredFont(forTextStyle: .headline)
+        content.textProperties.adjustsFontForContentSizeCategory = true
+        content.textProperties.numberOfLines = 0
+        content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
+        content.secondaryTextProperties.adjustsFontForContentSizeCategory = true
+        content.secondaryTextProperties.color = .secondaryLabel
+        content.secondaryTextProperties.numberOfLines = 0
 
         switch Section(rawValue: indexPath.section) {
         case .status:
-            configureStatus(cell)
+            configureStatus(cell, &content)
         case .documents:
-            configureDocument(cell, at: indexPath.row)
+            configureDocument(cell, &content, at: indexPath.row)
         case .action:
             if indexPath.row == 0 {
-                configureSigningAction(cell)
+                configureSigningAction(cell, &content)
+            } else if indexPath.row == 1 {
+                configurePhysicalCardAction(cell, &content)
+            } else if indexPath.row == 2 {
+                configureG2CSandboxAction(cell, &content)
             } else {
-                configureSyntheticAction(cell)
+                configureSyntheticAction(cell, &content)
             }
         case .none:
             break
         }
+        cell.contentConfiguration = content
         return cell
     }
 
-    private func configureStatus(_ cell: UITableViewCell) {
+    private func configureStatus(_ cell: UITableViewCell,
+                                 _ content: inout UIListContentConfiguration) {
         cell.accessibilityIdentifier = "officialDocuments.status"
-        cell.selectionStyle = .none
-        cell.imageView?.image = UIImage(systemName: "checkmark.seal")
-        do {
-            if let receipt = try archive.receipt() {
-                cell.textLabel?.text = NSLocalizedString("Prototype consent signed", comment: "official document inbox")
-                let formatter = DateFormatter()
-                formatter.dateStyle = .medium
-                formatter.timeStyle = .short
-                let format = NSLocalizedString("Signed on %@. This is stored only as local prototype evidence; it has not registered an official receiving address.", comment: "official document inbox")
-                cell.detailTextLabel?.text = String(format: format,
-                                                    formatter.string(from: receipt.recordedAt))
-                cell.imageView?.tintColor = .systemGreen
-            } else {
-                cell.textLabel?.text = NSLocalizedString("Official receiving is not active", comment: "official document inbox")
-                cell.detailTextLabel?.text = NSLocalizedString("You can test the 行動自然人憑證 signing hand-off now. Official receiving still requires the Archives Administration's G2C exchange service and an agency delivery policy.", comment: "official document inbox")
-                cell.imageView?.tintColor = .secondaryLabel
-            }
-        } catch {
-            cell.textLabel?.text = NSLocalizedString("The local inbox record could not be read", comment: "official document inbox")
-            cell.detailTextLabel?.text = NSLocalizedString("Anything already saved remains on this phone. Do not sign again until the storage problem is resolved.", comment: "official document inbox")
-            cell.imageView?.image = UIImage(systemName: "exclamationmark.triangle")
-            cell.imageView?.tintColor = .systemOrange
+        content.image = UIImage(systemName: "checkmark.seal")
+        if receiptUnavailable {
+            content.text = NSLocalizedString("The local inbox record could not be read", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("The saved consent evidence could not be verified. It will not be shown as signed, and the app will not overwrite it.", comment: "official document inbox")
+            content.image = UIImage(systemName: "exclamationmark.triangle")
+            content.imageProperties.tintColor = .systemOrange
+            cell.selectionStyle = .none
+        } else if let receipt {
+            content.text = NSLocalizedString("Prototype consent signed", comment: "official document inbox")
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            let format = NSLocalizedString("Signed on %@. The saved evidence was reverified; it has not registered an official receiving address.", comment: "official document inbox")
+            content.secondaryText = String(format: format,
+                                           formatter.string(from: receipt.recordedAt))
+            content.imageProperties.tintColor = .systemGreen
+            cell.accessoryType = .disclosureIndicator
+            cell.selectionStyle = .default
+        } else {
+            content.text = NSLocalizedString("Official receiving is not active", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("You can test the 行動自然人憑證 signing hand-off now. Official receiving still requires the Archives Administration's G2C exchange service and an agency delivery policy.", comment: "official document inbox")
+            content.imageProperties.tintColor = .secondaryLabel
+            cell.selectionStyle = .none
         }
     }
 
-    private func configureSigningAction(_ cell: UITableViewCell) {
+    private func configureSigningAction(_ cell: UITableViewCell,
+                                        _ content: inout UIListContentConfiguration) {
         cell.accessibilityIdentifier = "officialDocuments.signConsent"
-        cell.imageView?.image = UIImage(systemName: "signature")
-        cell.imageView?.tintColor = .tintColor
-        cell.textLabel?.textColor = .tintColor
-        cell.textLabel?.text = isSigning
+        if receiptUnavailable {
+            content.image = UIImage(systemName: "exclamationmark.triangle")
+            content.imageProperties.tintColor = .systemOrange
+            content.textProperties.color = .label
+            content.text = NSLocalizedString("Consent evidence needs attention", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("Resolve the protected-storage problem before signing again.", comment: "official document inbox")
+            cell.selectionStyle = .none
+            return
+        }
+        if receipt != nil {
+            cell.accessibilityIdentifier = "officialDocuments.reviewConsent"
+            content.image = UIImage(systemName: "doc.text.magnifyingglass")
+            content.imageProperties.tintColor = .tintColor
+            content.textProperties.color = .tintColor
+            content.text = NSLocalizedString("Review signed consent evidence", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("Inspect the signed scope and fingerprints, or remove the local evidence from this iPhone.", comment: "official document inbox")
+            cell.accessoryType = .disclosureIndicator
+            cell.selectionStyle = .default
+            return
+        }
+        content.image = UIImage(systemName: "signature")
+        content.imageProperties.tintColor = .tintColor
+        content.textProperties.color = .tintColor
+        content.text = isSigning
             ? NSLocalizedString("Waiting for 行動自然人憑證", comment: "official document inbox")
             : NSLocalizedString("Sign the prototype consent", comment: "official document inbox")
-        cell.detailTextLabel?.text = isSigning
+        content.secondaryText = isSigning
             ? NSLocalizedString("Approve the request in 行動自然人憑證, then return here.", comment: "official document inbox")
             : NSLocalizedString("This tests the app-to-app signature only. It does not activate legal electronic delivery.", comment: "official document inbox")
         cell.accessoryType = isSigning ? .none : .disclosureIndicator
@@ -162,37 +199,41 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         }
     }
 
-    private func configureDocument(_ cell: UITableViewCell, at index: Int) {
+    private func configureDocument(_ cell: UITableViewCell,
+                                   _ content: inout UIListContentConfiguration,
+                                   at index: Int) {
         if packagesUnavailable {
             cell.accessibilityIdentifier = "officialDocuments.unavailable"
-            cell.imageView?.image = UIImage(systemName: "exclamationmark.triangle")
-            cell.imageView?.tintColor = .systemOrange
-            cell.textLabel?.text = NSLocalizedString("The stored official document index could not be read", comment: "official document inbox")
-            cell.detailTextLabel?.text = NSLocalizedString("The protected source files remain on this phone. Do not import another package until the storage problem is resolved.", comment: "official document inbox")
+            content.image = UIImage(systemName: "exclamationmark.triangle")
+            content.imageProperties.tintColor = .systemOrange
+            content.text = NSLocalizedString("The stored official document index could not be read", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("The protected source files remain on this phone. Do not import another package until the storage problem is resolved.", comment: "official document inbox")
             cell.selectionStyle = .none
             return
         }
         guard packages.indices.contains(index) else {
             cell.accessibilityIdentifier = "officialDocuments.empty"
-            cell.imageView?.image = UIImage(systemName: "tray")
-            cell.textLabel?.text = NSLocalizedString("No official documents yet", comment: "official document inbox")
-            cell.detailTextLabel?.text = NSLocalizedString("This app is not connected to the government's G2C exchange service yet. No agency can deliver a legally effective document here today.", comment: "official document inbox")
+            content.image = UIImage(systemName: "tray")
+            content.text = NSLocalizedString("No official documents yet", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("This app is not connected to the government's G2C exchange service yet. No agency can deliver a legally effective document here today.", comment: "official document inbox")
             cell.selectionStyle = .none
             return
         }
 
         let package = packages[index]
         cell.accessibilityIdentifier = "officialDocuments.document.\(index)"
-        cell.imageView?.image = UIImage(systemName: package.localState == .unread
+        content.image = UIImage(systemName: package.localState == .unread
             ? "envelope.badge" : "doc.text")
-        cell.imageView?.tintColor = package.localState == .unread ? .tintColor : .secondaryLabel
-        cell.textLabel?.text = UntrustedText.value(
+        content.imageProperties.tintColor = package.localState == .unread ? .tintColor : .secondaryLabel
+        content.text = UntrustedText.value(
             package.document?.subject ?? package.envelope.subject).text
         let state = package.localState == .unread
             ? NSLocalizedString("Unread on this phone", comment: "official document inbox")
             : NSLocalizedString("Viewed on this phone", comment: "official document inbox")
-        let format = NSLocalizedString("%@ · %@ · Synthetic test data", comment: "official document inbox")
-        cell.detailTextLabel?.text = String(
+        let format = package.environment == .developmentG2CSandbox
+            ? NSLocalizedString("%@ · %@ · G2C development sandbox", comment: "official document inbox")
+            : NSLocalizedString("%@ · %@ · Synthetic test data", comment: "official document inbox")
+        content.secondaryText = String(
             format: format,
             UntrustedText.value(package.envelope.sender.organizationName).text,
             state)
@@ -200,15 +241,75 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         cell.selectionStyle = .default
     }
 
-    private func configureSyntheticAction(_ cell: UITableViewCell) {
+    private func configureSyntheticAction(_ cell: UITableViewCell,
+                                          _ content: inout UIListContentConfiguration) {
         #if DEBUG
         cell.accessibilityIdentifier = "officialDocuments.loadSynthetic"
-        cell.imageView?.image = UIImage(systemName: "shippingbox.and.arrow.backward")
-        cell.imageView?.tintColor = .systemOrange
-        cell.textLabel?.textColor = .systemOrange
-        cell.textLabel?.text = NSLocalizedString("Load a synthetic EN / DI / ESW package", comment: "official document inbox")
-        cell.detailTextLabel?.text = NSLocalizedString("Developer test only — this did not come from a government agency and creates no receipt.", comment: "official document inbox")
+        content.image = UIImage(systemName: "shippingbox.and.arrow.backward")
+        content.imageProperties.tintColor = .systemOrange
+        content.textProperties.color = .systemOrange
+        content.text = NSLocalizedString("Load a synthetic EN / DI / ESW package", comment: "official document inbox")
+        content.secondaryText = NSLocalizedString("Developer test only — this did not come from a government agency and creates no receipt.", comment: "official document inbox")
         cell.accessoryType = .disclosureIndicator
+        #endif
+    }
+
+    private func configureG2CSandboxAction(_ cell: UITableViewCell,
+                                           _ content: inout UIListContentConfiguration) {
+        #if DEBUG
+        cell.accessibilityIdentifier = "officialDocuments.g2cSandbox"
+        content.image = UIImage(systemName: "network.badge.shield.half.filled")
+        content.imageProperties.tintColor = .systemPurple
+        content.textProperties.color = .systemPurple
+        if sandboxRegistrationUnavailable {
+            content.image = UIImage(systemName: "exclamationmark.triangle")
+            content.imageProperties.tintColor = .systemOrange
+            content.textProperties.color = .label
+            content.text = NSLocalizedString("G2C sandbox record needs attention", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("The protected sandbox registration could not be read. No test document will be accepted.", comment: "official document inbox")
+            cell.selectionStyle = .none
+            return
+        }
+        if sandboxRegistration == nil {
+            content.text = NSLocalizedString("Enable G2C sandbox receiving", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("Creates a non-routable test address and receives one signed, encrypted fixture. It has no legal effect.", comment: "official document inbox")
+        } else {
+            content.text = NSLocalizedString("Receive another G2C sandbox document", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("Exercises sender verification, ESW decryption, duplicate protection and a local simulated confirmation.", comment: "official document inbox")
+        }
+        cell.accessoryType = .disclosureIndicator
+        cell.selectionStyle = .default
+        #endif
+    }
+
+    private func configurePhysicalCardAction(_ cell: UITableViewCell,
+                                             _ content: inout UIListContentConfiguration) {
+        #if DEBUG
+        cell.accessibilityIdentifier = "officialDocuments.physicalCardConsent"
+        content.image = UIImage(systemName: "creditcard.and.123")
+        content.imageProperties.tintColor = .systemOrange
+        content.textProperties.color = .systemOrange
+        if receipt != nil || receiptUnavailable {
+            content.text = NSLocalizedString("Physical-card development signing", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("Unavailable while signed consent evidence exists or needs attention.", comment: "official document inbox")
+            cell.selectionStyle = .none
+            return
+        }
+        if physicalCardResponseReady {
+            content.image = UIImage(systemName: "checkmark.shield")
+            content.imageProperties.tintColor = .systemGreen
+            content.textProperties.color = .systemGreen
+            content.text = NSLocalizedString("Verify the physical-card signature", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("The Mac returned a result. This iPhone will now check the exact consent, MOICA certificate chain and RSA signature before saving it.", comment: "official document inbox")
+        } else if physicalCardRequestPending {
+            content.text = NSLocalizedString("Waiting for the Mac physical-card helper", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("Run the paired-USB helper on the Mac, then tap here again to check for and verify its result.", comment: "official document inbox")
+        } else {
+            content.text = NSLocalizedString("Test with a physical natural-person certificate", comment: "official document inbox")
+            content.secondaryText = NSLocalizedString("Development only. Creates an identity-free one-time request for an attached Mac card reader; it does not contact the government or activate official receiving.", comment: "official document inbox")
+        }
+        cell.accessoryType = .disclosureIndicator
+        cell.selectionStyle = .default
         #endif
     }
 
@@ -223,18 +324,48 @@ final class OfficialDocumentInboxViewController: UITableViewController {
                                                      archive: archive),
                 animated: true)
         case .action where indexPath.row == 0:
-            guard !isSigning else { return }
-            beginConsentSigning()
+            guard !isSigning, !receiptUnavailable else { return }
+            if receipt != nil {
+                openConsentEvidence()
+            } else {
+                beginConsentSigning()
+            }
+        case .action where indexPath.row == 1:
+            #if DEBUG
+            guard receipt == nil, !receiptUnavailable else { return }
+            handlePhysicalCardSigning()
+            #endif
+        case .action where indexPath.row == 2:
+            #if DEBUG
+            guard !sandboxRegistrationUnavailable else { return }
+            handleG2CSandboxReceiving()
+            #endif
         case .action:
             #if DEBUG
             loadSyntheticPackage()
             #endif
-        case .status, .none:
+        case .status:
+            if receipt != nil, !receiptUnavailable { openConsentEvidence() }
+        case .none:
             break
         }
     }
 
     private func reloadPackages() {
+        do {
+            receipt = try archive.receipt()
+            receiptUnavailable = false
+        } catch {
+            receipt = nil
+            receiptUnavailable = true
+        }
+        do {
+            physicalCardRequestPending = try archive.physicalCardSigningRequest() != nil
+            physicalCardResponseReady = archive.hasPhysicalCardSigningResponse
+        } catch {
+            physicalCardRequestPending = false
+            physicalCardResponseReady = false
+        }
         do {
             packages = try archive.packages()
             packagesUnavailable = false
@@ -242,10 +373,128 @@ final class OfficialDocumentInboxViewController: UITableViewController {
             packages = []
             packagesUnavailable = true
         }
+        #if DEBUG
+        do {
+            sandboxRegistration = try archive.sandboxRegistration()
+            sandboxRegistrationUnavailable = false
+        } catch {
+            sandboxRegistration = nil
+            sandboxRegistrationUnavailable = true
+        }
+        #endif
         if isViewLoaded { tableView.reloadData() }
     }
 
+    private func openConsentEvidence() {
+        guard let receipt else { return }
+        navigationController?.pushViewController(
+            OfficialDocumentConsentEvidenceViewController(
+                receipt: receipt,
+                archive: archive,
+                onRemoved: { [weak self] in self?.reloadPackages() }),
+            animated: true)
+    }
+
     #if DEBUG
+    private func handlePhysicalCardSigning() {
+        if physicalCardResponseReady {
+            do {
+                _ = try archive.importPhysicalCardSigningResponse()
+                reloadPackages()
+                presentMessage(
+                    title: NSLocalizedString("Physical-card consent verified", comment: "official document inbox"),
+                    message: NSLocalizedString("The physical-card certificate chain and signature over this exact local-prototype consent were verified and stored on this iPhone. This is still not an official receiving address or legal delivery.", comment: "official document inbox"))
+            } catch {
+                presentMessage(
+                    title: NSLocalizedString("The physical-card result was not saved", comment: "official document inbox"),
+                    message: error.localizedDescription)
+            }
+            return
+        }
+
+        if physicalCardRequestPending {
+            reloadPackages()
+            if physicalCardResponseReady {
+                handlePhysicalCardSigning()
+            } else {
+                presentPhysicalCardInstructions()
+            }
+            return
+        }
+
+        let alert = UIAlertController(
+            title: NSLocalizedString("Use a physical natural-person certificate?", comment: "official document inbox"),
+            message: NSLocalizedString("This development path creates a one-time request containing only the consent version, local-prototype scope, timestamp and random nonce. The paired Mac asks for the card PIN in a hidden terminal prompt; the PIN is not stored or sent to this app. It does not contact the Ministry of the Interior or create an official inbox.", comment: "official document inbox"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Create one-time request", comment: "official document inbox"),
+            style: .default) { [weak self] _ in
+                guard let self else { return }
+                do {
+                    _ = try self.archive.preparePhysicalCardSigningRequest()
+                    self.reloadPackages()
+                    self.presentPhysicalCardInstructions()
+                } catch {
+                    self.presentMessage(
+                        title: NSLocalizedString("The physical-card request was not created", comment: "official document inbox"),
+                        message: error.localizedDescription)
+                }
+            })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func presentPhysicalCardInstructions() {
+        presentMessage(
+            title: NSLocalizedString("Physical-card request ready", comment: "official document inbox"),
+            message: NSLocalizedString("Keep this iPhone unlocked and connected to the Mac. In the backupTW-iOS repository, run ./scripts/physical-card-consent.sh --device mashbean14 within 15 minutes. Insert the card and enter its PIN only at the hidden terminal prompt. When the helper finishes, return here and tap the physical-card row again.", comment: "official document inbox"))
+    }
+
+    private func handleG2CSandboxReceiving() {
+        if let registration = sandboxRegistration {
+            receiveG2CSandboxDocument(registration: registration)
+            return
+        }
+        let alert = UIAlertController(
+            title: NSLocalizedString("Enable G2C development sandbox receiving?", comment: "official document inbox"),
+            message: NSLocalizedString("This creates a non-routable address beginning with G2C-SANDBOX-NOT-ROUTABLE and receives one repository-owned test document. The sender key, recipient key and confirmation all stay in this development build. No government service is contacted, and no legal delivery is created.", comment: "official document inbox"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Enable and receive test document", comment: "official document inbox"),
+            style: .default) { [weak self] _ in
+                guard let self else { return }
+                do {
+                    let registration = try self.archive.enableDevelopmentSandboxReceiving()
+                    self.sandboxRegistration = registration
+                    self.receiveG2CSandboxDocument(registration: registration)
+                } catch {
+                    self.presentMessage(
+                        title: NSLocalizedString("G2C sandbox receiving was not enabled", comment: "official document inbox"),
+                        message: error.localizedDescription)
+                }
+            })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func receiveG2CSandboxDocument(
+        registration: OfficialDocumentDevelopmentSandboxRegistration) {
+        do {
+            let payload = try OfficialDocumentG2CSandboxFixture.make(
+                registration: registration)
+            let package = try archive.importDevelopmentSandbox(payload)
+            reloadPackages()
+            navigationController?.pushViewController(
+                OfficialDocumentDetailViewController(packageID: package.id,
+                                                     archive: archive),
+                animated: true)
+        } catch {
+            presentMessage(
+                title: NSLocalizedString("The G2C sandbox document was refused", comment: "official document inbox"),
+                message: error.localizedDescription)
+        }
+    }
+
     private func loadSyntheticPackage() {
         do {
             let package = try archive.importSynthetic(OfficialDocumentSyntheticFixture.make())
@@ -262,6 +511,7 @@ final class OfficialDocumentInboxViewController: UITableViewController {
     #endif
 
     private func beginConsentSigning() {
+        guard receipt == nil, !receiptUnavailable else { return }
         guard OfficialDocumentSigningAssembly.isAvailable,
               let signing = makeSigning() else {
             presentMessage(
@@ -343,6 +593,7 @@ final class OfficialDocumentInboxViewController: UITableViewController {
         tableView.reloadData()
         switch result {
         case .success:
+            reloadPackages()
             presentMessage(
                 title: NSLocalizedString("Prototype consent signed", comment: "official document inbox"),
                 message: NSLocalizedString("The verified signature is stored on this phone. Official receiving is still inactive until a government G2C service accepts this app and issues a receiving address.", comment: "official document inbox"))

@@ -35,6 +35,15 @@ final class WalletCardCell: UICollectionViewCell {
 
     func configure(_ content: WalletCardContent) {
         cardView.configure(content)
+        // One accessibility element per card (design system §9.1). The card
+        // face's labels — masked numbers, guilloché captions — were UIKit's
+        // default soup: the wallet's core object was effectively unusable with
+        // VoiceOver. The cell speaks the card's identity once; flip, detail,
+        // present and delete ride on `accessibilityCustomActions`, wired by the
+        // home screen which owns those routes.
+        isAccessibilityElement = true
+        accessibilityTraits = .button
+        accessibilityLabel = content.accessibilitySummary
         aspectConstraint?.isActive = false
         // height = width / ratio, driven off the card's own aspect ratio.
         let constraint = cardView.heightAnchor.constraint(
@@ -107,9 +116,9 @@ final class WalletCardCell: UICollectionViewCell {
     }
 
     private func setPressed(_ pressed: Bool) {
-        UIView.animate(withDuration: pressed ? 0.18 : 0.34,
+        UIView.animate(withDuration: pressed ? Bonds.Motion.quick : Bonds.Motion.quick * 2,
                        delay: 0,
-                       usingSpringWithDamping: 0.7,
+                       usingSpringWithDamping: Bonds.Motion.springDamping,
                        initialSpringVelocity: 0,
                        options: [.allowUserInteraction, .beginFromCurrentState]) {
             self.cardView.transform = pressed ? CGAffineTransform(scaleX: 0.972, y: 0.972) : .identity
@@ -125,5 +134,6 @@ final class WalletCardCell: UICollectionViewCell {
         cardView.setFlipped(false, animated: false)
         cardView.resetTilt()
         cardView.onDetailTapped = nil
+        accessibilityCustomActions = nil
     }
 }

@@ -40,4 +40,46 @@ final class MyDataVaultUITests: XCTestCase {
             .firstMatch.exists,
                        "the MyData original was routed into the national-ID detail")
     }
+
+    func testThreeMyDataDocumentsExpandBeforeOpeningOne() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
+        app.launchEnvironment["BONDSTW_UI_TEST_SEED_VAULT"] = "1"
+        app.launchEnvironment["BONDSTW_UI_TEST_SEED_VAULT_COUNT"] = "3"
+        app.launch()
+
+        let income = app.staticTexts.matching(
+            NSPredicate(format: "label IN {'財力／所得證明', 'Income / financial proof'}"))
+            .firstMatch
+        XCTAssertTrue(income.waitForExistence(timeout: 15))
+        for _ in 0..<4 where !income.isHittable { app.swipeUp() }
+        XCTAssertTrue(income.isHittable, "the collapsed MyData stack never became tappable")
+        keepScreenshot(of: app, name: "MyData stack collapsed")
+
+        income.tap()
+        let health = app.staticTexts.matching(
+            NSPredicate(format: "label IN {'健保投保資料', 'Health insurance record'}"))
+            .firstMatch
+        XCTAssertTrue(health.waitForExistence(timeout: 5),
+                      "expanding the MyData stack did not reveal every stored document")
+        for _ in 0..<2 where !health.isHittable { app.swipeUp() }
+        XCTAssertTrue(health.isHittable)
+        keepScreenshot(of: app, name: "MyData stack expanded")
+
+        for _ in 0..<2 where !income.isHittable { app.swipeDown() }
+        XCTAssertTrue(income.isHittable)
+        income.tap()
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "label IN {'檔案指紋', 'File fingerprint'}"))
+            .firstMatch.waitForExistence(timeout: 10),
+                      "an expanded MyData card did not open its vault detail")
+    }
+
+    private func keepScreenshot(of app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 }

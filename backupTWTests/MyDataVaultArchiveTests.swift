@@ -43,6 +43,18 @@ struct MyDataVaultArchiveTests {
         #expect(try Data(contentsOf: stored) == bytes)
     }
 
+    @Test func storesNormalizedPDFBytesWithAGenericDisplayName() throws {
+        let archive = try MyDataVaultArchive(directory: tempDirectory())
+        let bytes = Data("%PDF normalized".utf8)
+        let entry = try archive.store(data: bytes, id: "mydata-file-example",
+                                      fileExtension: "pdf", displayName: "MyData 文件")
+
+        #expect(entry.fileExtension == "pdf")
+        #expect(entry.displayName == "MyData 文件")
+        #expect(entry.sha256 == hex(of: bytes))
+        #expect(try Data(contentsOf: #require(archive.originalURL(id: "mydata-file-example"))) == bytes)
+    }
+
     @Test func listsStoredOriginalsWithoutNeedingCredentialStoreRows() throws {
         let archive = try MyDataVaultArchive(directory: tempDirectory())
         try archive.store(originalAt: try writeSource(Data("income".utf8)),

@@ -186,7 +186,8 @@ enum WalletCardFactory {
         // passed both trust gates and its issuer is already vouched for — the
         // directory only puts a readable name to it. See `IssuerDirectory`.
         let descriptor = IssuerDirectory.describe(credentialType: credential.credentialType,
-                                                  issuerDID: credential.issuerDID)
+                                                  issuerDID: credential.issuerDID,
+                                                  knownIssuerName: IssuerNameBook.name(for: credential.issuerDID))
 
         return CredentialCard(
             kind: descriptor.cardKind,
@@ -271,7 +272,8 @@ enum WalletCardFactory {
     /// signature or disclosure semantics, so a credential face would promise
     /// properties it does not have and would also expose a meaningless flip side.
     static func vaultDocumentContent(_ document: MyDataVaultArchive.Document) -> WalletCardContent {
-        let title = MyDataDocumentRegistry.lookup(id: document.id)?.title
+        let title = document.entry?.displayName
+            ?? MyDataDocumentRegistry.lookup(id: document.id)?.title
             ?? UntrustedText.term(document.id).text
         let format = document.entry.flatMap { entry in
             entry.fileExtension.isEmpty

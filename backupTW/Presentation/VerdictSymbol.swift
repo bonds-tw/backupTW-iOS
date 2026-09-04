@@ -25,14 +25,20 @@ enum VerdictSymbol {
 
     static let passing = "checkmark.circle.fill"
     static let warning = "exclamationmark.triangle.fill"
+    /// The verdict-card forms (design system §9.2): seals for the pass/fail
+    /// judgement a checker reads at a counter, the triangle shared with the
+    /// self-check warnings.
+    static let sealPassing = "checkmark.seal.fill"
+    static let sealRefused = "xmark.seal.fill"
 
     /// What VoiceOver should say. Not the symbol's own name, which is English
     /// API vocabulary, and not "green tick", which describes the drawing rather
     /// than the finding.
     static func spokenLabel(for systemName: String) -> String {
         switch systemName {
-        case passing: return NSLocalizedString("Passed", comment: "Spoken form of the self-check tick")
+        case passing, sealPassing: return NSLocalizedString("Passed", comment: "Spoken form of the self-check tick")
         case warning: return NSLocalizedString("Needs attention", comment: "Spoken form of the self-check warning")
+        case sealRefused: return NSLocalizedString("Refused", comment: "Spoken form of the verdict refusal")
         default:
             // A glyph this table does not know must not be silent. Returning the
             // raw name is poor speech and is still strictly better than a stop

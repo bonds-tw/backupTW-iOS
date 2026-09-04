@@ -88,9 +88,11 @@ struct HomeViewControllerTests {
                           id: "mydata-income", fileExtension: "pdf")
         let (controller, navigation, _) = mountedHome(store: store, archive: archive)
 
-        // National ID / government / MyData. The first MyData item is the stored
-        // original; the second is the import-another control.
-        #expect(controller.collectionView.numberOfItems(inSection: 2) == 2)
+        // National ID / government / MyData / its quieter import continuation.
+        // Keeping the action outside the document section is what lets the cards
+        // overlap without pulling a list row into the stack geometry.
+        #expect(controller.collectionView.numberOfItems(inSection: 2) == 1)
+        #expect(controller.collectionView.numberOfItems(inSection: 3) == 1)
         controller.collectionView(controller.collectionView,
                                   didSelectItemAt: IndexPath(item: 0, section: 2))
         #expect(navigation.topViewController is MyDataVaultDocumentViewController)
@@ -116,10 +118,10 @@ struct HomeViewControllerTests {
         let (controller, navigation, _) = mountedHome(
             store: store, archive: archive, officialDocuments: inbox)
 
-        #expect(controller.collectionView.numberOfSections == 4)
-        #expect(controller.collectionView.numberOfItems(inSection: 3) == 1)
+        #expect(controller.collectionView.numberOfSections == 5)
+        #expect(controller.collectionView.numberOfItems(inSection: 4) == 1)
         controller.collectionView(controller.collectionView,
-                                  didSelectItemAt: IndexPath(item: 0, section: 3))
+                                  didSelectItemAt: IndexPath(item: 0, section: 4))
         #expect(navigation.topViewController is OfficialDocumentInboxViewController)
     }
 

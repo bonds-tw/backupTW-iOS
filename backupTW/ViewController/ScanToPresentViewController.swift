@@ -41,22 +41,32 @@ enum ScanToPresent {
                 return .keepScanning(status: nil)
             }
             latch.fired = true
-            let requestStarted = VerificationClock.now()
-            Task { @MainActor in
-                switch await OID4VPPresentation.request(from: scanned) {
-                case .ready(let request):
-                    let elapsed = VerificationClock.milliseconds(
-                        from: requestStarted, to: VerificationClock.now())
-                    push(request: request,
-                         requestFetchMilliseconds: elapsed,
-                         on: navigationController)
-                case .failed(let message):
-                    present(outcome: message, on: navigationController)
-                }
-            }
+            continueOnline(scanned: scanned, on: navigationController)
             return .stop
         }
         navigationController?.pushViewController(scanner, animated: true)
+    }
+
+    /// The online half of the unified 「出示」 entrance: takes a string that has
+    /// already parsed as an `OID4VPAuthorizeLink`, fetches the request, and
+    /// lands the holder on the disclosure screen. `PresentCredentialViewController`
+    /// routes here when its scanner meets an online QR, so the holder no longer
+    /// has to know 「online」 from 「offline」 before choosing an entrance.
+    @MainActor
+    static func continueOnline(scanned: String, on navigationController: UINavigationController?) {
+        let requestStarted = VerificationClock.now()
+        Task { @MainActor in
+            switch await OID4VPPresentation.request(from: scanned) {
+            case .ready(let request):
+                let elapsed = VerificationClock.milliseconds(
+                    from: requestStarted, to: VerificationClock.now())
+                push(request: request,
+                     requestFetchMilliseconds: elapsed,
+                     on: navigationController)
+            case .failed(let message):
+                present(outcome: message, on: navigationController)
+            }
+        }
     }
 
     /// Replaces the (stopped) scanner with the disclosure screen, so Back from

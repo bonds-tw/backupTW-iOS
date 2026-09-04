@@ -398,7 +398,13 @@ struct VerifiedResultScreenTests {
         let presentation = Self.forged(fieldCount: 40)
         let drawn = Self.drawnText(presentation)
 
-        let verdict = try #require(drawn.firstIndex { $0.hasPrefix("✅") },
+        // The verdict card no longer spells its emoji into the label text — it
+        // is an SF Symbol beside the sentence (design system §9.2) — so the
+        // verdict is located by its sentence, which is stable and localised
+        // through the same key the screen uses.
+        let verdictText = NSLocalizedString(
+            "They signed this check with the key in their phone", comment: "")
+        let verdict = try #require(drawn.firstIndex { $0.contains(verdictText) },
                                    "the verdict is not on the screen")
         let firstCaveat = try #require(drawn.firstIndex { $0.contains(presentation.caveats[0].message) },
                                        "no caveat is on the screen")

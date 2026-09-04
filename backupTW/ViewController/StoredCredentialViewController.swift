@@ -194,6 +194,25 @@ final class StoredCredentialViewController: UICollectionViewController {
             ]))
         }
 
+        // The document's own management, on the document's own screen (design
+        // system §10.4). Refreshing used to live in Settings — an entry that
+        // *moved there* the moment the card existed — and deleting existed only
+        // inside the home screen's long-press menu, invisible to anyone who
+        // never long-presses. The stable rule: what you can do to a card, you
+        // can do from the card.
+        groups.append(Group(id: "manage", title: NSLocalizedString("Manage", comment: "detail manage group"), rows: [
+            Row(id: "manage.update",
+                title: NSLocalizedString("Update my ID backup", comment: "settings, self-issued national ID"),
+                value: NSLocalizedString("Fetch it again from Taiwan's MyData service and replace what's stored.", comment: ""),
+                isSensitive: false, isAction: true),
+            Row(id: "manage.delete",
+                title: NSLocalizedString("Delete card", comment: "card context menu, destructive"),
+                value: NSLocalizedString(
+                    "This card will be removed from this phone. You can build your national ID again later through Taiwan's MyData service.",
+                    comment: "delete confirmation, self-issued national ID"),
+                isSensitive: false, isAction: true),
+        ]))
+
         return groups
     }
 
@@ -207,8 +226,9 @@ final class StoredCredentialViewController: UICollectionViewController {
             content.textProperties.numberOfLines = 0
             content.secondaryTextProperties.numberOfLines = 0
             if row.isAction {
-                content.textProperties.color = .tintColor
+                content.textProperties.color = row.id == "manage.delete" ? .systemRed : .tintColor
                 content.textProperties.font = .preferredFont(forTextStyle: .headline)
+                content.secondaryTextProperties.color = .secondaryLabel
             } else if row.isSensitive {
                 // Monospaced so an ID number can be read off a digit at a time
                 // and compared against a card without miscounting.
@@ -253,7 +273,51 @@ final class StoredCredentialViewController: UICollectionViewController {
                                  didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let row = dataSource.itemIdentifier(for: indexPath), row.isAction else { return }
-        isRevealed = row.id == "reveal.action"
-        reload()
+        switch row.id {
+        case "reveal.action", "hide.action":
+            isRevealed = row.id == "reveal.action"
+            reload()
+        case "manage.update":
+            let onboard = MyDataOnboardViewController()
+            let nav = UINavigationController(rootViewController: onboard)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        case "manage.delete":
+            confirmDelete()
+        default:
+            break
+        }
+    }
+
+    /// The identical confirmation the home screen's long-press menu shows —
+    /// same words, same destructive shape — so the two doors to one action
+    /// cannot drift apart.
+    private func confirmDelete() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("Delete this card?", comment: "delete confirmation title"),
+            message: NSLocalizedString(
+                "This card will be removed from this phone. You can build your national ID again later through Taiwan's MyData service.",
+                comment: "delete confirmation, self-issued national ID"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Delete", comment: "delete confirmation, confirm"),
+            style: .destructive) { [weak self] _ in
+                guard let self else { return }
+                do {
+                    try CredentialStore().delete(id: StoredNationalID.credentialID)
+                    self.navigationController?.popViewController(animated: true)
+                } catch {
+                    let failure = UIAlertController(
+                        title: NSLocalizedString("The card was not deleted", comment: "delete failure"),
+                        message: error.localizedDescription,
+                        preferredStyle: .alert)
+                    failure.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+                    self.present(failure, animated: true)
+                }
+            })
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Cancel", comment: "delete confirmation, cancel"),
+            style: .cancel))
+        present(alert, animated: true)
     }
 }

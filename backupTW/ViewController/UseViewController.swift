@@ -37,8 +37,11 @@ class UseViewController: UICollectionViewController {
         static let collect = NSLocalizedString("Add a card by scanning", comment: "")
         static let applyTelecom = NSLocalizedString("Apply for a phone-number card", comment: "")
         static let pickupBarcode = NSLocalizedString("Create a convenience-store pickup barcode", comment: "")
-        static let presentOnline = NSLocalizedString("Present a card to a verifier", comment: "")
-        static let compare = NSLocalizedString("What each of these cards is worth", comment: "")
+        // 「出示」 is one verb with one entrance. The online row (「Present a
+        // card to a verifier」) and the offline row used to sit side by side,
+        // told apart only by their subtitles — at a checkpoint, with seconds to
+        // choose, that is a coin flip. The single `present` row now scans first
+        // and routes by what the QR actually is (design system §10.2).
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
         static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
@@ -66,106 +69,78 @@ class UseViewController: UICollectionViewController {
         let store = try? CredentialStore()
         let rows = store.map { CardInventory.rows(from: $0) }
 
-        // `presentOnline` and `compare` appear only once at least one card exists
-        // — the gating the home screen already applied (`!rows.isEmpty`): there is
-        // nothing to present online, and nothing for the comparison to be about,
-        // on a phone that holds no card. `collect` is unconditional, because a
-        // fresh install scanning a government offer first is a real path.
-        let hasAnyCard = !(rows ?? []).isEmpty
         let hasTelecomCard = store.map(Self.hasTelecomCredential(in:)) ?? false
 
-        return [onlineSection(hasAnyCard: hasAnyCard, hasTelecomCard: hasTelecomCard),
-                offlineSection(hasDocument: rows?.contains { $0.source == .selfIssued } ?? false,
-                               storeIsReadable: rows != nil),
-                experimentalSection()]
+        return [onlineSection(hasTelecomCard: hasTelecomCard),
+                presentAndVerifySection(hasAnyCard: !(rows ?? []).isEmpty,
+                                        storeIsReadable: rows != nil),
+                zeroKnowledgeSection()]
     }
 
-    /// 「實驗中」 — the verification tracks still being built, gathered here in 使用
-    /// rather than hidden in Settings. Creating and checking are two distinct
-    /// actions and appear together with different icons.
-    private func experimentalSection() -> Section {
-        Section(title: "🧪 " + NSLocalizedString("Experimental", comment: "use section"), items: [
-            Item(image: UIImage(systemName: "person.text.rectangle.fill")?
-                    .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
+    /// The zero-knowledge actions gathered under their actual capability name.
+    /// Creating and checking are distinct actions and appear together with
+    /// different icons.
+    private func zeroKnowledgeSection() -> Section {
+        Section(title: NSLocalizedString("Zero-knowledge proofs", comment: "use section"), items: [
+            Item(image: UIImage(systemName: "person.text.rectangle.fill"),
                  title: Row.createAgeProof,
                  secondaryText: NSLocalizedString(
                     "Prove an age threshold from a government card or self-asserted MyData without revealing the birth date.",
                     comment: "age proof")),
-            Item(image: UIImage(systemName: "checkmark.seal.text.page.fill")?
-                    .withTintColor(.systemGreen, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "checkmark.seal.text.page.fill"),
                  title: Row.verifyAgeProof,
                  secondaryText: NSLocalizedString(
                     "Show one request QR; receive and verify the private proof directly over Bluetooth.",
                     comment: "age proof")),
-            Item(image: UIImage(systemName: "lock.shield.fill")?
-                    .withTintColor(.systemPurple, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "lock.shield.fill"),
                  title: Row.createProof,
                  secondaryText: CredentialIssuanceAssembly.isAvailable
                     ? NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.", comment: "")
                     : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: "")),
-            Item(image: UIImage(systemName: "checkmark.shield.fill")?
-                    .withTintColor(.systemOrange, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "checkmark.shield.fill"),
                  title: Row.verifyProof,
                  secondaryText: Self.proofRowSubtitle())
         ])
     }
 
-    /// The online verbs: collecting an official card, presenting one to a
-    /// verifier, and comparing what the wallet's cards can prove.
+    /// The online verbs: getting cards, and the pickup barcode they enable.
     ///
-    /// `collect` is unconditional; `presentOnline` and `compare` are gated on
-    /// there being at least one card, which is the gating the single-list home
-    /// screen already had — not a new rule, the same one relocated.
-    private func onlineSection(hasAnyCard: Bool, hasTelecomCard: Bool) -> Section {
-        let title = "🌐 " + NSLocalizedString("Online", comment: "use section")
+    /// `collect` and `applyTelecom` are unconditional — both are ways to *get* a
+    /// first card, so gating them on already holding one would hide them from
+    /// exactly the fresh install they are for. `pickupBarcode` is always listed
+    /// but disabled with its reason until a telecom card exists — a row that
+    /// appears and disappears with state teaches the reader that buttons are
+    /// unreliable (design system §8.3).
+    private func onlineSection(hasTelecomCard: Bool) -> Section {
+        let title = NSLocalizedString("Online", comment: "use section")
 
         // Collecting an official card by scanning its QR — independent of MyData,
         // so a fresh install collecting a government card first is a real path.
-        let collect = Item(image: UIImage(systemName: "qrcode.viewfinder")?
-                            .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+        let collect = Item(image: UIImage(systemName: "qrcode.viewfinder"),
                            title: Row.collect,
                            secondaryText: NSLocalizedString(
                             "Point the camera at a QR from 數位憑證皮夾 to add its card.", comment: ""))
 
-        // Applying for a telecom 門號電子卡. Unconditional like `collect` — it is a
-        // way to *get* a first card, so gating it on already holding one would hide
-        // it from exactly the fresh install it is for. The subtitle is one plain
-        // line: the carrier's app does the checking and the card returns here on
-        // its own. The Wi-Fi-off step and the remove-the-official-app requirement
-        // are real but belong to the carrier's own prompts and to one-time setup,
-        // not to a row that has to read at a glance.
-        let applyTelecom = Item(image: UIImage(systemName: "antenna.radiowaves.left.and.right")?
-                                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
+        // The subtitle is one plain line: the carrier's app does the checking and
+        // the card returns here on its own. The Wi-Fi-off step and the
+        // remove-the-official-app requirement are real but belong to the
+        // carrier's own prompts and to one-time setup, not to a row that has to
+        // read at a glance.
+        let applyTelecom = Item(image: UIImage(systemName: "antenna.radiowaves.left.and.right"),
                                 title: Row.applyTelecom,
                                 secondaryText: NSLocalizedString(
                                     "Verify your number in your carrier's app; the card returns here.", comment: ""))
 
-        guard hasAnyCard else {
-            return Section(title: title, items: [collect, applyTelecom])
-        }
-
-        // Presenting an official card online — scan the verifier's request, then
-        // choose which of the asked-for fields to actually reveal. Shown only once
-        // there is a card to present.
-        let presentOnline = Item(image: UIImage(systemName: "person.badge.shield.checkmark")?
-                                    .withTintColor(.systemBlue, renderingMode: .alwaysOriginal),
-                                 title: Row.presentOnline,
-                                 secondaryText: NSLocalizedString(
-                                    "Scan a verifier's QR and choose exactly what to show.", comment: ""))
-
-        let pickupBarcode = Item(image: UIImage(systemName: "shippingbox.and.arrow.backward")?
-                                    .withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
+        let pickupBarcode = Item(image: UIImage(systemName: "shippingbox.and.arrow.backward"),
                                  title: Row.pickupBarcode,
-                                 secondaryText: NSLocalizedString(
-                                    "Use your phone-number card to create a short-lived 7-ELEVEN pickup barcode.", comment: ""))
+                                 secondaryText: hasTelecomCard
+                                    ? NSLocalizedString(
+                                        "Use your phone-number card to create a short-lived 7-ELEVEN pickup barcode.", comment: "")
+                                    : NSLocalizedString(
+                                        "Needs a phone-number card. Apply for one above, and this becomes available.", comment: "pickup row, disabled reason"),
+                                 isEnabled: hasTelecomCard)
 
-        // 「每張卡值多少」 (the card-capability comparison) is not a verb, and it
-        // duplicates Settings › 支援與關於 › 「這個 App 能證明什麼」, which opens the
-        // same screen — so it no longer sits among the 使用 actions.
-        let heldCardActions = hasTelecomCard
-            ? [pickupBarcode, presentOnline]
-            : [presentOnline]
-        return Section(title: title, items: [collect, applyTelecom] + heldCardActions)
+        return Section(title: title, items: [collect, applyTelecom, pickupBarcode])
     }
 
     private static func hasTelecomCredential(in store: CredentialStore) -> Bool {
@@ -180,33 +155,32 @@ class UseViewController: UICollectionViewController {
         return false
     }
 
-    /// The offline half of the wallet: showing your own document to a checker,
-    /// and the two checker's tasks — verifying someone's document and verifying a
-    /// zero-knowledge proof — that need no network.
+    /// The face-to-face half of the wallet: showing your own document, and
+    /// checking someone else's.
     ///
     /// Both roles live together, as they did on the home screen: the whitepaper's
     /// §5.3 scenarios are a 里長, a volunteer, a border desk, and the two roles
-    /// swap between the same two phones within a minute of each other.
+    /// swap between the same two phones within a minute of each other. The
+    /// `present` row is the single 「出示」 entrance — it scans first and routes
+    /// online (OID4VP) and offline requests by the QR itself.
     /// - Parameters:
-    ///   - hasDocument: whether this phone holds a self-issued document to show.
+    ///   - hasAnyCard: whether this phone holds anything at all to show.
     ///   - storeIsReadable: `false` when the store would not open, a different
     ///     state from holding nothing — and the `present` row must not tell the
     ///     reader they hold nothing when the truth is the phone could not be read.
-    private func offlineSection(hasDocument: Bool, storeIsReadable: Bool = true) -> Section {
-        Section(title: "📶 " + NSLocalizedString("Offline check", comment: ""), items: [
-            Item(image: UIImage(systemName: "qrcode")?
-                    .withTintColor(.systemIndigo, renderingMode: .alwaysOriginal),
+    private func presentAndVerifySection(hasAnyCard: Bool, storeIsReadable: Bool = true) -> Section {
+        Section(title: NSLocalizedString("Present and check", comment: "use section"), items: [
+            Item(image: UIImage(systemName: "qrcode"),
                  title: Row.present,
                  // Neutral when the store would not open: 「there is nothing to
                  // show yet」 is a false statement about the reader's own phone in
                  // that state.
                  secondaryText: !storeIsReadable
                     ? NSLocalizedString("This phone's cards cannot be read right now.", comment: "")
-                    : hasDocument
-                    ? NSLocalizedString("Answer a checker's code. Neither phone needs a network.", comment: "")
+                    : hasAnyCard
+                    ? NSLocalizedString("Scan the checker's QR — face to face or online. You choose what to reveal.", comment: "unified present row")
                     : NSLocalizedString("Add your ID first, then you can show it to a checker.", comment: "")),
-            Item(image: UIImage(systemName: "checkmark.shield")?
-                    .withTintColor(.systemTeal, renderingMode: .alwaysOriginal),
+            Item(image: UIImage(systemName: "checkmark.shield"),
                  title: Row.verify,
                  secondaryText: NSLocalizedString("Scan someone's document to check it is genuine — no network needed.", comment: ""))
         ])
@@ -285,6 +259,10 @@ class UseViewController: UICollectionViewController {
     @objc private func presentSettings() {
         let settings = SettingsViewController()
         let nav = UINavigationController(rootViewController: settings)
+        // `.fullScreen`, matching the home tab's presentation — the same screen
+        // reached from two places must open and close the same way (design
+        // system §10.1).
+        nav.modalPresentationStyle = .fullScreen
         settings.navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: NSLocalizedString("Done", comment: ""), style: .done,
             target: self, action: #selector(dismissPresentedSettings))
@@ -401,10 +379,15 @@ class UseViewController: UICollectionViewController {
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, indexPath, item in
             var content = cell.defaultContentConfiguration()
             content.image = item.image
+            // Template icons take the single app accent (design system §2); a
+            // disabled row renders entirely in the secondary colour so its state
+            // is visible before it is tapped.
+            content.imageProperties.tintColor = item.isEnabled ? .tintColor : .secondaryLabel
             // Plain text with `textProperties` — an attributed font is frozen at
             // configure time and ignores mid-session Dynamic Type changes.
             content.text = item.title
             content.textProperties.font = .preferredFont(forTextStyle: .headline)
+            content.textProperties.color = item.isEnabled ? .label : .secondaryLabel
             content.secondaryText = item.secondaryText
             content.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
             content.secondaryTextProperties.color = .secondaryLabel
@@ -460,6 +443,8 @@ extension UseViewController {
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        // A disabled row already says why it is disabled on the row itself.
+        guard item.isEnabled else { return }
 
         // The identical dispatch the home screen used before these rows moved, so
         // every action still reaches the same destination and does the same thing.
@@ -474,8 +459,6 @@ extension UseViewController {
             applyTelecomCard(anchorCell: collectionView.cellForItem(at: indexPath))
         case Row.pickupBarcode:
             startSevenElevenPickup()
-        case Row.presentOnline:
-            ScanToPresent.begin(on: navigationController)
         case Row.present:
             navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
         case Row.verify:

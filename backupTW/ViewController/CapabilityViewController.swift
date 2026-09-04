@@ -151,7 +151,7 @@ final class CapabilityViewController: UIViewController {
         stack.isLayoutMarginsRelativeArrangement = true
         stack.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         stack.backgroundColor = .secondarySystemGroupedBackground
-        stack.layer.cornerRadius = 14
+        Bonds.round(stack.layer, Bonds.Radius.container)
         stack.accessibilityIdentifier = "cardCapability.\(card.id)"
 
         let name = UILabel()
@@ -202,7 +202,7 @@ final class CapabilityViewController: UIViewController {
         stack.isLayoutMarginsRelativeArrangement = true
         stack.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         stack.backgroundColor = .secondarySystemGroupedBackground
-        stack.layer.cornerRadius = 14
+        Bonds.round(stack.layer, Bonds.Radius.container)
         stack.accessibilityIdentifier = "capability.\(scenario.id)"
 
         // The request, in the asking party's words, first — this is a page about
@@ -320,7 +320,7 @@ final class CapabilityViewController: UIViewController {
         button.addAction(UIAction { [weak body, weak button] _ in
             guard let body, let button else { return }
             let willShow = body.isHidden
-            UIView.animate(withDuration: 0.22) {
+            UIView.animate(withDuration: Bonds.Motion.standard) {
                 body.isHidden = !willShow
                 button.configuration?.image = UIImage(
                     systemName: willShow ? "chevron.up" : "chevron.down")

@@ -77,6 +77,59 @@ final class backupTWUITests: XCTestCase {
     }
 
     @MainActor
+    func testG2CSandboxCompletesEncryptedReceiveAndLocalConfirmation() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] = "1"
+        app.launchEnvironment["BONDSTW_UI_TEST_RESET_OFFICIAL_DOCUMENTS"] = "1"
+        app.launch()
+
+        let inbox = app.descendants(matching: .any)["control.official-documents"]
+        for _ in 0..<4 where !inbox.exists { app.swipeUp() }
+        XCTAssertTrue(inbox.waitForExistence(timeout: 10))
+        inbox.tap()
+
+        let sandbox = app.descendants(matching: .any)["officialDocuments.g2cSandbox"]
+        for _ in 0..<4 where !sandbox.exists { app.swipeUp() }
+        XCTAssertTrue(sandbox.waitForExistence(timeout: 10),
+                      "the explicit G2C development sandbox action was not visible")
+        sandbox.tap()
+
+        let enableAlert = app.alerts.firstMatch
+        XCTAssertTrue(enableAlert.waitForExistence(timeout: 5))
+        let enable = enableAlert.buttons.matching(NSPredicate(
+            format: "label CONTAINS[c] 'Enable' OR label CONTAINS '啟用'")).firstMatch
+        XCTAssertTrue(enable.exists)
+        enable.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["officialDocuments.detail.boundary"]
+            .waitForExistence(timeout: 10),
+                      "the encrypted sandbox delivery did not open its detail")
+        let legalEffect = app.descendants(matching: .any)["officialDocuments.detail.legalEffect"]
+        let confirm = app.descendants(matching: .any)["officialDocuments.detail.confirmSandbox"]
+        for _ in 0..<6 where !confirm.exists { app.swipeUp() }
+        XCTAssertTrue(legalEffect.exists,
+                      "the sandbox detail did not disclose that legal effect is absent")
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5),
+                      "the local simulated confirmation action was not visible")
+        confirm.tap()
+
+        let confirmAlert = app.alerts.firstMatch
+        XCTAssertTrue(confirmAlert.waitForExistence(timeout: 5))
+        let record = confirmAlert.buttons.matching(NSPredicate(
+            format: "label CONTAINS[c] 'Record' OR label CONTAINS '記錄'")).firstMatch
+        XCTAssertTrue(record.exists)
+        record.tap()
+
+        let completed = app.alerts.firstMatch
+        XCTAssertTrue(completed.waitForExistence(timeout: 5),
+                      "the simulator did not report confirmation completion")
+        completed.buttons.firstMatch.tap()
+        XCTAssertFalse(app.descendants(matching: .any)["officialDocuments.detail.confirmSandbox"]
+            .exists,
+                       "an idempotent confirmation should not remain as a second action")
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

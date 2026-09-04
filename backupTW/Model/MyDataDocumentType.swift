@@ -15,6 +15,15 @@ import Foundation
 /// One kind of document the vault can hold. `myDataItemPath == nil` means the
 /// document is known to the app but its MyData fetch is not wired yet.
 struct MyDataDocumentType: Equatable {
+    enum EntryMode: Equatable {
+        /// Open one known MyData item directly.
+        case directItem
+        /// Resume the official 「個人專區／個人文件」 flow. The downloaded file
+        /// may be any item MyData offers, rather than one in our small shortcut
+        /// catalogue.
+        case personalDocuments
+    }
+
     /// Stable storage id / slug. The national ID keeps its historical id.
     let id: String
     /// The credential's `type[1]`, so a stored blob can be classified back to a
@@ -28,6 +37,23 @@ struct MyDataDocumentType: Equatable {
     /// 「personal/detail/API.idPhotoRev」 for the national ID. `nil` until
     /// discovered on a real MyData account.
     let myDataItemPath: String?
+    /// A slow document does not belong to the lifetime of one web view. This is
+    /// shown before the request starts and used to offer the personal-documents
+    /// continuation rather than an indefinite spinner.
+    let estimatedMinutes: Int?
+    let entryMode: EntryMode
+
+    init(id: String, vcType: String, title: String, systemImage: String,
+         myDataItemPath: String?, estimatedMinutes: Int? = nil,
+         entryMode: EntryMode = .directItem) {
+        self.id = id
+        self.vcType = vcType
+        self.title = title
+        self.systemImage = systemImage
+        self.myDataItemPath = myDataItemPath
+        self.estimatedMinutes = estimatedMinutes
+        self.entryMode = entryMode
+    }
 }
 
 enum MyDataDocumentRegistry {
@@ -41,6 +67,25 @@ enum MyDataDocumentRegistry {
         systemImage: "person.text.rectangle.fill",
         myDataItemPath: "personal/detail/API.idPhotoRev")
 
+    /// The durable continuation for slow and unlisted documents. MyData's own
+    /// FAQ says completed files live in 個人專區／個人文件; starting at sign-in is
+    /// more stable than guessing an authenticated internal route.
+    static let personalDocuments = MyDataDocumentType(
+        id: "mydata-personal-documents",
+        vcType: "",
+        title: NSLocalizedString("MyData personal documents", comment: "MyData continuation"),
+        systemImage: "folder.fill",
+        myDataItemPath: "signin",
+        entryMode: .personalDocuments)
+
+    /// Re-download an arbitrary document into the same vault slot. Its title is
+    /// metadata chosen by this app, never a server-provided path component.
+    static func personalDocuments(replacing id: String, title: String) -> MyDataDocumentType {
+        MyDataDocumentType(id: id, vcType: "", title: title,
+                           systemImage: "folder.fill", myDataItemPath: "signin",
+                           entryMode: .personalDocuments)
+    }
+
     /// The documents the 資料保險箱 is being built to hold. Paths were discovered on
     /// mydata.nat.gov.tw itself (the item detail URL is `personal/detail/API.<code>`,
     /// the same shape as the national ID's `API.idPhotoRev`); a `nil` path means the
@@ -49,7 +94,8 @@ enum MyDataDocumentRegistry {
         // 個人所得資料 · 財政部財政資訊中心
         MyDataDocumentType(id: "mydata-income", vcType: "IncomeCredential",
                            title: NSLocalizedString("Income / financial proof", comment: "document type"),
-                           systemImage: "banknote.fill", myDataItemPath: "personal/detail/API.syWqjr4flJ"),
+                           systemImage: "banknote.fill", myDataItemPath: "personal/detail/API.syWqjr4flJ",
+                           estimatedMinutes: 120),
         // 被保險人投保資料（勞保／就保／災保）· 勞動部勞工保險局
         MyDataDocumentType(id: "mydata-labor-insurance", vcType: "LaborInsuranceCredential",
                            title: NSLocalizedString("Labor insurance record", comment: "document type"),

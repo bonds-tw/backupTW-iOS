@@ -69,6 +69,11 @@ final class DiagnosticsViewController: UICollectionViewController {
         reload()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if isViewLoaded { reload() }
+    }
+
     // MARK: - Collection
 
     private func configureDataSource() {
@@ -151,7 +156,9 @@ final class DiagnosticsViewController: UICollectionViewController {
             .joined(separator: "\n\n")
         let alert = UIAlertController(title: NSLocalizedString("Copied", comment: ""),
                                       message: nil, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Confirm", comment: ""), style: .default))
+        // Acknowledgement only, so 「好」 — 「確認」 is reserved for buttons that
+        // make something happen (design system §11.1).
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
         present(alert, animated: true)
     }
 

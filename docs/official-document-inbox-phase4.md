@@ -72,3 +72,7 @@ CI 新增獨立 Release simulator build。建置環境刻意放入 SP service ID
 5. 上述證據與 Free-plan CPU 指標都通過後，才評估啟用 signing start。
 6. 三條意圖各自做真機 start→跳轉→callback→poll；App 端 pinned MOI certificate／signature 驗證必須實際通過。
 7. TestFlight IPA 重做 secret／local-provider scan，並保留 Reduce Motion 與錯誤文案驗收證據。
+
+App 端不依賴外部介接的下一階段已完成於
+[`official-document-inbox-phase5.md`](official-document-inbox-phase5.md)：保存的試辦同意每次讀取
+都重驗簽章、提供可檢查的指紋，並以「只刪本機證據」處理資料生命週期；它不會冒充政府端撤回。
