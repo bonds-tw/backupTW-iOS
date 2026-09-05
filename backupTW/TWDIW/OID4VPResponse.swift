@@ -15,6 +15,9 @@ enum OID4VPResponseError: Error, Equatable {
     /// rather than silently dropped: a verifier expecting a field, and a token
     /// that omits it, should fail with a reason, not a shrug.
     case requestedClaimNotAvailable(String)
+    /// The card predates selective disclosure. It may contain the requested
+    /// value, but presenting it would also reveal every other clear-text field.
+    case selectiveDisclosureUnavailable
     /// The device does not hold the key this card is bound to, so it cannot
     /// present it. One key per card (`HolderKeyring`) means the presenting key
     /// is the card's own — never `DeviceKey.defaultTag`.
@@ -231,6 +234,7 @@ struct OID4VPResponder {
         }
 
         var missingOnSomeCard: String?
+        var foundLegacyCardWithoutSelectiveDisclosure = false
         for id in (try? store.allIDs()) ?? [] {
             guard let serialized = try? store.load(id: id),
                   StoredCardSource.source(of: serialized) == .selfIssued,
@@ -272,9 +276,7 @@ struct OID4VPResponder {
             guard credential.sd != nil else {
                 let clearClaims = Set(credential.credentialSubject.keys).subtracting(["id"])
                 guard chosenClaims == clearClaims else {
-                    if let withheld = clearClaims.subtracting(chosenClaims).first {
-                        missingOnSomeCard = withheld
-                    }
+                    foundLegacyCardWithoutSelectiveDisclosure = true
                     continue
                 }
                 guard let key = try selfIssuedKey(subjectDID: subjectDID) else {
@@ -301,6 +303,9 @@ struct OID4VPResponder {
                                        serialized: try envelope.serialized())])
         }
 
+        if foundLegacyCardWithoutSelectiveDisclosure {
+            throw OID4VPResponseError.selectiveDisclosureUnavailable
+        }
         if let missingOnSomeCard {
             throw OID4VPResponseError.requestedClaimNotAvailable(missingOnSomeCard)
         }

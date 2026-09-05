@@ -44,9 +44,9 @@ enum ProvingInputError: Error, Equatable {
     ///
     /// ⚠️ This is the check most likely to be *wrong about the world* rather than
     /// about the input. Upstream is inconsistent about what this field holds: the
-    /// README's example writes the placeholder `"<signed-response-json>"` and the
-    /// Matters runbook says "signed-response-json-or-base64", while the circuit
-    /// fixture `user_sig_rs2048_input.json` can only have come from 256 raw
+    /// README's example writes the placeholder `"<signed-response-json>"`, while
+    /// the circuit fixture `user_sig_rs2048_input.json` can only have come from
+    /// 256 raw
     /// bytes. If TW FidO ever hands back an envelope instead of the bare
     /// signature, this is the line that will say so — by name, at the call site,
     /// instead of as an opaque `InvalidInput` from Rust. Carrying the byte count

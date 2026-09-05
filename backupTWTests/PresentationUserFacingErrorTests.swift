@@ -36,12 +36,19 @@ struct PresentationUserFacingErrorTests {
     @Test func everyResponseErrorBecomesASentence() {
         let errors: [OID4VPResponseError] = [
             .noMatchingCredential, .requestedClaimNotAvailable("name"),
+            .selectiveDisclosureUnavailable,
             .holderKeyUnavailable, .network, .badStatus(400, body: nil),
         ]
         for error in errors {
             #expect(isClean(UserFacingError.presentationMessage(for: error)),
                     "leaked for \(error)")
         }
+    }
+
+    @Test func missingClaimMessageNamesTheField() {
+        let message = UserFacingError.presentationMessage(
+            for: OID4VPResponseError.requestedClaimNotAvailable("nationality"))
+        #expect(message.contains(ClaimDisplayName.friendly("nationality")))
     }
 
     /// The bad-status number is kept for a person to quote to a helpdesk — it is

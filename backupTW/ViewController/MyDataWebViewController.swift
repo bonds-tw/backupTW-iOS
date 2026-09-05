@@ -14,11 +14,30 @@ enum MyDataImportResult {
     case vaultDocument(MyDataVaultArchive.Entry)
 }
 
+enum MyDataImportContinuation: Equatable {
+    case dismiss
+    case keepPersonalDocumentsOpen(savedCount: Int)
+}
+
+/// State for one official MyData web session. It deliberately knows nothing
+/// about cookies or certificate assertions; it only decides whether the screen
+/// stays open after the app has safely archived a download.
+struct MyDataWebImportSession {
+    private(set) var savedCount = 0
+
+    mutating func didStoreDocument(of type: MyDataDocumentType) -> MyDataImportContinuation {
+        guard type.keepsWebSessionOpenAfterImport else { return .dismiss }
+        savedCount += 1
+        return .keepPersonalDocumentsOpen(savedCount: savedCount)
+    }
+}
+
 class MyDataWebViewController : UIViewController {
 
     private enum FlowStage {
         case details, certificate, returning, waiting, personalDocuments, downloaded
     }
+    private var flowStage: FlowStage = .details
 
     /// Owns every file this flow creates, outside Documents and outside backups,
     /// and is emptied the moment the PDF has been read. See `MyDataScratch`.
@@ -33,7 +52,9 @@ class MyDataWebViewController : UIViewController {
     /// Used only as display metadata after a successful import; never used as a
     /// path and never shown when it does not match a known registry title.
     private var archiveDisplayName: String?
+    private var archiveKnownType: MyDataDocumentType?
     private var openedCertificateApp = false
+    private var importSession = MyDataWebImportSession()
     private let guideView = MyDataFlowGuideView()
 
     private var progressObservation: NSKeyValueObservation?
@@ -43,7 +64,14 @@ class MyDataWebViewController : UIViewController {
         return progressView
     }()
     private lazy var webview: WKWebView = {
-        let webview = WKWebView()
+        let configuration = WKWebViewConfiguration()
+        // Make the boundary explicit: MyData's own cookies may continue inside
+        // its normal persistent website store, but no certificate assertion or
+        // downloaded document is copied out of the government-controlled flow.
+        // This cannot bypass a new verification required by MyData; it only lets
+        // one Personal documents sign-in serve several completed downloads.
+        configuration.websiteDataStore = .default()
+        let webview = WKWebView(frame: .zero, configuration: configuration)
         webview.navigationDelegate = self
         // The identity-verification step (TWCA 自然人憑證 middleware, and the idpaas
         // libraries behind it) drives the user with native `alert()` — dozens of
@@ -165,7 +193,11 @@ class MyDataWebViewController : UIViewController {
     }
 
     @objc private func appDidBecomeActive() {
-        guard openedCertificateApp else { return }
+        // Foreground notifications also arrive after opening Share sheets,
+        // Personal documents, and system alerts. Only the exact certificate
+        // hand-off is allowed to advance step 2 to step 3.
+        guard openedCertificateApp, flowStage == .certificate else { return }
+        openedCertificateApp = false
         updateGuide(.returning)
     }
 
@@ -176,6 +208,7 @@ class MyDataWebViewController : UIViewController {
     }
 
     private func updateGuide(_ stage: FlowStage, detail: String? = nil) {
+        flowStage = stage
         let content: (String, String, Bool)
         switch stage {
         case .details:
@@ -212,6 +245,7 @@ class MyDataWebViewController : UIViewController {
         webView.evaluateJavaScript(MyDataAutofillScript.script(for: profile)) { [weak self] result, _ in
             guard let count = (result as? NSNumber)?.intValue, count > 0 else { return }
             let detail = String(format: NSLocalizedString("Filled %lld saved field(s) on the official MyData page.", comment: "MyData autofill result"), Int64(count))
+            guard self?.flowStage == .details else { return }
             self?.updateGuide(.details, detail: detail)
         }
     }
@@ -293,7 +327,8 @@ extension MyDataWebViewController : WKDownloadDelegate {
             archiveURL = destination
             archiveFileExtension = Self.safeFileExtension(suggestedFilename: suggestedFilename,
                                                           mimeType: response.mimeType)
-            archiveDisplayName = Self.knownDisplayName(suggestedFilename: suggestedFilename)
+            archiveKnownType = MyDataDocumentRegistry.knownDocument(in: suggestedFilename)
+            archiveDisplayName = archiveKnownType?.title
             return destination
         } catch {
             archiveURL = nil
@@ -332,9 +367,17 @@ extension MyDataWebViewController : WKDownloadDelegate {
         if documentType.id != MyDataDocumentRegistry.nationalID.id {
             do {
                 guard let vaultArchive else { throw CocoaError(.fileNoSuchFile) }
-                let id = documentType.id == MyDataDocumentRegistry.personalDocuments.id
-                    ? "mydata-file-\(UUID().uuidString.lowercased())"
-                    : documentType.id
+                // A file reached through Personal documents gets the registered
+                // stable slot whenever its official filename identifies it. This
+                // fixes both the generic title and duplicate copies of the same
+                // income document. Unknown MyData files still receive an opaque,
+                // local UUID and never inherit a server-controlled path/name.
+                let id: String
+                if documentType.id == MyDataDocumentRegistry.personalDocuments.id {
+                    id = archiveKnownType?.id ?? "mydata-file-\(UUID().uuidString.lowercased())"
+                } else {
+                    id = documentType.id
+                }
                 let displayName = documentType.entryMode == .personalDocuments
                     ? (archiveDisplayName ?? (documentType.id == MyDataDocumentRegistry.personalDocuments.id
                         ? NSLocalizedString("MyData document", comment: "generic MyData document")
@@ -364,9 +407,20 @@ extension MyDataWebViewController : WKDownloadDelegate {
                                                    fileExtension: archiveFileExtension,
                                                    displayName: displayName)
                 }
-                MyDataPendingRequestStore.resolve(documentID: documentType.id)
+                // When an inbox filename identifies a known document, clear the
+                // pending request for that document rather than the generic inbox.
+                MyDataPendingRequestStore.resolve(documentID: id)
                 completion(.vaultDocument(entry))
-                closeFlow()
+                switch importSession.didStoreDocument(of: documentType) {
+                case .keepPersonalDocumentsOpen(let savedCount):
+                    let detail = String(format: NSLocalizedString(
+                        "%lld file(s) saved. Keep this screen open and download another completed file.",
+                        comment: "MyData multi-file import result"),
+                        Int64(savedCount))
+                    updateGuide(.personalDocuments, detail: detail)
+                case .dismiss:
+                    closeFlow()
+                }
             } catch {
                 presentProcessingError(detail: nil)
             }
@@ -488,6 +542,7 @@ extension MyDataWebViewController : WKDownloadDelegate {
     private func discardDownloadedFiles() {
         archiveURL = nil
         archiveDisplayName = nil
+        archiveKnownType = nil
         try? scratch.purge()
     }
 

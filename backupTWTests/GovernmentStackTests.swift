@@ -175,4 +175,13 @@ struct GovernmentStackTests {
         #expect(expandedSecond.minY >= expandedFirst.maxY)
         #expect(expandedHero.minY >= expandedSecond.maxY)
     }
+
+    @Test func disabledAnimationsNeverLeaveTheCollectionLocked() throws {
+        let (controller, window) = home(try seeded(3))
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(true) }
+        controller.setGovernmentStackExpanded(true, animated: true)
+        #expect(controller.collectionView.isUserInteractionEnabled)
+        withExtendedLifetime(window) {}
+    }
 }

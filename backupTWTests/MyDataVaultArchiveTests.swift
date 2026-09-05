@@ -6,6 +6,7 @@
 import CryptoKit
 import Foundation
 import Testing
+import UIKit
 @testable import backupTW
 
 /// Each test points the archive at its own temporary directory — never the real
@@ -53,6 +54,34 @@ struct MyDataVaultArchiveTests {
         #expect(entry.displayName == "MyData 文件")
         #expect(entry.sha256 == hex(of: bytes))
         #expect(try Data(contentsOf: #require(archive.originalURL(id: "mydata-file-example"))) == bytes)
+    }
+
+    @Test func officialIncomeNamesResolveToTheIncomeDocument() {
+        #expect(MyDataDocumentRegistry.knownDocument(in: "個人所得資料表_20260901.pdf")?.id
+                == "mydata-income")
+        #expect(MyDataDocumentRegistry.knownDocument(in: "download_API.syWqjr4flJ.zip")?.id
+                == "mydata-income")
+        #expect(MyDataDocumentRegistry.knownDocument(in: "王小明的普通檔案.pdf") == nil)
+    }
+
+    @MainActor
+    @Test func repairsAnOlderGenericIncomeTitleFromTheStoredPDF() throws {
+        let archive = try MyDataVaultArchive(directory: tempDirectory())
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 320, height: 480))
+        let pdf = renderer.pdfData { context in
+            context.beginPage()
+            ("個人所得資料表" as NSString).draw(
+                at: CGPoint(x: 24, y: 24),
+                withAttributes: [.font: UIFont.systemFont(ofSize: 22)])
+        }
+        try archive.store(data: pdf, id: "mydata-file-older",
+                          fileExtension: "pdf", displayName: "MyData 文件")
+
+        #expect(try archive.repairGenericDisplayNames() == 1)
+        #expect(archive.entry(id: "mydata-file-older")?.displayName
+                == MyDataDocumentRegistry.lookup(id: "mydata-income")?.title)
+        #expect(try archive.repairGenericDisplayNames() == 0,
+                "a repaired title should not re-open the PDF on every Home visit")
     }
 
     @Test func listsStoredOriginalsWithoutNeedingCredentialStoreRows() throws {

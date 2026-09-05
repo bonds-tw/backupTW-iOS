@@ -308,6 +308,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_BYPASS_UNLOCK"] == "1" {
             unlockSession.recordAuthentication()
             VerificationRunRuntime.shared.recordDeviceOwnerAuthentication(automationBypass: true)
+            if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_MYDATA_FLOW_PREVIEW"] == "1",
+               let income = MyDataDocumentRegistry.lookup(id: "mydata-income") {
+                window.rootViewController = UINavigationController(
+                    rootViewController: MyDataOnboardViewController(documentType: income))
+                window.makeKeyAndVisible()
+                self.window = window
+                return
+            }
             if ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_FORMAL_DOCUMENT_PREVIEW"] == "1" {
                 let preview = MyDataOnboardViewController()
                 let navigation = UINavigationController(rootViewController: preview)
@@ -352,6 +360,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
               let archive = try? MyDataVaultArchive() else { return }
         let requested = Int(ProcessInfo.processInfo.environment["BONDSTW_UI_TEST_SEED_VAULT_COUNT"] ?? "1") ?? 1
         let ids = ["mydata-income", "mydata-health-insurance", "mydata-land"]
+        // The simulator sandbox survives between UI-test methods. Clear only
+        // these deterministic fixture slots so a one-document test cannot inherit
+        // the previous test's three-card stack and turn its first tap into Expand.
+        ids.forEach { try? archive.delete(id: $0) }
         for (index, id) in ids.prefix(max(1, min(requested, ids.count))).enumerated() {
             let source = FileManager.default.temporaryDirectory
                 .appendingPathComponent("ui-test-vault-\(UUID().uuidString).pdf")

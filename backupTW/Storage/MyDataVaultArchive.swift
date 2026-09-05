@@ -5,6 +5,7 @@
 
 import CryptoKit
 import Foundation
+import PDFKit
 
 enum MyDataVaultArchiveError: Error, Equatable {
     /// The identifier was empty or too long to make a filename from.
@@ -185,6 +186,40 @@ final class MyDataVaultArchive {
             }
             return left.id < right.id
         }
+    }
+
+    /// Repairs the neutral title used by the first Personal-documents importer.
+    /// Identification stays entirely on-device: only page one of an already
+    /// stored PDF is inspected, no text is logged or retained, and metadata is
+    /// rewritten only when it maps to the bounded registry above. A successful
+    /// repair is naturally one-shot because the display name stops being generic.
+    @discardableResult
+    func repairGenericDisplayNames() throws -> Int {
+        let genericTitles: Set<String> = [
+            "MyData document",
+            "MyData 文件",
+            NSLocalizedString("MyData document", comment: "generic MyData document"),
+        ]
+        var repaired = 0
+        for document in try documents() {
+            guard let entry = document.entry,
+                  entry.fileExtension.lowercased() == "pdf",
+                  entry.displayName.map(genericTitles.contains) == true,
+                  let original = originalURL(id: document.id),
+                  let pdf = PDFDocument(url: original),
+                  let heading = pdf.page(at: 0)?.string,
+                  let type = MyDataDocumentRegistry.knownDocument(in: heading) else { continue }
+
+            let updated = Entry(sha256: entry.sha256,
+                                fileExtension: entry.fileExtension,
+                                importedAt: entry.importedAt,
+                                displayName: type.title)
+            let metaURL = try fileURL(for: document.id, ext: Self.metaExtension)
+            try JSONEncoder().encode(updated).write(
+                to: metaURL, options: [.atomic, .completeFileProtectionUnlessOpen])
+            repaired += 1
+        }
+        return repaired
     }
 
     /// Recomputes the fingerprint over the bytes currently stored. This is done

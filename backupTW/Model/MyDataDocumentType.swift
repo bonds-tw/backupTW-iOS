@@ -43,6 +43,12 @@ struct MyDataDocumentType: Equatable {
     let estimatedMinutes: Int?
     let entryMode: EntryMode
 
+    /// Direct item pages finish after one requested document. The Personal
+    /// documents inbox is different: once the holder has signed in, keep that
+    /// same official web session open so several already-completed files can be
+    /// downloaded without signing in to the inbox again.
+    var keepsWebSessionOpenAfterImport: Bool { entryMode == .personalDocuments }
+
     init(id: String, vcType: String, title: String, systemImage: String,
          myDataItemPath: String?, estimatedMinutes: Int? = nil,
          entryMode: EntryMode = .directItem) {
@@ -139,6 +145,31 @@ enum MyDataDocumentRegistry {
 
     static func lookup(id: String) -> MyDataDocumentType? { all.first { $0.id == id } }
     static func lookup(vcType: String) -> MyDataDocumentType? { all.first { $0.vcType == vcType } }
+
+    /// Resolves MyData's official filename or first-page heading to a known local
+    /// type. We never keep or display the whole server filename because it may
+    /// include the holder's name. Matching is intentionally bounded to these
+    /// government document phrases, and the returned title is our localisation.
+    static func knownDocument(in text: String) -> MyDataDocumentType? {
+        let patterns: [(String, [String])] = [
+            ("mydata-income", ["個人所得資料表", "個人所得資料", "所得資料表", "syWqjr4flJ"]),
+            ("mydata-labor-insurance", ["被保險人投保資料", "勞保投保", "就保投保", "災保投保", "UZQkKbsOpz"]),
+            ("mydata-health-insurance", ["個人投退保資料", "健保投退保", "zH584wn59r"]),
+            ("mydata-nhi-premium", ["保費繳納紀錄", "健保保費", "1qIr0nM0BT"]),
+            ("mydata-tax-cert", ["綜合所得稅納稅證明", "納稅證明", "TeV2Md7SIx"]),
+            ("mydata-labor-pension", ["勞工提繳異動資料", "勞退提繳", "提繳異動", "yqkllwwTYl"]),
+            ("mydata-land", ["地籍及實價資料", "地籍資料", "實價資料", "KvvyRZSc5K"]),
+            ("mydata-household", ["現戶全戶戶籍資料", "全戶戶籍", "戶籍資料", "UDauDOLyZg"]),
+        ]
+        return patterns.lazy.compactMap { id, keywords -> MyDataDocumentType? in
+            guard keywords.contains(where: { text.localizedCaseInsensitiveContains($0) }) else {
+                return nil
+            }
+            return lookup(id: id)
+        }.first ?? vaultDocuments.first(where: {
+            text.localizedCaseInsensitiveContains($0.title)
+        })
+    }
 
     /// A stored self-issued document that belongs in the vault (i.e. any registered
     /// document that is not the national ID). Keyed by id so it needs no decode.

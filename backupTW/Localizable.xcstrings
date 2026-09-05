@@ -164,6 +164,16 @@
         }
       }
     },
+    "%lld file(s) saved. Keep this screen open and download another completed file.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存 %lld 份文件。請保持此畫面開啟，繼續下載另一份已完成的文件。"
+          }
+        }
+      }
+    },
     "%lld request(s) may be ready · continue from MyData Personal documents": {
       "localizations": {
         "zh-Hant": {
@@ -281,6 +291,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "產生了全新的識別碼"
+          }
+        }
+      }
+    },
+    "A matching credential was found, but it does not contain the requested “%@” field, so it cannot be presented.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找得到相符的證件，但缺少查驗方要求的「%1$@」欄位，因此無法出示。"
           }
         }
       }
@@ -554,6 +574,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "戶籍地址"
+          }
+        }
+      }
+    },
+    "After signing, return here to download and save the file in this iPhone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簽署後回到這裡下載，檔案會保存在這支 iPhone。"
           }
         }
       }
@@ -1124,6 +1154,16 @@
         }
       }
     },
+    "Certificate": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證簽署"
+          }
+        }
+      }
+    },
     "Certificate chain": {
       "localizations": {
         "zh-Hant": {
@@ -1557,6 +1597,26 @@
         }
       }
     },
+    "Complete the request there, then return to Bonds.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在行動自然人憑證完成簽署後，再回到有備而來。"
+          }
+        }
+      }
+    },
+    "Completed": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成"
+          }
+        }
+      }
+    },
     "Computed on this phone from your digital certificate. The certificate itself is never shown.": {
       "localizations": {
         "zh-Hant": {
@@ -1666,6 +1726,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "從「個人文件」接續並下載任何 MyData 文件，或使用下方捷徑調閱常用文件。"
+          }
+        }
+      }
+    },
+    "Continue in Bonds": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回到有備而來繼續"
           }
         }
       }
@@ -2222,6 +2292,16 @@
         }
       }
     },
+    "Details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填資料"
+          }
+        }
+      }
+    },
     "Details to fill on MyData": {
       "localizations": {
         "zh-Hant": {
@@ -2488,6 +2568,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "下載 %@ · 在這支手機上佔用 %@"
+          }
+        }
+      }
+    },
+    "Download from Personal documents": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從「個人文件」下載"
           }
         }
       }
@@ -3108,6 +3198,16 @@
         }
       }
     },
+    "Fill in MyData details": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填寫 MyData 資料"
+          }
+        }
+      }
+    },
     "Fill in the official page. Saved details are filled only here.": {
       "localizations": {
         "zh-Hant": {
@@ -3184,6 +3284,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "要忘記 MyData 常用資料嗎？"
+          }
+        }
+      }
+    },
+    "Four steps": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共四個步驟"
           }
         }
       }
@@ -3572,6 +3682,16 @@
         }
       }
     },
+    "Import from Taiwan MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從台灣 MyData 匯入"
+          }
+        }
+      }
+    },
     "Import time unknown": {
       "comment": "vault document card",
       "localizations": {
@@ -3629,7 +3749,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "財力／所得證明"
+            "value": "個人所得資料"
           }
         }
       }
@@ -4428,6 +4548,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "MyData 預估約需 %lld 分鐘。你可以先離開，收到通知後從「個人文件」回來繼續。"
+          }
+        }
+      }
+    },
+    "MyData may take about %lld minutes. You can leave and continue later from Personal documents.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyData 可能需要約 %lld 分鐘。你可以先離開，稍後從「個人文件」繼續。"
           }
         }
       }
@@ -5373,6 +5503,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "開啟官方 API 紀錄"
+          }
+        }
+      }
+    },
+    "Open the completed document and download it here.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打開已完成的文件，並在這裡下載。"
           }
         }
       }
@@ -6589,6 +6729,16 @@
         }
       }
     },
+    "Return": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返回"
+          }
+        }
+      }
+    },
     "Return to Bonds": {
       "localizations": {
         "zh-Hant": {
@@ -6778,6 +6928,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "存成一個 %@ 的檔案。太大了塞不進 QR code——請用檔案傳送。"
+          }
+        }
+      }
+    },
+    "Saving to the data vault": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在存入資料保險箱"
           }
         }
       }
@@ -7304,6 +7464,26 @@
         }
       }
     },
+    "Sign in once to Personal documents and import completed files one after another, or use a shortcut below to request a new document.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入一次「個人文件」後，可連續匯入多份已完成文件；或使用下方捷徑調閱新文件。"
+          }
+        }
+      }
+    },
+    "Sign in once, then keep this screen open and download all completed files. MyData may still require identity verification for each new request.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入一次後，保持此畫面開啟，即可連續下載所有已完成文件。每次調閱新文件時，MyData 仍可能要求身分驗證。"
+          }
+        }
+      }
+    },
     "Sign in, open Personal documents, then download the completed file here.": {
       "localizations": {
         "zh-Hant": {
@@ -7722,6 +7902,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "狀態"
+          }
+        }
+      }
+    },
+    "Step %lld of 4: %@": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %1$lld 步，共 4 步：%2$@"
           }
         }
       }
@@ -8811,6 +9001,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "下載的檔案沒有通過安裝後的大小與 SHA-256 檢查，因此不會使用。"
+          }
+        }
+      }
+    },
+    "The downloaded original will be protected in the data vault on this iPhone.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下載的原始檔會保存在這支 iPhone 的資料保險箱。"
           }
         }
       }
@@ -10661,6 +10861,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "這會建立或沿用此安裝的 App Attest 金鑰，並推進伺服器端的 assertion 計數器。不會傳送身分資料或簽章請求。"
+          }
+        }
+      }
+    },
+    "This credential cannot present only the requested fields. Update Bonds, then create the national ID again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這張證件不支援逐欄出示。請更新「有備而來」，再重新建立國民身分證。"
           }
         }
       }
@@ -12698,6 +12908,16 @@
         }
       }
     },
+    "Wait for MyData": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待 MyData 完成"
+          }
+        }
+      }
+    },
     "Waiting for approval in the digital certificate app…": {
       "localizations": {
         "zh-Hant": {
@@ -13171,6 +13391,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "有"
+          }
+        }
+      }
+    },
+    "You are back. MyData will continue on the page below.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已回到有備而來，MyData 會在下方頁面接著進行。"
           }
         }
       }

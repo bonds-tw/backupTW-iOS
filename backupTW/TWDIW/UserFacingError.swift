@@ -214,9 +214,15 @@ enum UserFacingError {
         case .noMatchingCredential:
             return NSLocalizedString("Your wallet has no credential of the kind this verifier asked for.",
                                      comment: "vp response error: no matching card")
-        case .requestedClaimNotAvailable:
-            return NSLocalizedString("One of the chosen fields is not on the card, so nothing was presented.",
-                                     comment: "vp response error: claim not available")
+        case .requestedClaimNotAvailable(let claim):
+            return String(format: NSLocalizedString(
+                "A matching credential was found, but it does not contain the requested “%@” field, so it cannot be presented.",
+                comment: "vp response error: claim not available"),
+                ClaimDisplayName.friendly(claim))
+        case .selectiveDisclosureUnavailable:
+            return NSLocalizedString(
+                "This credential cannot present only the requested fields. Update Bonds, then create the national ID again.",
+                comment: "vp response error: legacy self-issued credential")
         case .holderKeyUnavailable:
             return NSLocalizedString("This phone could not find the card's key, so it could not be presented.",
                                      comment: "vp response error: key")

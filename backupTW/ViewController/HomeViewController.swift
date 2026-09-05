@@ -51,6 +51,7 @@ class HomeViewController: UICollectionViewController {
     private static let governmentSectionID = "government"
     private static let myDataSectionID = "mydata"
     private static let myDataActionsSectionID = "mydata-actions"
+    private static let vaultDisplayNameRepairKey = "mydata.vault.display-name-repair.v1"
     /// How much of each peeking card's top shows — a sliver (一角) with its name,
     /// Apple-Wallet style. The full 「hero」 card sits at the bottom of the stack and
     /// the peeks fan up above it, each casting a shadow onto the card below.
@@ -156,6 +157,19 @@ class HomeViewController: UICollectionViewController {
 
         let archived: [MyDataVaultArchive.Document]?
         if let archive = makeVaultArchive() {
+            // Older Personal-documents imports were filed under the neutral
+            // 「MyData 文件」 title. Repair those locally from the PDF heading
+            // once before drawing Home; no document text leaves this phone and
+            // later visits do not repeatedly parse an unknown large PDF.
+            if !UserDefaults.standard.bool(forKey: Self.vaultDisplayNameRepairKey) {
+                do {
+                    try archive.repairGenericDisplayNames()
+                    UserDefaults.standard.set(true, forKey: Self.vaultDisplayNameRepairKey)
+                } catch {
+                    // Retry next visit; Data Protection may have made the file
+                    // temporarily unavailable while the device was locked.
+                }
+            }
             archived = try? archive.documents()
         } else {
             archived = nil
@@ -502,7 +516,11 @@ class HomeViewController: UICollectionViewController {
                 self.refreshStackHeader(sectionID: sectionID)
             }
         }
-        if animated {
+        // `performBatchUpdates` only calls its completion when UIView animations
+        // are actually running, and that completion is what lifts the lock. With
+        // animations globally disabled the collection would stay permanently
+        // non-interactive, so that case takes the synchronous path too.
+        if animated, UIView.areAnimationsEnabled {
             apply()
         } else {
             UIView.performWithoutAnimation(apply)
@@ -989,7 +1007,7 @@ extension HomeViewController {
         let sheet = UIAlertController(
             title: NSLocalizedString("Import from MyData", comment: "vault import picker title"),
             message: NSLocalizedString(
-                "Continue from Personal documents for any downloaded MyData file, or use a shortcut below to request a common document.",
+                "Sign in once to Personal documents and import completed files one after another, or use a shortcut below to request a new document.",
                 comment: "vault import picker message"),
             preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(
