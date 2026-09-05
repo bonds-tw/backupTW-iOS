@@ -202,11 +202,24 @@ struct LocalDataEraser {
         attempt { try vaultArchive?.purge() }
         attempt { try officialDocumentInbox?.purge() }
         attempt { try eraseProofResidue() }
+        attempt { try erasePreparedAgeProofs() }
+        // Issuer-level, not personal — but 「erase all local data」 means all.
+        IssuerNameBook.erase()
         if let documentsDirectory {
             attempt { try eraseLegacyPlaintext(in: documentsDirectory) }
         }
 
         if let firstFailure { throw firstFailure }
+    }
+
+    /// Removes the cached OpenAC Prepare states. Each one holds a
+    /// `prepare_witness.bin` carrying the cardholder's device key and birth
+    /// date, so it is exactly the kind of residue this file exists to sweep —
+    /// a birth date that outlived「erase all local data」would be the failure.
+    func erasePreparedAgeProofs() throws {
+        let directory = try AgePredicatePrepareCache.defaultDirectory()
+        guard FileManager.default.fileExists(atPath: directory.path) else { return }
+        try FileManager.default.removeItem(at: directory)
     }
 
     /// Removes what a proof run leaves in the ZK working directory.

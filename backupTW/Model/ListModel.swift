@@ -27,11 +27,18 @@ struct Item: Hashable {
     /// card does not draw wrongly, it terminates the app.
     let identifier: String?
 
-    init(image: UIImage? = nil, title: String, secondaryText: String, identifier: String? = nil) {
+    /// 「顯示但停用＋原因」（design system §8.3）：功能不可用時列仍在，
+    /// `secondaryText` 說明為什麼，而不是讓按過的按鈕憑空消失。停用列
+    /// 以次要色渲染且不回應點擊。
+    let isEnabled: Bool
+
+    init(image: UIImage? = nil, title: String, secondaryText: String,
+         identifier: String? = nil, isEnabled: Bool = true) {
         self.image = image
         self.title = title
         self.secondaryText = secondaryText
         self.identifier = identifier
+        self.isEnabled = isEnabled
     }
 
     // Identity is the text, never the image. `UIImage` equality is pointer
@@ -46,11 +53,13 @@ struct Item: Hashable {
     // unchanged, and the row would keep showing last week's expiry date.
     static func == (a: Item, b: Item) -> Bool {
         a.identifier == b.identifier && a.title == b.title && a.secondaryText == b.secondaryText
+            && a.isEnabled == b.isEnabled
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(identifier)
         hasher.combine(title)
         hasher.combine(secondaryText)
+        hasher.combine(isEnabled)
     }
 }

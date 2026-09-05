@@ -168,30 +168,23 @@ final class DiscloseFieldsViewController: UITableViewController {
                 endToEndMilliseconds: submitMilliseconds,
                 correlationToken: VerificationRunRecord.correlationToken(for: request.state))
             try? VerificationRunStore.shared.append(record)
-            self.finish(outcome: outcome.message,
-                        submitMilliseconds: submitMilliseconds)
+            if outcome.succeeded { Bonds.Haptic.delivered() }
+            self.finish(outcome: outcome.message)
         }
     }
 
     /// Pops back to where the flow began and reports the outcome there.
+    ///
+    /// The alert used to append two engineering timings (「請求擷取與驗證：x.xx
+    /// 秒」) to the sentence the holder actually needed. The numbers still land
+    /// in `VerificationRunStore`, where Diagnostics shows the full set — the
+    /// alert says what happened, and only that (design system §8.2).
     @MainActor
-    private func finish(outcome: String, submitMilliseconds: UInt64) {
+    private func finish(outcome: String) {
         let nav = navigationController
         nav?.popToRootViewController(animated: true)
-        var timing: [String] = []
-        if let requestFetchMilliseconds {
-            timing.append(String(format: NSLocalizedString(
-                "Request retrieval and verification: %.2f seconds",
-                comment: "OID4VP request timing"),
-                Double(requestFetchMilliseconds) / 1_000))
-        }
-        timing.append(String(format: NSLocalizedString(
-            "Present to verifier response: %.2f seconds (wallet signing, network, and verifier processing)",
-            comment: "OID4VP end-to-end timing"),
-            Double(submitMilliseconds) / 1_000))
-        let message = ([outcome] + timing).joined(separator: "\n\n")
         let alert = UIAlertController(title: NSLocalizedString("Present a credential", comment: ""),
-                                      message: message, preferredStyle: .alert)
+                                      message: outcome, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
 
         var presenter: UIViewController? = nav

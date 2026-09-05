@@ -39,3 +39,4 @@ struct MyDataAutofillProfileTests {
         #expect(script.contains("input.dispatchEvent(new Event('change'"))
     }
 }
+

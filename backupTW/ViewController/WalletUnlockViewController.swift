@@ -132,7 +132,7 @@ final class WalletUnlockViewController: UIViewController {
         detailLabel.isHidden = true
 
         methodIcon.contentMode = .scaleAspectFit
-        methodIcon.tintColor = .systemIndigo
+        methodIcon.tintColor = .tintColor
         methodIcon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 25, weight: .medium)
         methodIcon.translatesAutoresizingMaskIntoConstraints = false
         methodIcon.widthAnchor.constraint(equalToConstant: 34).isActive = true
@@ -150,9 +150,11 @@ final class WalletUnlockViewController: UIViewController {
         var configuration = UIButton.Configuration.filled()
         configuration.cornerStyle = .capsule
         configuration.imagePadding = 8
-        configuration.baseBackgroundColor = .systemIndigo
+        // The app accent, not a per-screen indigo: this screen is where the
+        // brand's interactive colour is *defined* by AccentColor.colorset, so
+        // it must be the first screen to actually use it.
+        configuration.buttonSize = .large
         unlockButton.configuration = configuration
-        unlockButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 54).isActive = true
         unlockButton.addTarget(self, action: #selector(authenticate), for: .touchUpInside)
 
         configureAuthenticationMethod()
@@ -161,14 +163,11 @@ final class WalletUnlockViewController: UIViewController {
         panelStack.axis = .vertical
         panelStack.spacing = 20
         panelStack.isLayoutMarginsRelativeArrangement = true
-        panelStack.layoutMargins = UIEdgeInsets(top: 22, left: 22, bottom: 22, right: 22)
+        panelStack.layoutMargins = UIEdgeInsets(top: Bonds.Space.page, left: Bonds.Space.page,
+                                                bottom: Bonds.Space.page, right: Bonds.Space.page)
         panelStack.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.96)
-        panelStack.layer.cornerRadius = 26
-        panelStack.layer.cornerCurve = .continuous
-        panelStack.layer.shadowColor = UIColor.black.cgColor
-        panelStack.layer.shadowOpacity = 0.18
-        panelStack.layer.shadowRadius = 24
-        panelStack.layer.shadowOffset = CGSize(width: 0, height: 12)
+        Bonds.round(panelStack.layer, Bonds.Radius.container)
+        Bonds.Shadow.card(panelStack.layer)
 
         let authStack = UIStackView(arrangedSubviews: [mark, titleLabel, detailLabel, panelStack])
         authStack.axis = .vertical
@@ -196,7 +195,7 @@ final class WalletUnlockViewController: UIViewController {
         let layout = UIStackView(arrangedSubviews: [brand, authenticationSurface])
         layout.axis = .vertical
         layout.alignment = .center
-        layout.spacing = 42
+        layout.spacing = Bonds.Space.xl + Bonds.Space.l
         layout.translatesAutoresizingMaskIntoConstraints = false
 
         let content = UIView()
@@ -269,7 +268,7 @@ final class WalletUnlockViewController: UIViewController {
         // Fade the app-owned controls before iOS presents its authentication
         // panel. The system sheet now sits over a quiet branded background rather
         // than another Face ID icon, title, explanation and button.
-        UIView.animate(withDuration: 0.18, animations: {
+        UIView.animate(withDuration: Bonds.Motion.quick, animations: {
             self.authenticationSurface.alpha = 0.06
             self.authenticationSurface.transform = CGAffineTransform(scaleX: 0.98, y: 0.98)
         }) { [weak self] _ in
@@ -283,6 +282,10 @@ final class WalletUnlockViewController: UIViewController {
                     if success {
                         self.onUnlocked?()
                     } else {
+                        // An evidence-backed failure — the system authentication
+                        // itself said no — so it qualifies for the error buzz
+                        // under the one-buzz rule (BondsDesign.swift §觸覺).
+                        Bonds.Haptic.rejected()
                         self.restoreAfterAuthentication(
                             message: NSLocalizedString("The wallet is still locked.", comment: "wallet login failed"))
                     }
@@ -298,7 +301,7 @@ final class WalletUnlockViewController: UIViewController {
         unlockButton.configuration?.showsActivityIndicator = false
         unlockButton.configuration?.title = unlockButtonTitle
         unlockButton.isEnabled = true
-        UIView.animate(withDuration: 0.22) {
+        UIView.animate(withDuration: Bonds.Motion.standard) {
             self.authenticationSurface.alpha = 1
             self.authenticationSurface.transform = .identity
         }

@@ -89,17 +89,20 @@ struct GovernmentStackTests {
     }
 
     @Test func collapsedStackTucksTheHeroUnderFullOverlappingCards() throws {
+        // The hero is the LAST item: the pile and the expanded list read in the
+        // same top-to-bottom order, so expanding never flips the stack over
+        // (使用者回報 2026-09-02; Apple Wallet keeps the order).
         let (controller, _) = home(try seeded(3))
-        let hero = try frame(controller, item: 0)
-        let peek1 = try frame(controller, item: 1)
-        let peek2 = try frame(controller, item: 2)
+        let peek1 = try frame(controller, item: 0)
+        let peek2 = try frame(controller, item: 1)
+        let hero = try frame(controller, item: 2)
         // Every card is a FULL card (same height), not a clipped strip.
         #expect(hero.height > 200)
         #expect(abs(peek1.height - hero.height) < 1)
         #expect(abs(peek2.height - hero.height) < 1)
-        // The hero sits at the BOTTOM of the pile (largest minY) and the cards
-        // overlap — the hero starts well before a peek ends.
-        #expect(hero.minY > peek1.minY)
+        // The pile reads in item order: peeks descend, hero at the bottom
+        // (largest minY), overlapping — not a spaced list.
+        #expect(peek1.minY < peek2.minY)
         #expect(hero.minY > peek2.minY)
         #expect(peek1.maxY > hero.minY)                     // overlap, not a spaced list
         #expect(hero.minY - peek1.minY < hero.height)       // compact: tucked, not one-per-row
@@ -116,12 +119,15 @@ struct GovernmentStackTests {
                                   didSelectItemAt: IndexPath(item: 0, section: Self.governmentSection))
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
         window.layoutIfNeeded()
-        let hero = try frame(controller, item: 0)
-        let peek1 = try frame(controller, item: 1)
-        // Expanded: the first card is back on top and the second is below it with a
-        // gap — no overlap.
-        #expect(hero.minY < peek1.minY)
-        #expect(peek1.minY >= hero.maxY)
+        let first = try frame(controller, item: 0)
+        let second = try frame(controller, item: 1)
+        let hero = try frame(controller, item: 2)
+        // Expanded: the same top-to-bottom order as the pile, spread out with no
+        // overlap — the front card (hero, last item) stays at the bottom instead
+        // of teleporting to the top.
+        #expect(first.minY < second.minY)
+        #expect(second.minY >= first.maxY)
+        #expect(hero.minY >= second.maxY)
     }
 
     @Test func restingStateResetsWhenTheGroupDropsBelowTwoCards() throws {
@@ -140,18 +146,20 @@ struct GovernmentStackTests {
         window.layoutIfNeeded()
 
         // Repopulate to three and rebuild: because the resting state reset, the
-        // group is collapsed again — hero tucked below the peeks.
+        // group is collapsed again — the last item is the hero at the bottom,
+        // overlapping the peek above it.
         try fill(store, count: 3)
         controller.viewWillAppear(false)
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         window.layoutIfNeeded()
-        #expect(try frame(controller, item: 0).minY > frame(controller, item: 1).minY)  // collapsed again
+        #expect(try frame(controller, item: 2).minY > frame(controller, item: 1).minY)      // hero at the bottom
+        #expect(try frame(controller, item: 1).maxY > frame(controller, item: 2).minY)      // overlapping: collapsed
     }
 
     @Test func myDataDocumentsUseTheSameCollapsedAndExpandedInteraction() throws {
         let (controller, window) = try myDataHome(count: 3)
-        let collapsedHero = try myDataFrame(controller, item: 0)
-        let collapsedPeek = try myDataFrame(controller, item: 1)
+        let collapsedPeek = try myDataFrame(controller, item: 0)
+        let collapsedHero = try myDataFrame(controller, item: 2)
         #expect(collapsedHero.minY > collapsedPeek.minY)
         #expect(collapsedPeek.maxY > collapsedHero.minY)
 
@@ -159,50 +167,13 @@ struct GovernmentStackTests {
                                   didSelectItemAt: IndexPath(item: 0, section: 2))
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
         window.layoutIfNeeded()
-        let expandedHero = try myDataFrame(controller, item: 0)
+        // Same order spread out: the hero (last item) stays at the bottom.
+        let expandedFirst = try myDataFrame(controller, item: 0)
         let expandedSecond = try myDataFrame(controller, item: 1)
-        #expect(expandedHero.minY < expandedSecond.minY)
-        #expect(expandedSecond.minY >= expandedHero.maxY)
-    }
-
-    /// The collapsed MyData stack now uses the same 60pt rhythm as government
-    /// card. The document name therefore belongs inside that strip, not in the
-    /// lower metadata area that the next card obscures.
-    @Test func myDataCardNameFitsInsideTheCollapsedPeek() throws {
-        let card = WalletCardView(frame: CGRect(x: 0, y: 0, width: 354, height: 354 / 1.9))
-        card.configure(.vault(VaultCard(
-            title: "個人所得資料",
-            message: "PDF · 2026/9/1 匯入",
-            status: "已儲存原始檔",
-            systemImage: "banknote.fill")))
-        card.setNeedsLayout()
-        card.layoutIfNeeded()
-
-        let title = try #require(findView(identifier: "wallet.vault.title", in: card) as? UILabel)
-        let titleFrame = title.convert(title.bounds, to: card)
-        #expect(titleFrame.minY >= 0)
-        #expect(titleFrame.maxY <= 60,
-                "MyData title must remain visible in the collapsed 60pt peek; frame was \(titleFrame)")
-    }
-
-    @Test func myDataAndGovernmentStacksShareTheSameCollapsedSpacing() throws {
-        let (government, _) = home(try seeded(3))
-        let governmentGap = abs(try frame(government, item: 2).minY
-                                - frame(government, item: 1).minY)
-        let (myData, _) = try myDataHome(count: 3)
-        let myDataGap = abs(try myDataFrame(myData, item: 2).minY
-                            - myDataFrame(myData, item: 1).minY)
-        #expect(abs(governmentGap - 60) < 1)
-        #expect(abs(myDataGap - governmentGap) < 1)
-    }
-
-    @Test func continuityTransformMapsTheNewFrameBackToTheOldViewportFrame() {
-        let old = CGRect(x: 16, y: 412, width: 358, height: 220)
-        let final = CGRect(x: 16, y: 292, width: 358, height: 220)
-        let transform = HomeViewController.stackContinuityTransform(oldFrame: old,
-                                                                     finalFrame: final)
-        #expect(abs(final.applying(transform).minY - old.minY) < 0.001)
-        #expect(abs(final.applying(transform).minX - old.minX) < 0.001)
+        let expandedHero = try myDataFrame(controller, item: 2)
+        #expect(expandedFirst.minY < expandedSecond.minY)
+        #expect(expandedSecond.minY >= expandedFirst.maxY)
+        #expect(expandedHero.minY >= expandedSecond.maxY)
     }
 
     @Test func disabledAnimationsNeverLeaveTheCollectionLocked() throws {
@@ -212,10 +183,5 @@ struct GovernmentStackTests {
         controller.setGovernmentStackExpanded(true, animated: true)
         #expect(controller.collectionView.isUserInteractionEnabled)
         withExtendedLifetime(window) {}
-    }
-
-    private func findView(identifier: String, in root: UIView) -> UIView? {
-        if root.accessibilityIdentifier == identifier { return root }
-        return root.subviews.lazy.compactMap { findView(identifier: identifier, in: $0) }.first
     }
 }

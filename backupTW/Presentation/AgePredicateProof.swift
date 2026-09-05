@@ -26,6 +26,14 @@ enum AgePredicateProofError: Error, Equatable, LocalizedError {
     case proofCreationFailed
     case proofRejected
     case nativeEngineUnavailable
+    /// The request names a website to send the proof to, and it is not one
+    /// this app will post a proof to.
+    case untrustedResponseHost
+    /// The checker's website answered, but not in the shape this app reads.
+    case webResponseUnreadable
+    /// The checker's website read the proof and refused it.
+    case webRejected(String)
+    case network
 
     var errorDescription: String? {
         switch self {
@@ -53,6 +61,15 @@ enum AgePredicateProofError: Error, Equatable, LocalizedError {
             return NSLocalizedString("The zero-knowledge proof did not verify.", comment: "age proof")
         case .nativeEngineUnavailable:
             return NSLocalizedString("This build does not include the field-proof engine.", comment: "age proof")
+        case .untrustedResponseHost:
+            return NSLocalizedString("This request asks to send the proof to a website this app does not trust, so nothing was sent.", comment: "age proof")
+        case .webResponseUnreadable:
+            return NSLocalizedString("The checker's website answered in a way this app could not read.", comment: "age proof")
+        case .webRejected(let reason):
+            return String(format: NSLocalizedString("The checker's website did not accept the proof: %@", comment: "age proof"),
+                          reason)
+        case .network:
+            return NSLocalizedString("The proof could not be sent to the checker's website. Check the connection and try again.", comment: "age proof")
         }
     }
 }
@@ -75,6 +92,30 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
     let minimumAge: Int
     let createdAt: Date
 
+    /// Where a *web* checker wants the proof posted. `nil` for the two-device
+    /// flow, where the proof travels over the one-time Bluetooth service.
+    ///
+    /// The nonce, cutoff and source are checked by whoever verifies, so a
+    /// website is as good a checker as an iPad — what changes is who can read
+    /// the package on the way. It carries the two proofs, the statement and the
+    /// issuer DID (for a self-issued card that is the holder's own per-card key,
+    /// a stable pseudonym), and no claim. That is why the host is allow-listed
+    /// rather than open: a stranger's QR must not be able to route a proof
+    /// anywhere it likes.
+    let responseURL: URL?
+
+    /// Websites this app will post an age proof to. The independent verifier
+    /// at `verifier.mashbean.net` is trusted in every build: the package holds
+    /// no claim, and the web test is the point of the flow. The workers.dev
+    /// alias is development only, mirroring `OID4VPPresentation.verifierHosts`.
+    static var trustedResponseHosts: Set<String> {
+        var hosts: Set<String> = ["verifier.mashbean.net"]
+        #if DEBUG
+        hosts.insert("mashbean-vp-verifier.mashbean.workers.dev")
+        #endif
+        return hosts
+    }
+
     private enum CodingKeys: String, CodingKey {
         case version = "v"
         case serviceID = "b"
@@ -84,12 +125,14 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
         case cutoffDate = "d"
         case minimumAge = "a"
         case createdAt = "t"
+        case responseURL = "u"
     }
 
     init(serviceID: UUID = UUID(),
          purpose: String,
          credentialSource: PresentationCredentialSource,
          minimumAge: Int = AgePredicate.majority,
+         responseURL: URL? = nil,
          now: Date = Date()) throws {
         let cleanPurpose = UntrustedText(purpose, limit: PresentationRequest.maximumPurposeLength)
         guard !cleanPurpose.isEmpty,
@@ -114,19 +157,25 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
         cutoffDate = Self.dateString(cutoff)
         self.minimumAge = minimumAge
         createdAt = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970))
+        if let responseURL {
+            guard Self.isTrustedResponseURL(responseURL) else {
+                throw AgePredicateProofError.untrustedResponseHost
+            }
+        }
+        self.responseURL = responseURL
     }
 
-    private init(version: Int, serviceID: UUID, nonce: String, purpose: String,
-                 credentialSource: PresentationCredentialSource, cutoffDate: String,
-                 minimumAge: Int, createdAt: Date) {
-        self.version = version
-        self.serviceID = serviceID
-        self.nonce = nonce
-        self.purpose = purpose
-        self.credentialSource = credentialSource
-        self.cutoffDate = cutoffDate
-        self.minimumAge = minimumAge
-        self.createdAt = createdAt
+    /// HTTPS, an allow-listed host, and nothing that would let a URL smuggle
+    /// credentials or change where the bytes go.
+    static func isTrustedResponseURL(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              trustedResponseHosts.contains(host),
+              url.user == nil, url.password == nil, url.fragment == nil,
+              url.absoluteString.utf8.count <= 512 else {
+            return false
+        }
+        return true
     }
 
     func encodedForTransport() throws -> String {
@@ -150,6 +199,9 @@ struct AgePredicateProofRequest: Codable, Equatable, Sendable {
               (1...120).contains(decoded.minimumAge),
               cutoffComponents(decoded.cutoffDate) != nil else {
             throw AgePredicateProofError.malformedRequest
+        }
+        if let responseURL = decoded.responseURL, !isTrustedResponseURL(responseURL) {
+            throw AgePredicateProofError.untrustedResponseHost
         }
         let clean = UntrustedText(decoded.purpose, limit: PresentationRequest.maximumPurposeLength)
         guard clean.text == decoded.purpose, !clean.isEmpty,
@@ -296,6 +348,41 @@ struct AgePredicateProofPackage: Codable, Equatable, Sendable {
     }
 }
 
+/// What the checker's website says about a posted package.
+///
+/// Decoded strictly: `accepted` is the only field a verdict may be drawn from,
+/// and a body without it is unreadable rather than a refusal.
+struct AgePredicateProofWebVerdict: Decodable, Equatable, Sendable {
+    struct Timing: Decodable, Equatable, Sendable {
+        let holderPrepare: UInt64?
+        let holderShow: UInt64?
+        /// Request creation to the website receiving the proof, measured there.
+        let transport: UInt64?
+        /// The native verifier's own `verify_linked` plus statement comparison.
+        let verify: UInt64?
+        let nativeLoad: UInt64?
+        let total: UInt64?
+    }
+
+    let status: String
+    let accepted: Bool
+    let reason: String?
+    let minimumAge: Int?
+    let timingMs: Timing?
+
+    static func decode(from data: Data) throws -> AgePredicateProofWebVerdict {
+        do { return try JSONDecoder().decode(AgePredicateProofWebVerdict.self, from: data) }
+        catch { throw AgePredicateProofError.webResponseUnreadable }
+    }
+}
+
+/// The measured result of one web submission: the website's verdict and how
+/// long the round trip took from this phone.
+struct AgePredicateProofWebOutcome: Equatable, Sendable {
+    let verdict: AgePredicateProofWebVerdict
+    let roundTripMilliseconds: UInt64
+}
+
 struct AgePredicateProofTiming: Equatable, Sendable {
     let prepareMilliseconds: UInt64
     let showMilliseconds: UInt64
@@ -312,6 +399,7 @@ protocol AgePredicateProofEngine: Sendable {
                issuerDID: String,
                issuerPublicKeyX963: Data,
                holder: DeviceKey,
+               cacheKey: String,
                assetProgress: @escaping @Sendable (Double) -> Void) async throws -> AgePredicateProofPackage
 
     func verify(package: AgePredicateProofPackage,
@@ -332,10 +420,16 @@ enum AgePredicateProofEngineAssembly {
 /// must not be assumed re-entrant merely because Swift can schedule two tasks.
 actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
     private let assets: AgePredicateCircuitAssetPreparer?
+    private let cache: AgePredicatePrepareCache?
     private let fileManager = FileManager.default
+
+    /// One presentation used a cached Prepare state, so a self-check failure
+    /// means the cached base is stale rather than the credential being bad.
+    private final class CacheUse { var hit = false }
 
     init() {
         assets = try? AgePredicateCircuitAssetPreparer()
+        cache = try? AgePredicatePrepareCache()
     }
 
     func prepareVerificationAssets(
@@ -349,34 +443,108 @@ actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
                issuerDID: String,
                issuerPublicKeyX963: Data,
                holder: DeviceKey,
+               cacheKey: String,
                assetProgress: @escaping @Sendable (Double) -> Void) async throws -> AgePredicateProofPackage {
         guard let assets else { throw AgePredicateProofError.nativeEngineUnavailable }
         let installed = try await assets.prepare(.prover, progress: assetProgress)
+        let issuer = try Self.coordinates(issuerPublicKeyX963)
+        // Signed once; the same nonce is answered on a retry, so the same
+        // signature applies.
+        let holderSignature = try holder.signature(for: Data(request.nonce.utf8))
+
+        // The reusable Prepare state may be cached (see `AgePredicatePrepareCache`).
+        // If this device cannot verify the proof it just built from a cached
+        // base, that base is stale or corrupt — drop it and rebuild once from
+        // the credential. A rejection without a cache hit is the real answer.
+        let cacheUse = CacheUse()
+        do {
+            return try performProof(request: request, credential: credential, issuerDID: issuerDID,
+                                    issuerX: issuer.x, issuerY: issuer.y,
+                                    holderSignature: holderSignature, installed: installed,
+                                    cacheKey: cacheKey, allowCache: true, cacheUse: cacheUse)
+        } catch AgePredicateProofError.proofRejected where cacheUse.hit {
+            cache?.remove(key: cacheKey)
+            return try performProof(request: request, credential: credential, issuerDID: issuerDID,
+                                    issuerX: issuer.x, issuerY: issuer.y,
+                                    holderSignature: holderSignature, installed: installed,
+                                    cacheKey: cacheKey, allowCache: false, cacheUse: CacheUse())
+        }
+    }
+
+    /// One proof, either reusing a cached Prepare or building it. The Show proof,
+    /// the fresh shared blinds and both reblinds are done every time regardless:
+    /// unlinkability across presentations rests on each one carrying an
+    /// independent re-randomisation, cache hit or not.
+    private func performProof(request: AgePredicateProofRequest,
+                              credential: String,
+                              issuerDID: String,
+                              issuerX: String,
+                              issuerY: String,
+                              holderSignature: Data,
+                              installed: URL,
+                              cacheKey: String,
+                              allowCache: Bool,
+                              cacheUse: CacheUse) throws -> AgePredicateProofPackage {
         let scratch = try makeScratch(installedCircom: installed, role: .prover)
         defer { try? fileManager.removeItem(at: scratch.root) }
         let path = scratch.documents.path
-        let issuer = try Self.coordinates(issuerPublicKeyX963)
+        let keyDirectory = scratch.documents.appendingPathComponent("keys", isDirectory: true)
 
         do {
             let clock = ContinuousClock()
-            let prepareStarted = clock.now
-            let prepared = try createAgePrepareInput(
-                documentsPath: path,
-                sdJwt: credential,
-                issuerKeyX: issuer.x,
-                issuerKeyY: issuer.y)
-            _ = try proveJwt(documentsPath: path)
-            var prepareMilliseconds = Self.milliseconds(prepareStarted.duration(to: clock.now))
+            let claimName: String
+            let claimFormat: UInt8
+            var prepareMilliseconds: UInt64
 
-            let holderSignature = try holder.signature(for: Data(request.nonce.utf8))
+            if allowCache, let cache, let state = cache.load(key: cacheKey) {
+                // Restore the reusable base. Cheap: a few hundred KB, no proving.
+                let restoreStarted = clock.now
+                let restore: [(String, Data)] = [
+                    ("prepare_proof.bin", state.prepareProof),
+                    ("prepare_instance.bin", state.prepareInstance),
+                    ("prepare_witness.bin", state.prepareWitness),
+                ]
+                for (name, data) in restore {
+                    try data.write(to: keyDirectory.appendingPathComponent(name),
+                                   options: [.atomic, .completeFileProtectionUnlessOpen])
+                }
+                claimName = state.claimName
+                claimFormat = state.claimFormat
+                cacheUse.hit = true
+                prepareMilliseconds = Self.milliseconds(restoreStarted.duration(to: clock.now))
+            } else {
+                let prepareStarted = clock.now
+                let prepared = try createAgePrepareInput(
+                    documentsPath: path,
+                    sdJwt: credential,
+                    issuerKeyX: issuerX,
+                    issuerKeyY: issuerY)
+                _ = try proveJwt(documentsPath: path)
+                claimName = prepared.claimName
+                claimFormat = prepared.claimFormat
+                prepareMilliseconds = Self.milliseconds(prepareStarted.duration(to: clock.now))
+                // Captured before any reblind, so every future presentation
+                // reblinds a fresh, independent randomisation from this base.
+                if let cache,
+                   let proof = try? Data(contentsOf: keyDirectory.appendingPathComponent("prepare_proof.bin")),
+                   let instance = try? Data(contentsOf: keyDirectory.appendingPathComponent("prepare_instance.bin")),
+                   let witness = try? Data(contentsOf: keyDirectory.appendingPathComponent("prepare_witness.bin")) {
+                    try? cache.store(key: cacheKey, AgePredicatePreparedState(
+                        claimName: claimName, claimFormat: claimFormat,
+                        prepareProof: proof, prepareInstance: instance, prepareWitness: witness))
+                }
+            }
+
+            let cutoff = try request.cutoffValue(claimFormat: claimFormat)
+
             let showStarted = clock.now
             try createAgeShowInput(
                 documentsPath: path,
                 nonce: request.nonce,
                 deviceSignature: holderSignature.base64URLEncodedString(),
-                claimName: prepared.claimName,
-                claimFormat: prepared.claimFormat,
-                cutoff: try request.cutoffValue(claimFormat: prepared.claimFormat))
+                claimName: claimName,
+                claimFormat: claimFormat,
+                cutoff: cutoff)
             _ = try proveShow(documentsPath: path)
             var showMilliseconds = Self.milliseconds(showStarted.duration(to: clock.now))
 
@@ -389,18 +557,18 @@ actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
             showMilliseconds += Self.milliseconds(showReblindStarted.duration(to: clock.now))
 
             // A holder never sends a proof it cannot itself check against the
-            // exact issuer key and verifier statement.
+            // exact issuer key and verifier statement. This is also the backstop
+            // for a stale cached base: a proof built on one fails here.
             let accepted = try verifyAgePresentation(
                 documentsPath: path,
                 nonce: request.nonce,
-                claimName: prepared.claimName,
-                claimFormat: prepared.claimFormat,
-                cutoff: try request.cutoffValue(claimFormat: prepared.claimFormat),
-                expectedIssuerKeyX: issuer.x,
-                expectedIssuerKeyY: issuer.y)
+                claimName: claimName,
+                claimFormat: claimFormat,
+                cutoff: cutoff,
+                expectedIssuerKeyX: issuerX,
+                expectedIssuerKeyY: issuerY)
             guard accepted else { throw AgePredicateProofError.proofRejected }
 
-            let keyDirectory = scratch.documents.appendingPathComponent("keys", isDirectory: true)
             let prepareProof = try Data(
                 contentsOf: keyDirectory.appendingPathComponent("prepare_proof.bin"),
                 options: .mappedIfSafe)
@@ -409,8 +577,8 @@ actor OpenACAgePredicateProofEngine: AgePredicateProofEngine {
                 options: .mappedIfSafe)
             return try AgePredicateProofPackage(
                 request: request,
-                claimName: prepared.claimName,
-                claimFormat: prepared.claimFormat,
+                claimName: claimName,
+                claimFormat: claimFormat,
                 issuerDID: issuerDID,
                 prepareProof: Data(prepareProof),
                 showProof: Data(showProof),
@@ -539,6 +707,7 @@ struct OpenACAgePredicateProofEngine: AgePredicateProofEngine {
                issuerDID: String,
                issuerPublicKeyX963: Data,
                holder: DeviceKey,
+               cacheKey: String,
                assetProgress: @escaping @Sendable (Double) -> Void) async throws -> AgePredicateProofPackage {
         throw AgePredicateProofError.nativeEngineUnavailable
     }

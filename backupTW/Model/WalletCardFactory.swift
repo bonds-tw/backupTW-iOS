@@ -186,7 +186,8 @@ enum WalletCardFactory {
         // passed both trust gates and its issuer is already vouched for — the
         // directory only puts a readable name to it. See `IssuerDirectory`.
         let descriptor = IssuerDirectory.describe(credentialType: credential.credentialType,
-                                                  issuerDID: credential.issuerDID)
+                                                  issuerDID: credential.issuerDID,
+                                                  knownIssuerName: IssuerNameBook.name(for: credential.issuerDID))
 
         return CredentialCard(
             kind: descriptor.cardKind,
@@ -292,9 +293,7 @@ enum WalletCardFactory {
         return .vault(VaultCard(
             title: title,
             message: "\(format) · \(imported)",
-            status: NSLocalizedString("Original stored", comment: "vault document card"),
-            systemImage: MyDataDocumentRegistry.lookup(id: document.id)?.systemImage
-                ?? "doc.text.fill"))
+            status: NSLocalizedString("Original stored", comment: "vault document card")))
     }
 
     // MARK: - Tint selection (a colour is not a claim)

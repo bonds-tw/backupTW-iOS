@@ -1387,6 +1387,16 @@ struct OfflineVerifierNetworkTests {
             // trusted to issue: the `modadigitalwallet://credential_offer` deep
             // link it hands back goes through the same gates as a scanned offer.
             "ViewController/WebCollectViewController.swift",
+            // The private age proof's web checker: one POST of a finished
+            // proof package to `verifier.mashbean.net`, only after the holder
+            // scanned that site's request, consented on a screen that names
+            // the host, and the URL passed `AgePredicateProofRequest`'s
+            // allow-list twice (on decode and again here). Sends two
+            // zero-knowledge proofs and their public statement — never a claim
+            // — and nothing here runs while a document is being checked.
+            // Caught by this scan on the commit that introduced it: the list
+            // working, once more.
+            "Presentation/AgePredicateProofWebClient.swift",
         ]
 
         // The same list as the single-file test, plus `import Network`. Not

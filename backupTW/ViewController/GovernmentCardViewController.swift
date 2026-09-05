@@ -369,6 +369,18 @@ final class GovernmentCardViewController: UICollectionViewController {
         // 「可以確認的部分」 last: 這張卡片 → 欄位 → 可以確認的部分.
         groups.append(trustGroup)
 
+        // What you can do to a card, you can do from the card (design system
+        // §10.4): deleting used to exist only inside the home screen's
+        // long-press menu.
+        groups.append(Group(id: "manage", title: NSLocalizedString("Manage", comment: "detail manage group"), rows: [
+            Row(id: "manage.delete",
+                title: NSLocalizedString("Delete card", comment: "card context menu, destructive"),
+                value: NSLocalizedString(
+                    "This card will be removed from this phone. You can collect it again from 數位憑證皮夾.",
+                    comment: "delete confirmation, government wallet card"),
+                isSensitive: false, isAction: true),
+        ]))
+
         return groups
     }
 
@@ -428,8 +440,9 @@ final class GovernmentCardViewController: UICollectionViewController {
             content.textProperties.numberOfLines = 0
             content.secondaryTextProperties.numberOfLines = 0
             if row.isAction {
-                content.textProperties.color = .tintColor
+                content.textProperties.color = row.id == "manage.delete" ? .systemRed : .tintColor
                 content.textProperties.font = .preferredFont(forTextStyle: .headline)
+                content.secondaryTextProperties.color = .secondaryLabel
             } else if row.isSensitive {
                 // Monospaced and scaled, so an ID number can be read off a digit
                 // at a time and compared against a card without miscounting —
@@ -472,9 +485,57 @@ final class GovernmentCardViewController: UICollectionViewController {
                                  didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let row = dataSource.itemIdentifier(for: indexPath), row.isAction else { return }
+        if row.id == "manage.delete" {
+            confirmDelete()
+            return
+        }
         isRevealed = row.id == "reveal.action"
         // Rebuild from what is already in memory: revealing does not need a
         // re-read, and a re-read is the thing a locking device may refuse.
         applySnapshot()
+    }
+
+    /// The identical confirmation the home screen's long-press menu shows —
+    /// same words, same destructive shape — so the two doors to one action
+    /// cannot drift apart.
+    private func confirmDelete() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("Delete this card?", comment: "delete confirmation title"),
+            message: NSLocalizedString(
+                "This card will be removed from this phone. You can collect it again from 數位憑證皮夾.",
+                comment: "delete confirmation, government wallet card"),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Delete", comment: "delete confirmation, confirm"),
+            style: .destructive) { [weak self] _ in
+                guard let self else { return }
+                let outcome = Result { () -> Void in
+                    guard let store = self.resolvedStore() else {
+                        throw NSError(domain: "tw.bonds.backupTW", code: 1, userInfo: [
+                            NSLocalizedDescriptionKey: NSLocalizedString(
+                                "This phone's cards cannot be read right now.", comment: ""),
+                        ])
+                    }
+                    try store.delete(id: self.credentialID)
+                    // A cached OpenAC Prepare state for this card carries its
+                    // birth date; it must not outlive the card.
+                    try? AgePredicatePrepareCache().purgeAll()
+                }
+                switch outcome {
+                case .success:
+                    self.navigationController?.popViewController(animated: true)
+                case .failure(let error):
+                    let failure = UIAlertController(
+                        title: NSLocalizedString("The card was not deleted", comment: "delete failure"),
+                        message: error.localizedDescription,
+                        preferredStyle: .alert)
+                    failure.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+                    self.present(failure, animated: true)
+                }
+            })
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("Cancel", comment: "delete confirmation, cancel"),
+            style: .cancel))
+        present(alert, animated: true)
     }
 }

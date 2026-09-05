@@ -18,6 +18,10 @@ final class TrustCenterViewController: UICollectionViewController {
         case issuer(did: String, name: String, detail: String)
         case field(label: String, key: String)
         case note(String)
+        /// The failed state's way out. 「Check your connection and reopen this
+        /// screen」 asked the reader to do this row's job by hand — a network
+        /// failure must carry its own retry (design system §8.1).
+        case retry
     }
     private enum LoadState { case loading, loaded([TWDIWIssuer]), failed }
 
@@ -42,7 +46,10 @@ final class TrustCenterViewController: UICollectionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("Trust", comment: "settings row / screen: trust")
-        navigationController?.navigationBar.prefersLargeTitles = false
+        // `.never` on this screen's own item — flipping the shared bar's
+        // `prefersLargeTitles` used to leave Settings with a small title after
+        // popping back (BondsDesign.swift §Navigation bar 政策).
+        navigationItem.largeTitleDisplayMode = .never
 
         segmented.selectedSegmentIndex = 0
         segmented.addTarget(self, action: #selector(tabChanged), for: .valueChanged)
@@ -79,13 +86,19 @@ final class TrustCenterViewController: UICollectionViewController {
                 content.text = label
                 content.secondaryText = key
                 content.secondaryTextProperties.color = .secondaryLabel
-                content.secondaryTextProperties.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+                content.secondaryTextProperties.font = Bonds.Font.mono(.footnote)
                 content.image = UIImage(systemName: "arrow.left.arrow.right")?
                     .withTintColor(.tertiaryLabel, renderingMode: .alwaysOriginal)
             case let .note(text):
                 content.text = text
                 content.textProperties.color = .secondaryLabel
                 content.textProperties.font = .preferredFont(forTextStyle: .footnote)
+            case .retry:
+                content.text = NSLocalizedString("Try again", comment: "trust list retry")
+                content.textProperties.color = .tintColor
+                content.textProperties.font = .preferredFont(forTextStyle: .headline)
+                content.image = UIImage(systemName: "arrow.clockwise")
+                content.imageProperties.tintColor = .tintColor
             }
             cell.contentConfiguration = content
         }
@@ -104,10 +117,13 @@ final class TrustCenterViewController: UICollectionViewController {
             case .loading:
                 snapshot.appendItems([.note(NSLocalizedString("Loading the trust list…", comment: ""))])
             case .failed:
-                snapshot.appendItems([.note(NSLocalizedString("The trust list could not be loaded. Check your connection and reopen this screen.", comment: ""))])
+                snapshot.appendItems([
+                    .note(NSLocalizedString("The trust list could not be loaded. Check your connection, then try again.", comment: "trust list failed state")),
+                    .retry,
+                ])
             case .loaded(let issuers):
                 snapshot.appendItems([.note(String(
-                    format: NSLocalizedString("Loaded %d organisations from the official API. A green check means the API record is available; a shield means its current blockchain record also matches.", comment: "trust list status legend"),
+                    format: NSLocalizedString("Loaded %d organisations from the official API. A green check means the API record is confirmed; a shield means its blockchain record also matches.", comment: "trust list status legend"),
                     issuers.count))])
                 snapshot.appendItems(issuers.map {
                     // Head+tail so the did:key prefix and the distinguishing last
@@ -130,6 +146,9 @@ final class TrustCenterViewController: UICollectionViewController {
         Task { [weak self] in
             do {
                 let issuers = try await TrustListFetcher(session: .shared).fetchAll()
+                // A fresh list is a chance to keep the offline name book
+                // current — the same book collections write to.
+                IssuerNameBook.remember(issuers)
                 await MainActor.run {
                     guard let self else { return }
                     self.trustState = .loaded(issuers)
@@ -153,6 +172,12 @@ final class TrustCenterViewController: UICollectionViewController {
 
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
+        if case .retry = dataSource.itemIdentifier(for: indexPath) {
+            trustState = .loading
+            applySnapshot()
+            fetchTrustList()
+            return
+        }
         guard case let .issuer(did, _, _) = dataSource.itemIdentifier(for: indexPath),
               case .loaded(let issuers) = trustState,
               let issuer = issuers.first(where: { $0.did == did }) else { return }
@@ -179,14 +204,26 @@ final class TrustCenterViewController: UICollectionViewController {
         }
     }
 
+    /// The one appearance for a verification state, shared with
+    /// `TrustRecordDetailViewController`.
+    ///
+    /// Two decisions live here, made at different times:
+    /// 1. **One mapping for both screens** (2026-09-01). The list used to show
+    ///    green for `.notAnchored`/`.unavailable` while the detail screen showed
+    ///    the same state in orange — opposite traffic lights for one fact. The
+    ///    detail view now delegates here, so they cannot diverge again.
+    /// 2. **The official API alone earns the check** (2026-09-02, 使用者拍板).
+    ///    A loaded API record shows the plain green check; the *shield* is the
+    ///    upgrade reserved for entries whose Arbitrum record also matches. The
+    ///    blockchain is corroboration, not a prerequisite — an issuer on the
+    ///    official list must not wear a warning colour because a chain lookup
+    ///    is missing or unreachable. Only a genuine conflict (`.mismatch`) and
+    ///    the sandbox are non-green.
     static func verificationAppearance(_ result: TWDIWOnChainVerification?)
         -> (symbol: String, colour: UIColor) {
         switch result {
         case .verified: return ("checkmark.shield.fill", .systemGreen)
         case .mismatch: return ("exclamationmark.shield.fill", .systemRed)
-        // The API record is already present in these states. Use the plain
-        // green check for that confirmed source; the shield is reserved for the
-        // stronger two-source match above.
         case .notAnchored, .unavailable, nil: return ("checkmark.circle.fill", .systemGreen)
         case .developmentSandbox: return ("hammer.fill", .systemOrange)
         }

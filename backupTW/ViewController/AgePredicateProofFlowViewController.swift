@@ -36,11 +36,18 @@ enum AgePredicateProofHolderFlow {
         let source = request.credentialSource == .twdiw
             ? NSLocalizedString("government wallet card", comment: "age proof")
             : NSLocalizedString("self-issued MyData document", comment: "age proof")
-        let message = String(
+        var message = String(
             format: NSLocalizedString(
                 "The checker asks whether you are at least %d.\n\nPurpose: %@\nSource: %@\n\nYour birth date and card never leave this phone.",
                 comment: "age proof consent"),
             request.minimumAge, request.purpose, source)
+        if let host = request.responseURL?.host {
+            // The one difference from the two-device flow, said before consent:
+            // the finished proof (and nothing else) goes to a website.
+            message += "\n\n" + String(
+                format: NSLocalizedString("The finished proof will be sent to %@.", comment: "age proof consent"),
+                host)
+        }
         let alert = UIAlertController(
             title: NSLocalizedString("Create a private age proof?", comment: "age proof"),
             message: message,
@@ -64,7 +71,12 @@ final class AgePredicateProofSendViewController: UIViewController {
 
     private let request: AgePredicateProofRequest
     private let engine: any AgePredicateProofEngine
+    private let webClient: AgePredicateProofWebClient
     private var link: BluetoothLinkPeripheral?
+    /// Set the moment a web submission starts, so a failure on the way records
+    /// the transport that was attempted rather than 「local」.
+    private var usedWeb = false
+    private var webOutcome: AgePredicateProofWebOutcome?
     private let spinner = UIActivityIndicatorView(style: .large)
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
@@ -75,9 +87,11 @@ final class AgePredicateProofSendViewController: UIViewController {
     private var runRecordWritten = false
 
     init(request: AgePredicateProofRequest,
-         engine: any AgePredicateProofEngine = AgePredicateProofEngineAssembly.make()) {
+         engine: any AgePredicateProofEngine = AgePredicateProofEngineAssembly.make(),
+         webClient: AgePredicateProofWebClient = AgePredicateProofWebClient()) {
         self.request = request
         self.engine = engine
+        self.webClient = webClient
         super.init(nibName: nil, bundle: nil)
         title = NSLocalizedString("Private age proof", comment: "age proof")
     }
@@ -146,6 +160,7 @@ final class AgePredicateProofSendViewController: UIViewController {
                     issuerDID: material.issuerDID,
                     issuerPublicKeyX963: material.issuerPublicKeyX963,
                     holder: material.holderKey,
+                    cacheKey: material.cacheKey,
                     assetProgress: { [weak self] fraction in
                         Task { @MainActor in
                             self?.detailLabel.text = String(
@@ -155,11 +170,70 @@ final class AgePredicateProofSendViewController: UIViewController {
                     })
                 try package.validate(answering: request)
                 createdPackage = package
-                send(try package.encoded())
+                if let responseURL = request.responseURL {
+                    sendOverWeb(package, to: responseURL)
+                } else {
+                    send(try package.encoded())
+                }
             } catch {
                 showFailure(error)
             }
         }
+    }
+
+    /// The web checker's path: one HTTPS POST to the allow-listed website in the
+    /// request, then its verdict — the website did the checking, this phone
+    /// only reports what it said. Timings come back with the verdict so the
+    /// holder's record carries the same numbers the website shows.
+    private func sendOverWeb(_ package: AgePredicateProofPackage, to url: URL) {
+        usedWeb = true
+        transportStartedAt = VerificationClock.now()
+        titleLabel.text = NSLocalizedString("Proof ready", comment: "age proof")
+        detailLabel.text = String(
+            format: NSLocalizedString("Sending it to the checker's website %@…", comment: "age proof"),
+            url.host ?? "")
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let outcome = try await webClient.submit(package, to: url)
+                webOutcome = outcome
+                spinner.stopAnimating()
+                if outcome.verdict.accepted {
+                    titleLabel.text = String(
+                        format: NSLocalizedString("The website verified the proof: at least %d", comment: "age proof"),
+                        request.minimumAge)
+                    detailLabel.text = NSLocalizedString("No birth date or card data was sent.", comment: "age proof")
+                        + "\n" + Self.timingSummary(package: package, outcome: outcome)
+                    Bonds.Haptic.delivered()
+                } else {
+                    titleLabel.text = NSLocalizedString("The website did not accept the proof", comment: "age proof")
+                    // The website's own words, drawn as untrusted text: it is a
+                    // stranger's sentence and must not impersonate this app.
+                    detailLabel.text = outcome.verdict.reason.map { UntrustedText($0, limit: 200).text }
+                        ?? NSLocalizedString("The zero-knowledge proof did not verify.", comment: "age proof")
+                }
+                doneButton.isHidden = false
+                recordRun(succeeded: outcome.verdict.accepted)
+            } catch {
+                showFailure(error)
+            }
+        }
+    }
+
+    private static func timingSummary(package: AgePredicateProofPackage,
+                                      outcome: AgePredicateProofWebOutcome) -> String {
+        let verify = outcome.verdict.timingMs?.verify
+        return String(
+            format: NSLocalizedString("Proof creation %@ + %@ ms · website verification %@ ms · round trip %@ ms",
+                                      comment: "age proof web timing"),
+            Self.number(package.prepareMilliseconds),
+            Self.number(package.showMilliseconds),
+            verify.map(Self.number) ?? "—",
+            Self.number(outcome.roundTripMilliseconds))
+    }
+
+    private static func number(_ value: UInt64) -> String {
+        NumberFormatter.localizedString(from: NSNumber(value: value), number: .decimal)
     }
 
     private func send(_ payload: Data) {
@@ -215,19 +289,28 @@ final class AgePredicateProofSendViewController: UIViewController {
         let started = createStartedAt ?? completed
         let transportStarted = transportStartedAt
         let package = createdPackage
+        let transport: VerificationRunRecord.Transport
+        if usedWeb {
+            transport = .https
+        } else {
+            transport = transportStarted == nil ? .local : .bluetooth
+        }
         let record = VerificationRunRecord(
             flow: .privateAgeProof,
             role: .holder,
             credentialKind: request.credentialSource == .twdiw
                 ? .governmentWallet : .selfIssued,
-            transport: transportStarted == nil ? .local : .bluetooth,
+            transport: transport,
             succeeded: succeeded,
             preparationMilliseconds: package.map {
                 $0.prepareMilliseconds + $0.showMilliseconds
             },
-            transportMilliseconds: transportStarted.map {
+            transportMilliseconds: webOutcome?.roundTripMilliseconds ?? transportStarted.map {
                 VerificationClock.milliseconds(from: $0, to: completed)
             },
+            // The website's own verification figure, carried back with the
+            // verdict; the two-device flow measures this on the iPad instead.
+            verificationMilliseconds: webOutcome?.verdict.timingMs?.verify,
             endToEndMilliseconds: VerificationClock.milliseconds(
                 from: started, to: completed),
             proofPrepareMilliseconds: package?.prepareMilliseconds,

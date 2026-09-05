@@ -35,21 +35,58 @@ struct VerificationRunRecordTests {
     @Test func matrixCellsAreInferredWithoutCredentialContents() {
         let cases: [(VerificationRunRecord.Flow,
                      VerificationRunRecord.CredentialKind,
+                     VerificationRunRecord.Transport,
                      VerificationRunRecord.MatrixCell)] = [
-            (.offlinePresentation, .selfIssued, .a1),
-            (.oid4vpPresentation, .governmentWallet, .a2),
-            (.zeroKnowledgeProofVerification, .mobileCertificate, .a3),
-            (.oid4vpPresentation, .selfIssued, .g1),
-            (.offlinePresentation, .governmentWallet, .g2),
-            (.privateAgeProof, .governmentWallet, .g3),
-            (.privateAgeProof, .selfIssued, .g4),
+            (.offlinePresentation, .selfIssued, .local, .a1),
+            (.oid4vpPresentation, .governmentWallet, .https, .a2),
+            (.zeroKnowledgeProofVerification, .mobileCertificate, .local, .a3),
+            (.oid4vpPresentation, .selfIssued, .https, .g1),
+            (.offlinePresentation, .governmentWallet, .local, .g2),
+            (.privateAgeProof, .governmentWallet, .bluetooth, .g3),
+            (.privateAgeProof, .selfIssued, .bluetooth, .g4),
+            (.privateAgeProof, .governmentWallet, .local, .g3),
+            // The same proof posted to the web verifier is its own cell, so the
+            // matrix can put it beside the website's SD-JWT-VC run.
+            (.privateAgeProof, .governmentWallet, .https, .w1),
+            (.privateAgeProof, .selfIssued, .https, .w2),
         ]
-        for (flow, kind, expected) in cases {
+        for (flow, kind, transport, expected) in cases {
             let record = VerificationRunRecord(flow: flow, role: .verifier,
-                                               credentialKind: kind, transport: .local,
+                                               credentialKind: kind, transport: transport,
                                                succeeded: true)
             #expect(record.matrixCell == expected)
         }
+    }
+
+    @Test func webComparisonPairsTheLatestSuccessfulRunsPerCardFamily() {
+        func run(_ flow: VerificationRunRecord.Flow,
+                 _ kind: VerificationRunRecord.CredentialKind,
+                 _ transport: VerificationRunRecord.Transport,
+                 succeeded: Bool,
+                 endToEnd: UInt64) -> VerificationRunRecord {
+            VerificationRunRecord(flow: flow, role: .holder, credentialKind: kind,
+                                  transport: transport, succeeded: succeeded,
+                                  endToEndMilliseconds: endToEnd)
+        }
+        let records = [
+            run(.oid4vpPresentation, .governmentWallet, .https, succeeded: true, endToEnd: 4_000),
+            run(.oid4vpPresentation, .governmentWallet, .https, succeeded: true, endToEnd: 5_000),
+            run(.oid4vpPresentation, .governmentWallet, .https, succeeded: false, endToEnd: 9_000),
+            run(.privateAgeProof, .governmentWallet, .bluetooth, succeeded: true, endToEnd: 30_000),
+            run(.privateAgeProof, .governmentWallet, .https, succeeded: true, endToEnd: 26_000),
+            run(.privateAgeProof, .selfIssued, .https, succeeded: true, endToEnd: 24_000),
+        ]
+        let comparisons = VerificationRunComparison.latest(in: records)
+        #expect(comparisons.count == 2)
+        let government = try? #require(comparisons.first { $0.credentialKind == .governmentWallet })
+        #expect(government?.sdJWT?.endToEndMilliseconds == 5_000)
+        #expect(government?.zeroKnowledge?.endToEndMilliseconds == 26_000)
+        #expect(government?.endToEndDifferenceMilliseconds == 21_000)
+        let selfIssued = comparisons.first { $0.credentialKind == .selfIssued }
+        #expect(selfIssued?.sdJWT == nil)
+        #expect(selfIssued?.zeroKnowledge?.endToEndMilliseconds == 24_000)
+        #expect(selfIssued?.endToEndDifferenceMilliseconds == nil)
+        #expect(VerificationRunComparison.latest(in: []).isEmpty)
     }
 
     @Test func correlationTokenIsShortAndDoesNotRetainTheRequestIdentifier() {

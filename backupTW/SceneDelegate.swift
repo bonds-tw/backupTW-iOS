@@ -402,11 +402,34 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             // `\r\ncredential_offer_uri`, miss the offer, and drop the card to the
             // FidO router — the same silent non-collection the scanned path fixed.
             if let link = try? CredentialOfferLink.parse(scanned: url.absoluteString) {
-                collectCredential(from: link)
+                // A deep link can arrive over any screen. Settings is pure
+                // housekeeping, so it is folded away first — its result alert
+                // used to land *on top of* the Settings modal, a full-screen
+                // surprise stacked on housekeeping (design system §10.1). The
+                // MyData wizard is deliberately NOT dismissed: it is a flow in
+                // progress, and closing it would cost the holder their place.
+                dismissSettingsIfPresented { [weak self] in
+                    self?.collectCredential(from: link)
+                }
                 continue
             }
             Task { await MOICACallbackRouter.shared.handle(url) }
         }
+    }
+
+    /// Folds away a presented Settings modal (and only Settings) before a
+    /// deep-link flow takes the screen. Anything else presented — the MyData
+    /// wizard, a web-collect session, an alert mid-decision — stays put, and
+    /// the collection result is presented on top as before.
+    private func dismissSettingsIfPresented(completion: @escaping () -> Void) {
+        guard let root = window?.rootViewController,
+              let presented = root.presentedViewController as? UINavigationController,
+              presented.viewControllers.first is SettingsViewController,
+              presented.presentedViewController == nil else {
+            completion()
+            return
+        }
+        root.dismiss(animated: true, completion: completion)
     }
 
     /// Runs one collection from a deep link and tells the user how it ended.
@@ -417,9 +440,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func collectCredential(from link: CredentialOfferLink) {
         Task { @MainActor in
             let outcome = await CredentialCollection.run(from: link)
+            if outcome.isSuccess { Bonds.Haptic.delivered() }
             let alert = UIAlertController(
                 title: NSLocalizedString("Digital wallet card collection", comment: ""),
-                message: outcome,
+                message: outcome.message,
                 preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""),
                                           style: .default))

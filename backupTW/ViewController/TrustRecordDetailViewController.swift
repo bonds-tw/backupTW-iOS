@@ -48,7 +48,7 @@ final class TrustRecordDetailViewController: UICollectionViewController {
             content.secondaryTextProperties.numberOfLines = 0
             content.secondaryTextProperties.color = .secondaryLabel
             if row.id.contains("did") || row.id.contains("contract") || row.id.contains("transaction") {
-                content.secondaryTextProperties.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+                content.secondaryTextProperties.font = Bonds.Font.mono(.footnote)
             }
             if row.url != nil {
                 content.textProperties.color = .tintColor
@@ -135,16 +135,12 @@ final class TrustRecordDetailViewController: UICollectionViewController {
         }
     }
 
+    /// Delegates to the trust list's mapping so the two screens can never again
+    /// show opposite traffic lights for the same state — the defect this
+    /// replaces was exactly that divergence.
     private static func chainAppearance(_ result: TWDIWOnChainVerification?)
         -> (symbol: String, colour: UIColor) {
-        switch result {
-        case .verified: return ("checkmark.shield.fill", .systemGreen)
-        case .mismatch: return ("exclamationmark.shield.fill", .systemRed)
-        case .notAnchored: return ("link.badge.plus", .systemOrange)
-        case .unavailable: return ("wifi.exclamationmark", .systemOrange)
-        case .developmentSandbox: return ("hammer.fill", .systemOrange)
-        case nil: return ("ellipsis.circle", .secondaryLabel)
-        }
+        TrustCenterViewController.verificationAppearance(result)
     }
 
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

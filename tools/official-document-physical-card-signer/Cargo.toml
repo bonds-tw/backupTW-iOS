@@ -1,0 +1,15 @@
+[package]
+name = "bonds-official-document-physical-card-signer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+base64 = "0.22.1"
+open-gpki-pkcs11 = { git = "https://github.com/chouhsiang/open-gpki-pkcs11", rev = "4684289400322b892e2c9ebcd8d56c1e852aefd2" }
+rpassword = "7.4.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+sha2 = "0.10.9"
+zeroize = "1.8.1"
+

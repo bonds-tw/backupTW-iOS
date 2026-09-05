@@ -45,10 +45,6 @@ class HomeViewController: UICollectionViewController {
     /// section header. Keeping the state by section prevents one group from
     /// changing the other when both are visible.
     private var expandedStackSections: Set<String> = []
-    /// The stack transition owns cell/header transforms for one short, non-spring
-    /// animation. Keeping it separate from the collection layout prevents UIKit's
-    /// transition layout from also changing the scroll offset mid-flight.
-    private var stackTransitionAnimator: UIViewPropertyAnimator?
 
     /// The stable id of the government group, shared by the section builder, the
     /// stack layout, and the tap routing so they always mean the same section.
@@ -225,7 +221,7 @@ class HomeViewController: UICollectionViewController {
     private func nationalIDSection(rows: [CardInventoryRow]?,
                                    store: CredentialStoring?) -> (HomeSection, [HomeItem]) {
         let section = HomeSection(id: "national-id",
-                                  title: "🪪 " + NSLocalizedString("National ID", comment: "home card group"))
+                                  title: NSLocalizedString("National ID", comment: "home card group"))
 
         guard let rows else {
             // No 「create one」 control while the store is unreadable: that control
@@ -269,7 +265,7 @@ class HomeViewController: UICollectionViewController {
     private func governmentSection(rows: [CardInventoryRow]?,
                                    store: CredentialStoring?) -> (HomeSection, [HomeItem]) {
         let section = HomeSection(id: "government",
-                                  title: "🏛️ " + NSLocalizedString("Government wallet cards", comment: "home card group"))
+                                  title: NSLocalizedString("Government wallet cards", comment: "home card group"))
 
         guard let rows else {
             return (section, [.card(id: CardID.unreadableStore(in: "government"),
@@ -297,7 +293,7 @@ class HomeViewController: UICollectionViewController {
     private func myDataSection(documents: [MyDataVaultArchive.Document]?,
                                legacyCredentials: [CardInventoryRow]?) -> (HomeSection, [HomeItem]) {
         let section = HomeSection(id: "mydata",
-                                  title: "🗂️ " + NSLocalizedString("MyData vault", comment: "home card group"))
+                                  title: NSLocalizedString("MyData vault", comment: "home card group"))
         guard let documents else {
             return (section, [.card(id: CardID.unreadableStore(in: "mydata"),
                                     content: .unreadable(Self.unreadableStoreMessage))])
@@ -357,7 +353,7 @@ class HomeViewController: UICollectionViewController {
         -> (HomeSection, [HomeItem]) {
         let section = HomeSection(
             id: "official-documents",
-            title: "📨 " + NSLocalizedString("Electronic official documents", comment: "home card group"))
+            title: NSLocalizedString("Electronic official documents", comment: "home card group"))
         let subtitle: String
         switch state {
         case .prototypeSigned:
@@ -416,7 +412,20 @@ class HomeViewController: UICollectionViewController {
                 return Self.collapsedStackSection(configuration: stack, environment: environment)
             }
             let sectionID = self?.sectionID(at: index)
-            return Self.normalCardSection(showsHeader: sectionID != Self.myDataActionsSectionID)
+            if sectionID == Self.myDataActionsSectionID {
+                // A plain list section, not the estimated-height card section.
+                // On device the import row's self-sizing pass could fail to run
+                // in the custom section, leaving the cell frozen at the 220pt
+                // *estimate* — a mostly-empty giant panel (回報 2026-09-02).
+                // The list path is UIKit's own reliable self-sizing machinery.
+                var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+                config.headerMode = .none
+                config.backgroundColor = .clear
+                let section = NSCollectionLayoutSection.list(using: config, layoutEnvironment: environment)
+                section.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16)
+                return section
+            }
+            return Self.normalCardSection(showsHeader: true)
         }
         let brand = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1),
@@ -454,7 +463,7 @@ class HomeViewController: UICollectionViewController {
         return StackConfiguration(sectionID: id, cardCount: cardCount,
                                   aspectRatio: id == Self.myDataSectionID ? Self.vaultAspect
                                                                          : Self.credentialAspect,
-                                  peekHeight: Self.stackPeekHeight)
+                                  peekHeight: id == Self.myDataSectionID ? 48 : Self.stackPeekHeight)
     }
 
     private func sectionIsStackable(_ sectionID: String) -> Bool {
@@ -481,136 +490,43 @@ class HomeViewController: UICollectionViewController {
         setStackExpanded(expanded, sectionID: Self.governmentSectionID, animated: animated)
     }
 
-    /// Reflows the section without asking UICollectionView to animate its layout.
-    /// A transition layout also owns `contentOffset`; when the section height
-    /// changes substantially it can first clamp the scroll position and then
-    /// spring the cards, producing the up/down jump seen on a real phone.
-    ///
-    /// Instead, the final layout and its clamped offset are committed without
-    /// animation. Visible cells and headers are then translated back to their old
-    /// viewport positions and eased to identity. The first rendered frame is
-    /// therefore pixel-continuous with the frame before the tap, while the final
-    /// scroll position is always valid — no overscroll and no bounce-back.
+    /// One in-place layout invalidation on the *same* layout object, animated by
+    /// `performBatchUpdates`. Two earlier shapes each had a visible defect: a
+    /// diffable reconfiguration rebuilt cells while their frames moved (the
+    /// jump/reversal), and the `setCollectionViewLayout(_:animated:)` swap that
+    /// replaced it cross-faded between two whole layouts — both layouts' section
+    /// headers exist during that transition, so every header briefly doubled
+    /// (回報 2026-09-02). The section provider reads `expandedStackSections`
+    /// live, so invalidating is enough: same layout, same headers, only the
+    /// frames animate.
     func setStackExpanded(_ expanded: Bool, sectionID: String, animated: Bool = true) {
         guard dataSource != nil, sectionIsStackable(sectionID),
-              stackTransitionAnimator == nil,
               expanded != expandedStackSections.contains(sectionID) else { return }
         collectionView.layoutIfNeeded()
-
-        let oldViews = visibleTransitionViews()
-        let oldFrames = oldViews.mapValues { $0.convert($0.bounds, to: view) }
-        let oldHeaderY = sectionHeaderViewportY(sectionID: sectionID)
-
         if expanded { expandedStackSections.insert(sectionID) }
         else { expandedStackSections.remove(sectionID) }
         collectionView.isUserInteractionEnabled = false
-
-        UIView.performWithoutAnimation {
-            collectionView.setCollectionViewLayout(makeLayout(), animated: false)
-            collectionView.layoutIfNeeded()
-            if let oldHeaderY {
-                preserveSectionHeader(sectionID: sectionID, viewportY: oldHeaderY)
-                collectionView.layoutIfNeeded()
+        let apply: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.collectionView.performBatchUpdates {
+                self.collectionView.collectionViewLayout.invalidateLayout()
+            } completion: { [weak self] _ in
+                guard let self else { return }
+                self.collectionView.isUserInteractionEnabled = true
+                self.refreshStackHeader(sectionID: sectionID)
             }
+        }
+        // `performBatchUpdates` only calls its completion when UIView animations
+        // are actually running, and that completion is what lifts the lock. With
+        // animations globally disabled the collection would stay permanently
+        // non-interactive, so that case takes the synchronous path too.
+        if animated, UIView.areAnimationsEnabled {
+            apply()
+        } else {
+            UIView.performWithoutAnimation(apply)
+            collectionView.isUserInteractionEnabled = true
             refreshStackHeader(sectionID: sectionID)
         }
-
-        let finalViews = visibleTransitionViews()
-        if !animated || UIAccessibility.isReduceMotionEnabled || !UIView.areAnimationsEnabled {
-            finalViews.values.forEach {
-                $0.transform = .identity
-                $0.alpha = 1
-            }
-            collectionView.isUserInteractionEnabled = true
-            return
-        }
-
-        var movingViews: [UIView] = []
-        for (key, finalView) in finalViews {
-            guard let oldFrame = oldFrames[key] else { continue }
-            let finalFrame = finalView.convert(finalView.bounds, to: view)
-            let translation = Self.stackContinuityTransform(oldFrame: oldFrame,
-                                                            finalFrame: finalFrame)
-            guard !translation.isIdentity else { continue }
-            finalView.transform = translation
-            movingViews.append(finalView)
-        }
-
-        let animator = UIViewPropertyAnimator(duration: 0.34, curve: .easeInOut) {
-            movingViews.forEach { $0.transform = .identity }
-        }
-        stackTransitionAnimator = animator
-        animator.addCompletion { [weak self] _ in
-            guard let self else { return }
-            movingViews.forEach {
-                $0.transform = .identity
-                $0.alpha = 1
-            }
-            self.stackTransitionAnimator = nil
-            self.collectionView.isUserInteractionEnabled = true
-        }
-        animator.startAnimation()
-    }
-
-    /// Kept as a pure geometry operation so the first-frame guarantee remains
-    /// testable even when the unit-test host disables Core Animation.
-    static func stackContinuityTransform(oldFrame: CGRect, finalFrame: CGRect) -> CGAffineTransform {
-        CGAffineTransform(translationX: oldFrame.midX - finalFrame.midX,
-                          y: oldFrame.midY - finalFrame.midY)
-    }
-
-    private enum StackTransitionElement: Hashable {
-        case item(HomeItem)
-        case header(String)
-    }
-
-    /// Every visible object whose movement should read as one reflow. Including
-    /// following sections matters: otherwise the cards ease while their headers
-    /// teleport when the changed section grows or shrinks.
-    private func visibleTransitionViews() -> [StackTransitionElement: UIView] {
-        var result: [StackTransitionElement: UIView] = [:]
-        for cell in collectionView.visibleCells {
-            guard let indexPath = collectionView.indexPath(for: cell),
-                  let item = dataSource.itemIdentifier(for: indexPath) else { continue }
-            result[.item(item)] = cell
-        }
-        for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(
-            ofKind: UICollectionView.elementKindSectionHeader) {
-            guard let id = sectionID(at: indexPath.section),
-                  let header = collectionView.supplementaryView(
-                    forElementKind: UICollectionView.elementKindSectionHeader,
-                    at: indexPath) else { continue }
-            result[.header(id)] = header
-        }
-        return result
-    }
-
-    private func sectionHeaderViewportY(sectionID: String) -> CGFloat? {
-        guard let sectionIndex = dataSource.snapshot().sectionIdentifiers
-                .firstIndex(where: { $0.id == sectionID }),
-              let attributes = collectionView.collectionViewLayout
-                .layoutAttributesForSupplementaryView(
-                    ofKind: UICollectionView.elementKindSectionHeader,
-                    at: IndexPath(item: 0, section: sectionIndex)) else { return nil }
-        return attributes.frame.minY - collectionView.contentOffset.y
-    }
-
-    private func preserveSectionHeader(sectionID: String, viewportY: CGFloat) {
-        guard let sectionIndex = dataSource.snapshot().sectionIdentifiers
-                .firstIndex(where: { $0.id == sectionID }),
-              let attributes = collectionView.collectionViewLayout
-                .layoutAttributesForSupplementaryView(
-                    ofKind: UICollectionView.elementKindSectionHeader,
-                    at: IndexPath(item: 0, section: sectionIndex)) else { return }
-        let proposed = attributes.frame.minY - viewportY
-        let minimum = -collectionView.adjustedContentInset.top
-        let maximum = max(minimum,
-                          collectionView.contentSize.height - collectionView.bounds.height
-                            + collectionView.adjustedContentInset.bottom)
-        collectionView.setContentOffset(
-            CGPoint(x: collectionView.contentOffset.x,
-                    y: min(max(proposed, minimum), maximum)),
-            animated: false)
     }
 
     /// Sets a section header's 疊卡 disclosure: a chevron + header-tap toggle for a
@@ -678,16 +594,24 @@ class HomeViewController: UICollectionViewController {
         // Apple-Wallet stack: every card is a FULL rounded card, and they overlap so
         // a lower card covers the body of the card above it — leaving only that
         // card's rounded top (a `peek`-tall sliver with its name) showing. No
-        // clipping: the hero (first card) sits at the BOTTOM, fully visible and in
-        // front (highest zIndex); each card above is behind the one below it, so its
-        // bottom corners are hidden and its body fills behind the lower card's
-        // rounded top — no notch, no pill.
+        // clipping; the hero sits at the BOTTOM, fully visible and in front
+        // (highest zIndex).
+        //
+        // The hero is the LAST item, not the first. The collapsed pile and the
+        // expanded list must read in the same top-to-bottom order, so that
+        // expanding is a fan-out and collapsing is a gather — with the hero
+        // (the front, fully visible card) staying at the bottom in both states.
+        // The first cut made item 0 the hero: expanding then teleported the
+        // front card from the bottom of the pile to the top of the list, which
+        // read as the stack flipping over (回報 2026-09-02; Apple Wallet keeps
+        // the order).
         let group = NSCollectionLayoutGroup.custom(layoutSize: groupSize) { env in
             let w = env.container.effectiveContentSize.width - inset * 2
             let h = w / configuration.aspectRatio
+            let heroIndex = configuration.cardCount - 1
             return (0..<configuration.cardCount).map { i in
-                let y = i == 0 ? CGFloat(configuration.cardCount - 1) * peek : CGFloat(i - 1) * peek
-                let z = i == 0 ? configuration.cardCount : i
+                let y = CGFloat(i) * peek
+                let z = i == heroIndex ? configuration.cardCount : i
                 return NSCollectionLayoutGroupCustomItem(
                     frame: CGRect(x: inset, y: y, width: w, height: h), zIndex: z)
             }
@@ -804,6 +728,74 @@ class HomeViewController: UICollectionViewController {
         }
     }
 
+    // MARK: - Card accessibility actions
+
+    /// The VoiceOver counterparts of the card's gestures (design system §9.1).
+    ///
+    /// Which actions a face offers is decided from its `content` — the same
+    /// facts the tap router and long-press menu read. What a performed action
+    /// does is resolved through the live indexPath at perform time, so a
+    /// reused cell acts on the card it currently shows.
+    private func installAccessibilityActions(on cell: WalletCardCell, content: WalletCardContent) {
+        func liveCardID(_ cell: WalletCardCell?) -> String? {
+            guard let cell,
+                  let indexPath = collectionView.indexPath(for: cell),
+                  let item = dataSource.itemIdentifier(for: indexPath),
+                  case .card(let id, _) = item else { return nil }
+            return id
+        }
+
+        let isRealDocument: Bool
+        switch content {
+        case .nationalID(let card): isRealDocument = card.placeholderMessage == nil
+        case .credential: isRealDocument = true
+        case .vault, .unreadable: isRealDocument = false
+        }
+        guard isRealDocument else {
+            cell.accessibilityCustomActions = nil
+            return
+        }
+
+        var actions: [UIAccessibilityCustomAction] = [
+            UIAccessibilityCustomAction(
+                name: NSLocalizedString("View details", comment: "card accessibility action")) { [weak self, weak cell] _ in
+                    guard let self, let id = liveCardID(cell),
+                          self.vaultDocuments[id] != nil || self.cardRows[id] != nil else { return false }
+                    self.openCard(id: id)
+                    return true
+                },
+        ]
+        if cell.canFlip {
+            actions.append(UIAccessibilityCustomAction(
+                name: NSLocalizedString("Flip the card", comment: "card accessibility action")) { [weak cell] _ in
+                    guard let cell, cell.canFlip else { return false }
+                    cell.toggleFlip()
+                    return true
+                })
+        }
+        actions.append(UIAccessibilityCustomAction(
+            name: NSLocalizedString("Present credential", comment: "card context menu")) { [weak self, weak cell] _ in
+                guard let self, let id = liveCardID(cell),
+                      Self.deletableCard(forCardID: id, in: self.cardRows) != nil else { return false }
+                self.navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
+                return true
+            })
+        actions.append(UIAccessibilityCustomAction(
+            name: NSLocalizedString("Delete card", comment: "card context menu, destructive")) { [weak self, weak cell] _ in
+                guard let self, let id = liveCardID(cell) else { return false }
+                if let document = Self.deletableVaultDocument(forID: id, in: self.vaultDocuments) {
+                    self.confirmDelete(document)
+                    return true
+                }
+                if let card = Self.deletableCard(forCardID: id, in: self.cardRows) {
+                    self.confirmDelete(card)
+                    return true
+                }
+                return false
+            })
+        cell.accessibilityCustomActions = actions
+    }
+
     // MARK: - Data source
 
     private func configureDataSource() {
@@ -823,6 +815,12 @@ class HomeViewController: UICollectionViewController {
                       case .card(let id, _) = item else { return }
                 self.openCard(id: id)
             }
+            // VoiceOver reaches everything a sighted user reaches by gesture:
+            // the flip, the detail screen, presenting, deleting. These mirror
+            // the tap router and the long-press menu — each action re-resolves
+            // the card through the live indexPath, exactly as `onDetailTapped`
+            // does, so a reused cell acts on the card it currently shows.
+            self?.installAccessibilityActions(on: cell, content: content)
         }
         let controlRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, ControlRow> {
             cell, _, row in
@@ -850,7 +848,7 @@ class HomeViewController: UICollectionViewController {
             cell.accessibilityIdentifier = row.id
             cell.contentConfiguration = content
             var background = UIBackgroundConfiguration.listGroupedCell()
-            background.cornerRadius = 14
+            background.cornerRadius = Bonds.Radius.container
             if row.kind == .importMyData {
                 // This is a continuation affordance attached to the vault, not a
                 // second primary card. A quiet fill and secondary icon keep its
@@ -1102,7 +1100,12 @@ extension HomeViewController {
                 title: NSLocalizedString("Present credential", comment: "card context menu"),
                 image: UIImage(systemName: "person.badge.shield.checkmark")) { [weak self] _ in
                     guard let self else { return }
-                    ScanToPresent.begin(on: self.navigationController)
+                    // The unified 「出示」 entrance, which routes online and
+                    // offline requests by the scanned QR itself. This used to
+                    // hard-wire the *online* path — for the self-issued ID,
+                    // whose main use is offline, that was the wrong door.
+                    self.navigationController?.pushViewController(
+                        PresentCredentialViewController(), animated: true)
                 }
             let delete = UIAction(
                 title: NSLocalizedString("Delete card", comment: "card context menu, destructive"),
@@ -1197,6 +1200,10 @@ extension HomeViewController {
     private func performDelete(_ card: CardInventoryRow) {
         do {
             try CredentialStore().delete(id: card.id)
+            // A cached OpenAC Prepare state carries this card's birth date; it
+            // must not outlive the card. Perf-only, so purging all of it on any
+            // delete is safe — the next proof rebuilds what it needs.
+            try? AgePredicatePrepareCache().purgeAll()
             // A vault document may also have kept its raw MyData original (保險箱原檔
             // 先儲存); deleting the card must take that with it, or the most sensitive
             // copy would outlive the card the holder asked to remove. Best-effort:
