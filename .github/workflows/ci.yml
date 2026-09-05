@@ -24,6 +24,9 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Verification reporting regressions
+        run: python3 scripts/test_verification_reporting.py
+
       # Pick a simulator that actually exists on this runner image rather than
       # hardcoding a device name that silently rots when the image is bumped.
       - name: Choose simulator

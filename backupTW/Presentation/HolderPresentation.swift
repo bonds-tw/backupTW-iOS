@@ -233,7 +233,8 @@ struct HolderPresentation {
     /// table that could drift.
     func predicateCredentialMaterial(for source: PresentationCredentialSource)
         throws -> PredicateCredentialMaterial {
-        guard let credentialID = try storedCredentialID(for: source),
+        guard let credentialID = try (source == .selfIssued
+            ? StoredNationalID.credentialID : storedCredentialID(for: source)),
               let serialized = try store.load(id: credentialID) else {
             throw HolderPresentationError.noCredentialStored
         }

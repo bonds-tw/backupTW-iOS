@@ -32,6 +32,7 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
 
     enum Flow: String, Codable {
         case offlinePresentation
+        case disclosedAgePresentation
         case oid4vpPresentation
         case privateAgeProof
         case zeroKnowledgeProofCreation
@@ -53,6 +54,8 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
         /// The SD-JWT-VC counterparts over the same website are A2 and G1.
         case w1 = "W1"
         case w2 = "W2"
+        case s1 = "S1" // Government SD-JWT age disclosure over BLE
+        case s2 = "S2" // MyData national-ID age derivative over BLE
     }
 
     enum RunTemperature: String, Codable {
@@ -129,6 +132,9 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
     /// the new age proof to one opaque wall-clock number.
     let proofPrepareMilliseconds: UInt64?
     let proofShowMilliseconds: UInt64?
+    let proofPrepareWasCached: Bool?
+    /// Serialized bytes received or sent, excluding BLE framing.
+    let payloadBytes: UInt64?
 
     /// A short SHA-256 prefix over a one-time BLE service or OIDC state. It lets
     /// the iPhone and iPad logs be paired without retaining the request ID,
@@ -161,6 +167,8 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
          endToEndMilliseconds: UInt64? = nil,
          proofPrepareMilliseconds: UInt64? = nil,
          proofShowMilliseconds: UInt64? = nil,
+         proofPrepareWasCached: Bool? = nil,
+         payloadBytes: UInt64? = nil,
          correlationToken: String? = nil,
          qrFallbackWasVisible: Bool? = nil,
          processSessionID: UUID? = nil,
@@ -189,6 +197,8 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
         self.endToEndMilliseconds = endToEndMilliseconds
         self.proofPrepareMilliseconds = proofPrepareMilliseconds
         self.proofShowMilliseconds = proofShowMilliseconds
+        self.proofPrepareWasCached = proofPrepareWasCached
+        self.payloadBytes = payloadBytes
         self.correlationToken = correlationToken
         self.qrFallbackWasVisible = qrFallbackWasVisible
         self.processSessionID = processSessionID
@@ -212,6 +222,8 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
                                         credentialKind: CredentialKind,
                                         transport: Transport) -> MatrixCell? {
         switch (flow, credentialKind) {
+        case (.disclosedAgePresentation, .governmentWallet): return .s1
+        case (.disclosedAgePresentation, .selfIssued): return .s2
         case (.offlinePresentation, .selfIssued): return .a1
         case (.offlinePresentation, .governmentWallet): return .g2
         case (.oid4vpPresentation, .governmentWallet): return .a2
@@ -239,6 +251,8 @@ struct VerificationRunRecord: Codable, Hashable, Identifiable {
              endToEndMilliseconds: endToEndMilliseconds,
              proofPrepareMilliseconds: proofPrepareMilliseconds,
              proofShowMilliseconds: proofShowMilliseconds,
+             proofPrepareWasCached: proofPrepareWasCached,
+             payloadBytes: payloadBytes,
              correlationToken: correlationToken,
              qrFallbackWasVisible: qrFallbackWasVisible,
              processSessionID: processSessionID ?? runtime.sessionID,

@@ -1397,6 +1397,9 @@ struct OfflineVerifierNetworkTests {
             // Caught by this scan on the commit that introduced it: the list
             // working, once more.
             "Presentation/AgePredicateProofWebClient.swift",
+            // Explicit preparation button only; never called by verification.
+            // Fetches public issuer records without holder/card identifiers.
+            "TWDIW/OfflineVerificationPreparation.swift",
         ]
 
         // The same list as the single-file test, plus `import Network`. Not

@@ -133,6 +133,7 @@ actor AgePredicateCircuitAssetPreparer {
 
     /// Returns the `documentsPath` expected by the Mopro mobile binding.
     func prepare(_ role: AgePredicateAssetRole,
+                 allowDownloads: Bool = true,
                  progress: @escaping Progress = { _ in }) async throws -> URL {
         let assets = AgePredicateCircuitAssetCatalog.assets(for: role)
         let store = CircuitAssets.makeNetworkStore(directory: directory, assets: assets)
@@ -142,6 +143,10 @@ actor AgePredicateCircuitAssetPreparer {
             progress(1)
             return directory.appendingPathComponent("circom", isDirectory: true)
         }
+
+        // Once a local request is being answered, missing/corrupt material must
+        // never trigger a repair download in the middle of an offline check.
+        guard allowDownloads else { throw AgePredicateProofError.offlineAssetsMissing }
 
         let total = max(Int64(1), needed.reduce(0) { $0 + max(Int64(1), $1.asset.compressedByteCount) })
         var completed: Int64 = 0

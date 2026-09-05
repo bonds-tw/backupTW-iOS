@@ -772,6 +772,7 @@ final class VerifierViewController: UIViewController {
                     from: verificationStarted, to: completed),
                 endToEndMilliseconds: VerificationClock.milliseconds(
                     from: requestShown, to: completed),
+                payloadBytes: UInt64(presentationJWS.utf8.count),
                 correlationToken: measuredRequest?.linkServiceID.map {
                     VerificationRunRecord.correlationToken(for: $0.uuidString)
                 },

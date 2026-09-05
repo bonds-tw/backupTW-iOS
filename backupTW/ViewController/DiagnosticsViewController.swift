@@ -274,6 +274,8 @@ final class DiagnosticsViewController: UICollectionViewController {
 
     private static func flowName(_ flow: VerificationRunRecord.Flow) -> String {
         switch flow {
+        case .disclosedAgePresentation:
+            return "SD-JWT-VC · " + NSLocalizedString("Disclose birth date", comment: "offline comparison")
         case .offlinePresentation:
             return NSLocalizedString("Offline credential verification", comment: "timing flow")
         case .oid4vpPresentation:
