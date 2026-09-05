@@ -8,6 +8,19 @@ import Foundation
 import Testing
 @testable import backupTW
 
+struct AgePredicateRequestQRLayoutTests {
+    @Test func requestCodeFitsRegularAndFloatingIPadWidths() {
+        #expect(AgePredicateRequestQRLayout.pointWidth(forViewWidth: 834) == 260)
+        #expect(AgePredicateRequestQRLayout.pointWidth(forViewWidth: 360) == 260)
+        #expect(AgePredicateRequestQRLayout.pointWidth(forViewWidth: 280) == 240)
+    }
+
+    @Test func requestCodeRefusesAnUnavailableOrInvalidWidth() {
+        #expect(AgePredicateRequestQRLayout.pointWidth(forViewWidth: 40) == nil)
+        #expect(AgePredicateRequestQRLayout.pointWidth(forViewWidth: .infinity) == nil)
+    }
+}
+
 struct AgePredicateProofRequestTests {
 
     private static let now = ROCDate.taipeiCalendar.date(

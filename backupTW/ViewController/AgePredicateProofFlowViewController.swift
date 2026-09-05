@@ -8,6 +8,21 @@
 
 import UIKit
 
+/// The request QR must be rendered for the space it will actually occupy.
+/// A floating iPad window can be narrower than the regular iPad layout; using
+/// a fixed bitmap there crops the quiet zone and makes a valid request unreadable.
+enum AgePredicateRequestQRLayout {
+    static let maximumPointWidth: CGFloat = 260
+    static let horizontalInset: CGFloat = 40
+
+    static func pointWidth(forViewWidth width: CGFloat) -> CGFloat? {
+        guard width.isFinite else { return nil }
+        let available = floor(width - horizontalInset)
+        guard available >= 1 else { return nil }
+        return min(maximumPointWidth, available)
+    }
+}
+
 @MainActor
 enum AgePredicateProofHolderFlow {
 
@@ -372,7 +387,10 @@ final class AgePredicateProofVerifierViewController: UIViewController {
         NSLocalizedString("Government card", comment: "age proof"),
         NSLocalizedString("MyData self-asserted", comment: "age proof"),
     ])
+    private let codeContainer = UIView()
     private let codeImageView = UIImageView()
+    private var codeHeightConstraint: NSLayoutConstraint?
+    private var renderedRequestWidth: CGFloat?
     private let statusLabel = UILabel()
     private let detailLabel = UILabel()
     private let newCodeButton = UIButton(type: .system)
@@ -402,14 +420,29 @@ final class AgePredicateProofVerifierViewController: UIViewController {
         stopLink()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let request,
+              let width = AgePredicateRequestQRLayout.pointWidth(forViewWidth: view.bounds.width),
+              renderedRequestWidth != width else { return }
+        try? render(requestCodeFor: request, fittingPointWidth: width)
+    }
+
     private func buildInterface() {
         view.backgroundColor = .systemGroupedBackground
         formatControl.selectedSegmentIndex = 0
         formatControl.addTarget(self, action: #selector(sourceChanged), for: .valueChanged)
         sourceControl.selectedSegmentIndex = 0
         sourceControl.addTarget(self, action: #selector(sourceChanged), for: .valueChanged)
-        codeImageView.contentMode = .center
-        codeImageView.setContentCompressionResistancePriority(.required, for: .vertical)
+        codeImageView.translatesAutoresizingMaskIntoConstraints = false
+        codeImageView.contentMode = .scaleAspectFit
+        codeImageView.backgroundColor = .white
+        // A QR's edges must remain sharp after Stage Manager or Split View
+        // changes the available width.
+        codeImageView.layer.magnificationFilter = .nearest
+        codeImageView.layer.minificationFilter = .nearest
+        codeImageView.isAccessibilityElement = true
+        codeImageView.accessibilityLabel = NSLocalizedString("Age checking request code", comment: "age proof")
         statusLabel.font = .preferredFont(forTextStyle: .title3)
         statusLabel.adjustsFontForContentSizeCategory = true
         statusLabel.textAlignment = .center
@@ -425,7 +458,19 @@ final class AgePredicateProofVerifierViewController: UIViewController {
         newCodeButton.configuration = configuration
         newCodeButton.addTarget(self, action: #selector(beginCheck), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [formatControl, sourceControl, codeImageView,
+        codeContainer.translatesAutoresizingMaskIntoConstraints = false
+        codeContainer.addSubview(codeImageView)
+        codeHeightConstraint = codeImageView.heightAnchor.constraint(equalToConstant: 1)
+        codeHeightConstraint?.isActive = true
+        NSLayoutConstraint.activate([
+            codeImageView.topAnchor.constraint(equalTo: codeContainer.topAnchor),
+            codeImageView.bottomAnchor.constraint(equalTo: codeContainer.bottomAnchor),
+            codeImageView.centerXAnchor.constraint(equalTo: codeContainer.centerXAnchor),
+            codeImageView.widthAnchor.constraint(equalTo: codeImageView.heightAnchor),
+            codeImageView.widthAnchor.constraint(lessThanOrEqualTo: codeContainer.widthAnchor),
+        ])
+
+        let stack = UIStackView(arrangedSubviews: [formatControl, sourceControl, codeContainer,
                                                    statusLabel, detailLabel, newCodeButton])
         stack.axis = .vertical
         stack.spacing = 18
@@ -435,7 +480,6 @@ final class AgePredicateProofVerifierViewController: UIViewController {
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
             stack.leadingAnchor.constraint(equalTo: view.readableContentGuide.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: view.readableContentGuide.trailingAnchor),
-            codeImageView.heightAnchor.constraint(lessThanOrEqualToConstant: 360),
             newCodeButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
         ])
     }
@@ -450,6 +494,7 @@ final class AgePredicateProofVerifierViewController: UIViewController {
         stopLink()
         request = nil
         codeImageView.image = nil
+        renderedRequestWidth = nil
         newCodeButton.isEnabled = false
         statusLabel.text = NSLocalizedString("Preparing offline checking files…", comment: "age proof")
         detailLabel.text = nil
@@ -473,10 +518,11 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                     purpose: NSLocalizedString("Age eligibility check", comment: "age proof"),
                     credentialSource: source, discloseBirthdate: discloseBirthdate)
                 self.request = request
-                let code = try QRTransport.qrCode(
-                    for: request.encodedForTransport(), fittingPixelWidth: 900)
-                codeImageView.image = UIImage(cgImage: code.image, scale: UIScreen.main.scale,
-                                              orientation: .up)
+                self.view.layoutIfNeeded()
+                guard let width = AgePredicateRequestQRLayout.pointWidth(forViewWidth: self.view.bounds.width) else {
+                    throw QRTransportError.renderingFailed
+                }
+                try self.render(requestCodeFor: request, fittingPointWidth: width)
                 requestShownAt = VerificationClock.now()
                 statusLabel.text = NSLocalizedString("Ask them to scan this one request code", comment: "age proof")
                 detailLabel.text = NSLocalizedString(
@@ -494,6 +540,18 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                 newCodeButton.isEnabled = true
             }
         }
+    }
+
+    /// Renders at an integer count of device pixels per module, then reserves
+    /// exactly the returned point size. `scaleAspectFit` is a safety net for a
+    /// later window resize; it is not used to silently resample the initial QR.
+    private func render(requestCodeFor request: AgePredicateProofRequest, fittingPointWidth width: CGFloat) throws {
+        let code = try QRTransport.qrCode(
+            for: request.encodedForTransport(), fittingPointWidth: width,
+            screenScale: traitCollection.displayScale)
+        codeHeightConstraint?.constant = code.pointSize
+        codeImageView.image = UIImage(cgImage: code.image, scale: code.screenScale, orientation: .up)
+        renderedRequestWidth = width
     }
 
     private func startLink(for request: AgePredicateProofRequest) {
@@ -532,6 +590,7 @@ final class AgePredicateProofVerifierViewController: UIViewController {
         guard let request else { return }
         self.request = nil // Consume before decoding; one verdict per request.
         codeImageView.image = nil
+        renderedRequestWidth = nil
         let attempt = generation
         let verificationStarted = payloadReceivedAt ?? VerificationClock.now()
         if request.disclosesBirthdate {
