@@ -109,9 +109,12 @@ final class VerifierSession {
     /// caller, including every test that does not care, gets the honest default
     /// rather than a silently skipped check.
     private let revocation: RevocationLookup
+    private let issuerTrust: OfflineIssuerTrustLookup
 
-    init(revocation: RevocationLookup = .unavailable) {
+    init(revocation: RevocationLookup = .unavailable,
+         issuerTrust: OfflineIssuerTrustLookup = .unavailable) {
         self.revocation = revocation
+        self.issuerTrust = issuerTrust
     }
 
     /// The outstanding request, or `nil` once it has aged out.
@@ -137,8 +140,14 @@ final class VerifierSession {
     /// Throws only when the system CSPRNG refuses; see
     /// `PresentationRequest.generate`, which will not invent a challenge.
     @discardableResult
-    func beginCheck(purpose: String, audience: String? = nil, now: Date = Date()) throws -> PresentationRequest {
-        let request = try PresentationRequest.generate(purpose: purpose, audience: audience, now: now)
+    func beginCheck(purpose: String,
+                    audience: String? = nil,
+                    credentialSource: PresentationCredentialSource = .selfIssued,
+                    now: Date = Date()) throws -> PresentationRequest {
+        let request = try PresentationRequest.generate(purpose: purpose,
+                                                       audience: audience,
+                                                       credentialSource: credentialSource,
+                                                       now: now)
         pending = request
         return request
     }
@@ -154,7 +163,8 @@ final class VerifierSession {
         return .checked(OfflineVerifier.verify(presentationJWS: presentationJWS,
                                                against: request,
                                                now: now,
-                                               revocation: revocation))
+                                               revocation: revocation,
+                                               issuerTrust: issuerTrust))
     }
 
     /// The same check with the slow part moved off this queue.
@@ -174,11 +184,13 @@ final class VerifierSession {
             return
         }
         let lookup = revocation
+        let trust = issuerTrust
         DispatchQueue.global(qos: .userInitiated).async {
             let outcome = OfflineVerifier.verify(presentationJWS: presentationJWS,
                                                  against: request,
                                                  now: now,
-                                                 revocation: lookup)
+                                                 revocation: lookup,
+                                                 issuerTrust: trust)
             DispatchQueue.main.async { completion(.checked(outcome)) }
         }
     }

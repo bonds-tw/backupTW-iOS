@@ -238,8 +238,9 @@ struct VerifiablePresentationTests {
         // `b` is the one-time BLE service identifier — a generated request
         // always offers the radio, and a decoded one from an older build may
         // not, which is why the field is optional in the type and present here.
-        #expect(Set(json.keys) == ["v", "c", "p", "t", "b"])
-        #expect(json["v"] as? Int == 1)
+        #expect(Set(json.keys) == ["v", "c", "p", "t", "b", "k"])
+        #expect(json["v"] as? Int == 2)
+        #expect(json["k"] as? String == PresentationCredentialSource.selfIssued.rawValue)
         #expect(json["t"] as? Int == Int(Self.issuedAt.timeIntervalSince1970))
         #expect(UUID(uuidString: try #require(json["b"] as? String)) != nil)
 
@@ -268,10 +269,23 @@ struct VerifiablePresentationTests {
     /// A request from a newer protocol has to say so. Reading the version last
     /// would report whichever field that version happened to rename instead.
     @Test func rejectsRequestsFromANewerProtocolVersion() {
-        let text = "{\"c\":\"abcd\",\"p\":\"查驗\",\"t\":1754400000,\"v\":2}"
-        #expect(throws: PresentationRequestError.unsupportedVersion(2)) {
+        let text = "{\"c\":\"abcd\",\"p\":\"查驗\",\"t\":1754400000,\"v\":3}"
+        #expect(throws: PresentationRequestError.unsupportedVersion(3)) {
             _ = try PresentationRequest.decode(text)
         }
+    }
+
+    @Test func requestCarriesGovernmentCredentialSourceAndV1MeansSelfIssued() throws {
+        let government = try PresentationRequest.generate(purpose: "核對政府卡",
+                                                           credentialSource: .twdiw,
+                                                           now: Self.issuedAt)
+        let encoded = try government.encodedForTransport()
+        #expect(encoded.contains("\"k\":\"g\""))
+        #expect(try PresentationRequest.decode(encoded).credentialSource == .twdiw)
+
+        let legacy = try PresentationRequest.decode(
+            "{\"c\":\"abcd\",\"p\":\"查驗\",\"t\":1754400000,\"v\":1}")
+        #expect(legacy.credentialSource == .selfIssued)
     }
 
     @Test(arguments: ["", "not json", "{}", "[1,2,3]",

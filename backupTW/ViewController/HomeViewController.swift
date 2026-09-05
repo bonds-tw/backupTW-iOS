@@ -1182,6 +1182,10 @@ extension HomeViewController {
     private func performDelete(_ card: CardInventoryRow) {
         do {
             try CredentialStore().delete(id: card.id)
+            // A cached OpenAC Prepare state carries this card's birth date; it
+            // must not outlive the card. Perf-only, so purging all of it on any
+            // delete is safe — the next proof rebuilds what it needs.
+            try? AgePredicatePrepareCache().purgeAll()
             // A vault document may also have kept its raw MyData original (保險箱原檔
             // 先儲存); deleting the card must take that with it, or the most sensitive
             // copy would outlive the card the holder asked to remove. Best-effort:

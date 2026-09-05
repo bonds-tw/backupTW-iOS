@@ -44,8 +44,8 @@ class UseViewController: UICollectionViewController {
         // and routes by what the QR actually is (design system §10.2).
         static let present = NSLocalizedString("Show my document", comment: "")
         static let verify = NSLocalizedString("Check someone else's document", comment: "")
-        static let verifyProof = NSLocalizedString("Check a zero-knowledge proof", comment: "")
-        static let createProof = NSLocalizedString("Create a zero-knowledge proof", comment: "ZK proof screen title")
+        static let createAgeProof = NSLocalizedString("Create a private age proof", comment: "age proof")
+        static let verifyAgeProof = NSLocalizedString("Check a private age proof", comment: "age proof")
     }
 
     /// Recomputed on every appearance, not stored once at init.
@@ -75,19 +75,21 @@ class UseViewController: UICollectionViewController {
                 zeroKnowledgeSection()]
     }
 
-    /// The two zero-knowledge actions gathered under their actual capability name.
+    /// The zero-knowledge actions gathered under their actual capability name.
     /// Creating and checking are distinct actions and appear together with
     /// different icons.
     private func zeroKnowledgeSection() -> Section {
         Section(title: NSLocalizedString("Zero-knowledge proofs", comment: "use section"), items: [
-            Item(image: UIImage(systemName: "lock.shield.fill"),
-                 title: Row.createProof,
-                 secondaryText: CredentialIssuanceAssembly.isAvailable
-                    ? NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. Needs a large one-time download.", comment: "")
-                    : NSLocalizedString("Prove a real 自然人憑證 signed this, without showing it. This version cannot create a proof.", comment: "")),
-            Item(image: UIImage(systemName: "checkmark.shield.fill"),
-                 title: Row.verifyProof,
-                 secondaryText: Self.proofRowSubtitle())
+            Item(image: UIImage(systemName: "person.text.rectangle.fill"),
+                 title: Row.createAgeProof,
+                 secondaryText: NSLocalizedString(
+                    "Prove an age threshold from a government card or self-asserted MyData without revealing the birth date.",
+                    comment: "age proof")),
+            Item(image: UIImage(systemName: "checkmark.seal.text.page.fill"),
+                 title: Row.verifyAgeProof,
+                 secondaryText: NSLocalizedString(
+                    "Show one request QR; receive and verify the private proof directly over Bluetooth.",
+                    comment: "age proof"))
         ])
     }
 
@@ -183,15 +185,6 @@ class UseViewController: UICollectionViewController {
     /// drift into different tenses. Both variants state a *local* fact (files
     /// present or absent) and neither implies any verdict, so no tick and no
     /// colour.
-    private static func proofRowSubtitle() -> String {
-        if ZKCheckingAvailability.current.canCheck {
-            return NSLocalizedString("Verify a zero-knowledge proof. The checking files are on this phone.", comment: "")
-        }
-        return ZKCheckingAvailability.current == .notDownloadedYet
-            ? NSLocalizedString("Verify a zero-knowledge proof. The first time, it downloads the checking files (about 950 MB).", comment: "")
-            : NSLocalizedString("Verify a zero-knowledge proof. This version cannot download the checking files.", comment: "")
-    }
-
     init() {
         var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         config.headerMode = .supplementary
@@ -451,10 +444,11 @@ extension UseViewController {
             navigationController?.pushViewController(PresentCredentialViewController(), animated: true)
         case Row.verify:
             navigationController?.pushViewController(VerifierViewController(), animated: true)
-        case Row.verifyProof:
-            navigationController?.pushViewController(ZKVerifyViewController(), animated: true)
-        case Row.createProof:
-            navigationController?.pushViewController(ZKProofViewController(), animated: true)
+        case Row.createAgeProof:
+            AgePredicateProofHolderFlow.begin(on: navigationController)
+        case Row.verifyAgeProof:
+            navigationController?.pushViewController(
+                AgePredicateProofVerifierViewController(), animated: true)
         default:
             break
         }

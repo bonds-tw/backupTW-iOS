@@ -47,7 +47,8 @@ final class VerifierViewController: UIViewController {
     /// property this whole design exists to buy, and would do it at the moment a
     /// stranger is standing in front of the person holding the phone.
     private let session = VerifierSession(
-        revocation: VerifierViewController.installedRevocationLookup())
+        revocation: VerifierViewController.installedRevocationLookup(),
+        issuerTrust: .installed())
 
     /// Reassembles the holder's frames. Reset before every scan: a collector
     /// carrying the previous holder's identifier rejects everyone behind them.
@@ -79,6 +80,14 @@ final class VerifierViewController: UIViewController {
     private let unavailableLabel = UILabel()
     private let scanButton = UIButton(type: .system)
     private let retryButton = UIButton(type: .system)
+    private let credentialSourceControl = UISegmentedControl(items: [
+        NSLocalizedString("Self-issued / MyData", comment: "Offline verifier credential source"),
+        NSLocalizedString("Government wallet card", comment: "Offline verifier credential source"),
+    ])
+
+    private var selectedCredentialSource: PresentationCredentialSource {
+        credentialSourceControl.selectedSegmentIndex == 1 ? .twdiw : .selfIssued
+    }
 
     // MARK: - Lifecycle
 
@@ -206,13 +215,21 @@ final class VerifierViewController: UIViewController {
 
             contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
             contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32),
+            contentStack.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 20),
+            contentStack.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -20),
         ])
-        NSLayoutConstraint.activate(Bonds.readableHorizontal(contentStack, in: scrollView.frameLayoutGuide))
 
         contentStack.addArrangedSubview(PresentationUI.title(
             NSLocalizedString("Ask the other person to scan this", comment: "")))
         contentStack.addArrangedSubview(PresentationUI.body(
             NSLocalizedString("This code carries a one-time number. Their document has to answer this exact number, so a photograph of an earlier check cannot be reused here.", comment: "")))
+
+        credentialSourceControl.selectedSegmentIndex = 0
+        credentialSourceControl.addTarget(self,
+                                          action: #selector(credentialSourceChanged),
+                                          for: .valueChanged)
+        credentialSourceControl.accessibilityLabel = NSLocalizedString("Document source to verify", comment: "")
+        contentStack.addArrangedSubview(credentialSourceControl)
 
         codeImageView.translatesAutoresizingMaskIntoConstraints = false
         codeImageView.contentMode = .scaleAspectFit
@@ -512,7 +529,8 @@ final class VerifierViewController: UIViewController {
 
     private func beginCheck() {
         do {
-            let request = try session.beginCheck(purpose: Self.purpose)
+            let request = try session.beginCheck(purpose: Self.purpose,
+                                                 credentialSource: selectedCredentialSource)
             let text = try request.encodedForTransport()
             // 1024 device pixels is generous for a ~100-byte code; `qrCode`
             // floors the module size to a whole number and may return something
@@ -524,8 +542,11 @@ final class VerifierViewController: UIViewController {
             let code = try QRTransport.qrCode(for: text, fittingPixelWidth: 1024)
             codeImageView.image = UIImage(cgImage: code.image)
             codeImageView.isHidden = false
-            purposeLabel.text = String(format: NSLocalizedString("Reason shown to them: %@", comment: ""),
-                                       request.purpose)
+            let source = request.credentialSource == .twdiw
+                ? NSLocalizedString("government wallet card", comment: "")
+                : NSLocalizedString("self-issued / MyData document", comment: "")
+            purposeLabel.text = String(format: NSLocalizedString("Requested: %@ · Reason shown to them: %@", comment: ""),
+                                       source, request.purpose)
             purposeLabel.isHidden = false
             unavailableLabel.isHidden = true
             retryButton.isHidden = true
@@ -552,6 +573,15 @@ final class VerifierViewController: UIViewController {
             stopLink()
             linkLabel.text = nil
         }
+    }
+
+    /// Changing the requested credential family changes the signed statement,
+    /// so it must mint a fresh challenge and BLE service rather than repainting
+    /// a label over the previous QR.
+    @objc private func credentialSourceChanged() {
+        collector.reset()
+        session.cancel()
+        beginCheck()
     }
 
     // MARK: - The radio
@@ -583,6 +613,7 @@ final class VerifierViewController: UIViewController {
             return
         }
         linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
+        try? BluetoothLinkDiagnosticStore.shared.record(role: .verifier, state: .starting)
         let link = BluetoothLinkCentral(serviceID: serviceID,
                                         vocabulary: .credential) { [weak self] state in
             self?.receiveOverLink(state)
@@ -603,6 +634,7 @@ final class VerifierViewController: UIViewController {
     /// One line, in the same register as everything else on this screen: what is
     /// happening, never an error code.
     private func receiveOverLink(_ state: BluetoothLinkState) {
+        try? BluetoothLinkDiagnosticStore.shared.record(role: .verifier, state: state)
         switch state {
         case .unavailable(let reason):
             linkLabel.text = reason
@@ -717,6 +749,7 @@ final class VerifierViewController: UIViewController {
                         completion: ((VerifierSessionResult, VerificationRunRecord) -> Void)? = nil) {
         let verificationStarted = VerificationClock.now()
         let requestShown = requestShownAtNanoseconds ?? verificationStarted
+        let measuredRequest = session.pendingRequest()
         session.check(presentationJWS: presentationJWS) { [weak self] result in
             guard let self else { return }
             let completed = VerificationClock.now()
@@ -729,7 +762,8 @@ final class VerifierViewController: UIViewController {
             let record = VerificationRunRecord(
                 flow: .offlinePresentation,
                 role: .verifier,
-                credentialKind: .selfIssued,
+                credentialKind: measuredRequest?.credentialSource == .twdiw
+                    ? .governmentWallet : .selfIssued,
                 transport: transport,
                 succeeded: succeeded,
                 transportMilliseconds: VerificationClock.milliseconds(
@@ -737,7 +771,11 @@ final class VerifierViewController: UIViewController {
                 verificationMilliseconds: VerificationClock.milliseconds(
                     from: verificationStarted, to: completed),
                 endToEndMilliseconds: VerificationClock.milliseconds(
-                    from: requestShown, to: completed))
+                    from: requestShown, to: completed),
+                correlationToken: measuredRequest?.linkServiceID.map {
+                    VerificationRunRecord.correlationToken(for: $0.uuidString)
+                },
+                qrFallbackWasVisible: transport == .qr)
             try? VerificationRunStore.shared.append(record)
             self.requestShownAtNanoseconds = nil
             if let completion {
@@ -907,29 +945,6 @@ final class VerificationResultViewController: UIViewController {
         buildInterface()
     }
 
-    /// The verdict is the reason this screen exists, so it is also what
-    /// VoiceOver lands on — the push transition alone parks the cursor on the
-    /// navigation bar, which ZKVerify's audit called 「fine only by accident」.
-    /// The verdict haptic fires here too: an evidence-backed judgement on the
-    /// checker's device is exactly the moment the one-buzz rule names
-    /// (BondsDesign.swift §觸覺). The two orange 「nothing was checked」 branches
-    /// stay silent — they are housekeeping about this phone, not a judgement.
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        guard !announcedOnce else { return }
-        announcedOnce = true
-        switch outcome {
-        case .some(.verified): Bonds.Haptic.delivered()
-        case .some(.rejected(let failure)) where !failure.isAboutThisDevice: Bonds.Haptic.rejected()
-        default: break
-        }
-        if let verdictView = view.firstSubview(withAccessibilityIdentifier: "verdict") {
-            UIAccessibility.post(notification: .layoutChanged, argument: verdictView)
-        }
-    }
-
-    private var announcedOnce = false
-
     @objc private func done() {
         navigationController?.popViewController(animated: true)
     }
@@ -951,8 +966,9 @@ final class VerificationResultViewController: UIViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32),
+            stack.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -20),
         ])
-        NSLayoutConstraint.activate(Bonds.readableHorizontal(stack, in: scrollView.frameLayoutGuide))
 
         switch outcome {
         case .some(.verified(let presentation)):
@@ -1383,49 +1399,20 @@ enum PresentationUI {
     /// because tests find the verdict by it, and because an icon that VoiceOver
     /// reads with the sentence is part of the sentence.
     static func verdict(_ symbol: String, _ text: String, _ colour: UIColor) -> UIView {
-        // The signature keeps the emoji — eight call sites read naturally and
-        // did not change — but the rendering is the design system's one verdict
-        // card (§9.2): SF Symbol + 0.14 tinted ground + full-ink bold text.
-        // The app used to speak two visual languages for the same judgement
-        // (emoji-in-text here, `VerdictSymbol` tints elsewhere); this maps the
-        // emoji onto the shared symbol table so there is one.
-        let systemName: String
-        switch symbol {
-        case "✅": systemName = VerdictSymbol.sealPassing
-        case "⛔️", "⛔": systemName = VerdictSymbol.sealRefused
-        default: systemName = VerdictSymbol.warning
-        }
-
-        let icon = UIImageView(image: UIImage(systemName: systemName))
-        icon.tintColor = colour
-        icon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title2, scale: .large)
-        icon.setContentHuggingPriority(.required, for: .horizontal)
-        icon.setContentCompressionResistancePriority(.required, for: .horizontal)
-
         let label = UILabel()
-        label.text = text
+        label.text = symbol + "  " + text
         label.numberOfLines = 0
-        label.font = Bonds.Font.pageTitle
+        label.font = UIFontMetrics(forTextStyle: .title2)
+            .scaledFont(for: .systemFont(ofSize: 22, weight: .bold))
         label.adjustsFontForContentSizeCategory = true
         label.textColor = .label
 
-        let row = UIStackView(arrangedSubviews: [icon, label])
-        row.axis = .horizontal
-        row.alignment = .center
-        row.spacing = Bonds.Space.m
-
-        let card = UIStackView(arrangedSubviews: [row])
+        let card = UIStackView(arrangedSubviews: [label])
         card.axis = .vertical
         card.isLayoutMarginsRelativeArrangement = true
-        card.layoutMargins = UIEdgeInsets(top: Bonds.Space.l, left: Bonds.Space.l,
-                                          bottom: Bonds.Space.l, right: Bonds.Space.l)
+        card.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         card.backgroundColor = colour.withAlphaComponent(0.14)
-        Bonds.round(card.layer, Bonds.Radius.card)
-        // One element: the finding and its sentence are heard together, in the
-        // glyph's spoken form rather than an emoji name.
-        card.isAccessibilityElement = true
-        card.accessibilityLabel = VerdictSymbol.spokenLabel(for: systemName) + "，" + text
-        card.accessibilityIdentifier = "verdict"
+        card.layer.cornerRadius = 12
         return card
     }
 

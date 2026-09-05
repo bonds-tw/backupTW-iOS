@@ -30,12 +30,20 @@ private struct TestVerifier {
                     descriptorID: String,
                     credentialType: String,
                     fields: [String],
+                    credentialFormat: String? = nil,
                     signedBy override: P256.Signing.PrivateKey? = nil) -> String {
         let header: [String: Any] = ["kid": "verifier-did", "typ": "oauth-authz-req+jwt", "alg": "ES256"]
         var constraintFields: [[String: Any]] = [
             ["path": ["$.type"], "filter": ["type": "array", "contains": ["const": credentialType]]],
         ]
         for f in fields { constraintFields.append(["path": ["$.credentialSubject.\(f)"]]) }
+        var descriptor: [String: Any] = [
+            "id": descriptorID,
+            "constraints": ["fields": constraintFields],
+        ]
+        if let credentialFormat {
+            descriptor["format"] = [credentialFormat: ["alg": ["RS256", "ES256"]]]
+        }
         let payload: [String: Any] = [
             "response_type": "vp_token",
             "response_mode": "direct_post",
@@ -46,7 +54,7 @@ private struct TestVerifier {
             "presentation_definition": [
                 "id": definitionID,
                 "input_descriptors": [
-                    ["id": descriptorID, "constraints": ["fields": constraintFields]],
+                    descriptor,
                 ],
             ],
         ]
@@ -169,6 +177,24 @@ struct OID4VPRequestTests {
         #expect(request.credentialType == "00000000_vpms_20250605")
         #expect(request.responseURI == Self.responseURI)
         #expect(Set(request.requestedFields.compactMap(\.claimName)) == ["name", "company"])
+    }
+
+    @Test func aSelfIssuedRequestKeepsItsMoicaFormatBoundary() throws {
+        let verifier = TestVerifier()
+        let jwt = verifier.requestJWT(
+            responseURI: Self.responseURI,
+            nonce: "N-MOICA",
+            state: "S-MOICA",
+            definitionID: "bonds-vp",
+            descriptorID: "cred",
+            credentialType: VerifiableCredential.nationalIDType,
+            fields: ["name", "birthdate"],
+            credentialFormat: OID4VPCredentialFormat.moica.rawValue)
+        let request = try OID4VPRequest.verify(compactJWS: jwt,
+                                               clientID: verifier.clientID,
+                                               trustedResponseHosts: Self.trustedHost)
+        #expect(request.inputDescriptors.first?.credentialFormat == .moica)
+        #expect(request.credentialType == VerifiableCredential.nationalIDType)
     }
 
     @Test func groupedCarrierAlternativesKeepTheirDescriptorBoundaries() throws {
@@ -338,6 +364,42 @@ struct OID4VPResponseTests {
                                         trustedResponseHosts: ["verifier-oid4vp.wallet.gov.tw"])
     }
 
+    private func seedSelfIssuedCardAndRequest() throws -> OID4VPRequest {
+        let key = try keyring.newKey()
+        let did = try DIDKey.did(fromP256PublicKeyX963: key.publicKeyX963)
+        let model = NationalIDModel(nationality: "中華民國（臺灣）",
+                                    unifiedNo: "A123456789",
+                                    name: "王小明",
+                                    birthdate: "民國 083年03月06日",
+                                    addressOfHousehold: "臺北市測試路一號")
+        let (credential, disclosures) = VerifiableCredential.selectivelyDisclosableNationalID(
+            model, issuerDID: did, validFrom: Date(timeIntervalSince1970: 1_786_000_000))
+        let (tbs, bytes) = try MOICASignedCredential.toBeSigned(for: credential)
+        let envelope = MOICASignedCredential(
+            payload: VerifiableCredential.base64URLEncoded(bytes),
+            proof: MOICACredentialProof(
+                tbsConstruction: MOICACredentialProof.payloadDigestHexConstruction,
+                certificate: holderCertificateDER,
+                signature: try cardSignature(over: Data(tbs.utf8)).base64EncodedString()),
+            issuerJWS: try credential.jwsCompactSerialization(signedBy: key, issuerDID: did),
+            disclosures: disclosures.map(\.encoded))
+        try store.save(jws: try envelope.serialized(), id: StoredNationalID.credentialID)
+
+        let verifier = TestVerifier()
+        let jwt = verifier.requestJWT(
+            responseURI: Self.responseURI,
+            nonce: "N-SELF",
+            state: "S-SELF",
+            definitionID: "bonds-vp",
+            descriptorID: "cred",
+            credentialType: VerifiableCredential.nationalIDType,
+            fields: ["name", "birthdate"],
+            credentialFormat: OID4VPCredentialFormat.moica.rawValue)
+        return try OID4VPRequest.verify(compactJWS: jwt,
+                                        clientID: verifier.clientID,
+                                        trustedResponseHosts: ["verifier-oid4vp.wallet.gov.tw"])
+    }
+
     private func makeResponder() -> OID4VPResponder {
         let config = URLSessionConfiguration.ephemeral
         // Its own stub class, not the collection suite's: URLProtocol keeps its
@@ -474,6 +536,34 @@ struct OID4VPResponseTests {
         #expect(form.contains("vp_token="))
         #expect(form.contains("presentation_submission="))
         #expect(form.contains("state=S-1"))
+    }
+
+    @Test func aSelfIssuedResponseUsesTheMoicaFormatAndOnlyChosenDisclosure() async throws {
+        OID4VPStubURLProtocol.reset()
+        defer { OID4VPStubURLProtocol.reset() }
+        OID4VPStubURLProtocol.routes = [
+            .init(match: "authorization-response", status: 200, body: { _, _ in Data("{}".utf8) }),
+        ]
+        let request = try seedSelfIssuedCardAndRequest()
+        _ = try await makeResponder().respond(to: request, disclosing: ["birthdate"])
+
+        let exchange = try #require(OID4VPStubURLProtocol.exchanges.last)
+        let body = String(decoding: exchange.body, as: UTF8.self)
+        let components = URLComponents(string: "https://test.invalid/?" + body)
+        let vpToken = try #require(components?.queryItems?.first(where: { $0.name == "vp_token" })?.value)
+        let submission = try #require(components?.queryItems?.first(where: {
+            $0.name == "presentation_submission"
+        })?.value)
+        #expect(submission.contains("vc+moica"))
+
+        let segments = vpToken.split(separator: ".").map(String.init)
+        let payloadData = try #require(Data(base64URLEncoded: segments[1]))
+        let payload = try #require(try JSONSerialization.jsonObject(with: payloadData) as? [String: Any])
+        let vp = try #require(payload["vp"] as? [String: Any])
+        let presented = try #require((vp["verifiableCredential"] as? [String])?.first)
+        let envelope = try MOICASignedCredential.parse(presented)
+        #expect(envelope.issuerJWS != nil)
+        #expect(envelope.disclosures.compactMap { Disclosure(encoded: $0)?.claimName } == ["birthdate"])
     }
 }
 

@@ -37,7 +37,7 @@ final class DiscloseFieldsViewController: UITableViewController {
     private let presentButton = UIButton(type: .system)
 
     #if DEBUG
-    /// What each stored TWDIW card can actually disclose — so a "the card doesn't
+    /// What each stored card can actually disclose — so a "the card doesn't
     /// have this field" failure can be diagnosed against the real card's own claim
     /// names, not the demo card's. Read once, off the real store.
     private lazy var debugCardInventory: String = {
@@ -49,9 +49,16 @@ final class DiscloseFieldsViewController: UITableViewController {
                let credential = try? TWDIWCredentialReader.read(serialized) {
                 let names = credential.disclosedClaims.map(\.name).joined(separator: ", ")
                 lines.append("• \(credential.credentialType): [\(names)]")
+            } else if let envelope = try? MOICASignedCredential.parse(serialized),
+                      let credential = try? envelope.credential(),
+                      let committed = credential.sd,
+                      let disclosed = try? SelectiveDisclosure.reveal(
+                        disclosures: envelope.disclosures,
+                        committedDigests: committed) {
+                lines.append("• \(credential.type.last ?? "credential"): [\(disclosed.map(\.name).joined(separator: ", "))]")
             }
         }
-        return lines.isEmpty ? "no TWDIW cards stored" : lines.joined(separator: "\n")
+        return lines.isEmpty ? "no compatible cards stored" : lines.joined(separator: "\n")
     }()
     #endif
 
@@ -152,11 +159,14 @@ final class DiscloseFieldsViewController: UITableViewController {
             let record = VerificationRunRecord(
                 flow: .oid4vpPresentation,
                 role: .holder,
-                credentialKind: .governmentWallet,
+                credentialKind: request.inputDescriptors.contains(where: {
+                    $0.credentialFormat == .moica
+                }) ? .selfIssued : .governmentWallet,
                 transport: .https,
                 succeeded: outcome.succeeded,
                 preparationMilliseconds: requestFetchMilliseconds,
-                endToEndMilliseconds: submitMilliseconds)
+                endToEndMilliseconds: submitMilliseconds,
+                correlationToken: VerificationRunRecord.correlationToken(for: request.state))
             try? VerificationRunStore.shared.append(record)
             if outcome.succeeded { Bonds.Haptic.delivered() }
             self.finish(outcome: outcome.message)
@@ -201,6 +211,11 @@ enum ClaimDisplayName {
             "type": NSLocalizedString("Licence type", comment: "claim: licence type"),
             "controlnumber": NSLocalizedString("Control number", comment: "claim: control number"),
             "gDate": NSLocalizedString("Date of issue", comment: "claim: issue date"),
+            "nationality": NSLocalizedString("Nationality", comment: "claim: nationality"),
+            "unifiedNo": NSLocalizedString("National ID number", comment: "claim: national ID number"),
+            "birthdate": NSLocalizedString("Date of birth", comment: "claim: birthdate"),
+            "addressOfHousehold": NSLocalizedString("Household address", comment: "claim: household address"),
+            "ageOver18": NSLocalizedString("Age 18 or over", comment: "claim: age predicate"),
         ]
         return map[claim] ?? claim
     }

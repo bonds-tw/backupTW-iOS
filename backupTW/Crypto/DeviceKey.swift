@@ -517,6 +517,12 @@ struct DeviceKey {
     }
 }
 
+// SecKey documents its cryptographic operations as thread-safe, and this value
+// exposes only immutable public metadata plus signing. Marking the wrapper lets
+// the native proof actor keep all circuit and Secure Enclave work off the main
+// actor without making the private key extractable or copying it.
+extension DeviceKey: @unchecked Sendable {}
+
 /// Discards this device's identity: the signing key, and everything it signed.
 ///
 /// Why this is its own operation and not what `CredentialStore.deleteAll()` does

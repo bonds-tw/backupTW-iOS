@@ -43,6 +43,8 @@ final class ZKLinkSendViewController: UIViewController {
     private let progressView = UIProgressView(progressViewStyle: .default)
 
     private var link: BluetoothLinkPeripheral?
+    private var transferStartedAt: UInt64?
+    private var runRecordWritten = false
 
     /// The privacy sentence, on its own label.
     ///
@@ -175,6 +177,7 @@ final class ZKLinkSendViewController: UIViewController {
     // MARK: - The radio
 
     private func startLink() {
+        transferStartedAt = VerificationClock.now()
         statusLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
         showTheEstimate()
         let link = BluetoothLinkPeripheral(payload: payload, serviceID: engagement.serviceID,
@@ -220,9 +223,31 @@ final class ZKLinkSendViewController: UIViewController {
             // same proof.
             link?.stop()
             link = nil
+            recordTransfer(succeeded: true)
         case .failed(let reason):
             statusLabel.text = reason
+            recordTransfer(succeeded: false)
         }
+    }
+
+    private func recordTransfer(succeeded: Bool) {
+        guard !runRecordWritten else { return }
+        runRecordWritten = true
+        let completed = VerificationClock.now()
+        let started = transferStartedAt ?? completed
+        let milliseconds = VerificationClock.milliseconds(from: started, to: completed)
+        let record = VerificationRunRecord(
+            flow: .zeroKnowledgeProofVerification,
+            role: .holder,
+            credentialKind: .mobileCertificate,
+            transport: .bluetooth,
+            succeeded: succeeded,
+            transportMilliseconds: milliseconds,
+            endToEndMilliseconds: milliseconds,
+            correlationToken: VerificationRunRecord.correlationToken(
+                for: engagement.serviceID.uuidString),
+            qrFallbackWasVisible: false)
+        try? VerificationRunStore.shared.append(record)
     }
 
     @objc private func finish() {

@@ -30,24 +30,36 @@ jobs:
         id: sim
         run: |
           set -euo pipefail
+          sdk_version=$(xcrun --sdk iphonesimulator --show-sdk-version)
           udid=$(xcrun simctl list devices available --json \
             | python3 -c "
           import json,sys
           data = json.load(sys.stdin)['devices']
+          sdk = tuple(int(part) for part in sys.argv[1].split('.'))
           best = None
           for runtime, devices in data.items():
-              if 'iOS' not in runtime:
+              marker = '.iOS-'
+              if marker not in runtime:
+                  continue
+              try:
+                  version = tuple(int(part) for part in runtime.split(marker, 1)[1].split('-'))
+              except ValueError:
+                  continue
+              # macos runners can carry runtimes newer than the selected
+              # Xcode. They can compile a destination but hang when tests try
+              # to boot it, so never choose newer than the active SDK.
+              if version > sdk:
                   continue
               for d in devices:
                   if d.get('isAvailable') and 'iPhone' in d['name']:
-                      # Prefer the highest iOS runtime available.
-                      key = runtime
+                      # Prefer the newest runtime this Xcode can actually run.
+                      key = version
                       if best is None or key > best[0]:
                           best = (key, d['udid'], d['name'], runtime)
           if best is None:
-              sys.exit('no available iPhone simulator on this runner')
+              sys.exit(f'no iPhone simulator supported by iOS SDK {sys.argv[1]}')
           print(f'{best[1]}\t{best[2]}\t{best[3]}')
-          ")
+          " "$sdk_version")
           echo "udid=$(echo "$udid" | cut -f1)" >> "$GITHUB_OUTPUT"
           echo "Using: $(echo "$udid" | cut -f2) on $(echo "$udid" | cut -f3)"
 
@@ -118,7 +130,8 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ONLY_ACTIVE_ARCH=YES
           binary="$derived/Build/Products/Release-iphonesimulator/backupTW.app/backupTW"
           test -x "$binary"
           info_plist="$derived/Build/Products/Release-iphonesimulator/backupTW.app/Info.plist"

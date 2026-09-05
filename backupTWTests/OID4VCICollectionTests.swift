@@ -229,12 +229,13 @@ struct OID4VCICollectionTests {
 
     private func makeCollector(
         verification: TWDIWOnChainVerification? = .verified(blockNumber: "0x1",
-                                                             transactionHash: "0xtrusted")
+                                                             transactionHash: "0xtrusted"),
+        trustList: [TWDIWIssuer]? = nil
     ) -> OID4VCICollector {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [OID4VCIStubURLProtocol.self]
         return OID4VCICollector(session: URLSession(configuration: configuration),
-                                trustList: [Self.sandbox],
+                                trustList: trustList ?? [Self.sandbox],
                                 verifyRegistry: { issuers in
             guard let verification else { return [:] }
             return Dictionary(uniqueKeysWithValues: issuers.map { ($0.did, verification) })
@@ -454,7 +455,7 @@ struct OID4VCICollectionTests {
             return Data(#"{"credential":"\#(issuer.mint(boundTo: kid))"}"#.utf8)
         })
 
-        let receipt = try await makeCollector().collect(from: offerLink())
+        let receipt = try await makeCollector(trustList: [issuer.trustEntry]).collect(from: offerLink())
 
         #expect(receipt.storedID == Self.configurationID)
         #expect(receipt.acceptedClientID == "moda_dw")
@@ -464,6 +465,32 @@ struct OID4VCICollectionTests {
         #expect(try nonLegacyKeyCount() == 1)
         let entry = try #require(try keyring.entries().first { !$0.isLegacy })
         _ = try #require(try? keyring.key(matchingPublicKeyX963: entry.publicKeyX963))
+
+        // G2: the same collected government card can answer a source-specific
+        // offline request, and the verifier accepts it only with the API +
+        // Arbitrum snapshot returned by this collection.
+        let now = Date(timeIntervalSince1970: 1_780_000_000)
+        let request = try PresentationRequest(challenge: "AAAAAAAAAAAAAAAAAAAAAA",
+                                              purpose: "離線核對政府卡",
+                                              createdAt: now,
+                                              credentialSource: .twdiw)
+        let payload = try HolderPresentation(store: store, keyring: keyring)
+            .presentation(answering: request, disclosing: ["name"], now: now)
+        let presentation = try #require(String(data: payload, encoding: .utf8))
+        let snapshot = try #require(receipt.trustSnapshot)
+        let trust = OfflineIssuerTrustLookup { did in did == snapshot.issuerDID ? snapshot : nil }
+        let verified = OfflineVerifier.verify(presentationJWS: presentation,
+                                              against: request,
+                                              now: now,
+                                              issuerTrust: trust)
+        #expect(verified.isVerified)
+        #expect(verified.verified?.claims.map(\.term) == ["name"])
+        #expect(verified.verified?.caveats.contains(.governmentIssuerMatchedStoredTrust) == true)
+
+        let noTrust = OfflineVerifier.verify(presentationJWS: presentation,
+                                             against: request,
+                                             now: now)
+        #expect(noTrust.failure == .issuerNotInOfflineTrustStore)
     }
 }
 
@@ -478,6 +505,20 @@ private struct TestIssuer {
 
     let privateKey = P256.Signing.PrivateKey()
 
+    var issuerDID: String {
+        (try? JWKDIDKey.did(fromP256PublicKeyX963: privateKey.publicKey.x963Representation)) ?? ""
+    }
+
+    var trustEntry: TWDIWIssuer {
+        TWDIWIssuer(did: issuerDID,
+                    displayName: "數位憑證皮夾沙盒",
+                    displayNameEnglish: "Sandbox",
+                    taxID: "00000000",
+                    issuerMetadataBaseURL: "https://issuer-sandbox.wallet.gov.tw",
+                    serviceBaseURL: nil,
+                    reportsOnChainAnchor: true)
+    }
+
     static func kid(ofProof jwt: String) -> String? {
         let parts = jwt.split(separator: ".").map(String.init)
         guard parts.count == 3,
@@ -490,8 +531,7 @@ private struct TestIssuer {
 
     func mint(boundTo holderDID: String) -> String {
         guard let holderKey = try? JWKDIDKey.p256PublicKey(fromDID: holderDID) else { return "" }
-        let issuerDID = (try? JWKDIDKey.did(
-            fromP256PublicKeyX963: privateKey.publicKey.x963Representation)) ?? ""
+        let issuerDID = self.issuerDID
         let x963 = holderKey.x963Representation
         let holderJWK = JWKDIDKey.canonicalJWK(x: Data(x963.dropFirst().prefix(32)),
                                                y: Data(x963.suffix(32)))

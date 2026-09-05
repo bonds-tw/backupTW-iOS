@@ -1,0 +1,85 @@
+diff --git a/witnesscalc_adapter/src/lib.rs b/witnesscalc_adapter/src/lib.rs
+index 30612fa..7a8bc39 100644
+--- a/witnesscalc_adapter/src/lib.rs
++++ b/witnesscalc_adapter/src/lib.rs
+@@ -144,6 +144,39 @@ pub fn build_and_link(circuits_dir: &str) {
+             .expect("witnesscalc build errored");
+     }
+ 
++    // Current Xcode no longer supports the upstream iOS 8 defaults. Keep the
++    // native C/C++ and Rust deployment floors aligned with the app, and avoid
++    // building the other simulator architecture when Cargo requested exactly
++    // one. The upstream helper otherwise builds both arm64 and x86_64 GMP,
++    // requiring nasm and several extra gigabytes for an Intel slice this app
++    // cannot use.
++    let gmp_script_path = witnesscalc_path.join("build_gmp.sh");
++    if let Ok(script) = fs::read_to_string(&gmp_script_path) {
++        let mut script = script
++            .replace(
++                "export MIN_IOS_VERSION=8.0",
++                "export MIN_IOS_VERSION=16.0\n    export CC_FOR_BUILD=\"$(xcrun --sdk macosx --find clang) -isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=14.0\"",
++            )
++            .replace("-miphoneos-version-min=8.0", "-miphoneos-version-min=16.0")
++            .replace("-mios-simulator-version-min=8.0", "-mios-simulator-version-min=16.0");
++        script = script.replace(
++            "build_ios_simulator()\n{\n",
++            "build_ios_simulator()\n{\n\texport CC_FOR_BUILD=\"$(xcrun --sdk macosx --find clang) -isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=14.0\"\n",
++        );
++        if target == "aarch64-apple-ios-sim" {
++            script = script.replace(
++                "for ARCH in \"arm64\" \"x86_64\"; do",
++                "for ARCH in \"arm64\"; do",
++            );
++        } else if target == "x86_64-apple-ios" {
++            script = script.replace(
++                "for ARCH in \"arm64\" \"x86_64\"; do",
++                "for ARCH in \"x86_64\"; do",
++            );
++        }
++        fs::write(&gmp_script_path, script).expect("Failed to pin the iOS GMP build");
++    }
++
+     println!("Detected target: {}", target);
+     //For possible options see witnesscalc/build_gmp.sh
+     let gmp_build_target = match target.as_str() {
+@@ -184,7 +217,9 @@ pub fn build_and_link(circuits_dir: &str) {
+     // If the witnesscalc library is not built, build it
+     let gmp_dir = witnesscalc_path.join("depends").join("gmp");
+     let target_dir = gmp_dir.join(gmp_lib_folder);
+-    if !target_dir.exists() {
++    if !target_dir.join("include/gmp.h").is_file()
++        || !target_dir.join("lib/libgmp.a").is_file()
++    {
+         Command::new("bash")
+             .current_dir(&witnesscalc_path)
+             .arg("./build_gmp.sh")
+@@ -316,6 +351,29 @@ fn build_for_circuits_with_different_versions(
+ 
+     let circuit_names_semicolon = circuit_names.join(";");
+ 
++    // `git checkout` above may refresh the tracked Makefile, so apply this
++    // immediately before each make invocation rather than only after clone.
++    // Without the explicit floor CMake records the current SDK (26.x) in the
++    // object files while Rust links the app's older target, which fails at
++    // `___chkstk_darwin` on device.
++    let makefile_path = witnesscalc_path.join("Makefile");
++    if let Ok(makefile) = fs::read_to_string(&makefile_path) {
++        let makefile = makefile
++            .replace(
++                "-DTARGET_PLATFORM=IOS -DCMAKE_BUILD_TYPE",
++                "-DTARGET_PLATFORM=IOS -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 -DCMAKE_BUILD_TYPE",
++            )
++            .replace(
++                "-DTARGET_PLATFORM=IOS_SIMULATOR -DCMAKE_BUILD_TYPE",
++                "-DTARGET_PLATFORM=IOS_SIMULATOR -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 -DCMAKE_BUILD_TYPE",
++            )
++            .replace(
++                "-DTARGET_PLATFORM=IOS_SIMULATOR_x86_64 -DCMAKE_BUILD_TYPE",
++                "-DTARGET_PLATFORM=IOS_SIMULATOR_x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 -DCMAKE_BUILD_TYPE",
++            );
++        fs::write(&makefile_path, makefile).expect("Failed to pin the iOS witness build");
++    }
++
+     let make_process = Command::new("make")
+         .env("CIRCUIT_NAMES", circuit_names_semicolon)
+         .arg(witnesscalc_build_target)

@@ -64,6 +64,10 @@ struct OID4VCICollectionReceipt: Equatable {
     /// question is exactly "was `tw.bonds.backupTW` accepted"; the receipt is
     /// the evidence.
     let acceptedClientID: String
+    /// API + Arbitrum evidence captured before the issuer was contacted. This is
+    /// public issuer metadata, not holder or credential data, and is what lets a
+    /// later verifier fail closed without phoning home.
+    let trustSnapshot: OfflineIssuerTrustSnapshot?
 }
 
 /// One credential collection, start to finish.
@@ -120,6 +124,10 @@ struct OID4VCICollector {
     let verifyRegistry: RegistryVerifier
     let keyring: HolderKeyring
     let store: CredentialStoring
+    /// Persists public issuer evidence before the holder credential is committed.
+    /// A production write failure aborts collection and removes the fresh card
+    /// key; protocol tests can leave the default no-op.
+    var saveTrustSnapshot: @Sendable (OfflineIssuerTrustSnapshot) throws -> Void = { _ in }
     var clientID = "moda_dw"
     var now: () -> Date = Date.init
 
@@ -127,10 +135,10 @@ struct OID4VCICollector {
     func collect(from link: CredentialOfferLink) async throws -> OID4VCICollectionReceipt {
         // Gate 1 + fetch (or unwrap) the offer document.
         let offer: CredentialOffer
-        let matched: [TWDIWIssuer]
+        let authorization: AuthorizedMatches
         switch link {
         case .byReference(let fetchURL):
-            matched = try await authorisedMatches(for: fetchURL)
+            authorization = try await authorisedMatches(for: fetchURL)
             guard let url = URL(string: fetchURL) else {
                 throw OID4VCICollectionError.refused(.unusableHost)
             }
@@ -140,13 +148,13 @@ struct OID4VCICollector {
             // The inline form skips the fetch, not the gate: the issuer it
             // names must still be on the list before anything else happens.
             offer = try parseOffer(Data(json.utf8))
-            matched = try await authorisedMatches(for: offer.credentialIssuer)
+            authorization = try await authorisedMatches(for: offer.credentialIssuer)
         }
 
         // Gate 2: the offer's issuer must belong to the organisation the QR
         // pointed at.
         switch IssuerAuthorization.confirm(credentialIssuer: offer.credentialIssuer,
-                                           matched: matched) {
+                                           matched: authorization.issuers) {
         case .failure(let refusal): throw OID4VCICollectionError.refused(refusal)
         case .success: break
         }
@@ -206,20 +214,47 @@ struct OID4VCICollector {
             // The issuer answered. Before anything is stored: does the
             // document verify, and is it bound to the key we just made?
             guard StoredCardSource.source(of: serialized) == .twdiw,
-                  (try? TWDIWCredentialReader.read(serialized, now: now())) != nil else {
+                  let parsedCredential = try? TWDIWCredentialReader.read(serialized, now: now()) else {
                 throw OID4VCICollectionError.issuedCredentialDoesNotVerify
             }
             guard credential(serialized, isBoundTo: holderKey) else {
                 throw OID4VCICollectionError.credentialNotBoundToOurKey
             }
 
+            guard let issuer = authorization.issuers.first(where: { $0.did == parsedCredential.issuerDID }),
+                  let issuerEvidence = authorization.evidence[issuer.did] else {
+                // The URL's organisation may be authorised while a credential
+                // unexpectedly names a different DID. Its signature can still
+                // be mathematically valid, but it has no independently checked
+                // issuer row and must not acquire an offline trust snapshot.
+                throw OID4VCICollectionError.issuedCredentialDoesNotVerify
+            }
+            let snapshot: OfflineIssuerTrustSnapshot?
+            switch issuerEvidence {
+            case .verified(let blockNumber, let transactionHash):
+                snapshot = OfflineIssuerTrustSnapshot(issuer: issuer,
+                                                       blockNumber: blockNumber,
+                                                       transactionHash: transactionHash,
+                                                       verifiedAt: now())
+            #if DEBUG
+            case .developmentSandbox:
+                // The sandbox remains collectable in development, but it does
+                // not acquire evidence that could authorize an offline check.
+                snapshot = nil
+            #endif
+            default:
+                throw OID4VCICollectionError.issuedCredentialDoesNotVerify
+            }
+            if let snapshot { try saveTrustSnapshot(snapshot) }
             // Stored under the configuration id: collecting the same card
             // again replaces it, which is what re-collection means. A second
-            // *kind* of card is a second id.
+            // *kind* of card is a second id. Do this only after the issuer DID
+            // has matched the independently verified row above.
             try store.save(jws: serialized, id: configurationID)
             return OID4VCICollectionReceipt(storedID: configurationID,
                                             holderDID: holderDID,
-                                            acceptedClientID: clientID)
+                                            acceptedClientID: clientID,
+                                            trustSnapshot: snapshot)
         } catch {
             destroy(publicKeyX963: holderKey.publicKeyX963)
             throw error
@@ -244,7 +279,12 @@ struct OID4VCICollector {
     /// Gate 1 (API membership) and gate 1b (current Arbitrum state), kept in one
     /// helper so reference and inline offers cannot drift. No issuer request has
     /// happened when either refusal leaves this method.
-    private func authorisedMatches(for url: String) async throws -> [TWDIWIssuer] {
+    private struct AuthorizedMatches {
+        let issuers: [TWDIWIssuer]
+        let evidence: [String: TWDIWOnChainVerification]
+    }
+
+    private func authorisedMatches(for url: String) async throws -> AuthorizedMatches {
         let matched: [TWDIWIssuer]
         switch IssuerAuthorization.authorise(fetchURL: url, against: trustList) {
         case .refused(let refusal):
@@ -256,7 +296,7 @@ struct OID4VCICollector {
         switch IssuerAuthorization.confirmRegistryEvidence(matched: matched,
                                                             verification: verification) {
         case .success:
-            return matched
+            return AuthorizedMatches(issuers: matched, evidence: verification)
         case .failure(let refusal):
             throw OID4VCICollectionError.refused(refusal)
         }

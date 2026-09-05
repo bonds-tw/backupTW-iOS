@@ -517,6 +517,9 @@ final class GovernmentCardViewController: UICollectionViewController {
                         ])
                     }
                     try store.delete(id: self.credentialID)
+                    // A cached OpenAC Prepare state for this card carries its
+                    // birth date; it must not outlive the card.
+                    try? AgePredicatePrepareCache().purgeAll()
                 }
                 switch outcome {
                 case .success:

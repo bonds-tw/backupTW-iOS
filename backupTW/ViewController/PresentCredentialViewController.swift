@@ -92,21 +92,42 @@ final class PresentCredentialViewController: UIViewController {
     private var renderedFrames: [UIImage] = []
     private var frameIndex = 0
     private var carousel: Timer?
+    /// A radio-capable verifier gets a short head start before the visual
+    /// fallback appears. Without this, the happy path still flashed twenty
+    /// rotating QR parts even though Bluetooth completed almost immediately,
+    /// making the holder think those were twenty more confirmation screens.
+    private var qrFallbackWorkItem: DispatchWorkItem?
+    private var qrFallbackIsVisible = false
     private let frameImageView = UIImageView()
+    /// Retained so a Bluetooth acknowledgement can replace the moving QR with
+    /// an unambiguous completion state instead of leaving twenty changing codes
+    /// on screen after the checker already has the document.
+    private weak var frameContainer: UIView?
+    private weak var transferTitleLabel: UILabel?
+    private weak var dynamicQRExplanationLabel: UILabel?
     private let frameCountLabel = UILabel()
     /// Filled in step with the carousel, so the eye has somewhere to see 「it is
     /// moving forward」 that is not a two-digit number.
     private let frameProgress = UIProgressView(progressViewStyle: .default)
-    /// Alive only while the frames are on screen. Torn down in `stopCarousel`
-    /// together with everything else that makes this phone discoverable — a
-    /// peripheral that outlived the screen would keep advertising after the
-    /// holder had put the phone away.
+    /// Alive only while the frames are on screen, or until the checker
+    /// acknowledges delivery. Torn down on either boundary — a peripheral that
+    /// outlived the exchange would keep advertising after the holder had put the
+    /// phone away.
     private var link: BluetoothLinkPeripheral?
+    /// Terminal evidence from the checker wins over late CoreBluetooth state
+    /// callbacks. Releasing a peripheral manager can still deliver a final
+    /// unavailable/unsupported callback (notably in Simulator); that must not
+    /// replace a delivery acknowledgement with a new warning.
+    private var linkDeliveryAcknowledged = false
     private let linkLabel = UILabel()
     /// The signed presentation itself, kept so the radio sends the document
     /// rather than the QR frames of it — the two transports carry the same
     /// bytes, framed for different media.
     private var presentationPayload: Data?
+    private var measurementStartedAt: UInt64?
+    private var measurementPreparedAt: UInt64?
+    private var measuredRequest: PresentationRequest?
+    private var deliveryRecordWritten = false
 
     /// The service identifier the checker offered, kept past the frame render.
     ///
@@ -136,6 +157,9 @@ final class PresentCredentialViewController: UIViewController {
     /// One place for the carousel pace. The cycle-time sentence above and the
     /// timer below must never quote two different speeds.
     private static let frameInterval: TimeInterval = 0.55
+    /// Long enough for an already-awake central to subscribe, short enough that
+    /// Bluetooth-off and older-verifier paths do not feel stuck.
+    static let qrFallbackDelay: TimeInterval = 2.5
 
     /// The pace, given the reader's own setting.
     ///
@@ -212,7 +236,9 @@ final class PresentCredentialViewController: UIViewController {
         // camera at a stranger's phone.
         if !storeIsReadable {
             stage = .cardsUnreadable
-        } else if (try? holder.storedCredentialID()) == nil && !hasAnyCard {
+        } else if (try? holder.storedCredentialID(for: .selfIssued)) == nil,
+                  (try? holder.storedCredentialID(for: .twdiw)) == nil,
+                  !hasAnyCard {
             // Truly empty. A wallet holding only government cards does *not*
             // land here — those present online through the same scanner.
             stage = .nothingToShow
@@ -252,11 +278,10 @@ final class PresentCredentialViewController: UIViewController {
             // seconds and does not let the owner change it, so this is not a
             // preference the holder could have set differently.
             wakeLock.hold()
-            startCarousel()
-            // Third, and for the same reason as the other two: this runs on
-            // every appearance, including the one after a cancelled swipe.
-            startLinkIfPossible()
+            startPreferredTransfer()
         case .stopShowing:
+            qrFallbackWorkItem?.cancel()
+            qrFallbackWorkItem = nil
             stopCarousel()
             stopLink()
             brightness.restore()
@@ -426,15 +451,23 @@ final class PresentCredentialViewController: UIViewController {
     /// from, and says so — an empty list would read as "nothing will be shown"
     /// when in fact everything will be.
     private func renderDisclosureChoices() {
-        disclosableClaims = (try? holder.disclosableClaims()) ?? []
+        let source: PresentationCredentialSource
+        if case .confirming(let request, _) = stage {
+            source = request.credentialSource
+        } else {
+            source = .selfIssued
+        }
+        disclosableClaims = (try? holder.disclosableClaims(for: source)) ?? []
         chosenClaims = []
 
         contentStack.addArrangedSubview(PresentationUI.sectionTitle(
             NSLocalizedString("Choose what they will see", comment: "")))
 
         guard !disclosableClaims.isEmpty else {
-            contentStack.addArrangedSubview(PresentationUI.caveat(
-                NSLocalizedString("This document was created by an older version of the app and cannot be shown in part. Every field in it will be shown: name, ID number, date of birth, household address and nationality.", comment: "")))
+            let message = source == .twdiw
+                ? NSLocalizedString("This government card does not currently expose any fields that can be selected for this offline presentation.", comment: "")
+                : NSLocalizedString("This document was created by an older version of the app and cannot be shown in part. Every field in it will be shown: name, ID number, date of birth, household address and nationality.", comment: "")
+            contentStack.addArrangedSubview(PresentationUI.caveat(message))
             return
         }
 
@@ -469,7 +502,7 @@ final class PresentCredentialViewController: UIViewController {
         // the whole message.
         var explainedTheLockedRow = false
         for claim in disclosableClaims {
-            if Self.cannotBeWithheld.contains(claim.name) {
+            if source == .selfIssued && Self.cannotBeWithheld.contains(claim.name) {
                 contentStack.addArrangedSubview(nonWithholdableRow(for: claim))
                 explainedTheLockedRow = true
             } else {
@@ -675,8 +708,10 @@ final class PresentCredentialViewController: UIViewController {
             return
         }
 
-        contentStack.addArrangedSubview(PresentationUI.title(
-            NSLocalizedString("Hold this up to the checker", comment: "")))
+        let titleLabel = PresentationUI.title(
+            NSLocalizedString("Sending one document", comment: "Presentation transfer title"))
+        transferTitleLabel = titleLabel
+        contentStack.addArrangedSubview(titleLabel)
 
         frameImageView.translatesAutoresizingMaskIntoConstraints = false
         frameImageView.contentMode = .scaleAspectFit
@@ -687,6 +722,7 @@ final class PresentCredentialViewController: UIViewController {
         frameImageView.accessibilityLabel = NSLocalizedString("Document code", comment: "")
 
         let container = UIView()
+        frameContainer = container
         container.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(frameImageView)
         NSLayoutConstraint.activate([
@@ -706,9 +742,11 @@ final class PresentCredentialViewController: UIViewController {
         frameCountLabel.font = UIFontMetrics(forTextStyle: .headline)
             .scaledFont(for: .monospacedDigitSystemFont(ofSize: 17, weight: .semibold))
         frameCountLabel.adjustsFontForContentSizeCategory = true
+        frameCountLabel.textColor = .label
         contentStack.addArrangedSubview(frameCountLabel)
 
         if frames.count > 1 {
+            frameProgress.isHidden = false
             frameProgress.progressTintColor = .tintColor
             frameProgress.trackTintColor = .systemFill
             contentStack.addArrangedSubview(frameProgress)
@@ -722,6 +760,7 @@ final class PresentCredentialViewController: UIViewController {
             // scan wants to hold one still so the checker can point at it, and
             // there was no way to do that except walk away.
             isCarouselPaused = false
+            pauseButton.isHidden = false
             updatePauseButton()
             pauseButton.addTarget(self, action: #selector(togglePause), for: .touchUpInside)
             contentStack.addArrangedSubview(pauseButton)
@@ -735,18 +774,22 @@ final class PresentCredentialViewController: UIViewController {
             let cycleSeconds = Int((Double(frames.count)
                                     * Self.frameInterval(reduceMotion: UIAccessibility.isReduceMotionEnabled))
                                        .rounded())
-            contentStack.addArrangedSubview(PresentationUI.body(String(
-                format: NSLocalizedString("This document does not fit in one code, so it cycles through %1$d — one full cycle takes about %2$d seconds. Keep the screen still until the checker's phone says it has them all; the order does not matter.", comment: ""),
-                frames.count, cycleSeconds)))
+            let explanation = PresentationUI.body(String(
+                format: NSLocalizedString("This is one document split into %1$d transfer parts — not %1$d separate steps. One full cycle takes about %2$d seconds. Keep the phone still; the checker finishes automatically after receiving every part.", comment: "Dynamic QR explanation"),
+                frames.count, cycleSeconds))
+            dynamicQRExplanationLabel = explanation
+            contentStack.addArrangedSubview(explanation)
         }
         // Body weight, not footnote: this is the only sentence on the screen
         // with a deadline in it, and blowing the deadline restarts the whole
         // exchange. It was in the lowest-contrast style the screen has.
-        // The radio, when the checker's code offered one. **Additive**: the
-        // codes stay on screen and stay scannable, because the other phone may
-        // be an older build, may have Bluetooth switched off, or may simply be
-        // a camera. A transport that replaced the QR would take away the one
-        // that works everywhere.
+        // The radio, when the checker's code offered one. The QR transport is
+        // still complete and independent, but a radio-capable verifier gets a
+        // short head start before it appears. If Bluetooth is unavailable,
+        // fails, or has not acknowledged the payload by then, the same QR parts
+        // become visible and stay scannable. This avoids flashing twenty codes
+        // during the successful radio path without removing the fallback that
+        // works with older builds and camera-only readers.
         // Always drawn, even when there is no radio to offer, because the first
         // device attempt produced *no line at all* and that is the one outcome
         // that cannot be diagnosed: 「the checker offered no radio」, 「the
@@ -774,9 +817,12 @@ final class PresentCredentialViewController: UIViewController {
             linkLabel.font = .preferredFont(forTextStyle: .subheadline)
             linkLabel.adjustsFontForContentSizeCategory = true
             linkLabel.textColor = .secondaryLabel
-            linkLabel.text = NSLocalizedString("Also sending this over Bluetooth, so the checker does not have to scan every code.", comment: "")
+            linkLabel.text = NSLocalizedString("Bluetooth is also active. If it connects, the transfer finishes without waiting for every QR part.", comment: "")
             contentStack.addArrangedSubview(linkLabel)
+            setQRFallbackVisible(false)
             startLinkIfPossible()
+        } else {
+            setQRFallbackVisible(true)
         }
 
         contentStack.addArrangedSubview(PresentationUI.body(
@@ -864,7 +910,18 @@ final class PresentCredentialViewController: UIViewController {
     /// names in `verifierNotAuthenticated`: giving somebody a term instead of a
     /// fact they can act on.
     private func linkabilityWarning() -> UIView {
-        PresentationUI.caveat(NSLocalizedString(
+        let source: PresentationCredentialSource
+        switch stage {
+        case .confirming(let request, _), .showing(_, let request):
+            source = request.credentialSource
+        default:
+            source = .selfIssued
+        }
+        if source == .twdiw {
+            return PresentationUI.caveat(NSLocalizedString(
+                "This government card does not send your citizen certificate, but it does use a stable holder identifier and key. Two checkers comparing presentations can tell the same card was used.", comment: ""))
+        }
+        return PresentationUI.caveat(NSLocalizedString(
             "Showing this document always reveals your name, because it is written into the certificate that signs it. The same certificate goes to every checker, so any two of them can tell it was the same person.", comment: ""))
     }
 
@@ -1018,7 +1075,17 @@ final class PresentCredentialViewController: UIViewController {
             // Silence rather than an error per video frame.
             return .keepScanning(status: nil)
         }
+        guard (try? holder.storedCredentialID(for: request.credentialSource)) != nil else {
+            let message = request.credentialSource == .twdiw
+                ? NSLocalizedString("This checker asked for a government wallet card, but this phone does not have one.", comment: "")
+                : NSLocalizedString("This checker asked for your self-issued document, but this phone does not have one.", comment: "")
+            return .keepScanning(status: message)
+        }
         stage = .confirming(request, freshness: Self.freshness(of: request, now: now))
+        measurementStartedAt = nil
+        measurementPreparedAt = nil
+        measuredRequest = request
+        deliveryRecordWritten = false
         render()
         navigationController?.popToViewController(self, animated: true)
         return .stop
@@ -1038,6 +1105,8 @@ final class PresentCredentialViewController: UIViewController {
         // is still `.confirming` and would sign, shard and display a second time
         // — a second Face ID prompt, and a second `startShowing`.
         guard case .confirming(let request, _) = stage, lifecycle.beginSigning() else { return }
+        measurementStartedAt = VerificationClock.now()
+        measuredRequest = request
         // Disabling the button is what the user sees. It cannot be relied on
         // alone: both taps of a fast double tap can be delivered before UIKit
         // redraws.
@@ -1058,8 +1127,13 @@ final class PresentCredentialViewController: UIViewController {
         // withheld name meant the checker was shown a name with nothing
         // confirming it belonged to this document. Disclosing it buys the
         // binding check for a value the checker was going to see anyway.
-        let disclosing: [String]? = Self.claimsToDisclose(chosen: chosenClaims,
-                                                          offered: disclosableClaims.map(\.name))
+        let disclosing: [String]?
+        if request.credentialSource == .twdiw {
+            disclosing = disclosableClaims.isEmpty ? nil : Array(chosenClaims).sorted()
+        } else {
+            disclosing = Self.claimsToDisclose(chosen: chosenClaims,
+                                               offered: disclosableClaims.map(\.name))
+        }
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self, holder = self.holder] in
             let result = Result { () -> (frames: [String], payload: Data) in
@@ -1073,9 +1147,28 @@ final class PresentCredentialViewController: UIViewController {
                 guard let self else { return }
                 switch result {
                 case .success(let signed):
+                    self.measurementPreparedAt = VerificationClock.now()
+                    self.linkDeliveryAcknowledged = false
                     self.presentationPayload = signed.payload
                     self.stage = .showing(frames: signed.frames, request: request)
                 case .failure(let error):
+                    let completed = VerificationClock.now()
+                    let started = self.measurementStartedAt ?? completed
+                    let record = VerificationRunRecord(
+                        flow: .offlinePresentation,
+                        role: .holder,
+                        credentialKind: request.credentialSource == .twdiw
+                            ? .governmentWallet : .selfIssued,
+                        transport: .local,
+                        succeeded: false,
+                        preparationMilliseconds: VerificationClock.milliseconds(
+                            from: started, to: completed),
+                        endToEndMilliseconds: VerificationClock.milliseconds(
+                            from: started, to: completed),
+                        correlationToken: request.linkServiceID.map {
+                            VerificationRunRecord.correlationToken(for: $0.uuidString)
+                        })
+                    try? VerificationRunStore.shared.append(record)
                     self.stage = .failed((error as? LocalizedError)?.errorDescription
                                          ?? NSLocalizedString("This document could not be signed on this device.", comment: ""))
                 }
@@ -1089,6 +1182,53 @@ final class PresentCredentialViewController: UIViewController {
     }
 
     // MARK: - Carousel
+
+    /// Prefer the one-shot Bluetooth response transport when the request offers
+    /// it. The QR carousel remains a real fallback, but it no longer dominates
+    /// the successful radio path before the radio has had a chance to connect.
+    private func startPreferredTransfer() {
+        guard !linkDeliveryAcknowledged else {
+            setQRFallbackVisible(false)
+            return
+        }
+        startLinkIfPossible()
+        guard linkServiceID != nil, presentationPayload != nil else {
+            revealQRFallback()
+            return
+        }
+
+        setQRFallbackVisible(false)
+        qrFallbackWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.linkDeliveryAcknowledged else { return }
+            self.revealQRFallback()
+        }
+        qrFallbackWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.qrFallbackDelay,
+                                      execute: work)
+    }
+
+    private func revealQRFallback() {
+        qrFallbackWorkItem?.cancel()
+        qrFallbackWorkItem = nil
+        setQRFallbackVisible(true)
+        startCarousel()
+    }
+
+    private func setQRFallbackVisible(_ visible: Bool) {
+        qrFallbackIsVisible = visible
+        frameContainer?.isHidden = !visible
+        let hasMultipleFrames = renderedFrames.count > 1
+        frameProgress.isHidden = !visible || !hasMultipleFrames
+        pauseButton.isHidden = !visible || !hasMultipleFrames
+        dynamicQRExplanationLabel?.isHidden = !visible || !hasMultipleFrames
+        if visible {
+            frameCountLabel.textColor = .label
+            frameCountLabel.isHidden = renderedFrames.count <= 1
+        } else {
+            frameCountLabel.isHidden = true
+        }
+    }
 
     /// Starts the rotation over the images `renderFrames` already rasterised.
     /// Restarting an already-running carousel is safe: the old timer is dropped
@@ -1174,7 +1314,7 @@ final class PresentCredentialViewController: UIViewController {
         frameProgress.setProgress(Float(shownFrames.count) / Float(max(renderedFrames.count, 1)),
                                   animated: true)
         frameCountLabel.text = renderedFrames.count > 1
-            ? String(format: NSLocalizedString("Code %1$d of %2$d", comment: "Carousel position"),
+            ? String(format: NSLocalizedString("Dynamic QR · part %1$d of %2$d", comment: "Carousel position"),
                      index + 1, renderedFrames.count)
             : nil
         frameCountLabel.isHidden = renderedFrames.count <= 1
@@ -1184,9 +1324,14 @@ final class PresentCredentialViewController: UIViewController {
     /// never a raw error. A holder who is told 「CBErrorDomain 7」 has been given
     /// a fact they cannot act on.
     private func showLink(_ state: BluetoothLinkState) {
+        if linkDeliveryAcknowledged {
+            guard case .finished = state else { return }
+        }
+        try? BluetoothLinkDiagnosticStore.shared.record(role: .holder, state: state)
         switch state {
         case .unavailable(let reason):
             linkLabel.text = reason
+            revealQRFallback()
         case .starting:
             linkLabel.text = NSLocalizedString("Turning on Bluetooth…", comment: "")
         case .waiting:
@@ -1198,7 +1343,58 @@ final class PresentCredentialViewController: UIViewController {
             linkLabel.text = String(format: NSLocalizedString("Sending over Bluetooth… %d%%", comment: ""),
                                     Int((fraction * 100).rounded()))
         case .finished:
+            let fallbackWasVisible = qrFallbackIsVisible
+            linkDeliveryAcknowledged = true
+            qrFallbackWorkItem?.cancel()
+            qrFallbackWorkItem = nil
+            // An acknowledgement is stronger evidence than one completed QR
+            // cycle. Stop the visual fallback immediately and replace it with a
+            // completion state; leaving twenty symbols rotating here made the
+            // holder reasonably think there were twenty more screens to finish.
+            stopCarousel()
+            qrFallbackIsVisible = false
+            frameContainer?.isHidden = true
+            frameProgress.isHidden = true
+            pauseButton.isHidden = true
+            dynamicQRExplanationLabel?.isHidden = true
+            frameCountLabel.isHidden = false
+            frameCountLabel.text = NSLocalizedString("You can put your phone down.", comment: "Bluetooth delivery completed")
+            frameCountLabel.textColor = .systemGreen
+            transferTitleLabel?.text = NSLocalizedString("Delivered to the checker", comment: "Bluetooth delivery completed")
             linkLabel.text = NSLocalizedString("The checker's phone has the document.", comment: "")
+            linkLabel.textColor = .systemGreen
+            if !deliveryRecordWritten, let request = measuredRequest {
+                deliveryRecordWritten = true
+                let completed = VerificationClock.now()
+                let started = measurementStartedAt ?? measurementPreparedAt ?? completed
+                let prepared = measurementPreparedAt ?? started
+                let record = VerificationRunRecord(
+                    flow: .offlinePresentation,
+                    role: .holder,
+                    credentialKind: request.credentialSource == .twdiw
+                        ? .governmentWallet : .selfIssued,
+                    transport: .bluetooth,
+                    succeeded: true,
+                    preparationMilliseconds: VerificationClock.milliseconds(
+                        from: started, to: prepared),
+                    transportMilliseconds: VerificationClock.milliseconds(
+                        from: prepared, to: completed),
+                    endToEndMilliseconds: VerificationClock.milliseconds(
+                        from: started, to: completed),
+                    correlationToken: request.linkServiceID.map {
+                        VerificationRunRecord.correlationToken(for: $0.uuidString)
+                    },
+                    qrFallbackWasVisible: fallbackWasVisible)
+                try? VerificationRunStore.shared.append(record)
+            }
+            // Let `didReceiveWrite` send its ATT response before releasing the
+            // peripheral manager, then stop advertising this spent one-time
+            // service. Calling `stopLink()` here would overwrite the completion
+            // sentence with 「Bluetooth sending has stopped」.
+            DispatchQueue.main.async { [weak self] in
+                self?.link?.stop()
+                self?.link = nil
+            }
             // The only non-visual signal in the app, at the only moment there is
             // evidence for one.
             //
@@ -1222,6 +1418,7 @@ final class PresentCredentialViewController: UIViewController {
                                  argument: linkLabel.text)
         case .failed(let reason):
             linkLabel.text = reason
+            revealQRFallback()
         }
     }
 
@@ -1270,6 +1467,7 @@ final class PresentCredentialViewController: UIViewController {
 
     /// Stands in for the frame render having happened.
     func prepareLinkForReview(serviceID: UUID, payload: Data) {
+        linkDeliveryAcknowledged = false
         linkServiceID = serviceID
         presentationPayload = payload
     }
@@ -1278,10 +1476,17 @@ final class PresentCredentialViewController: UIViewController {
 
     var linkLineForReview: String? { linkLabel.text }
 
+    var qrFallbackIsVisibleForReview: Bool { qrFallbackIsVisible }
+
     func applyForReview(_ effect: PresentationScreenLifecycle.Effect) { apply(effect) }
 
+    func applyLinkStateForReview(_ state: BluetoothLinkState) { showLink(state) }
+
     private func startLinkIfPossible() {
-        guard link == nil, let serviceID = linkServiceID, let payload = presentationPayload else { return }
+        guard !linkDeliveryAcknowledged,
+              link == nil,
+              let serviceID = linkServiceID,
+              let payload = presentationPayload else { return }
         let link = BluetoothLinkPeripheral(payload: payload, serviceID: serviceID,
                                              vocabulary: .credential) { [weak self] state in
             self?.showLink(state)

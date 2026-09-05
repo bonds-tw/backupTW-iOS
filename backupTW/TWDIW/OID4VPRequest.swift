@@ -109,6 +109,17 @@ struct OID4VPRequestedField: Equatable {
     }
 }
 
+/// The inner credential format named by a presentation descriptor.
+///
+/// `vc+moica` is this project's explicit extension for the JSON envelope signed
+/// by a MOICA citizen certificate. Keeping it distinct from `jwt_vc` and
+/// `vc+sd-jwt` prevents a verifier from applying JOSE rules to a document that
+/// deliberately is not a compact JWT.
+enum OID4VPCredentialFormat: String, Equatable {
+    case sdJWT = "vc+sd-jwt"
+    case moica = "vc+moica"
+}
+
 /// One alternative named by a DIF presentation definition.
 ///
 /// The production convenience-store request does not ask for one fixed card. It
@@ -118,6 +129,7 @@ struct OID4VPRequestedField: Equatable {
 /// carrier actually held, for each selected group.
 struct OID4VPInputDescriptor: Equatable {
     let id: String
+    let credentialFormat: OID4VPCredentialFormat?
     let credentialType: String?
     let requestedFields: [OID4VPRequestedField]
     let groups: [String]
@@ -252,6 +264,15 @@ struct OID4VPRequest: Equatable {
             guard let descriptorID = descriptor["id"] as? String, !descriptorID.isEmpty else {
                 throw OID4VPRequestError.missingField("input_descriptors[\(index)].id")
             }
+            let formats = descriptor["format"] as? [String: Any] ?? [:]
+            let credentialFormat: OID4VPCredentialFormat?
+            if formats[OID4VPCredentialFormat.moica.rawValue] != nil {
+                credentialFormat = .moica
+            } else if formats[OID4VPCredentialFormat.sdJWT.rawValue] != nil {
+                credentialFormat = .sdJWT
+            } else {
+                credentialFormat = nil
+            }
             var credentialType: String?
             var fields: [OID4VPRequestedField] = []
             let constraintFields = (descriptor["constraints"] as? [String: Any])?["fields"] as? [[String: Any]] ?? []
@@ -281,6 +302,7 @@ struct OID4VPRequest: Equatable {
             }
             descriptors.append(OID4VPInputDescriptor(
                 id: descriptorID,
+                credentialFormat: credentialFormat,
                 credentialType: credentialType,
                 requestedFields: fields,
                 groups: descriptor["group"] as? [String] ?? [],

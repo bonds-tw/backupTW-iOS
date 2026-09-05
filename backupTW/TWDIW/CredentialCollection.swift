@@ -83,7 +83,10 @@ enum CredentialCollection {
                                                  return results
                                              },
                                              keyring: .app(),
-                                             store: try CredentialStore())
+                                             store: try CredentialStore(),
+                                             saveTrustSnapshot: { snapshot in
+                                                 try OfflineIssuerTrustStore().save(snapshot)
+                                             })
             let receipt = try await collector.collect(from: link)
             return .stored(id: receipt.storedID,
                            message: String(format: NSLocalizedString("Stored as %@.", comment: "collection success"),
