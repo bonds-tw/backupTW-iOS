@@ -38,6 +38,8 @@ struct VerificationRunRecordTests {
                      VerificationRunRecord.Transport,
                      VerificationRunRecord.MatrixCell)] = [
             (.offlinePresentation, .selfIssued, .local, .a1),
+            (.disclosedAgePresentation, .selfIssued, .bluetooth, .s2),
+            (.disclosedAgePresentation, .governmentWallet, .bluetooth, .s1),
             (.oid4vpPresentation, .governmentWallet, .https, .a2),
             (.zeroKnowledgeProofVerification, .mobileCertificate, .local, .a3),
             (.oid4vpPresentation, .selfIssued, .https, .g1),

@@ -75,6 +75,9 @@ enum SelfIssuedMyDataAgeCredential {
                       now: Date) throws -> Issued {
         let envelope = try MOICASignedCredential.parse(stored)
         let credential = try envelope.credential()
+        guard credential.type.contains("NationalIDCredential") else {
+            throw AgePredicateProofError.sourceMismatch
+        }
         // The derivative must be issued by the same per-card key the stored
         // credential names. The provider normally establishes this while
         // resolving the card, but keeping the check here closes the lower-level

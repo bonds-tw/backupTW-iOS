@@ -8,6 +8,21 @@
 
 import UIKit
 
+/// The request QR must be rendered for the space it will actually occupy.
+/// A floating iPad window can be narrower than the regular iPad layout; using
+/// a fixed bitmap there crops the quiet zone and makes a valid request unreadable.
+enum AgePredicateRequestQRLayout {
+    static let maximumPointWidth: CGFloat = 260
+    static let horizontalInset: CGFloat = 40
+
+    static func pointWidth(forViewWidth width: CGFloat) -> CGFloat? {
+        guard width.isFinite else { return nil }
+        let available = floor(width - horizontalInset)
+        guard available >= 1 else { return nil }
+        return min(maximumPointWidth, available)
+    }
+}
+
 @MainActor
 enum AgePredicateProofHolderFlow {
 
@@ -41,6 +56,9 @@ enum AgePredicateProofHolderFlow {
                 "The checker asks whether you are at least %d.\n\nPurpose: %@\nSource: %@\n\nYour birth date and card never leave this phone.",
                 comment: "age proof consent"),
             request.minimumAge, request.purpose, source)
+        if request.disclosesBirthdate {
+            message = String(format: NSLocalizedString("The checker asks whether you are at least %d.\n\nThis SD-JWT-VC comparison sends your birth date, issuer-signed card metadata and a holder-binding signature over Bluetooth. Stable card identifiers may be visible. This is not a zero-knowledge proof.\n\nPurpose: %@\nSource: %@", comment: "offline comparison consent"), request.minimumAge, request.purpose, source)
+        }
         if let host = request.responseURL?.host {
             // The one difference from the two-device flow, said before consent:
             // the finished proof (and nothing else) goes to a website.
@@ -49,13 +67,17 @@ enum AgePredicateProofHolderFlow {
                 host)
         }
         let alert = UIAlertController(
-            title: NSLocalizedString("Create a private age proof?", comment: "age proof"),
+            title: request.disclosesBirthdate
+                ? NSLocalizedString("Disclose birth date for comparison?", comment: "offline comparison")
+                : NSLocalizedString("Create a private age proof?", comment: "age proof"),
             message: message,
             preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
             navigationController.popViewController(animated: true)
         })
-        alert.addAction(UIAlertAction(title: NSLocalizedString("Create proof", comment: "age proof"),
+        alert.addAction(UIAlertAction(title: request.disclosesBirthdate
+                                      ? NSLocalizedString("Disclose birth date", comment: "offline comparison")
+                                      : NSLocalizedString("Create proof", comment: "age proof"),
                                       style: .default) { _ in
             var stack = navigationController.viewControllers
             if stack.last is QRScanningViewController { stack.removeLast() }
@@ -85,6 +107,9 @@ final class AgePredicateProofSendViewController: UIViewController {
     private var transportStartedAt: UInt64?
     private var createdPackage: AgePredicateProofPackage?
     private var runRecordWritten = false
+    private var sentPayloadBytes: UInt64?
+    private var disclosurePreparationMilliseconds: UInt64?
+    private var creationTask: Task<Void, Never>?
 
     init(request: AgePredicateProofRequest,
          engine: any AgePredicateProofEngine = AgePredicateProofEngineAssembly.make(),
@@ -93,7 +118,8 @@ final class AgePredicateProofSendViewController: UIViewController {
         self.engine = engine
         self.webClient = webClient
         super.init(nibName: nil, bundle: nil)
-        title = NSLocalizedString("Private age proof", comment: "age proof")
+        title = request.disclosesBirthdate ? "SD-JWT-VC"
+            : NSLocalizedString("Private age proof", comment: "age proof")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -107,6 +133,7 @@ final class AgePredicateProofSendViewController: UIViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        creationTask?.cancel()
         link?.stop()
     }
 
@@ -117,13 +144,16 @@ final class AgePredicateProofSendViewController: UIViewController {
         titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 0
-        titleLabel.text = NSLocalizedString("Creating the proof on this phone…", comment: "age proof")
+        titleLabel.text = request.disclosesBirthdate ? "SD-JWT-VC"
+            : NSLocalizedString("Creating the proof on this phone…", comment: "age proof")
         detailLabel.font = .preferredFont(forTextStyle: .body)
         detailLabel.adjustsFontForContentSizeCategory = true
         detailLabel.textColor = .secondaryLabel
         detailLabel.textAlignment = .center
         detailLabel.numberOfLines = 0
-        detailLabel.text = NSLocalizedString(
+        detailLabel.text = request.disclosesBirthdate
+            ? NSLocalizedString("Disclose birth date", comment: "offline comparison")
+            : NSLocalizedString(
             "Only the yes/no statement is returned. The hidden birth date, card and proving files stay here.",
             comment: "age proof")
         var configuration = UIButton.Configuration.filled()
@@ -148,12 +178,19 @@ final class AgePredicateProofSendViewController: UIViewController {
     }
 
     private func createProof() {
-        Task { @MainActor [weak self] in
+        creationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let store = try CredentialStore()
                 let material = try AgePredicateCredentialProvider(
                     holder: HolderPresentation(store: store)).material(for: request.credentialSource)
+                if request.disclosesBirthdate {
+                    let payload = try SDJWTAgePresentation.create(material: material, request: request)
+                    disclosurePreparationMilliseconds = VerificationClock.milliseconds(
+                        from: createStartedAt ?? VerificationClock.now(), to: VerificationClock.now())
+                    send(payload)
+                    return
+                }
                 let package = try await engine.prove(
                     request: request,
                     credential: material.sdJWT,
@@ -168,6 +205,7 @@ final class AgePredicateProofSendViewController: UIViewController {
                                 Int((fraction * 100).rounded()))
                         }
                     })
+                try Task.checkCancellation()
                 try package.validate(answering: request)
                 createdPackage = package
                 if let responseURL = request.responseURL {
@@ -175,6 +213,8 @@ final class AgePredicateProofSendViewController: UIViewController {
                 } else {
                     send(try package.encoded())
                 }
+            } catch is CancellationError {
+                return
             } catch {
                 showFailure(error)
             }
@@ -237,6 +277,7 @@ final class AgePredicateProofSendViewController: UIViewController {
     }
 
     private func send(_ payload: Data) {
+        sentPayloadBytes = UInt64(payload.count)
         transportStartedAt = VerificationClock.now()
         spinner.stopAnimating()
         titleLabel.text = NSLocalizedString("Proof ready", comment: "age proof")
@@ -265,7 +306,9 @@ final class AgePredicateProofSendViewController: UIViewController {
             link?.stop()
             link = nil
             titleLabel.text = NSLocalizedString("The checker received the proof", comment: "age proof")
-            detailLabel.text = NSLocalizedString("No birth date or card data was sent.", comment: "age proof")
+            detailLabel.text = request.disclosesBirthdate
+                ? NSLocalizedString("Birth date and signed card metadata were sent. Check the verdict on the iPad.", comment: "offline comparison")
+                : NSLocalizedString("No birth date or card data was sent.", comment: "age proof")
             doneButton.isHidden = false
             recordRun(succeeded: true)
         case .unavailable(let reason), .failed(let reason):
@@ -296,13 +339,13 @@ final class AgePredicateProofSendViewController: UIViewController {
             transport = transportStarted == nil ? .local : .bluetooth
         }
         let record = VerificationRunRecord(
-            flow: .privateAgeProof,
+            flow: request.disclosesBirthdate ? .disclosedAgePresentation : .privateAgeProof,
             role: .holder,
             credentialKind: request.credentialSource == .twdiw
                 ? .governmentWallet : .selfIssued,
             transport: transport,
             succeeded: succeeded,
-            preparationMilliseconds: package.map {
+            preparationMilliseconds: disclosurePreparationMilliseconds ?? package.map {
                 $0.prepareMilliseconds + $0.showMilliseconds
             },
             transportMilliseconds: webOutcome?.roundTripMilliseconds ?? transportStarted.map {
@@ -315,6 +358,8 @@ final class AgePredicateProofSendViewController: UIViewController {
                 from: started, to: completed),
             proofPrepareMilliseconds: package?.prepareMilliseconds,
             proofShowMilliseconds: package?.showMilliseconds,
+            proofPrepareWasCached: package?.prepareWasCached,
+            payloadBytes: sentPayloadBytes ?? package.flatMap { try? UInt64($0.encoded().count) },
             correlationToken: VerificationRunRecord.correlationToken(
                 for: request.serviceID.uuidString),
             qrFallbackWasVisible: false)
@@ -332,14 +377,20 @@ final class AgePredicateProofVerifierViewController: UIViewController {
     private var request: AgePredicateProofRequest?
     private var link: BluetoothLinkCentral?
     private var preparationTask: Task<Void, Never>?
+    private var verificationTask: Task<Void, Never>?
+    private var generation = UUID()
     private var requestShownAt: UInt64?
     private var payloadReceivedAt: UInt64?
 
+    private let formatControl = UISegmentedControl(items: ["ZKP", "SD-JWT-VC"])
     private let sourceControl = UISegmentedControl(items: [
         NSLocalizedString("Government card", comment: "age proof"),
         NSLocalizedString("MyData self-asserted", comment: "age proof"),
     ])
+    private let codeContainer = UIView()
     private let codeImageView = UIImageView()
+    private var codeHeightConstraint: NSLayoutConstraint?
+    private var renderedRequestWidth: CGFloat?
     private let statusLabel = UILabel()
     private let detailLabel = UILabel()
     private let newCodeButton = UIButton(type: .system)
@@ -349,7 +400,7 @@ final class AgePredicateProofVerifierViewController: UIViewController {
         self.engine = engine
         self.trustLookup = trustLookup
         super.init(nibName: nil, bundle: nil)
-        title = NSLocalizedString("Check a private age proof", comment: "age proof")
+        title = NSLocalizedString("Check age with ZKP or SD-JWT-VC", comment: "age proof")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -363,15 +414,35 @@ final class AgePredicateProofVerifierViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         preparationTask?.cancel()
+        verificationTask?.cancel()
+        generation = UUID()
+        request = nil
         stopLink()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let request,
+              let width = AgePredicateRequestQRLayout.pointWidth(forViewWidth: view.bounds.width),
+              renderedRequestWidth != width else { return }
+        try? render(requestCodeFor: request, fittingPointWidth: width)
     }
 
     private func buildInterface() {
         view.backgroundColor = .systemGroupedBackground
+        formatControl.selectedSegmentIndex = 0
+        formatControl.addTarget(self, action: #selector(sourceChanged), for: .valueChanged)
         sourceControl.selectedSegmentIndex = 0
         sourceControl.addTarget(self, action: #selector(sourceChanged), for: .valueChanged)
-        codeImageView.contentMode = .center
-        codeImageView.setContentCompressionResistancePriority(.required, for: .vertical)
+        codeImageView.translatesAutoresizingMaskIntoConstraints = false
+        codeImageView.contentMode = .scaleAspectFit
+        codeImageView.backgroundColor = .white
+        // A QR's edges must remain sharp after Stage Manager or Split View
+        // changes the available width.
+        codeImageView.layer.magnificationFilter = .nearest
+        codeImageView.layer.minificationFilter = .nearest
+        codeImageView.isAccessibilityElement = true
+        codeImageView.accessibilityLabel = NSLocalizedString("Age checking request code", comment: "age proof")
         statusLabel.font = .preferredFont(forTextStyle: .title3)
         statusLabel.adjustsFontForContentSizeCategory = true
         statusLabel.textAlignment = .center
@@ -387,7 +458,19 @@ final class AgePredicateProofVerifierViewController: UIViewController {
         newCodeButton.configuration = configuration
         newCodeButton.addTarget(self, action: #selector(beginCheck), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [sourceControl, codeImageView,
+        codeContainer.translatesAutoresizingMaskIntoConstraints = false
+        codeContainer.addSubview(codeImageView)
+        codeHeightConstraint = codeImageView.heightAnchor.constraint(equalToConstant: 1)
+        codeHeightConstraint?.isActive = true
+        NSLayoutConstraint.activate([
+            codeImageView.topAnchor.constraint(equalTo: codeContainer.topAnchor),
+            codeImageView.bottomAnchor.constraint(equalTo: codeContainer.bottomAnchor),
+            codeImageView.centerXAnchor.constraint(equalTo: codeContainer.centerXAnchor),
+            codeImageView.widthAnchor.constraint(equalTo: codeImageView.heightAnchor),
+            codeImageView.widthAnchor.constraint(lessThanOrEqualTo: codeContainer.widthAnchor),
+        ])
+
+        let stack = UIStackView(arrangedSubviews: [formatControl, sourceControl, codeContainer,
                                                    statusLabel, detailLabel, newCodeButton])
         stack.axis = .vertical
         stack.spacing = 18
@@ -397,7 +480,6 @@ final class AgePredicateProofVerifierViewController: UIViewController {
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
             stack.leadingAnchor.constraint(equalTo: view.readableContentGuide.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: view.readableContentGuide.trailingAnchor),
-            codeImageView.heightAnchor.constraint(lessThanOrEqualToConstant: 360),
             newCodeButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
         ])
     }
@@ -406,17 +488,23 @@ final class AgePredicateProofVerifierViewController: UIViewController {
 
     @objc private func beginCheck() {
         preparationTask?.cancel()
+        verificationTask?.cancel()
+        generation = UUID()
+        request = nil
         stopLink()
         request = nil
         codeImageView.image = nil
+        renderedRequestWidth = nil
         newCodeButton.isEnabled = false
         statusLabel.text = NSLocalizedString("Preparing offline checking files…", comment: "age proof")
         detailLabel.text = nil
         let source: PresentationCredentialSource = sourceControl.selectedSegmentIndex == 0
             ? .twdiw : .selfIssued
+        let discloseBirthdate = formatControl.selectedSegmentIndex == 1
         preparationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                if !discloseBirthdate {
                 try await engine.prepareVerificationAssets { [weak self] fraction in
                     Task { @MainActor in
                         self?.detailLabel.text = String(
@@ -424,15 +512,17 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                             Int((fraction * 100).rounded()))
                     }
                 }
+                }
                 try Task.checkCancellation()
                 let request = try AgePredicateProofRequest(
                     purpose: NSLocalizedString("Age eligibility check", comment: "age proof"),
-                    credentialSource: source)
+                    credentialSource: source, discloseBirthdate: discloseBirthdate)
                 self.request = request
-                let code = try QRTransport.qrCode(
-                    for: request.encodedForTransport(), fittingPixelWidth: 900)
-                codeImageView.image = UIImage(cgImage: code.image, scale: UIScreen.main.scale,
-                                              orientation: .up)
+                self.view.layoutIfNeeded()
+                guard let width = AgePredicateRequestQRLayout.pointWidth(forViewWidth: self.view.bounds.width) else {
+                    throw QRTransportError.renderingFailed
+                }
+                try self.render(requestCodeFor: request, fittingPointWidth: width)
                 requestShownAt = VerificationClock.now()
                 statusLabel.text = NSLocalizedString("Ask them to scan this one request code", comment: "age proof")
                 detailLabel.text = NSLocalizedString(
@@ -450,6 +540,18 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                 newCodeButton.isEnabled = true
             }
         }
+    }
+
+    /// Renders at an integer count of device pixels per module, then reserves
+    /// exactly the returned point size. `scaleAspectFit` is a safety net for a
+    /// later window resize; it is not used to silently resample the initial QR.
+    private func render(requestCodeFor request: AgePredicateProofRequest, fittingPointWidth width: CGFloat) throws {
+        let code = try QRTransport.qrCode(
+            for: request.encodedForTransport(), fittingPointWidth: width,
+            screenScale: traitCollection.displayScale)
+        codeHeightConstraint?.constant = code.pointSize
+        codeImageView.image = UIImage(cgImage: code.image, scale: code.screenScale, orientation: .up)
+        renderedRequestWidth = width
     }
 
     private func startLink(for request: AgePredicateProofRequest) {
@@ -486,12 +588,21 @@ final class AgePredicateProofVerifierViewController: UIViewController {
 
     private func verify(_ data: Data) {
         guard let request else { return }
+        self.request = nil // Consume before decoding; one verdict per request.
+        codeImageView.image = nil
+        renderedRequestWidth = nil
+        let attempt = generation
         let verificationStarted = payloadReceivedAt ?? VerificationClock.now()
+        if request.disclosesBirthdate {
+            verifyDisclosure(data, request: request, started: verificationStarted)
+            return
+        }
         statusLabel.text = NSLocalizedString("Checking the proof on this iPad…", comment: "age proof")
         detailLabel.text = nil
-        Task { @MainActor [weak self] in
+        verificationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                try request.validateFreshness()
                 let package = try AgePredicateProofPackage.decoded(from: data)
                 try package.validate(answering: request)
                 let expectedKey: Data
@@ -525,6 +636,9 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                                 Int((fraction * 100).rounded()))
                         }
                     })
+                try Task.checkCancellation()
+                guard generation == attempt else { return }
+                try request.validateFreshness()
                 statusLabel.text = String(format: NSLocalizedString("Verified: at least %d", comment: "age proof"),
                                           request.minimumAge)
                 detailLabel.text = evidence + "\n" + String(
@@ -550,11 +664,16 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                         from: shown, to: completed),
                     proofPrepareMilliseconds: timing.prepareMilliseconds,
                     proofShowMilliseconds: timing.showMilliseconds,
+                    proofPrepareWasCached: package.prepareWasCached,
+                    payloadBytes: UInt64(data.count),
                     correlationToken: VerificationRunRecord.correlationToken(
                         for: request.serviceID.uuidString),
                     qrFallbackWasVisible: false)
                 try? VerificationRunStore.shared.append(record)
+            } catch is CancellationError {
+                return
             } catch {
+                guard generation == attempt else { return }
                 statusLabel.text = NSLocalizedString("Proof rejected", comment: "age proof")
                 detailLabel.text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 let completed = VerificationClock.now()
@@ -578,6 +697,32 @@ final class AgePredicateProofVerifierViewController: UIViewController {
                 try? VerificationRunStore.shared.append(record)
             }
         }
+    }
+
+    private func verifyDisclosure(_ data: Data, request: AgePredicateProofRequest, started: UInt64) {
+        var accepted = false
+        do {
+            accepted = try SDJWTAgePresentation.verify(data, request: request, trust: trustLookup)
+            statusLabel.text = accepted
+                ? String(format: NSLocalizedString("Verified: at least %d", comment: "age proof"), request.minimumAge)
+                : NSLocalizedString("The disclosed birth date does not meet this age threshold.", comment: "offline comparison")
+            detailLabel.text = NSLocalizedString("Checked locally using SD-JWT-VC and holder binding. The birth date was disclosed. Current revocation is unknown; self-issued MyData is not government attestation.", comment: "offline comparison")
+        } catch {
+            statusLabel.text = NSLocalizedString("Presentation rejected", comment: "offline comparison")
+            detailLabel.text = NSLocalizedString("The card, holder binding, request, or saved issuer trust could not be verified. Create a new request after checking offline preparation.", comment: "offline comparison")
+        }
+        let completed = VerificationClock.now()
+        let record = VerificationRunRecord(
+            flow: .disclosedAgePresentation, role: .verifier,
+            credentialKind: request.credentialSource == .twdiw ? .governmentWallet : .selfIssued,
+            transport: .bluetooth, succeeded: accepted,
+            transportMilliseconds: VerificationClock.milliseconds(from: requestShownAt ?? started, to: started),
+            verificationMilliseconds: VerificationClock.milliseconds(from: started, to: completed),
+            endToEndMilliseconds: VerificationClock.milliseconds(from: requestShownAt ?? started, to: completed),
+            payloadBytes: UInt64(data.count),
+            correlationToken: VerificationRunRecord.correlationToken(for: request.serviceID.uuidString),
+            qrFallbackWasVisible: false)
+        try? VerificationRunStore.shared.append(record)
     }
 
     private static func number(_ value: UInt64) -> String {

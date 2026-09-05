@@ -44,6 +44,7 @@ struct OfflineIssuerTrustSnapshot: Codable, Equatable, Sendable {
 enum OfflineIssuerTrustStoreError: Error, Equatable {
     case invalidIssuer
     case corruptedSnapshot
+    case registryUnavailable
 }
 
 /// File-backed issuer snapshots. One JSON document per issuer DID, protected and
@@ -51,6 +52,44 @@ enum OfflineIssuerTrustStoreError: Error, Equatable {
 final class OfflineIssuerTrustStore: @unchecked Sendable {
     let directory: URL
     private let lock = NSLock()
+    private var registryURL: URL { directory.appendingPathComponent("registry.json") }
+
+    /// A complete refresh is authoritative, including removal of issuers. Old
+    /// per-card files remain readable only until the first complete refresh.
+    func replaceRegistry(with snapshots: [OfflineIssuerTrustSnapshot]) throws {
+        guard Set(snapshots.map(\.issuerDID)).count == snapshots.count else {
+            throw OfflineIssuerTrustStoreError.corruptedSnapshot
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        try writeRegistry(snapshots)
+    }
+
+    func registrySnapshots() throws -> [OfflineIssuerTrustSnapshot]? {
+        lock.lock()
+        defer { lock.unlock() }
+        return try readRegistry()
+    }
+
+    private func readRegistry() throws -> [OfflineIssuerTrustSnapshot]? {
+        guard FileManager.default.fileExists(atPath: registryURL.path) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        guard let values = try? decoder.decode([OfflineIssuerTrustSnapshot].self,
+                                              from: Data(contentsOf: registryURL)),
+              Set(values.map(\.issuerDID)).count == values.count else {
+            throw OfflineIssuerTrustStoreError.corruptedSnapshot
+        }
+        return values
+    }
+
+    private func writeRegistry(_ snapshots: [OfflineIssuerTrustSnapshot]) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(snapshots.sorted { $0.issuerDID < $1.issuerDID })
+            .write(to: registryURL, options: [.atomic, .completeFileProtectionUnlessOpen])
+    }
 
     init(directory: URL? = nil) throws {
         if let directory {
@@ -79,6 +118,12 @@ final class OfflineIssuerTrustStore: @unchecked Sendable {
         let data = try encoder.encode(snapshot)
         lock.lock()
         defer { lock.unlock() }
+        if var registry = try readRegistry() {
+            registry.removeAll { $0.issuerDID == snapshot.issuerDID }
+            registry.append(snapshot)
+            try writeRegistry(registry)
+            return
+        }
         try data.write(to: url, options: .atomic)
         try FileManager.default.setAttributes(
             [.protectionKey: FileProtectionType.completeUnlessOpen],
@@ -89,6 +134,9 @@ final class OfflineIssuerTrustStore: @unchecked Sendable {
         let url = try fileURL(for: issuerDID)
         lock.lock()
         defer { lock.unlock() }
+        if let registry = try readRegistry() {
+            return registry.first { $0.issuerDID == issuerDID }
+        }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()

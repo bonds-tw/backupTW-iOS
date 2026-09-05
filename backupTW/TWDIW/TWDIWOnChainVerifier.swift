@@ -4,6 +4,12 @@
 //
 
 import Foundation
+import CoreFoundation
+
+enum TWDIWRegistryRequestError: Error, Equatable {
+    case badStatus(Int)
+    case malformedReply
+}
 
 /// The independent result shown beside an API trust-list entry.
 enum TWDIWOnChainVerification: Hashable, Sendable {
@@ -37,10 +43,33 @@ struct TWDIWOnChainVerifier: Sendable {
     static let currentRecordSelector = "fba6fe49"
     static let rpcURL = URL(string: "https://arb1.arbitrum.io/rpc")!
 
+    // Preparing a verifier checks the whole registry, unlike a single-card
+    // collection. The public RPC rejects the unbounded 123-call request with
+    // HTTP 429. Keep each issuer's three checks together, pace batches, and do
+    // not retry an oversized request or substitute cached chain results.
+    static let maximumIssuersPerBatch = 3
+
     let session: URLSession
     var rpcURL = Self.rpcURL
+    var batchInterval: Duration = .milliseconds(500)
 
     func verify(_ issuers: [TWDIWIssuer]) async -> [String: TWDIWOnChainVerification] {
+        do {
+            return try await verifyChecked(issuers)
+        } catch {
+            var results: [String: TWDIWOnChainVerification] = [:]
+            for issuer in issuers {
+                results[issuer.did] = issuer.onChainRecords.isEmpty ? .notAnchored : .unavailable
+            }
+            return results
+        }
+    }
+
+    /// Preparation needs the actual failure so an RPC refusal is not reported
+    /// as a disconnected phone. The caller commits only a complete result.
+    func verifyChecked(_ issuers: [TWDIWIssuer],
+                       progress: @Sendable (Int, Int) -> Void = { _, _ in }) async throws
+        -> [String: TWDIWOnChainVerification] {
         // The API can return one DID under more than one organisation type.
         // `TrustListFetcher` removes those duplicates, but keep this lower
         // boundary safe too: `Dictionary(uniqueKeysWithValues:)` traps on a
@@ -62,25 +91,28 @@ struct TWDIWOnChainVerifier: Sendable {
         }
         guard !work.isEmpty else { return results }
 
-        var calls: [[String: Any]] = []
-        for (index, item) in work.enumerated() {
-            calls.append(["jsonrpc": "2.0", "id": index * 3,
-                          "method": "eth_getTransactionByHash",
-                          "params": [item.record.transactionHash]])
-            calls.append(["jsonrpc": "2.0", "id": index * 3 + 1,
-                          "method": "eth_getTransactionReceipt",
-                          "params": [item.record.transactionHash]])
-            // A historical transaction matching the API is not enough: an API
-            // replay could present a record that was later replaced or revoked.
-            // Query the contract's current state under the DID in the same
-            // attempt and require it to match too.
-            calls.append(["jsonrpc": "2.0", "id": index * 3 + 2,
-                          "method": "eth_call",
-                          "params": [["to": Self.registryContract,
-                                      "data": item.currentCall], "latest"]])
-        }
+        for start in stride(from: 0, to: work.count, by: Self.maximumIssuersPerBatch) {
+            try Task.checkCancellation()
+            if start > 0 { try await Task.sleep(for: batchInterval) }
+            let batch = Array(work[start..<min(start + Self.maximumIssuersPerBatch, work.count)])
+            var calls: [[String: Any]] = []
+            for (index, item) in batch.enumerated() {
+                calls.append(["jsonrpc": "2.0", "id": index * 3,
+                              "method": "eth_getTransactionByHash",
+                              "params": [item.record.transactionHash]])
+                calls.append(["jsonrpc": "2.0", "id": index * 3 + 1,
+                              "method": "eth_getTransactionReceipt",
+                              "params": [item.record.transactionHash]])
+                // A historical transaction matching the API is not enough: an API
+                // replay could present a record that was later replaced or revoked.
+                // Query the contract's current state under the DID in the same
+                // attempt and require it to match too.
+                calls.append(["jsonrpc": "2.0", "id": index * 3 + 2,
+                              "method": "eth_call",
+                              "params": [["to": Self.registryContract,
+                                          "data": item.currentCall], "latest"]])
+            }
 
-        do {
             let body = try JSONSerialization.data(withJSONObject: calls)
             var request = URLRequest(url: rpcURL,
                                      cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
@@ -91,16 +123,27 @@ struct TWDIWOnChainVerifier: Sendable {
             request.setValue("no-cache, no-store", forHTTPHeaderField: "Cache-Control")
             request.setValue("no-cache", forHTTPHeaderField: "Pragma")
             let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse,
-                  (200..<300).contains(http.statusCode),
-                  let replies = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-                throw URLError(.badServerResponse)
+            guard let http = response as? HTTPURLResponse else {
+                throw TWDIWRegistryRequestError.malformedReply
             }
-            let byID = Dictionary(uniqueKeysWithValues: replies.compactMap { reply -> (Int, [String: Any])? in
-                guard let id = (reply["id"] as? NSNumber)?.intValue else { return nil }
-                return (id, reply)
-            })
-            for (index, item) in work.enumerated() {
+            guard (200..<300).contains(http.statusCode) else {
+                throw TWDIWRegistryRequestError.badStatus(http.statusCode)
+            }
+            guard let replies = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                throw TWDIWRegistryRequestError.malformedReply
+            }
+            var byID: [Int: [String: Any]] = [:]
+            for reply in replies {
+                guard let number = reply["id"] as? NSNumber,
+                      CFGetTypeID(number) != CFBooleanGetTypeID(),
+                      number.doubleValue >= 0, number.doubleValue < Double(calls.count),
+                      number.doubleValue == Double(number.intValue),
+                      byID[number.intValue] == nil else {
+                    throw TWDIWRegistryRequestError.malformedReply
+                }
+                byID[number.intValue] = reply
+            }
+            for (index, item) in batch.enumerated() {
                 let replies = [byID[index * 3], byID[index * 3 + 1], byID[index * 3 + 2]]
                 guard replies.allSatisfy({ $0 != nil }),
                       !replies.compactMap({ $0 }).contains(where: Self.isInfrastructureError) else {
@@ -116,8 +159,7 @@ struct TWDIWOnChainVerifier: Sendable {
                                                       receipt: receipt,
                                                       current: current)
             }
-        } catch {
-            for item in work { results[item.issuer.did] = .unavailable }
+            progress(start + batch.count, work.count)
         }
         return results
     }

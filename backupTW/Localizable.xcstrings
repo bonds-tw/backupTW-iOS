@@ -680,6 +680,17 @@
         }
       }
     },
+    "Answer an age check": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回應年齡查驗"
+          }
+        }
+      }
+    },
     "Answered with a zero-knowledge proof, sent over Bluetooth. The checker never sees your certificate — but every checker sees the same duplicate-detection number, so they can still tell it is the same person.": {
       "extractionState": "manual",
       "localizations": {
@@ -908,6 +919,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "出生日期（西元 YYYYMMDD）"
+          }
+        }
+      }
+    },
+    "Birth date and signed card metadata were sent. Check the verdict on the iPad.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已送出生日與簽署的卡片資訊。請以 iPad 上的查驗結果為準。"
           }
         }
       }
@@ -1256,6 +1278,17 @@
         }
       }
     },
+    "Check age with ZKP or SD-JWT-VC": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查驗年齡（ZKP／SD-JWT-VC）"
+          }
+        }
+      }
+    },
     "Check result": {
       "localizations": {
         "zh-Hant": {
@@ -1316,6 +1349,17 @@
         }
       }
     },
+    "Checked locally using SD-JWT-VC and holder binding. The birth date was disclosed. Current revocation is unknown; self-issued MyData is not government attestation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在本機檢查 SD-JWT-VC 與持有人綁定。這次有揭露生日。撤銷狀態仍未知；MyData 自發數位身分證不代表政府背書。"
+          }
+        }
+      }
+    },
     "Checked on this device: the proof does not hold": {
       "localizations": {
         "zh-Hant": {
@@ -1362,6 +1406,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "查驗檔案尚未備妥"
+          }
+        }
+      }
+    },
+    "Checking issuer trust… %d of %d. Keep this screen open.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在核對發卡者信任資料… %d／%d。請保持此畫面開啟。"
           }
         }
       }
@@ -1573,6 +1627,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在領取卡片⋯"
+          }
+        }
+      }
+    },
+    "Compare local age checks using a government card or MyData national ID.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用政府卡或 MyData 數位身分證，比較兩種本機年齡查驗。"
           }
         }
       }
@@ -2392,6 +2457,28 @@
         }
       }
     },
+    "Disclose birth date": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "揭露生日"
+          }
+        }
+      }
+    },
+    "Disclose birth date for comparison?": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要揭露生日進行比較測試嗎？"
+          }
+        }
+      }
+    },
     "Discoverable over Bluetooth — waiting for the checker to connect.": {
       "localizations": {
         "zh-Hant": {
@@ -3184,6 +3271,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "檔案保護"
+          }
+        }
+      }
+    },
+    "Files are downloaded and their checksums match. You can now disconnect and start a check.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案已下載，檢查碼相符。現在可以斷網並開始查驗。"
           }
         }
       }
@@ -5015,6 +5113,16 @@
         }
       }
     },
+    "Not every issuer could be checked on the blockchain. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部分發卡者的鏈上核對未完成，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
     "Not excluded": {
       "localizations": {
         "zh-Hant": {
@@ -5800,6 +5908,17 @@
         }
       }
     },
+    "Preparation did not finish. Reconnect and tap the same button to retry. An earlier saved trust record keeps its original date.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未完成準備。請恢復連線後點選同一按鈕重試；先前儲存的信任資料保留原本的核對日期。"
+          }
+        }
+      }
+    },
     "Preparation: %.2f seconds": {
       "localizations": {
         "zh-Hant": {
@@ -5826,6 +5945,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "請先準備並驗證查驗檔案，再請對方傳送證明。"
+          }
+        }
+      }
+    },
+    "Prepare checking files on this iPad": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備 iPad 查驗檔案（下載約 24 MB，安裝約 437 MB）"
+          }
+        }
+      }
+    },
+    "Prepare offline checking": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離線查驗準備"
+          }
+        }
+      }
+    },
+    "Prepare offline checking in Use while connected, then retry this request.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先連網，在「使用」完成「離線查驗準備」，再重試這次查驗。"
+          }
+        }
+      }
+    },
+    "Prepare proof files on this iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備 iPhone 證明檔案（下載約 77 MB，安裝約 1.25 GB）"
           }
         }
       }
@@ -5860,6 +6023,17 @@
         }
       }
     },
+    "Preparing files… %d%%": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在準備檔案⋯ %d%%"
+          }
+        }
+      }
+    },
     "Preparing offline checking files…": {
       "localizations": {
         "zh-Hant": {
@@ -5886,6 +6060,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在準備驗證檔案…"
+          }
+        }
+      }
+    },
+    "Preparing… Keep this screen open.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備中，請保持此畫面開啟。"
           }
         }
       }
@@ -5966,6 +6151,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "按下出示至驗證端回應：%.2f 秒（包含皮夾簽章、網路與驗證端處理）"
+          }
+        }
+      }
+    },
+    "Presentation rejected": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未通過查驗"
           }
         }
       }
@@ -6870,6 +7066,28 @@
         }
       }
     },
+    "Save issuer trust": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存發卡者信任資料"
+          }
+        }
+      }
+    },
+    "Save issuer trust and proof files before disconnecting. No cards are needed on the checking device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "斷網前儲存發卡者信任資料與證明檔案；查驗裝置不需要持有卡片。"
+          }
+        }
+      }
+    },
     "Save this proof as a file": {
       "extractionState": "manual",
       "localizations": {
@@ -6877,6 +7095,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "把這份證明存成檔案"
+          }
+        }
+      }
+    },
+    "Saved %d issuer records. Oldest check: %@. This does not establish current card revocation status.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存 %d 個發卡者的資料。最早核對時間：%@。這不代表已確認卡片目前的撤銷狀態。"
+          }
+        }
+      }
+    },
+    "Saved %d issuer records. Only matching API and blockchain records can be used offline; current card revocation remains unknown.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存 %d 個發卡者的資料。只有 API 與區塊鏈紀錄相符者才能用於離線查驗；卡片目前的撤銷狀態仍未知。"
           }
         }
       }
@@ -8481,6 +8721,56 @@
         }
       }
     },
+    "The blockchain check timed out. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上核對逾時，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
+    "The blockchain reply was incomplete or invalid. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上服務回覆不完整或格式不符，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
+    "The blockchain service could not be reached. Check the connection, then save issuer trust again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上鏈上服務。請確認連線後，再儲存發卡者信任資料。"
+          }
+        }
+      }
+    },
+    "The blockchain service is limiting requests (HTTP 429). Wait a little, then save issuer trust again. Existing trust dates are unchanged.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上服務暫時限制請求（HTTP 429）。請稍後再儲存發卡者信任資料；既有資料的核對日期未更新。"
+          }
+        }
+      }
+    },
+    "The blockchain service returned HTTP %d. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上服務回覆 HTTP %d，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
     "The card service could not list the cards (it returned %d). Please try again later.": {
       "localizations": {
         "zh-Hant": {
@@ -8537,6 +8827,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "這張卡由政府皮夾發行者簽署；本機儲存信任快照時，官方 API 與 Arbitrum 紀錄彼此相符。這次離線查驗無法確認紀錄現在仍是最新狀態。"
+          }
+        }
+      }
+    },
+    "The card, holder binding, request, or saved issuer trust could not be verified. Create a new request after checking offline preparation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "卡片、持有人綁定、查驗要求或儲存的發卡者信任資料未通過檢查。請確認離線準備後建立新要求。"
           }
         }
       }
@@ -8658,6 +8959,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "查驗方想確認你是否已滿 %d 歲。\n\n目的：%@\n來源：%@\n\n你的生日與卡片不會離開這支手機。"
+          }
+        }
+      }
+    },
+    "The checker asks whether you are at least %d.\n\nThis SD-JWT-VC comparison sends your birth date, issuer-signed card metadata and a holder-binding signature over Bluetooth. Stable card identifiers may be visible. This is not a zero-knowledge proof.\n\nPurpose: %@\nSource: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認已滿 %d 歲。\n\n這次會用藍牙送出生日、卡片簽署資訊與持有人綁定簽章，可能含固定識別資料。這不是零知識證明。\n\n用途：%@\n來源：%@"
           }
         }
       }
@@ -8915,6 +9227,17 @@
         }
       }
     },
+    "The disclosed birth date does not meet this age threshold.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "揭露的生日未符合這次要求的年齡門檻。"
+          }
+        }
+      }
+    },
     "The document carries whether the holder had turned 18 when it was issued, signed by their digital certificate, and that line can be shown on its own without the date of birth. It is not anonymous: the same identifier appears every time, so different checkers can tell it is the same person.": {
       "localizations": {
         "zh-Hant": {
@@ -9153,6 +9476,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "識別碼在刪除後仍然存活"
+          }
+        }
+      }
+    },
+    "The issuer registry could not be reached. Check the connection, then save issuer trust again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上發卡者名單服務。請確認連線後，再儲存發卡者信任資料。"
+          }
+        }
+      }
+    },
+    "The issuer registry did not return a usable list. Issuer trust was not updated.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡者名單服務未提供可用的名單，信任資料未更新。"
+          }
+        }
+      }
+    },
+    "The issuer registry returned HTTP %d. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡者名單服務回覆 HTTP %d，信任資料未更新。請稍後再試。"
           }
         }
       }
@@ -9521,6 +9874,16 @@
         }
       }
     },
+    "The preparation files could not be saved. Keep the device unlocked and check its free storage before trying again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法儲存準備檔案。請保持裝置解鎖，並確認剩餘儲存空間後再試。"
+          }
+        }
+      }
+    },
     "The proof arrived damaged. Ask them to send it again.": {
       "localizations": {
         "zh-Hant": {
@@ -9667,6 +10030,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "收到的欄位證明不完整或已損壞。"
+          }
+        }
+      }
+    },
+    "The request determines whether to disclose a birth date or create a private proof. You confirm before anything is sent.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "依查驗要求揭露生日或建立隱私證明；送出前會請你確認。"
           }
         }
       }
@@ -13351,6 +13725,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "哪一家電信業者？"
+          }
+        }
+      }
+    },
+    "While connected, save issuer trust on both devices. Prepare proof files on the iPhone and checking files on the iPad. Then enable Airplane Mode, turn Wi-Fi off in Settings, and turn Bluetooth back on. The iPad does not need a copy of your cards.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連網時先儲存兩台裝置的信任資料，再準備各自所需檔案。斷網測試時：飛航模式開、Wi-Fi 關、藍牙開。iPad 不需匯入卡片。"
           }
         }
       }

@@ -346,11 +346,13 @@ final class TWDIWRegistryStubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var status = 200
     nonisolated(unsafe) static var responseBody = Data()
     nonisolated(unsafe) static var exchanges: [Exchange] = []
+    nonisolated(unsafe) static var queuedResponses: [(status: Int, body: Data)] = []
 
     static func reset() {
         status = 200
         responseBody = Data()
         exchanges = []
+        queuedResponses = []
     }
 
     static func session() -> URLSession {
@@ -365,10 +367,12 @@ final class TWDIWRegistryStubURLProtocol: URLProtocol {
     override func startLoading() {
         let body = Self.drainBody(of: request)
         Self.exchanges.append(Exchange(request: request, body: body))
-        let response = HTTPURLResponse(url: request.url!, statusCode: Self.status,
+        let next = Self.queuedResponses.isEmpty
+            ? (status: Self.status, body: Self.responseBody) : Self.queuedResponses.removeFirst()
+        let response = HTTPURLResponse(url: request.url!, statusCode: next.status,
                                        httpVersion: "HTTP/1.1", headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Self.responseBody)
+        client?.urlProtocol(self, didLoad: next.body)
         client?.urlProtocolDidFinishLoading(self)
     }
 
@@ -477,6 +481,84 @@ struct TWDIWOnChainTransportTests {
                                             rpcURL: URL(string: "https://rpc.example")!)
         let result = await verifier.verify([Self.issuer])
         #expect(result[Self.did] == .unavailable)
+    }
+
+    private func registry(_ count: Int) -> [TWDIWIssuer] {
+        (0..<count).map { index in
+            TWDIWIssuer(did: "did:key:synthetic-\(index)", displayName: "Synthetic issuer",
+                        displayNameEnglish: "", taxID: "", issuerMetadataBaseURL: nil,
+                        serviceBaseURL: nil, reportsOnChainAnchor: true,
+                        signedDIDDocument: "signed-document", organisationJSON: Self.organisation,
+                        orgType: 1, orgGroup: 2, onChainRecords: [Self.record])
+        }
+    }
+
+    private func successfulReplies(_ issuers: ArraySlice<TWDIWIssuer>) throws -> Data {
+        var replies: [[String: Any]] = []
+        for (index, issuer) in issuers.enumerated() {
+            replies.append(["jsonrpc": "2.0", "id": index * 3, "result": [
+                "hash": Self.record.transactionHash, "to": TWDIWOnChainVerifier.registryContract,
+                "input": TWDIWOnChainInputTests.input(
+                    strings: [issuer.did, issuer.signedDIDDocument, issuer.organisationJSON],
+                    orgType: 1, orgGroup: 2), "blockNumber": "0x42"]])
+            replies.append(["jsonrpc": "2.0", "id": index * 3 + 1, "result": ["status": "0x1"]])
+            replies.append(["jsonrpc": "2.0", "id": index * 3 + 2,
+                            "result": TWDIWOnChainInputTests.currentResult(
+                                signed: issuer.signedDIDDocument, organisation: issuer.organisationJSON,
+                                orgType: 1, orgGroup: 2, revoked: false)])
+        }
+        // RPC is allowed to return results out of order.
+        return try JSONSerialization.data(withJSONObject: replies.reversed().map { $0 })
+    }
+
+    @Test func fullRegistryUsesBoundedBatchesAndChecksEveryIssuer() async throws {
+        TWDIWRegistryStubURLProtocol.reset()
+        defer { TWDIWRegistryStubURLProtocol.reset() }
+        let issuers = registry(43)
+        for start in stride(from: 0, to: issuers.count, by: 3) {
+            TWDIWRegistryStubURLProtocol.queuedResponses.append(
+                (200, try successfulReplies(issuers[start..<min(start + 3, issuers.count)])))
+        }
+        let verifier = TWDIWOnChainVerifier(session: TWDIWRegistryStubURLProtocol.session(),
+                                            rpcURL: URL(string: "https://rpc.example")!, batchInterval: .zero)
+        let results = try await verifier.verifyChecked(issuers + [issuers[0]])
+        #expect(results.count == 43)
+        #expect(results.values.allSatisfy { $0 == .verified(blockNumber: "0x42", transactionHash: "0xabc") })
+        let exchanges = TWDIWRegistryStubURLProtocol.exchanges
+        #expect(exchanges.count == 15)
+        let sizes = try exchanges.map {
+            try #require(JSONSerialization.jsonObject(with: $0.body) as? [[String: Any]]).count
+        }
+        #expect(sizes.allSatisfy { $0 <= 9 })
+        #expect(sizes.reduce(0, +) == 43 * 3)
+    }
+
+    @Test func laterRateLimitStopsRefreshWithoutReturningPartialTrust() async throws {
+        TWDIWRegistryStubURLProtocol.reset()
+        defer { TWDIWRegistryStubURLProtocol.reset() }
+        let issuers = registry(7)
+        TWDIWRegistryStubURLProtocol.queuedResponses = [
+            (200, try successfulReplies(issuers[0..<3])),
+            (429, Data(#"{"error":{"code":429}}"#.utf8)),
+        ]
+        let verifier = TWDIWOnChainVerifier(session: TWDIWRegistryStubURLProtocol.session(),
+                                            rpcURL: URL(string: "https://rpc.example")!, batchInterval: .zero)
+        await #expect(throws: TWDIWRegistryRequestError.badStatus(429)) {
+            try await verifier.verifyChecked(issuers)
+        }
+        #expect(TWDIWRegistryStubURLProtocol.exchanges.count == 2)
+    }
+
+    @Test func duplicateRPCReplyCannotCrashOrAuthoriseAnIssuer() async throws {
+        TWDIWRegistryStubURLProtocol.reset()
+        defer { TWDIWRegistryStubURLProtocol.reset() }
+        TWDIWRegistryStubURLProtocol.responseBody = Data(#"[{"id":0,"result":null},{"id":0,"result":null}]"#.utf8)
+        let verifier = TWDIWOnChainVerifier(session: TWDIWRegistryStubURLProtocol.session(),
+                                            rpcURL: URL(string: "https://rpc.example")!)
+        await #expect(throws: TWDIWRegistryRequestError.malformedReply) {
+            try await verifier.verifyChecked([Self.issuer])
+        }
+        #expect(await verifier.verify([Self.issuer])[Self.did] == .unavailable)
     }
 }
 
