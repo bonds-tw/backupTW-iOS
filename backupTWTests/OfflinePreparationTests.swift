@@ -3,6 +3,17 @@ import Testing
 @testable import backupTW
 
 struct OfflinePreparationTests {
+    @Test func preparationErrorsDoNotMislabelRateLimitsOrStorageAsOffline() {
+        let limited = OfflineVerificationPreparation.failureMessage(for: TWDIWRegistryRequestError.badStatus(429))
+        let unreachable = OfflineVerificationPreparation.failureMessage(for: TrustListFetcherError.network)
+        let storage = OfflineVerificationPreparation.failureMessage(
+            for: CircuitAssetError.insufficientDiskSpace(required: 100, available: 0))
+        #expect(limited.contains("429"))
+        #expect(limited != unreachable)
+        #expect(storage == CircuitAssetError.insufficientDiskSpace(required: 100, available: 0).localizedDescription)
+        #expect(storage != unreachable)
+    }
+
     private func issuer(_ id: String) -> TWDIWIssuer {
         TWDIWIssuer(did: id, displayName: "Synthetic issuer", displayNameEnglish: "",
                     taxID: "", issuerMetadataBaseURL: nil, serviceBaseURL: nil, reportsOnChainAnchor: true)

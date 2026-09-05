@@ -1410,6 +1410,16 @@
         }
       }
     },
+    "Checking issuer trust… %d of %d. Keep this screen open.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在核對發卡者信任資料… %d／%d。請保持此畫面開啟。"
+          }
+        }
+      }
+    },
     "Checking the blockchain record…": {
       "localizations": {
         "zh-Hant": {
@@ -5103,6 +5113,16 @@
         }
       }
     },
+    "Not every issuer could be checked on the blockchain. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部分發卡者的鏈上核對未完成，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
     "Not excluded": {
       "localizations": {
         "zh-Hant": {
@@ -8701,6 +8721,56 @@
         }
       }
     },
+    "The blockchain check timed out. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上核對逾時，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
+    "The blockchain reply was incomplete or invalid. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上服務回覆不完整或格式不符，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
+    "The blockchain service could not be reached. Check the connection, then save issuer trust again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上鏈上服務。請確認連線後，再儲存發卡者信任資料。"
+          }
+        }
+      }
+    },
+    "The blockchain service is limiting requests (HTTP 429). Wait a little, then save issuer trust again. Existing trust dates are unchanged.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上服務暫時限制請求（HTTP 429）。請稍後再儲存發卡者信任資料；既有資料的核對日期未更新。"
+          }
+        }
+      }
+    },
+    "The blockchain service returned HTTP %d. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鏈上服務回覆 HTTP %d，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
     "The card service could not list the cards (it returned %d). Please try again later.": {
       "localizations": {
         "zh-Hant": {
@@ -9410,6 +9480,36 @@
         }
       }
     },
+    "The issuer registry could not be reached. Check the connection, then save issuer trust again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連上發卡者名單服務。請確認連線後，再儲存發卡者信任資料。"
+          }
+        }
+      }
+    },
+    "The issuer registry did not return a usable list. Issuer trust was not updated.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡者名單服務未提供可用的名單，信任資料未更新。"
+          }
+        }
+      }
+    },
+    "The issuer registry returned HTTP %d. Issuer trust was not updated. Try again later.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發卡者名單服務回覆 HTTP %d，信任資料未更新。請稍後再試。"
+          }
+        }
+      }
+    },
     "The issuer's official trust-list entry has no blockchain record, so the app did not contact it. Try again after the issuer fixes its registration.": {
       "comment": "gate error: no blockchain anchor",
       "localizations": {
@@ -9770,6 +9870,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "取貨服務傳回的條碼無法讀取，請再試一次。"
+          }
+        }
+      }
+    },
+    "The preparation files could not be saved. Keep the device unlocked and check its free storage before trying again.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法儲存準備檔案。請保持裝置解鎖，並確認剩餘儲存空間後再試。"
           }
         }
       }

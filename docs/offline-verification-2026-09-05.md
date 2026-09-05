@@ -9,7 +9,7 @@
 - 使用 → 查驗年齡（ZKP／SD-JWT-VC）：iPad 選來源、格式，顯示一次性 QR；iPhone 在「回應年齡查驗」掃碼，同意後以 BLE 回傳。
 - 新增 S1（政府）／S2（MyData 數位身分證）SD-JWT 年齡比較：只選生日 disclosure，使用 KB-JWT 綁定完整要求衍生的 audience、nonce、iat、sd_hash、cnf 持有人公鑰。不是 OID4VP direct_post，也不宣稱 SD-JWT-VC／OIDF 完整規範認證；憑證承襲 TWDIW 的巢狀 vc 格式。
 - S2 與 G4 使用同一張數位身分證、同一把每卡金鑰派生的年齡 SD-JWT；每次派生有新時間與 salt，ZKP 又可能重用 Prepare，所以不是逐位元相同的憑證。結果均為「自發、非政府背書」。
-- ZKP 離線回答與收到證明後的查验不再補下載素材；缺檔先停止。查驗要求在消耗、完成時重新檢查期限，舊查驗被替換／離開畫面時不顯示遲到結果。
+- ZKP 離線回答與收到證明後的查驗不再補下載素材；缺檔先停止。查驗要求在消耗、完成時重新檢查期限，舊查驗被替換／離開畫面時不顯示遲到結果。
 - 診斷加上實際 Prepare 快取命中與 payload bytes。cold/warm 原本只表示 App 行程的第一筆／後續筆，現在不再拿它推定快取是否命中。
 - 修正雙機收集的 zsh 陣列拆分，部分收集以 exit 2 明示；只統計當次成功拷出的檔案，避免拿舊 iPad 檔冒充新證據。重複紀錄按 id 去重；相同 id 不同內容直接拒絕。
 - 離線成功統計只取 verifier；失敗耗時與成功耗時分開。A1／G1 原有 MyData vc+moica／JWT 封套不再誤稱 SD-JWT-VC。
@@ -27,7 +27,7 @@
 
 沒有生日的政府卡記「不支援年齡測試」，不是造一個生日，也不是驗證失敗。現有政府來源供應器取儲存順序第一張政府卡；若多張卡，須先記錄當次實際選到的卡別，完整逐卡選取仍待補齊。這限制不得隱藏在彙總數據中。
 
-離線全程採 iPad 顯示 QR → iPad 判定。`transportMilliseconds` 是顯示 QR → 收到完整 payload，含掃碼、同意、iPhone 建立與 BLE，不能叫純藍牙速度，也不能再加 Prepare／Show。iPad 驗證毫秒是本機查验；ZKP 此欄是 native verify_linked，SD-JWT 則包含解析、簽章、信任與年齡檢查，微觀操作並不完全相同。Prepare／Show／快取旗標由持卡端提供，作為測試遙測，不參與信任判定。
+離線全程採 iPad 顯示 QR → iPad 判定。`transportMilliseconds` 是顯示 QR → 收到完整 payload，含掃碼、同意、iPhone 建立與 BLE，不能叫純藍牙速度，也不能再加 Prepare／Show。iPad 驗證毫秒是本機查驗；ZKP 此欄是 native verify_linked，SD-JWT 則包含解析、簽章、信任與年齡檢查，微觀操作並不完全相同。Prepare／Show／快取旗標由持卡端提供，作為測試遙測，不參與信任判定。
 
 舊網頁 A2／G1 的 endToEnd 是按下送出 → HTTP 提交完成；W1／W2 從同意後的建立畫面 → 網站結果。兩者不能當成相同的掃碼全程，更不能用舊資料計算 SD-JWT 與 ZKP 的速度倍率。
 
@@ -44,19 +44,29 @@
 ./scripts/collect-verification-runs.sh ~/Developer/research/offline-verification-2026-09-05/field-run
 python3 scripts/summarize-verification-runs.py \
   ~/Developer/research/offline-verification-2026-09-05/field-run/*/verification-runs.json \
-  --build 2026090501 --since 2026-09-05T14:00:00Z \
+  --build 2026090502 --since 2026-09-05T14:00:00Z \
   --markdown ~/Developer/output/有備而來-離線驗證/field-matrix.md \
   --csv ~/Developer/research/offline-verification-2026-09-05/field-run/filtered-runs.csv
 ```
 
-未實際確認飛航模式／Wi-Fi 狀態時，只能寫「BLE 本機路徑」，不能寫「兩台完全斷網驗收」。樣本少時只報 n、raw、median、max，不叫 p95。樣本需依裝置、build、卡別、格式、傳輸、快取分組；holder／verifier 以一次性匿名關聯码配對，不用證件號碼或生日。
+未實際確認飛航模式／Wi-Fi 狀態時，只能寫「BLE 本機路徑」，不能寫「兩台完全斷網驗收」。樣本少時只報 n、raw、median、max，不叫 p95。樣本需依裝置、build、卡別、格式、傳輸、快取分組；holder／verifier 以一次性匿名關聯碼配對，不用證件號碼或生日。
 
 ## 尚未獲得的保證
 
-- 安裝、模擬器測試、單次網頁成功都不能替代兩台實機斷網證據。2026-09-05 盤點只有 iPhone 舊匿名紀錄 46 筆，沒有離線 verifier 判定；iPad 的既有診斷檔無法讀取，不能推論它從未測過。
-- 既有 OpenAC public input 綁定 issuer key、nonce 與生日條件，但沒有把完整有效期限或撤銷根作為查验者可獨立驗證的公開條件。native 證明建立前的 expiry 檢查不等於電路／查驗端已證明當下未過期。現階段只報年齡述詞／簽章證明，不稱「證件仍有效」。
-- 政府來源表示发卡者曾與本機 API＋鏈上快照相符；不代表所有卡別具有相同身分保證，也不代表目前未撤銷。
-- BLE 自訂傳輸未提供應用層加密，查验方未經身分認證，不能排除轉送要求。SD-JWT 會揭露生日與固定簽署資訊；ZKP 自發 issuer DID 也仍是穩定假名。
+- 安裝、模擬器測試、單次網頁成功都不能替代兩台實機斷網證據。2026-09-05 取得 iPhone 舊匿名紀錄 46 筆，以及解鎖後讀到的 iPad 舊版自發卡 BLE 查驗成功 1 筆（驗證 21 ms）。後者沒有斷網條件與本次矩陣格，不能當成新版 SD-JWT／ZKP 年齡驗收。
+- 既有 OpenAC public input 綁定 issuer key、nonce 與生日條件，但沒有把完整有效期限或撤銷根作為查驗者可獨立驗證的公開條件。native 證明建立前的 expiry 檢查不等於電路／查驗端已證明當下未過期。現階段只報年齡述詞／簽章證明，不稱「證件仍有效」。
+- 政府來源表示發卡者曾與本機 API＋鏈上快照相符；不代表所有卡別具有相同身分保證，也不代表目前未撤銷。
+- BLE 自訂傳輸未提供應用層加密，查驗方未經身分認證，不能排除轉送要求。SD-JWT 會揭露生日與固定簽署資訊；ZKP 自發 issuer DID 也仍是穩定假名。
 - 本機核心與流程檢查使用合成向量；沒有真實政府生日卡、iPad 原生證明效能、兩機斷網成功率之前，完整目標仍未驗收。
 
 規範背景：[RFC 9901](https://www.rfc-editor.org/rfc/rfc9901.html)、[OpenAC Core](https://github.com/ethereum/zkID/blob/main/specs/1-openac/README.md)。本實作以 repository 中 `openac-age-v1` 原生碼與釘選素材為準。
+
+## 首輪實機阻塞修復（build 2026090502）
+
+兩台按「儲存發卡者信任資料」後，build 2026090501 顯示通用的恢復連線訊息。以正確公開名單重現：43 個發卡者中 41 個具鏈上紀錄，舊程式一次送出 123 筆 RPC，公共服務回覆 HTTP 429。每批 3 個發卡者、9 筆 RPC 依序核對，批次間隔 0.5 秒後可完成。
+
+修正版保留每個發卡者的交易、收據、最新合約狀態三項核對，不改信任條件。全程失敗不回傳部分結果供更新；重複 RPC id 拒絕，避免不可信回覆導致字典崩潰。介面顯示完成進度，HTTP 429、名單 API 錯誤、鏈上逾時與素材／空間錯誤分別顯示；已完成或取消後的延遲進度不覆蓋結果。
+
+以實際 App 的 Swift 來源在 Mac 連線驗證：41 個相符、2 個沒有鏈上紀錄、0 個 unavailable，耗時 11.62 秒。這是公開信任準備的 Mac 測量，不是 iPad 年齡證明驗證耗時；兩台仍需以修正版重按儲存後確認成功。
+
+公共 RPC 端點與可用性說明：[Arbitrum 官方文件](https://docs.arbitrum.io/arbitrum-essentials/reference/node-providers)。

@@ -7,6 +7,7 @@ final class OfflinePreparationViewController: UIViewController {
     private let holderButton = UIButton(type: .system)
     private let verifierButton = UIButton(type: .system)
     private var task: Task<Void, Never>?
+    private var operationID: UUID?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -50,6 +51,7 @@ final class OfflinePreparationViewController: UIViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        operationID = nil
         task?.cancel()
     }
 
@@ -64,11 +66,16 @@ final class OfflinePreparationViewController: UIViewController {
 
     private func run(_ operation: @escaping @MainActor () async throws -> String) {
         task?.cancel()
+        let id = UUID()
+        operationID = id
         for button in [trustButton, holderButton, verifierButton] { button.isEnabled = false }
         status.text = NSLocalizedString("Preparing… Keep this screen open.", comment: "offline preparation")
         task = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { for button in [trustButton, holderButton, verifierButton] { button.isEnabled = true } }
+            defer {
+                if operationID == id { operationID = nil }
+                for button in [trustButton, holderButton, verifierButton] { button.isEnabled = true }
+            }
             do {
                 let message = try await operation()
                 try Task.checkCancellation()
@@ -76,14 +83,21 @@ final class OfflinePreparationViewController: UIViewController {
             } catch is CancellationError {
                 return
             } catch {
-                status.text = NSLocalizedString("Preparation did not finish. Reconnect and tap the same button to retry. An earlier saved trust record keeps its original date.", comment: "offline preparation")
+                guard !Task.isCancelled else { return }
+                status.text = OfflineVerificationPreparation.failureMessage(for: error)
             }
         }
     }
 
     @objc private func prepareTrust() {
-        run {
-            let count = try await OfflineVerificationPreparation.refreshTrust()
+        run { [self] in
+            let id = operationID
+            let count = try await OfflineVerificationPreparation.refreshTrust { [self] completed, total in
+                Task { @MainActor [self] in
+                    guard operationID == id else { return }
+                    status.text = String(format: NSLocalizedString("Checking issuer trust… %d of %d. Keep this screen open.", comment: "offline preparation"), completed, total)
+                }
+            }
             return String(format: NSLocalizedString("Saved %d issuer records. Only matching API and blockchain records can be used offline; current card revocation remains unknown.", comment: "offline preparation"), count)
         }
     }
@@ -92,11 +106,13 @@ final class OfflinePreparationViewController: UIViewController {
     @objc private func prepareVerifier() { prepare(.verifier) }
 
     private func prepare(_ role: AgePredicateAssetRole) {
-        run { [weak self] in
+        run { [self] in
+            let id = operationID
             let preparer = try AgePredicateCircuitAssetPreparer()
-            _ = try await preparer.prepare(role) { fraction in
-                Task { @MainActor [weak self] in
-                    self?.status.text = String(format: NSLocalizedString("Preparing files… %d%%", comment: "offline preparation"), Int((fraction * 100).rounded()))
+            _ = try await preparer.prepare(role) { [self] fraction in
+                Task { @MainActor [self] in
+                    guard operationID == id else { return }
+                    status.text = String(format: NSLocalizedString("Preparing files… %d%%", comment: "offline preparation"), Int((fraction * 100).rounded()))
                 }
             }
             return NSLocalizedString("Files are downloaded and their checksums match. You can now disconnect and start a check.", comment: "offline preparation")
